@@ -1,0 +1,3749 @@
+import { useState, useEffect, useRef } from 'react';
+import {
+  Trash2,
+  Settings,
+  Upload,
+  FileSpreadsheet,
+  LineChart,
+  AlertCircle,
+  X,
+  Scissors,
+  SkipBack,
+  Pause,
+  Play,
+  SkipForward,
+  ChevronsLeft,
+  Magnet,
+  ChevronDown,
+  FolderOpen,
+  Folder,
+  CheckCircle2
+} from 'lucide-react';
+import { init, dispose } from 'klinecharts';
+import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, exportToCSV, clearChartDataInIndexedDB } from './utils/dataUtils';
+import type { KLineData } from './utils/dataUtils';
+import { registerCustomOverlays } from './utils/overlays';
+import { ThemeSettingsModal, PRESET_SETTINGS, TIMEZONE_OPTIONS, getLabelOffset } from './components/ThemeSettingsModal';
+import type { ChartSettings } from './components/ThemeSettingsModal';
+
+type Timeframe = string;
+
+interface TimeframeOption {
+  label: string;
+  value: string;
+  minutes: number;
+}
+
+const PRESET_TIMEFRAMES: TimeframeOption[] = [
+  // Minutes
+  { label: '1m', value: '1m', minutes: 1 },
+  { label: '2m', value: '2m', minutes: 2 },
+  { label: '3m', value: '3m', minutes: 3 },
+  { label: '5m', value: '5m', minutes: 5 },
+  { label: '10m', value: '10m', minutes: 10 },
+  { label: '15m', value: '15m', minutes: 15 },
+  { label: '30m', value: '30m', minutes: 30 },
+  { label: '45m', value: '45m', minutes: 45 },
+  // Hours
+  { label: '1h', value: '1h', minutes: 60 },
+  { label: '2h', value: '2h', minutes: 120 },
+  { label: '3h', value: '3h', minutes: 180 },
+  { label: '4h', value: '4h', minutes: 240 },
+  { label: '6h', value: '6h', minutes: 360 },
+  { label: '12h', value: '12h', minutes: 720 },
+  // Days, Weeks, Months
+  { label: 'D', value: 'D', minutes: 1440 },
+  { label: 'W', value: 'W', minutes: 10080 },
+  { label: 'M', value: 'M', minutes: 43200 },
+];
+
+const HEADER_TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
+
+const SPEED_STEPS = [3, 2, 1, 0.5, 0.1];
+
+const matchFileToTimeframe = (filename: string): string | null => {
+  const name = filename.toLowerCase();
+  
+  // Daily, Weekly, Monthly patterns
+  if (name.includes('monthly') || name.includes('mn') || name.includes('1month') || name.endsWith('_m.csv')) {
+    return 'M';
+  }
+  if (name.includes('weekly') || name.includes('w1') || name.includes('1week') || name.endsWith('_w.csv')) {
+    return 'W';
+  }
+  if (name.includes('daily') || name.includes('d1') || name.includes('1day') || name.endsWith('_d.csv')) {
+    return 'D';
+  }
+  
+  // Minute and Hour patterns
+  const mMatch = name.match(/(\d+)\s*(m|min|minute|s)/);
+  if (mMatch) {
+    const mins = parseInt(mMatch[1], 10);
+    return `${mins}m`;
+  }
+  const hMatch = name.match(/(\d+)\s*(h|hr|hour)/);
+  if (hMatch) {
+    const hrs = parseInt(hMatch[1], 10);
+    return `${hrs}h`;
+  }
+
+  // Check alternative short forms like m1, m5, h1, h4
+  const shortMMatch = name.match(/m(\d+)/);
+  if (shortMMatch) {
+    return `${shortMMatch[1]}m`;
+  }
+  const shortHMatch = name.match(/h(\d+)/);
+  if (shortHMatch) {
+    return `${shortHMatch[1]}h`;
+  }
+  
+  // Fallbacks if we can find specific suffixes or keywords
+  if (name.includes('_m1') || name.includes('-m1') || name.endsWith('_1.csv')) return '1m';
+  if (name.includes('_m5') || name.includes('-m5') || name.endsWith('_5.csv')) return '5m';
+  if (name.includes('_m15') || name.includes('-m15') || name.endsWith('_15.csv')) return '15m';
+  if (name.includes('_m30') || name.includes('-m30') || name.endsWith('_30.csv')) return '30m';
+  if (name.includes('_h1') || name.includes('-h1') || name.endsWith('_60.csv')) return '1h';
+  if (name.includes('_h4') || name.includes('-h4') || name.endsWith('_240.csv')) return '4h';
+  if (name.includes('_d') || name.includes('-d') || name.endsWith('_1440.csv')) return 'D';
+  if (name.includes('_w') || name.includes('-w') || name.endsWith('_10080.csv')) return 'W';
+  if (name.includes('_m') || name.includes('-m') || name.endsWith('_43200.csv')) return 'M';
+
+  return null;
+};
+
+const WeakMagnetIcon = ({ className = "w-4.5 h-4.5" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 16V10a6 6 0 0 1 12 0v6" />
+    <path d="M10 16V10a2 2 0 0 1 4 0v6" />
+    <path d="M6 16h4" />
+    <path d="M14 16h4" />
+    <path d="M6 13h4" />
+    <path d="M14 13h4" />
+  </svg>
+);
+
+const StrongMagnetIcon = ({ className = "w-4.5 h-4.5" }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 13V9a6 6 0 0 1 12 0v4" />
+    <path d="M10 13V9a2 2 0 0 1 4 0v4" />
+    <path d="M6 13h4" />
+    <path d="M14 13h4" />
+    <path d="M6 11h4" />
+    <path d="M14 11h4" />
+    <path d="M7 16l.5 1.5l-.5 1.5" />
+    <path d="M9 16l.5 1.5l-.5 1.5" />
+    <path d="M15 16l.5 1.5l-.5 1.5" />
+    <path d="M17 16l.5 1.5l-.5 1.5" />
+  </svg>
+);
+
+export default function App() {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingCutAnimation = useRef<{
+    timestamp: number;
+    clickX: number;
+    savedOffset: number;
+  } | null>(null);
+  const capturedOffsetRef = useRef<number | null>(null);
+  const capturedYAxisRangeRef = useRef<{ from: number; to: number } | null>(null);
+  const wasManualScaleRef = useRef<boolean>(false);
+  // Stores a user-pinned offset for the reset view position
+  const savedResetOffsetRef = useRef<number | null>(null);
+
+  // Magnet Mode state
+  const [magnetMode, setMagnetMode] = useState<'normal' | 'weak_magnet' | 'strong_magnet'>('normal');
+  const [isMagnetMenuOpen, setIsMagnetMenuOpen] = useState<boolean>(false);
+  const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const magnetMenuRef = useRef<HTMLDivElement>(null);
+
+  // Shift Key tracking for angle snapping
+  const isShiftPressedRef = useRef<boolean>(false);
+
+  // Active overlay ID being drawn
+  const activeOverlayIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        isShiftPressedRef.current = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        isShiftPressedRef.current = false;
+      }
+    };
+    const handleBlur = () => {
+      isShiftPressedRef.current = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  // Close custom broker timezone dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (brokerTfDropdownRef.current && !brokerTfDropdownRef.current.contains(event.target as Node)) {
+        setIsBrokerTfDropdownOpen(false);
+      }
+      if (footerTzDropdownRef.current && !footerTzDropdownRef.current.contains(event.target as Node)) {
+        setIsFooterTzOpen(false);
+      }
+      if (magnetMenuRef.current && !magnetMenuRef.current.contains(event.target as Node)) {
+        setIsMagnetMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const selectMagnetMode = (mode: 'weak_magnet' | 'strong_magnet') => {
+    setMagnetMode(mode);
+    if (chartInstance.current) {
+      // Write to chart instance so overlays.ts snapPointToCandle reads live state during drag
+      chartInstance.current._magnetMode = mode;
+      const overlays = chartInstance.current.getOverlays();
+      overlays.forEach((ov: any) => {
+        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return;
+        chartInstance.current.overrideOverlay({
+          id: ov.id,
+          mode: mode,
+          modeSensitivity: 8,
+        });
+      });
+      console.log(`[DEBUG] Magnet mode updated on ${overlays.length} existing overlays to: ${mode}`);
+    }
+  };
+
+  const handleToggleMagnet = () => {
+    const nextMode = magnetMode === 'normal' ? 'weak_magnet' : 'normal';
+    setMagnetMode(nextMode);
+    if (chartInstance.current) {
+      // Write to chart instance so overlays.ts snapPointToCandle reads live state during drag
+      chartInstance.current._magnetMode = nextMode;
+      const overlays = chartInstance.current.getOverlays();
+      overlays.forEach((ov: any) => {
+        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return;
+        chartInstance.current.overrideOverlay({
+          id: ov.id,
+          mode: nextMode,
+          modeSensitivity: 8,
+        });
+      });
+      console.log(`[DEBUG] Magnet mode updated on ${overlays.length} existing overlays to: ${nextMode}`);
+    }
+  };
+
+  // Data state
+  const [assetName, setAssetName] = useState<string>('No Asset Loaded');
+  const [hasData, setHasData] = useState<boolean>(false);
+  const [isCheckingCache, setIsCheckingCache] = useState<boolean>(true);
+  const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('1m');
+  const [allTimeframesData, setAllTimeframesData] = useState<Record<string, KLineData[]>>({
+    '1m': []
+  });
+  const [raw1mData, setRaw1mData] = useState<KLineData[]>([]);
+
+  // Custom Timeframes state
+  const [customTimeframes, setCustomTimeframes] = useState<{ label: string; value: string; minutes: number }[]>([]);
+  const [isTfDropdownOpen, setIsTfDropdownOpen] = useState<boolean>(false);
+  const [customValue, setCustomValue] = useState<number>(10);
+  const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days' | 'weeks' | 'months'>('minutes');
+  const [tempBrokerOffset, setTempBrokerOffset] = useState<string>('exchange');
+
+  // Import Mode selection states
+  const [importMode, setImportMode] = useState<'single' | 'folder'>('single');
+  const [folderSymbol, setFolderSymbol] = useState<string>('');
+  const [folderFilesList, setFolderFilesList] = useState<{ name: string; size: number; timeframe: string | null }[]>([]);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [showFolderComingSoonAlert, setShowFolderComingSoonAlert] = useState<boolean>(false);
+  const [isBrokerTfDropdownOpen, setIsBrokerTfDropdownOpen] = useState<boolean>(false);
+  const brokerTfDropdownRef = useRef<HTMLDivElement>(null);
+  const [isFooterTzOpen, setIsFooterTzOpen] = useState<boolean>(false);
+  const footerTzDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Parser logs & metrics state
+  const [parseFeedback, setParseFeedback] = useState<{
+    errors: string[];
+    headers: string[];
+    rowCount: number;
+    parsedCount: number;
+    skippedCount: number;
+  } | null>(null);
+  const [showStats, setShowStats] = useState<boolean>(false);
+
+  // UI state
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  // Drawing selection states
+  const [selectedOverlayIds, setSelectedOverlayIds] = useState<string[]>([]);
+  const isCtrlPressedRef = useRef<boolean>(false);
+  const selectionBoxRef = useRef<{ startX: number; startY: number; div: HTMLDivElement | null } | null>(null);
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Replay state
+  const [isReplayActive, setIsReplayActive] = useState<boolean>(false);
+  const [isSelectingCutPoint, setIsSelectingCutPoint] = useState<boolean>(false);
+  const [replayCurrentTimestamp, setReplayCurrentTimestamp] = useState<number | null>(null);
+  const [isReplayPlaying, setIsReplayPlaying] = useState<boolean>(false);
+  const [replaySpeed, setReplaySpeed] = useState<number>(1); // seconds per bar
+  const [cutPointHoverX, setCutPointHoverX] = useState<number | null>(null);
+
+  // Chart Settings state (loaded from localStorage or default to TradingView Classic)
+  const [settings, setSettings] = useState<ChartSettings>(() => {
+    const saved = localStorage.getItem('tv_clone_settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...PRESET_SETTINGS.classic, ...parsed };
+      } catch (e) {
+        // Fallback
+      }
+    }
+    return PRESET_SETTINGS.classic;
+  });
+  // Load Cached Dataset from IndexedDB on startup
+  useEffect(() => {
+    const initCachedData = async () => {
+      try {
+        const cached = await loadChartDataFromIndexedDB();
+        if (cached && cached.raw1mData && cached.raw1mData.length > 0 && cached.assetName) {
+          console.log(`[DEBUG] IndexedDB - Found cached dataset for symbol: ${cached.assetName}. Restoring...`);
+          
+          setRaw1mData(cached.raw1mData);
+          setAssetName(cached.assetName);
+          savedResetOffsetRef.current = cached.savedResetOffset;
+          
+          // Wait for the chart instance to be ready, then bind the data
+          const checkChartInstance = setInterval(() => {
+            if (chartInstance.current) {
+              clearInterval(checkChartInstance);
+              
+              // Set settings and bind data
+              chartInstance.current.setSymbol({ ticker: cached.assetName!, pricePrecision: settings.pricePrecision, volumePrecision: 4 });
+              chartInstance.current.setPeriod({ type: 'minute', span: 1 });
+              
+              regenerateTimeframes(cached.raw1mData!, settings);
+              setHasData(true);
+              setActiveTimeframe('1m');
+              setIsCheckingCache(false);
+            }
+          }, 50);
+          
+          // Clear interval after 5 seconds to avoid infinite loop if chart fails to init
+          setTimeout(() => {
+            clearInterval(checkChartInstance);
+            setIsCheckingCache(false);
+          }, 5000);
+        } else {
+          setIsCheckingCache(false);
+        }
+      } catch (err) {
+        console.error('Error during initial IndexedDB load:', err);
+        setIsCheckingCache(false);
+      }
+    };
+    
+    initCachedData();
+  }, []);
+  // Helper to push settings styling onto the KLineChart instance
+  const applySettingsToChart = (chart: any, s: ChartSettings) => {
+    // Synchronize price line settings onto chart object for custom PriceLine overlay
+    chart._showPriceLine = s.showPriceLine;
+    chart._priceLineStyle = s.priceLineStyle;
+    chart._priceLineSize = s.priceLineSize;
+    chart._priceLineColor = s.priceLineColor;
+    chart._priceLineUseCandleColor = s.priceLineUseCandleColor;
+    chart._bullColor = s.bullColor;
+    chart._bearColor = s.bearColor;
+
+    chart.setStyles({
+      grid: {
+        show: s.gridType !== 'None',
+        horizontal: {
+          show: s.gridType === 'Vert and Horiz' || s.gridType === 'Horizontal Only',
+          color: s.gridColor,
+          style: s.gridStyle,
+        },
+        vertical: {
+          show: s.gridType === 'Vert and Horiz' || s.gridType === 'Vertical Only',
+          color: s.gridColor,
+          style: s.gridStyle,
+        },
+      },
+      candle: {
+        type: s.showBody ? 'candle_solid' : 'ohlc',
+        bar: {
+          upColor: s.bullColor,
+          downColor: s.bearColor,
+          upBorderColor: s.showBorders ? s.bullBorderColor : 'transparent',
+          downBorderColor: s.showBorders ? s.bearBorderColor : 'transparent',
+          upWickColor: s.showWicks ? s.bullWickColor : 'transparent',
+          downWickColor: s.showWicks ? s.bearWickColor : 'transparent',
+        },
+        tooltip: {
+          showRule: 'always',
+          title: {
+            family: 'Noto Sans, sans-serif',
+          },
+          legend: {
+            family: 'Noto Sans, sans-serif',
+          }
+        },
+        priceMark: {
+          show: s.showPriceLine,
+          high: {
+            show: false,
+            text: {
+              family: 'Noto Sans, sans-serif',
+            }
+          },
+          low: {
+            show: false,
+            text: {
+              family: 'Noto Sans, sans-serif',
+            }
+          },
+          last: {
+            show: s.showPriceLine,
+            line: {
+              show: false, // Hide native line as we draw custom unclamped priceY line
+              style: s.priceLineStyle,
+              size: s.priceLineSize,
+              dashedValue: [4, 4],
+            },
+            text: {
+              show: s.showPriceLineLabel,
+              size: s.scalesTextSize,
+              color: '#ffffff',
+              family: 'Noto Sans, sans-serif',
+              weight: 'normal',
+            },
+            upColor: s.priceLineUseCandleColor ? s.bullColor : s.priceLineColor,
+            downColor: s.priceLineUseCandleColor ? s.bearColor : s.priceLineColor,
+            noChangeColor: s.priceLineUseCandleColor ? '#8b93a6' : s.priceLineColor,
+          },
+        },
+      },
+      indicator: {
+        tooltip: {
+          title: {
+            family: 'Noto Sans, sans-serif',
+          },
+          legend: {
+            family: 'Noto Sans, sans-serif',
+          }
+        }
+      },
+      crosshair: {
+        show: true,
+        horizontal: {
+          show: true,
+          line: {
+            show: true,
+            style: 'dashed',
+            size: 1,
+            color: '#4b5563',
+            dashedValue: [4, 4],
+          },
+          text: {
+            family: 'Noto Sans, sans-serif',
+          }
+        },
+        vertical: {
+          show: true,
+          line: {
+            show: true,
+            style: 'dashed',
+            size: 1,
+            color: '#4b5563',
+            dashedValue: [4, 4],
+          },
+          text: {
+            family: 'Noto Sans, sans-serif',
+          }
+        },
+      },
+      xAxis: {
+        show: s.showScalesLines,
+        axisLine: {
+          show: s.showScalesLines,
+          color: s.scalesLinesColor,
+        },
+        tickText: {
+          color: s.scalesTextColor,
+          size: s.scalesTextSize,
+          family: 'Noto Sans, sans-serif',
+        },
+      },
+      yAxis: {
+        show: s.showScalesLines,
+        axisLine: {
+          show: s.showScalesLines,
+          color: s.scalesLinesColor,
+        },
+        tickText: {
+          color: s.scalesTextColor,
+          size: s.scalesTextSize,
+          family: 'Noto Sans, sans-serif',
+        },
+      },
+      overlay: {
+        point: {
+          color: '#ffffff',
+          borderColor: '#2196F3',
+          borderSize: 1.5,
+          radius: 4.5,
+          activeColor: '#ffffff',
+          activeBorderColor: '#2196F3',
+          activeBorderSize: 2,
+          activeRadius: 5.5,
+        },
+        line: {
+          color: '#2196F3',
+          size: 1.5,
+          style: 'solid',
+        },
+        text: {
+          family: 'Noto Sans, sans-serif',
+        }
+      },
+    });
+  };
+
+
+  // Center last candle helper
+  // preserveOffset: keep the user's current right-margin so the last candle stays
+  //                 at the same visual position after timeframe switch.
+  // Key insight: setOffsetRightDistance(n) already scrolls the chart so the last
+  // bar appears n pixels from the right edge — no scrollToDataIndex needed.
+  // scrollToDataIndex MUST be avoided in preserve mode because it resets
+  // offsetRightDistance to 0 internally, which causes the chart to jump to the right edge.
+  const centerLastCandle = (tf: Timeframe, overrideTimestamp?: number | null, preserveOffset?: boolean) => {
+    // Capture the current right-margin SYNCHRONOUSLY before any data update happens.
+    // Use the pre-captured ref offset if available, otherwise fall back to getOffsetRightDistance.
+    const capturedOffset = preserveOffset
+      ? (capturedOffsetRef.current !== null
+        ? capturedOffsetRef.current
+        : (chartInstance.current ? chartInstance.current.getOffsetRightDistance() : null))
+      : null;
+
+    console.log(`[DEBUG] centerLastCandle - captured offset: ${capturedOffset}, preserve: ${!!preserveOffset}`);
+
+    if (preserveOffset && capturedOffset !== null) {
+      // Apply synchronously to avoid visual stutter!
+      if (chartInstance.current) {
+        chartInstance.current.setOffsetRightDistance(capturedOffset);
+        console.log(`[DEBUG] centerLastCandle (Sync) - tf: ${tf}, offset preserved: ${capturedOffset.toFixed(1)}px`);
+
+        // Only restore a manually-set Y-axis zoom range (e.g. user dragged the Y-axis scale).
+        // Do NOT touch the Y-axis otherwise — klinecharts auto-fits the visible bars correctly.
+        if (wasManualScaleRef.current && capturedYAxisRangeRef.current) {
+          const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
+          const yAxis = pane?.getYAxisComponents?.()?.[0];
+          const r = capturedYAxisRangeRef.current;
+          if (yAxis && r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
+            console.log(`[DEBUG] centerLastCandle (Sync) - Restoring manual Y-axis range:`, r);
+            yAxis.setRange({ ...r });
+            yAxis.setAutoCalcTickFlag(false);
+          }
+        }
+      }
+      capturedOffsetRef.current = null;
+      capturedYAxisRangeRef.current = null;
+      wasManualScaleRef.current = false;
+      return; // Return immediately, do not schedule timeout!
+    }
+
+    setTimeout(() => {
+      if (!chartInstance.current) return;
+      const chartSize = chartInstance.current.getSize();
+      const chartWidth = chartSize ? chartSize.width : 0;
+
+      const fullData = allTimeframesData[tf];
+      const targetTimestamp = overrideTimestamp !== undefined ? overrideTimestamp : replayCurrentTimestamp;
+      const activeData = isReplayActive && targetTimestamp !== null
+        ? fullData.filter(d => d.timestamp <= targetTimestamp)
+        : fullData;
+
+      if (!activeData || activeData.length === 0) {
+        console.warn(`[DEBUG] centerLastCandle - No active data for timeframe: ${tf}`);
+        return;
+      }
+
+      // Always re-enable Y-axis auto-scale on default centering so the chart isn't locked vertically.
+      try {
+        const pane = (chartInstance.current as any).getDrawPaneById?.('candle_pane');
+        const yAxis = pane?.getYAxisComponents?.()?.[0];
+        if (yAxis) yAxis.setAutoCalcTickFlag(true);
+      } catch (_) { /* ignore */ }
+
+      // Horizontal centering only. klinecharts auto-fits Y-axis to visible bars — do not override it.
+      chartInstance.current.setOffsetRightDistance(chartWidth / 2);
+      chartInstance.current.scrollToDataIndex(activeData.length - 1);
+
+      requestAnimationFrame(() => {
+        chartInstance.current?.setOffsetRightDistance(chartWidth / 2);
+      });
+      console.log(`[DEBUG] centerLastCandle - tf: ${tf}, last index: ${activeData.length - 1}, center: ${(chartWidth / 2).toFixed(1)}px`);
+
+      // Clear refs
+      capturedOffsetRef.current = null;
+      capturedYAxisRangeRef.current = null;
+      wasManualScaleRef.current = false;
+    }, 50);
+  };
+
+  // Reset chart view: re-center last candle, using the user's saved position if set
+  const resetChartView = () => {
+    if (!chartInstance.current) return;
+    const chart = chartInstance.current;
+
+    const chartSize = chart.getSize();
+    const chartWidth = chartSize ? chartSize.width : 0;
+    const fullData = allTimeframesData[activeTimeframe];
+    const activeData =
+      isReplayActive && replayCurrentTimestamp !== null
+        ? fullData.filter((d: any) => d.timestamp <= replayCurrentTimestamp)
+        : fullData;
+
+    if (!activeData || activeData.length === 0) return;
+
+    // Re-enable Y-axis auto-scale so prices appear correctly after any manual zoom
+    try {
+      const pane = (chart as any).getDrawPaneById?.('candle_pane');
+      const yAxis = pane?.getYAxisComponents?.()?.[0];
+      if (yAxis) yAxis.setAutoCalcTickFlag(true);
+    } catch (_) { /* ignore */ }
+
+    // Use the user's saved position if they pinned one, otherwise default to half-screen
+    const targetOffset = savedResetOffsetRef.current !== null ? savedResetOffsetRef.current : chartWidth / 2;
+
+    chart.resize();
+    chart.setOffsetRightDistance(targetOffset);
+    chart.scrollToDataIndex(activeData.length - 1);
+
+    requestAnimationFrame(() => {
+      chartInstance.current?.setOffsetRightDistance(targetOffset);
+    });
+  };
+
+  // Save current last-bar position as the default reset view location
+  const handleSaveResetPosition = () => {
+    if (!chartInstance.current) return;
+    const offset = chartInstance.current.getOffsetRightDistance();
+    savedResetOffsetRef.current = offset;
+    console.log(`[DEBUG] handleSaveResetPosition - Saved offset: ${offset}px`);
+    saveChartDataToIndexedDB(raw1mData, assetName, offset);
+  };
+
+  // Export updated CSV file
+  const handleExportCSV = () => {
+    if (raw1mData.length === 0) return;
+    exportToCSV(raw1mData, assetName);
+    console.log(`[DEBUG] handleExportCSV - Exported ${raw1mData.length} bars to CSV for symbol ${assetName}`);
+  };
+
+  // Clear Database Cache and Reset App State
+  const handleClearDatabase = async () => {
+    try {
+      console.log('[DEBUG] handleClearDatabase - Clearing IndexedDB cache and resetting app state.');
+      await clearChartDataInIndexedDB();
+      
+      // Reset data state
+      setRaw1mData([]);
+      setAssetName('No Asset Loaded');
+      setHasData(false);
+      setAllTimeframesData({ '1m': [] });
+      setParseFeedback(null);
+      
+      // Reset replay state
+      setIsReplayActive(false);
+      setIsSelectingCutPoint(false);
+      setIsReplayPlaying(false);
+      setReplayCurrentTimestamp(null);
+      
+      // Clear saved offset
+      savedResetOffsetRef.current = null;
+      
+      // Clear chart instance data
+      if (chartInstance.current) {
+        chartInstance.current.resetData();
+        chartInstance.current.setSymbol({ ticker: 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
+      }
+      
+      // Close settings modal
+      setIsSettingsOpen(false);
+    } catch (err) {
+      console.error('Failed to clear database and reset app:', err);
+    }
+  };
+
+  // Replay Step Forward Helper
+  const handleReplayStepForward = () => {
+    if (!chartInstance.current || !isReplayActive) {
+      console.warn('[DEBUG] handleReplayStepForward - Replay mode is not active or chart is missing.');
+      return;
+    }
+
+    const fullData = allTimeframesData[activeTimeframe];
+    if (fullData.length === 0) {
+      console.warn('[DEBUG] handleReplayStepForward - Empty data for active timeframe:', activeTimeframe);
+      return;
+    }
+
+    if (replayCurrentTimestamp === null) {
+      console.warn('[DEBUG] handleReplayStepForward - Current replay timestamp is null (no cutpoint selected).');
+      return;
+    }
+
+    const currentIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
+    if (currentIndex === -1) {
+      console.warn(`[DEBUG] handleReplayStepForward - Replay timestamp ${replayCurrentTimestamp} not found in timeframe ${activeTimeframe}`);
+      return;
+    }
+
+    if (currentIndex >= fullData.length - 1) {
+      console.log('[DEBUG] handleReplayStepForward - Replay has reached the end of dataset. Pausing autoplay.');
+      setIsReplayPlaying(false);
+      return;
+    }
+
+    const nextCandle = fullData[currentIndex + 1];
+    console.log(`[DEBUG] handleReplayStepForward - Advancing from ${new Date(replayCurrentTimestamp).toLocaleString()} to ${new Date(nextCandle.timestamp).toLocaleString()} (Index ${currentIndex + 1}/${fullData.length})`);
+    setReplayCurrentTimestamp(nextCandle.timestamp);
+  };
+
+  // Replay Step Backward Helper
+  const handleReplayStepBackward = () => {
+    if (!chartInstance.current || !isReplayActive || replayCurrentTimestamp === null) {
+      console.warn('[DEBUG] handleReplayStepBackward - Replay mode is not active or timestamp is null.');
+      return;
+    }
+
+    const fullData = allTimeframesData[activeTimeframe];
+    if (fullData.length === 0) {
+      console.warn('[DEBUG] handleReplayStepBackward - Empty data for active timeframe:', activeTimeframe);
+      return;
+    }
+
+    const currentIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
+    if (currentIndex <= 0) {
+      console.warn(`[DEBUG] handleReplayStepBackward - Cannot step back further. Current index: ${currentIndex}`);
+      return;
+    }
+
+    const prevCandle = fullData[currentIndex - 1];
+    console.log(`[DEBUG] handleReplayStepBackward - Reverting from ${new Date(replayCurrentTimestamp).toLocaleString()} to ${new Date(prevCandle.timestamp).toLocaleString()} (Index ${currentIndex - 1}/${fullData.length})`);
+    setReplayCurrentTimestamp(prevCandle.timestamp);
+  };
+
+  // Revert back to normal mode
+  const exitReplayMode = () => {
+    console.log('[DEBUG] exitReplayMode - Exiting Replay Mode. Restoring full dataset.');
+
+    const currentOffset = chartInstance.current ? chartInstance.current.getOffsetRightDistance() : null;
+    capturedOffsetRef.current = currentOffset;
+
+    let wasManual = false;
+    let range = null;
+    if (chartInstance.current) {
+      const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
+      const yAxis = pane?.getYAxisComponents?.()?.[0];
+      if (yAxis) {
+        wasManual = !yAxis.getAutoCalcTickFlag();
+        if (wasManual) {
+          const r = yAxis.getRange();
+          if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
+            range = r;
+          } else {
+            wasManual = false;
+          }
+        }
+      }
+    }
+    wasManualScaleRef.current = wasManual;
+    capturedYAxisRangeRef.current = range;
+
+    const fullData = allTimeframesData[activeTimeframe];
+    let slicedIndex = -1;
+    if (replayCurrentTimestamp !== null) {
+      slicedIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
+    }
+
+    setIsReplayActive(false);
+    setIsReplayPlaying(false);
+    setIsSelectingCutPoint(false);
+    setReplayCurrentTimestamp(null);
+
+    // Restore full data to chart
+    if (chartInstance.current) {
+      chartInstance.current.setDataLoader({
+        getBars: ({ type: loadType, callback }: any) => {
+          if (loadType === 'init') {
+            console.log(`[DEBUG] exitReplayMode dataLoader - Ingesting full dataset (${fullData.length} bars)`);
+            callback(fullData);
+          } else {
+            callback([]);
+          }
+        }
+      });
+      chartInstance.current.resetData();
+      
+      if (slicedIndex !== -1) {
+        // Snap instantly to the sliced candle index (preserving the saved offset position)
+        console.log(`[DEBUG] exitReplayMode - Snapping to sliced index ${slicedIndex}/${fullData.length - 1} at offset ${currentOffset}`);
+        chartInstance.current.scrollToDataIndex(slicedIndex);
+        
+        // Calculate targetIndex to align the last candle exactly at the saved offset
+        let offsetBars = 0;
+        if (currentOffset !== null && currentOffset !== 0) {
+          const barSpaceVal = chartInstance.current.getBarSpace();
+          let space = 6; // default fallback
+          if (barSpaceVal) {
+            if (typeof barSpaceVal === 'number') {
+              space = barSpaceVal;
+            } else if (typeof barSpaceVal === 'object') {
+              space = barSpaceVal.bar || 6;
+            }
+          }
+          offsetBars = Math.round(currentOffset / space);
+        }
+        const targetIndex = fullData.length - 1 + offsetBars;
+
+        // Defer the animated scroll to the end to let the chart render the snap first
+        setTimeout(() => {
+          if (chartInstance.current) {
+            console.log(`[DEBUG] exitReplayMode - Animating scroll to target index ${targetIndex} (last index ${fullData.length - 1} + ${offsetBars} offset bars) over 700ms`);
+            chartInstance.current.scrollToDataIndex(targetIndex, 700);
+
+            // Restore manual Y-axis scale if it was active
+            if (wasManualScaleRef.current && capturedYAxisRangeRef.current) {
+              const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
+              const yAxis = pane?.getYAxisComponents?.()?.[0];
+              if (yAxis) {
+                console.log(`[DEBUG] exitReplayMode - Restoring manual Y-axis range:`, capturedYAxisRangeRef.current);
+                yAxis.setRange({ ...capturedYAxisRangeRef.current });
+                yAxis.setAutoCalcTickFlag(false);
+              }
+            } else {
+              // Unlock Y-axis auto-scale when not restoring a manual range
+              const pane = chartInstance.current?.getDrawPaneById?.('candle_pane');
+              const yAxis = pane?.getYAxisComponents?.()?.[0];
+              if (yAxis) yAxis.setAutoCalcTickFlag(true);
+            }
+          }
+          // Clear refs since we've handled it
+          capturedYAxisRangeRef.current = null;
+          wasManualScaleRef.current = false;
+        }, 50);
+      } else {
+        // Fallback: restore the user's scroll position
+        centerLastCandle(activeTimeframe, undefined, true);
+      }
+    } else {
+      console.error('[DEBUG] exitReplayMode - Chart instance is missing!');
+    }
+  };
+
+  // Autoplay replay bars hook
+  useEffect(() => {
+    let intervalId: any = null;
+    if (isReplayActive && isReplayPlaying && replayCurrentTimestamp !== null) {
+      console.log(`[DEBUG] autoplay hook - Starting autoplay timer. Speed interval: ${replaySpeed}s per bar.`);
+      intervalId = setInterval(() => {
+        handleReplayStepForward();
+      }, replaySpeed * 1000);
+    }
+    return () => {
+      if (intervalId) {
+        console.log('[DEBUG] autoplay hook - Clearing autoplay timer.');
+        clearInterval(intervalId);
+      }
+    };
+  }, [isReplayActive, isReplayPlaying, replayCurrentTimestamp, replaySpeed, activeTimeframe, allTimeframesData]);
+
+  // Sync chart data when replay current timestamp changes hook
+  useEffect(() => {
+    if (!chartInstance.current || !isReplayActive || replayCurrentTimestamp === null) return;
+
+    // Check if Y-axis auto-calculation flag is custom (manual scale) BEFORE data update
+    const pane = (chartInstance.current as any).getDrawPaneById?.('candle_pane');
+    const yAxis = pane?.getYAxisComponents?.()?.[0];
+    const wasManualScale = yAxis ? !yAxis.getAutoCalcTickFlag() : false;
+    const prevRange = wasManualScale && yAxis ? yAxis.getRange() : null;
+
+    const fullData = allTimeframesData[activeTimeframe];
+    const visibleData = fullData.filter(d => d.timestamp <= replayCurrentTimestamp);
+    console.log(`[DEBUG] dataSync hook - Slicing data at timestamp: ${new Date(replayCurrentTimestamp).toLocaleString()}. Visible bars: ${visibleData.length}/${fullData.length}`);
+
+    // Read current scroll offset BEFORE updating data.
+    // If we have a captured offset from a timeframe switch or resize, use it instead of the current stale chart offset.
+    const currentOffset = capturedOffsetRef.current !== null
+      ? capturedOffsetRef.current
+      : chartInstance.current.getOffsetRightDistance();
+
+    if (capturedOffsetRef.current !== null) {
+      capturedOffsetRef.current = null;
+    }
+
+    // Check if there is a pending cut animation
+    const anim = pendingCutAnimation.current;
+    let tempOffset = currentOffset;
+    if (anim && anim.timestamp === replayCurrentTimestamp) {
+      const chartSize = chartInstance.current.getSize();
+      const chartWidth = chartSize ? chartSize.width : 0;
+      tempOffset = chartWidth - anim.clickX;
+      console.log(`[DEBUG] dataSync hook - Pending cut animation found. Using temporary click offset: ${tempOffset} (clickX: ${anim.clickX}, chartWidth: ${chartWidth})`);
+    }
+
+    chartInstance.current.setDataLoader({
+      getBars: ({ type: loadType, callback }: any) => {
+        if (loadType === 'init') {
+          console.log(`[DEBUG] dataSync dataLoader - Supplying ${visibleData.length} visible bars to chart`);
+          callback(visibleData);
+        } else {
+          callback([]);
+        }
+      }
+    });
+
+    chartInstance.current.resetData();
+    
+    // Explicitly restore the user's custom offset on the chart instance to prevent reset-to-default behavior.
+    // By setting this offset globally, KLineCharts will naturally draw the new end candle at this position.
+    console.log(`[DEBUG] dataSync hook - Saved offsetRightDistance: ${tempOffset}. Restoring now.`);
+    chartInstance.current.setOffsetRightDistance(tempOffset);
+
+    // Restore the custom Y-axis range if wasManualScale is true, otherwise always unlock auto-scale
+    if (wasManualScale && yAxis && prevRange) {
+      console.log('[DEBUG] dataSync hook - Restoring manual Y-axis range:', prevRange);
+      yAxis.setRange({ ...prevRange });
+      yAxis.setAutoCalcTickFlag(false);
+    } else if (yAxis) {
+      // Ensure Y-axis auto-scale is re-enabled so the chart isn't locked vertically
+      yAxis.setAutoCalcTickFlag(true);
+    }
+
+    // If there is a pending cut animation, trigger it!
+    if (anim && anim.timestamp === replayCurrentTimestamp) {
+      pendingCutAnimation.current = null; // consume it
+
+      const startTime = performance.now();
+      const startOffset = tempOffset;
+      const endOffset = anim.savedOffset;
+      const duration = 700;
+
+      console.log(`[DEBUG] dataSync hook - Sliced data loaded. Animating offset slide from tempOffset ${tempOffset} to savedOffset ${anim.savedOffset} over 700ms`);
+
+      const animate = (time: number) => {
+        if (!chartInstance.current || !isReplayActive) return;
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing: easeOutCubic
+        const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+        const current = startOffset + (endOffset - startOffset) * easeOutCubic;
+        
+        chartInstance.current.setOffsetRightDistance(current);
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          console.log(`[DEBUG] dataSync hook - Animation completed. Locking final offset ${endOffset}`);
+          chartInstance.current.setOffsetRightDistance(endOffset);
+        }
+      };
+
+      requestAnimationFrame(animate);
+    }
+  }, [replayCurrentTimestamp, activeTimeframe, isReplayActive, allTimeframesData]);
+
+  // Click-to-cut point selector hook using DOM click + coordinate convertFromPixel
+  useEffect(() => {
+    if (!chartInstance.current || !chartContainerRef.current) return;
+
+    const container = chartContainerRef.current;
+
+    const handleContainerClick = (event: MouseEvent) => {
+      if (!isSelectingCutPoint || !chartInstance.current) return;
+      console.log(`[DEBUG] cutpoint click event - Capture phase click registered. Coordinates: X=${event.clientX}, Y=${event.clientY}`);
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      // Convert pixel coordinates to chart data index/timestamp
+      const result = chartInstance.current.convertFromPixel({ x, y });
+      console.log(`[DEBUG] cutpoint click event - convertFromPixel raw result:`, result);
+      
+      if (result) {
+        const dataPoint = Array.isArray(result) ? result[0] : result;
+        if (dataPoint) {
+          let timestamp = dataPoint.timestamp;
+          
+          if (!timestamp && typeof dataPoint.dataIndex === 'number') {
+            const dataIndex = Math.round(dataPoint.dataIndex);
+            const fullData = allTimeframesData[activeTimeframe];
+            console.log(`[DEBUG] cutpoint click event - Mapping dataIndex ${dataPoint.dataIndex} (rounded: ${dataIndex}) to timeframe data. Total bars: ${fullData.length}`);
+            
+            if (dataIndex >= 0 && dataIndex < fullData.length) {
+              timestamp = fullData[dataIndex].timestamp;
+            } else if (dataIndex >= fullData.length) {
+              timestamp = fullData[fullData.length - 1].timestamp;
+              console.warn(`[DEBUG] cutpoint click event - dataIndex ${dataIndex} exceeds bounds. Snapped to last bar.`);
+            } else if (dataIndex < 0) {
+              timestamp = fullData[0].timestamp;
+              console.warn(`[DEBUG] cutpoint click event - dataIndex ${dataIndex} is negative. Snapped to first bar.`);
+            }
+          }
+
+          if (timestamp) {
+            console.log(`[DEBUG] cutpoint click event - Success! Slicing chart starting from: ${new Date(timestamp).toLocaleString()}`);
+            setIsSelectingCutPoint(false);
+            setCutPointHoverX(null);
+
+            const savedOffset = chartInstance.current ? chartInstance.current.getOffsetRightDistance() : 0;
+            pendingCutAnimation.current = {
+              timestamp,
+              clickX: x,
+              savedOffset
+            };
+
+            setReplayCurrentTimestamp(timestamp);
+          } else {
+            console.error('[DEBUG] cutpoint click event - Failed to map coordinate to timestamp.', dataPoint);
+          }
+        }
+      } else {
+        console.warn('[DEBUG] cutpoint click event - convertFromPixel returned null result.');
+      }
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isSelectingCutPoint) return;
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      setCutPointHoverX(x);
+    };
+
+    const handleMouseLeave = () => {
+      setCutPointHoverX(null);
+    };
+
+    if (isSelectingCutPoint) {
+      console.log('[DEBUG] cutpoint click hook - Active. Binding capturing-phase click and cursor tracking listeners.');
+      container.addEventListener('click', handleContainerClick, true);
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('mouseleave', handleMouseLeave);
+    }
+
+    return () => {
+      container.removeEventListener('click', handleContainerClick, true);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData]);
+
+  // 1. Initialize Chart
+  useEffect(() => {
+    if (chartContainerRef.current && !chartInstance.current) {
+      // Register custom overlays (trendLine, horizontalLine, rect, priceChannel)
+      registerCustomOverlays();
+
+      // Initialize with custom date formatter to show varying hours/minutes on intraday candles
+      const chart = init(chartContainerRef.current, {
+        formatter: {
+          formatDate: ({ timestamp }) => {
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return '-';
+            const day = String(date.getDate()).padStart(2, '0');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 hours should be 12 AM
+            const hoursStr = String(hours).padStart(2, '0');
+            return `${day} ${month} ${year} ${hoursStr}:${minutes} ${ampm}`;
+          }
+        }
+      });
+      if (chart) {
+        chartInstance.current = chart;
+
+        // Apply initial settings styles
+        applySettingsToChart(chart, settings);
+
+        // Set default symbol and period to initialize the chart context
+        chart.setSymbol({ ticker: 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
+        chart.setPeriod({ type: 'minute', span: 1 });
+
+        chart.createOverlay({
+          name: 'customPriceLine',
+          id: 'custom_price_line_overlay',
+          points: [{ timestamp: 0, value: 0 }],
+          lock: true
+        });
+
+        // Sync size
+        chart.resize();
+      }
+    }
+
+    return () => {
+      if (chartInstance.current) {
+        dispose(chartInstance.current);
+        chartInstance.current = null;
+      }
+    };
+  }, []);
+
+  // 2. Handle Browser Resizing
+  useEffect(() => {
+    const handleResize = () => {
+      if (chartInstance.current) {
+        capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
+
+        let wasManual = false;
+        let range = null;
+        const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
+        const yAxis = pane?.getYAxisComponents?.()?.[0];
+        if (yAxis) {
+          wasManual = !yAxis.getAutoCalcTickFlag();
+          if (wasManual) {
+            const r = yAxis.getRange();
+            if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
+              range = r;
+            } else {
+              wasManual = false;
+            }
+          }
+        }
+        wasManualScaleRef.current = wasManual;
+        capturedYAxisRangeRef.current = range;
+
+        console.log(`[DEBUG] handleResize - Captured offset before resize: ${capturedOffsetRef.current}, manual scale: ${wasManual}`);
+        chartInstance.current.resize();
+        // Recenter after resizing
+        if (hasData) {
+          centerLastCandle(activeTimeframe, undefined, true);
+        }
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [hasData, activeTimeframe, allTimeframesData, isReplayActive, replayCurrentTimestamp]);
+
+  // Auto-resize and center the chart when data is loaded
+  useEffect(() => {
+    if (hasData && chartInstance.current) {
+      console.log('[DEBUG] hasData changed to true. Triggering resize and center last candle.');
+      // Perform initial resize to adapt to the hidden dropzone layout
+      chartInstance.current.resize();
+      setTimeout(() => {
+        if (chartInstance.current) {
+          chartInstance.current.resize();
+          centerLastCandle(activeTimeframe);
+        }
+      }, 150);
+    }
+  }, [hasData]);
+
+  // 3. Handle Escape Key to Cancel Active Drawing or Clear Selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (activeTool) {
+          if (chartInstance.current) {
+            if (activeOverlayIdRef.current) {
+              chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
+              activeOverlayIdRef.current = null;
+            }
+            chartInstance.current.setScrollEnabled(true);
+            chartInstance.current.setZoomEnabled(true);
+          }
+          setActiveTool(null);
+        } else {
+          setSelectedOverlayIds([]);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeTool]);
+
+  // Synchronize selected overlay IDs with the chart instance, attach state setter, and trigger repaint
+  useEffect(() => {
+    if (chartInstance.current) {
+      chartInstance.current._selectedOverlayIds = selectedOverlayIds;
+      chartInstance.current._setSelectedOverlayIds = setSelectedOverlayIds;
+      chartInstance.current._isCtrlPressedRef = isCtrlPressedRef;
+      chartInstance.current._isShiftPressedRef = isShiftPressedRef;
+      
+      // Update styles for all overlays to highlight selection
+      const overlays = chartInstance.current.getOverlays();
+      overlays.forEach((ov: any) => {
+        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return; // Skip price line
+        const isSelected = selectedOverlayIds.includes(ov.id);
+        
+        if (ov.name === 'segment' || ov.name === 'horizontalStraightLine') {
+          chartInstance.current.overrideOverlay({
+            id: ov.id,
+            styles: {
+              line: {
+                color: isSelected ? '#ff9800' : '#2196f3',
+                size: isSelected ? 2.5 : 1.5
+              }
+            }
+          });
+        } else if (ov.name === 'simpleAnnotation') {
+          chartInstance.current.overrideOverlay({
+            id: ov.id,
+            styles: {
+              text: {
+                color: isSelected ? '#ff9800' : '#2196f3'
+              }
+            }
+          });
+        } else {
+          // Custom overlays (rect, priceChannel) check chart._selectedOverlayIds internally
+          chartInstance.current.overrideOverlay({
+            id: ov.id
+          });
+        }
+      });
+    }
+  }, [selectedOverlayIds]);
+
+  // Shared multi-move helper functions attached to chart
+  useEffect(() => {
+    if (chartInstance.current) {
+      chartInstance.current._initMultiMove = (event: any) => {
+        const chart = event.chart;
+        if (chart._selectedOverlayIds?.includes(event.overlay.id)) {
+          chart._startingPoints = {};
+          chart._selectedOverlayIds.forEach((id: string) => {
+            const ov = chart.getOverlays().find((o: any) => o.id === id);
+            if (ov) {
+              chart._startingPoints[id] = JSON.parse(JSON.stringify(ov.points));
+            }
+          });
+          chart._draggedStartPoints = JSON.parse(JSON.stringify(event.overlay.points));
+        }
+      };
+
+      chartInstance.current._handleMultiMove = (event: any) => {
+        const chart = event.chart;
+        const draggedOverlay = event.overlay;
+        
+        if (chart._selectedOverlayIds?.includes(draggedOverlay.id) && chart._draggedStartPoints && chart._startingPoints) {
+          const startPt = chart._draggedStartPoints[0];
+          const currentPt = draggedOverlay.points[0];
+          if (startPt && currentPt) {
+            const deltaTimestamp = currentPt.timestamp - startPt.timestamp;
+            const deltaValue = currentPt.value - startPt.value;
+            const deltaDataIndex = (currentPt.dataIndex !== undefined && startPt.dataIndex !== undefined)
+              ? currentPt.dataIndex - startPt.dataIndex
+              : 0;
+
+            chart._selectedOverlayIds.forEach((id: string) => {
+              if (id === draggedOverlay.id) return;
+              const startingPts = chart._startingPoints[id];
+              if (startingPts) {
+                const newPts = startingPts.map((pt: any) => ({
+                  ...pt,
+                  timestamp: pt.timestamp + deltaTimestamp,
+                  value: pt.value + deltaValue,
+                  dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+                }));
+                chart.overrideOverlay({
+                  id,
+                  points: newPts
+                });
+              }
+            });
+          }
+        }
+      };
+    }
+  }, []);
+
+  // Keyboard Events: Control key tracking, Delete/Backspace for deleting selected drawings
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key events when typing inside inputs or textareas
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      if (e.key === 'Control') {
+        isCtrlPressedRef.current = true;
+      }
+
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !activeTool) {
+        if (chartInstance.current && chartInstance.current._selectedOverlayIds?.length > 0) {
+          console.log(`[DEBUG] Deleting selected overlays:`, chartInstance.current._selectedOverlayIds);
+          chartInstance.current._selectedOverlayIds.forEach((id: string) => {
+            const ov = chartInstance.current.getOverlays().find((o: any) => o.id === id);
+            if (id === 'custom_price_line_overlay' || ov?.name === 'customPriceLine') return; // Skip price line
+            chartInstance.current.removeOverlay({ id });
+          });
+          chartInstance.current._selectedOverlayIds = [];
+          setSelectedOverlayIds([]);
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        isCtrlPressedRef.current = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [activeTool]);
+
+  // Mouse selection box drawing
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    // Helper to check if drawing intersects the selection box
+    const doesOverlayIntersectRect = (ov: any, xMin: number, xMax: number, yMin: number, yMax: number, chart: any): boolean => {
+      const points = ov.points;
+      if (!points || points.length === 0) return false;
+      const pts = chart.convertToPixel(points, { paneId: 'candle_pane' });
+      const validPts = pts.filter((p: any) => p !== null && p !== undefined);
+      if (validPts.length === 0) return false;
+
+      const isPointInRect = (p: any) => p.x >= xMin && p.x <= xMax && p.y >= yMin && p.y <= yMax;
+
+      if (ov.name === 'segment') {
+        if (validPts.length < 2) return false;
+        const A = validPts[0];
+        const B = validPts[1];
+        if (isPointInRect(A) || isPointInRect(B)) return true;
+
+        // Check line segment intersection with rect edges
+        const intersects = (p1: any, p2: any, p3: any, p4: any) => {
+          const d = (p2.x - p1.x) * (p4.y - p3.y) - (p2.y - p1.y) * (p4.x - p3.x);
+          if (d === 0) return false;
+          const u = ((p3.x - p1.x) * (p4.y - p3.y) - (p3.y - p1.y) * (p4.x - p3.x)) / d;
+          const v = ((p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x)) / d;
+          return u >= 0 && u <= 1 && v >= 0 && v <= 1;
+        };
+
+        const rTL = { x: xMin, y: yMin };
+        const rTR = { x: xMax, y: yMin };
+        const rBR = { x: xMax, y: yMax };
+        const rBL = { x: xMin, y: yMax };
+
+        return intersects(A, B, rTL, rTR) || 
+               intersects(A, B, rTR, rBR) || 
+               intersects(A, B, rBR, rBL) || 
+               intersects(A, B, rBL, rTL);
+      }
+
+      if (ov.name === 'horizontalStraightLine') {
+        const y0 = validPts[0].y;
+        return y0 >= yMin && y0 <= yMax;
+      }
+
+      if (ov.name === 'rect' || ov.name === 'priceChannel') {
+        const xs = validPts.map((p: any) => p.x);
+        const ys = validPts.map((p: any) => p.y);
+        const xMin_ov = Math.min(...xs);
+        const xMax_ov = Math.max(...xs);
+        const yMin_ov = Math.min(...ys);
+        const yMax_ov = Math.max(...ys);
+
+        return Math.max(xMin_ov, xMin) <= Math.min(xMax_ov, xMax) && 
+               Math.max(yMin_ov, yMin) <= Math.min(yMax_ov, yMax);
+      }
+
+      // Default fallback
+      return validPts.some(isPointInRect);
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Only handle left click
+      // Record starting mouse coordinates for click vs scroll detection
+      mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+
+      if (isCtrlPressedRef.current && chartInstance.current) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rect = container.getBoundingClientRect();
+        const startX = e.clientX - rect.left;
+        const startY = e.clientY - rect.top;
+
+        // Create selection box element
+        const div = document.createElement('div');
+        div.style.position = 'absolute';
+        div.style.border = '1.5px dashed #ff9800';
+        div.style.backgroundColor = 'rgba(255, 152, 0, 0.08)';
+        div.style.pointerEvents = 'none';
+        div.style.zIndex = '50';
+        div.style.left = `${startX}px`;
+        div.style.top = `${startY}px`;
+        div.style.width = '0px';
+        div.style.height = '0px';
+        container.appendChild(div);
+
+        selectionBoxRef.current = { startX, startY, div };
+
+        // Disable scroll and zoom during box selection
+        chartInstance.current.setScrollEnabled(false);
+        chartInstance.current.setZoomEnabled(false);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const box = selectionBoxRef.current;
+      if (box && box.div) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rect = container.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+
+        const x = Math.min(box.startX, currentX);
+        const y = Math.min(box.startY, currentY);
+        const width = Math.abs(box.startX - currentX);
+        const height = Math.abs(box.startY - currentY);
+
+        box.div.style.left = `${x}px`;
+        box.div.style.top = `${y}px`;
+        box.div.style.width = `${width}px`;
+        box.div.style.height = `${height}px`;
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Only handle left click
+      const box = selectionBoxRef.current;
+      const startPos = mouseDownPosRef.current;
+      mouseDownPosRef.current = null;
+
+      if (box) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (box.div && box.div.parentNode) {
+          box.div.parentNode.removeChild(box.div);
+        }
+
+        const rect = container.getBoundingClientRect();
+        const endX = e.clientX - rect.left;
+        const endY = e.clientY - rect.top;
+
+        const xMin = Math.min(box.startX, endX);
+        const xMax = Math.max(box.startX, endX);
+        const yMin = Math.min(box.startY, endY);
+        const yMax = Math.max(box.startY, endY);
+
+        selectionBoxRef.current = null;
+
+        // Restore scroll and zoom
+        if (chartInstance.current) {
+          if (!activeTool) {
+            chartInstance.current.setScrollEnabled(true);
+            chartInstance.current.setZoomEnabled(true);
+          }
+
+          const width = xMax - xMin;
+          const height = yMax - yMin;
+
+          if (width > 3 && height > 3) {
+            // Box selection complete: check which overlays have points in the box
+            const newlySelected: string[] = [];
+            const overlays = chartInstance.current.getOverlays();
+            overlays.forEach((ov: any) => {
+              if (doesOverlayIntersectRect(ov, xMin, xMax, yMin, yMax, chartInstance.current)) {
+                newlySelected.push(ov.id);
+              }
+            });
+            setSelectedOverlayIds(newlySelected);
+            console.log(`[DEBUG] Selection rectangle matched overlays:`, newlySelected);
+          }
+        }
+      } else if (startPos && chartInstance.current) {
+        // Normal click check (without Ctrl drag box)
+        const dx = Math.abs(e.clientX - startPos.x);
+        const dy = Math.abs(e.clientY - startPos.y);
+        const isClick = dx <= 4 && dy <= 4;
+
+        if (isClick && !isCtrlPressedRef.current && !activeTool) {
+          // Normal click: check if clicked on an overlay, otherwise clear selection
+          if (chartInstance.current._clickedOnOverlay) {
+            chartInstance.current._clickedOnOverlay = false;
+          } else {
+            console.log('[DEBUG] Clicked on empty space. Clearing selection.');
+            setSelectedOverlayIds([]);
+          }
+        }
+      }
+    };
+
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [activeTool]);
+
+  // Regenerate all preset and custom timeframes with timezone shift applied
+  const regenerateTimeframes = (raw1m: KLineData[], s: ChartSettings) => {
+    if (raw1m.length === 0) return;
+
+    console.log('[DEBUG] regenerateTimeframes - Rebuilding timeframe cache with settings:', {
+      enabled: s.timezoneAdjustmentEnabled,
+      brokerOffset: s.brokerTimezoneOffset,
+      userOffset: s.userTimezoneOffset
+    });
+
+    let baseData = raw1m;
+    if (s.timezoneAdjustmentEnabled) {
+      const offsetDiffMs = (s.userTimezoneOffset - s.brokerTimezoneOffset) * 60 * 1000;
+      baseData = raw1m.map(c => ({
+        ...c,
+        timestamp: c.timestamp + offsetDiffMs
+      }));
+    }
+
+    const newTimeframesData: Record<string, KLineData[]> = {
+      '1m': baseData
+    };
+
+    PRESET_TIMEFRAMES.forEach(tf => {
+      if (tf.value !== '1m') {
+        newTimeframesData[tf.value] = resample1mToTimeframe(baseData, tf.minutes);
+      }
+    });
+
+    customTimeframes.forEach(tf => {
+      newTimeframesData[tf.value] = resample1mToTimeframe(baseData, tf.minutes);
+    });
+
+    console.log(`[DEBUG] regenerateTimeframes - Rebuild finished. Timeframes loaded: [${Object.keys(newTimeframesData).join(', ')}]`);
+
+    setAllTimeframesData(newTimeframesData);
+
+    // Refresh chart if data is already bound
+    if (chartInstance.current) {
+      const fullData = newTimeframesData[activeTimeframe] || [];
+      
+      let alignedTimestamp = replayCurrentTimestamp;
+      if (isReplayActive && replayCurrentTimestamp !== null) {
+        // If timezone settings shifted the timestamps, we also shift the replay timestamp
+        const oldDiff = settings.timezoneAdjustmentEnabled ? (settings.userTimezoneOffset - settings.brokerTimezoneOffset) : 0;
+        const newDiff = s.timezoneAdjustmentEnabled ? (s.userTimezoneOffset - s.brokerTimezoneOffset) : 0;
+        const diffMs = (newDiff - oldDiff) * 60 * 1000;
+        if (diffMs !== 0) {
+          alignedTimestamp = replayCurrentTimestamp + diffMs;
+          setReplayCurrentTimestamp(alignedTimestamp);
+          console.log(`[DEBUG] regenerateTimeframes - Adjusted replay timestamp by ${diffMs / 1000}s to ${new Date(alignedTimestamp).toLocaleString()}`);
+        }
+      }
+
+      const visibleData = isReplayActive && alignedTimestamp !== null
+        ? fullData.filter(d => d.timestamp <= alignedTimestamp)
+        : fullData;
+
+      chartInstance.current.setDataLoader({
+        getBars: ({ type: loadType, callback }: any) => {
+          if (loadType === 'init') {
+            callback(visibleData);
+          } else {
+            callback([]);
+          }
+        }
+      });
+      chartInstance.current.resize();
+    }
+  };
+
+  // Update data handler (Phase 3 implementation)
+  const handleUpdateData = (timeframe: string, file: File) => {
+    console.log(`[DEBUG] handleUpdateData - Starting update with timeframe: ${timeframe}, File: ${file.name}`);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        if (!text) {
+          console.error('[DEBUG] handleUpdateData - Update file is empty.');
+          return;
+        }
+
+        const result = parseCSV(text);
+        if (result.parsedCount === 0) {
+          console.error('[DEBUG] handleUpdateData - No valid rows parsed from update file.');
+          return;
+        }
+
+        // Sort update data chronologically (ascending: oldest first, latest last)
+        const updateDataSorted = [...result.data].sort((a, b) => a.timestamp - b.timestamp);
+
+        // Find existing last candle timestamp
+        const lastCandleTs = raw1mData.length > 0 ? raw1mData[raw1mData.length - 1].timestamp : null;
+
+        // Filter out duplicate rows (timestamp <= lastCandleTimestamp)
+        const newUniqueRows = lastCandleTs !== null
+          ? updateDataSorted.filter(row => row.timestamp > lastCandleTs)
+          : updateDataSorted;
+
+        const uniqueCount = newUniqueRows.length;
+        if (uniqueCount === 0) {
+          console.log('[DEBUG] handleUpdateData - No new unique rows to add.');
+          return;
+        }
+
+        const maxLimit = 300000;
+        let merged = [...raw1mData];
+
+        if (merged.length + uniqueCount > maxLimit) {
+          // Slice off the oldest U rows from the main dataset (where U = uniqueCount)
+          const deleteCount = Math.min(merged.length, uniqueCount);
+          console.log(`[DEBUG] handleUpdateData - Merged size (${merged.length + uniqueCount}) exceeds 300k. Deleting oldest ${deleteCount} rows from main file.`);
+          merged = merged.slice(deleteCount);
+        }
+
+        // Append the new unique rows
+        merged = [...merged, ...newUniqueRows];
+
+        // Update raw data state
+        setRaw1mData(merged);
+
+        // Save raw unadjusted data to IndexedDB
+        saveChartDataToIndexedDB(merged, assetName, savedResetOffsetRef.current);
+
+        // Regenerate timeframes and reload chart
+        regenerateTimeframes(merged, settings);
+
+        console.log(`[DEBUG] handleUpdateData - Successfully merged ${uniqueCount} new bars. Total main dataset size: ${merged.length}`);
+      } catch (err) {
+        console.error('[DEBUG] handleUpdateData error:', err);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Save settings and push changes to the chart
+  const handleSettingsSave = (newSettings: ChartSettings) => {
+    console.log('[DEBUG] handleSettingsSave - Saving new settings layout:', newSettings);
+    
+    // Check if timezone settings changed
+    const timezoneChanged = 
+      newSettings.timezoneAdjustmentEnabled !== settings.timezoneAdjustmentEnabled ||
+      newSettings.brokerTimezoneOffset !== settings.brokerTimezoneOffset ||
+      newSettings.userTimezoneOffset !== settings.userTimezoneOffset;
+
+    setSettings(newSettings);
+    localStorage.setItem('tv_clone_settings', JSON.stringify(newSettings));
+    
+    if (chartInstance.current) {
+      applySettingsToChart(chartInstance.current, newSettings);
+      
+      // Update symbol precision based on settings
+      chartInstance.current.setSymbol({
+        ticker: assetName === 'No Asset Loaded' ? 'INGEST' : assetName,
+        pricePrecision: newSettings.pricePrecision,
+        volumePrecision: 4
+      });
+      console.log(`[DEBUG] handleSettingsSave - Applied settings and updated chart ticker '${assetName}' precision to ${newSettings.pricePrecision}`);
+      
+      if (timezoneChanged && raw1mData.length > 0) {
+        console.log('[DEBUG] handleSettingsSave - Timezone settings changed. Regenerating all timeframe datasets...');
+        regenerateTimeframes(raw1mData, newSettings);
+      }
+    } else {
+      console.warn('[DEBUG] handleSettingsSave - Chart instance not found, skipped applying settings.');
+    }
+  };
+
+  const handleUserTimezoneChange = (label: string) => {
+    const offset = getLabelOffset(label);
+    console.log(`[DEBUG] handleUserTimezoneChange - label: ${label}, offset: ${offset}`);
+    const newSettings = {
+      ...settings,
+      timezoneAdjustmentEnabled: true,
+      userTimezoneOffset: offset,
+      userTimezoneLabel: label
+    };
+    setSettings(newSettings);
+    localStorage.setItem('tv_clone_settings', JSON.stringify(newSettings));
+    if (chartInstance.current) {
+      applySettingsToChart(chartInstance.current, newSettings);
+    }
+    if (raw1mData.length > 0) {
+      regenerateTimeframes(raw1mData, newSettings);
+    }
+  };
+
+  // 3. File upload/drag-drop parsers
+  const processCSVFile = (file: File) => {
+    console.log(`[DEBUG] processCSVFile - Ingesting file '${file.name}' (${file.size} bytes)`);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) {
+        console.error('[DEBUG] processCSVFile - CSV text payload is empty.');
+        return;
+      }
+
+      const result = parseCSV(text);
+      console.log(`[DEBUG] processCSVFile - Parsing completed. Row Count: ${result.rowCount}, Valid Bars: ${result.parsedCount}, Skipped: ${result.skippedCount}`);
+      
+      setParseFeedback({
+        errors: result.errors,
+        headers: result.headers,
+        rowCount: result.rowCount,
+        parsedCount: result.parsedCount,
+        skippedCount: result.skippedCount,
+      });
+
+      if (result.parsedCount === 0) {
+        console.error('[DEBUG] processCSVFile - Failed completely. No valid candlestick bars could be extracted.');
+        setHasData(false);
+        savedResetOffsetRef.current = null;
+        return;
+      }
+
+
+      // Save raw unadjusted data to state
+      setRaw1mData(result.data);
+
+      // Determine settings based on tempBrokerOffset selector
+      let updatedSettings = { ...settings };
+      if (tempBrokerOffset !== 'exchange') {
+        const brokerLabel = tempBrokerOffset;
+        const brokerOffset = getLabelOffset(brokerLabel);
+        updatedSettings = {
+          ...settings,
+          timezoneAdjustmentEnabled: true,
+          brokerTimezoneOffset: brokerOffset,
+          brokerTimezoneLabel: brokerLabel
+        };
+      } else {
+        updatedSettings = {
+          ...settings,
+          timezoneAdjustmentEnabled: false
+        };
+      }
+      setSettings(updatedSettings);
+      localStorage.setItem('tv_clone_settings', JSON.stringify(updatedSettings));
+      if (chartInstance.current) {
+        applySettingsToChart(chartInstance.current, updatedSettings);
+      }
+
+      // Update asset name (filename without extension)
+      const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
+      setAssetName(cleanName);
+
+      // Mark as loaded and default to 1m timeframe
+      setHasData(true);
+      setActiveTimeframe('1m');
+
+      // Reset replay states on new file upload
+      setIsReplayActive(false);
+      setIsSelectingCutPoint(false);
+      setIsReplayPlaying(false);
+      setReplayCurrentTimestamp(null);
+
+      // Clear any saved reset position from a previous file
+      savedResetOffsetRef.current = null;
+
+      // Save raw unadjusted data to IndexedDB
+      saveChartDataToIndexedDB(result.data, cleanName, null);
+
+      // Apply timezone adjustment, resample and cache
+      regenerateTimeframes(result.data, updatedSettings);
+
+      // Populate chart context
+      if (chartInstance.current) {
+        chartInstance.current.setSymbol({ ticker: cleanName, pricePrecision: updatedSettings.pricePrecision, volumePrecision: 4 });
+        chartInstance.current.setPeriod({ type: 'minute', span: 1 });
+      } else {
+        console.error('[DEBUG] processCSVFile - Chart instance not found during initialization!');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processCSVFile(e.target.files[0]);
+    }
+  };
+
+  const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      console.log(`[DEBUG] handleFolderChange - Selected ${files.length} files from folder`);
+      
+      const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
+      if (csvFiles.length === 0) {
+        alert('No CSV files found in the selected folder.');
+        return;
+      }
+
+      // Try to determine symbol name from the folder name
+      let symbol = '';
+      const firstPath = csvFiles[0].webkitRelativePath;
+      if (firstPath && firstPath.includes('/')) {
+        symbol = firstPath.split('/')[0].toUpperCase();
+      } else {
+        const namePart = csvFiles[0].name.split(/[._-]/)[0];
+        symbol = namePart ? namePart.toUpperCase() : 'SYMBOL';
+      }
+      setFolderSymbol(symbol);
+
+      // Map files to timeframes
+      const mapped = csvFiles.map(file => {
+        const timeframe = matchFileToTimeframe(file.name);
+        return {
+          name: file.name,
+          size: file.size,
+          timeframe
+        };
+      });
+
+      setFolderFilesList(mapped);
+      console.log(`[DEBUG] handleFolderChange - Extracted Symbol: ${symbol}, mapped files:`, mapped);
+    }
+  };
+
+  // Drag & drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (importMode === 'single') {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (importMode === 'single') {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (importMode === 'single' && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processCSVFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Timeframe switching
+  const handleTimeframeSwitch = (tf: Timeframe) => {
+    if (!hasData) {
+      console.warn('[DEBUG] handleTimeframeSwitch - Attempted switch but no data is loaded.');
+      return;
+    }
+    console.log(`[DEBUG] handleTimeframeSwitch - Switch requested to: ${tf}`);
+
+    if (chartInstance.current) {
+      capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
+
+      let wasManual = false;
+      let range = null;
+      const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
+      const yAxis = pane?.getYAxisComponents?.()?.[0];
+      if (yAxis) {
+        wasManual = !yAxis.getAutoCalcTickFlag();
+        if (wasManual) {
+          const r = yAxis.getRange();
+          if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
+            range = r;
+          } else {
+            wasManual = false;
+          }
+        }
+      }
+      wasManualScaleRef.current = wasManual;
+      capturedYAxisRangeRef.current = range;
+
+      console.log(`[DEBUG] handleTimeframeSwitch - Captured offset before switch: ${capturedOffsetRef.current}, manual scale: ${wasManual}, range:`, range);
+    }
+
+    let alignedTimestamp = replayCurrentTimestamp;
+    if (isReplayActive && replayCurrentTimestamp !== null) {
+      const fullData = allTimeframesData[tf];
+      let alignedBar = null;
+      for (let i = fullData.length - 1; i >= 0; i--) {
+        if (fullData[i].timestamp <= replayCurrentTimestamp) {
+          alignedBar = fullData[i];
+          break;
+        }
+      }
+      if (alignedBar) {
+        alignedTimestamp = alignedBar.timestamp;
+        console.log(`[DEBUG] handleTimeframeSwitch - Aligned replay timestamp from ${new Date(replayCurrentTimestamp).toLocaleString()} to new timeframe ${tf} timestamp: ${new Date(alignedTimestamp).toLocaleString()}`);
+        setReplayCurrentTimestamp(alignedTimestamp);
+      } else if (fullData.length > 0) {
+        alignedTimestamp = fullData[0].timestamp;
+        console.log(`[DEBUG] handleTimeframeSwitch - No <= timestamp found in timeframe ${tf}. Snapped to first bar: ${new Date(alignedTimestamp).toLocaleString()}`);
+        setReplayCurrentTimestamp(alignedTimestamp);
+      }
+    }
+
+    setActiveTimeframe(tf);
+    if (chartInstance.current) {
+      const fullData = allTimeframesData[tf];
+      const visibleData = isReplayActive && alignedTimestamp !== null
+        ? fullData.filter(d => d.timestamp <= alignedTimestamp)
+        : fullData;
+
+      // Map timeframe values to type and span parameters
+      let span = 1;
+      let type: 'minute' | 'hour' | 'day' | 'week' | 'month' = 'minute';
+      if (tf.endsWith('m')) {
+        span = parseInt(tf, 10) || 1;
+        type = 'minute';
+      } else if (tf.endsWith('H') || tf.endsWith('h')) {
+        span = parseInt(tf, 10) || 1;
+        type = 'hour';
+      } else if (tf.endsWith('D') || tf.endsWith('d')) {
+        span = parseInt(tf, 10) || 1;
+        type = 'day';
+      } else if (tf.endsWith('W') || tf.endsWith('w')) {
+        span = parseInt(tf, 10) || 1;
+        type = 'week';
+      } else if (tf.endsWith('M')) {
+        span = parseInt(tf, 10) || 1;
+        type = 'month';
+      }
+
+      chartInstance.current.setDataLoader({
+        getBars: ({ type: loadType, callback }: any) => {
+          if (loadType === 'init') {
+            console.log(`[DEBUG] handleTimeframeSwitch dataLoader - supplying ${visibleData.length} bars to chart for timeframe ${tf}`);
+            callback(visibleData);
+          } else {
+            callback([]);
+          }
+        }
+      });
+
+      // Update period to trigger redraw with the new resampled data
+      console.log(`[DEBUG] handleTimeframeSwitch - setPeriod triggered with type: ${type}, span: ${span}`);
+      chartInstance.current.setPeriod({ type, span });
+      
+      // Preserve the user's current scroll position when switching timeframes
+      centerLastCandle(tf, alignedTimestamp, true);
+    } else {
+      console.error('[DEBUG] handleTimeframeSwitch - Chart instance is missing!');
+    }
+  };
+
+  // Add custom timeframe on the fly
+  const handleAddCustomTimeframe = (val: number, unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months') => {
+    let minutes = val;
+    let suffix = 'm';
+    if (unit === 'hours') {
+      minutes = val * 60;
+      suffix = 'h';
+    } else if (unit === 'days') {
+      minutes = val * 1440;
+      suffix = 'D';
+    } else if (unit === 'weeks') {
+      minutes = val * 10080;
+      suffix = 'W';
+    } else if (unit === 'months') {
+      minutes = val * 43200;
+      suffix = 'M';
+    }
+
+    // Map 1D, 1W, 1M to D, W, M to match presets
+    let tfValue = `${val}${suffix}`;
+    if (val === 1) {
+      if (suffix === 'D') tfValue = 'D';
+      else if (suffix === 'W') tfValue = 'W';
+      else if (suffix === 'M') tfValue = 'M';
+    }
+    const tfLabel = tfValue;
+
+    const exists = PRESET_TIMEFRAMES.some(t => t.value === tfValue) || customTimeframes.some(t => t.value === tfValue);
+    if (exists) {
+      handleTimeframeSwitch(tfValue);
+      return;
+    }
+
+    const data1m = allTimeframesData['1m'] || [];
+    const resampledData = resample1mToTimeframe(data1m, minutes);
+
+    setAllTimeframesData(prev => ({
+      ...prev,
+      [tfValue]: resampledData
+    }));
+
+    const newTf = { label: tfLabel, value: tfValue, minutes };
+    setCustomTimeframes(prev => [...prev, newTf]);
+
+    setTimeout(() => {
+      handleTimeframeSwitch(tfValue);
+    }, 50);
+  };
+
+  // Left Toolbar Drawing Tools
+  const handleSelectTool = (toolName: string) => {
+    if (!chartInstance.current || !hasData) {
+      console.warn('[DEBUG] handleSelectTool - Chart is not ready or data is missing.');
+      return;
+    }
+
+    console.log(`[DEBUG] handleSelectTool - Selection requested for: '${toolName}' (Current Active Tool: '${activeTool}')`);
+    console.log(`[DEBUG] handleSelectTool - Chart scroll enabled: ${(chartInstance.current as any)?._chartStore?.getTimeScaleStore?.()?.scrollEnabled ?? 'unknown'}`);
+
+    // Check and remove any half-completed drawings
+    if (activeOverlayIdRef.current) {
+      console.log(`[DEBUG] handleSelectTool - Discarding incomplete overlay ID:`, activeOverlayIdRef.current);
+      chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
+      activeOverlayIdRef.current = null;
+    }
+
+    if (activeTool === toolName) {
+      // Toggle off if already selected
+      console.log(`[DEBUG] handleSelectTool - Deactivating tool '${toolName}'. Restoring scroll/zoom.`);
+      setActiveTool(null);
+      chartInstance.current.setScrollEnabled(true);
+      chartInstance.current.setZoomEnabled(true);
+      return;
+    }
+
+    setActiveTool(toolName);
+    chartInstance.current.setScrollEnabled(false);
+    chartInstance.current.setZoomEnabled(false);
+    console.log(`[DEBUG] handleSelectTool - Scroll/zoom disabled. Preparing overlay: '${toolName}'`);
+
+    // Map UI tool name to KLineCharts internal names
+    let overlayName = toolName;
+    if (toolName === 'trendLine') {
+      overlayName = 'segment';
+    } else if (toolName === 'horizontalLine') {
+      overlayName = 'horizontalStraightLine';
+    }
+
+    // Install a one-time click probe on the chart container to log coordinate conversion on the next click
+    const probe = (e: MouseEvent) => {
+      const rect = chartContainerRef.current?.getBoundingClientRect();
+      if (!rect || !chartInstance.current) return;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const pixel = chartInstance.current.convertFromPixel({ x, y });
+      const chartSize = chartInstance.current.getSize?.();
+      const scrollEnabled = chartInstance.current.getScrollEnabled?.() ?? 'N/A';
+      console.log(`[DEBUG DRAWING PROBE] Click at canvas (${x.toFixed(1)}, ${y.toFixed(1)})`);
+      console.log(`[DEBUG DRAWING PROBE] Chart size: ${JSON.stringify(chartSize)}, Scroll enabled: ${scrollEnabled}`);
+      console.log(`[DEBUG DRAWING PROBE] convertFromPixel result:`, pixel);
+      console.log(`[DEBUG DRAWING PROBE] Overlay count after click: ${chartInstance.current.getOverlays().length}`);
+      chartInstance.current.getOverlays().forEach((ov: any, i: number) => {
+        console.log(`[DEBUG DRAWING PROBE] Overlay[${i}]: name=${ov.name}, step=${ov.currentStep}/${ov.totalStep}, points=${JSON.stringify(ov.points)}`);
+      });
+    };
+    chartContainerRef.current?.addEventListener('click', probe, { capture: false, once: false });
+    // We store the probe on the ref so we can remove it when tool is deactivated
+    (chartInstance.current as any)._debugDrawProbe = probe;
+    (chartInstance.current as any)._debugDrawProbeContainer = chartContainerRef.current;
+    console.log(`[DEBUG] handleSelectTool - Click probe installed on chart container`);
+
+    // Text Annotation needs custom input data
+    if (overlayName === 'simpleAnnotation') {
+      console.log(`[DEBUG] handleSelectTool - Creating simpleAnnotation overlay`);
+      const id = chartInstance.current.createOverlay({
+        name: 'simpleAnnotation',
+        paneId: 'candle_pane',
+        zLevel: 100,
+        mode: magnetMode,
+        modeSensitivity: 8,
+        styles: {
+          text: {
+            color: '#2196f3'
+          }
+        },
+        onDrawStart: () => {
+          console.log(`[DEBUG] simpleAnnotation - onDrawStart fired`);
+        },
+        onDrawing: (event: any) => {
+          console.log(`[DEBUG] simpleAnnotation - onDrawing fired, step: ${event?.overlay?.currentStep}, points:`, event?.overlay?.points);
+        },
+        onDrawEnd: (event: any) => {
+          const text = prompt('Enter annotation text:') || 'Annotation';
+          console.log(`[DEBUG] simpleAnnotation - Custom text supplied: '${text}'. Binding to overlay.`);
+          chartInstance.current?.overrideOverlay({
+            id: event.overlay.id,
+            extendData: text,
+          });
+          if (chartInstance.current) {
+            (chartInstance.current as any)._justFinishedDrawingId = event.overlay.id;
+          }
+          activeOverlayIdRef.current = null;
+          setActiveTool(null);
+          chartInstance.current?.setScrollEnabled(true);
+          chartInstance.current?.setZoomEnabled(true);
+          // Remove probe
+          const p = (chartInstance.current as any)?._debugDrawProbe;
+          const c = (chartInstance.current as any)?._debugDrawProbeContainer;
+          if (p && c) { c.removeEventListener('click', p); }
+          console.log(`[DEBUG] simpleAnnotation - Completed and restored scroll/zoom.`);
+          return true;
+        },
+        onPressedMoveStart: (event: any) => {
+          if (event.chart._initMultiMove) {
+            event.chart._initMultiMove(event);
+          }
+        },
+        onPressedMoving: (event: any) => {
+          const currentPoints = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' });
+          if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
+            event.chart.overrideOverlay({
+              id: event.overlay.id,
+              points: currentPoints
+            });
+            if (event.chart._handleMultiMove) {
+              event.chart._handleMultiMove(event);
+            }
+          }
+        },
+        onClick: (event: any) => {
+          const id = event.overlay.id;
+          if (event.chart._justFinishedDrawingId === id) {
+            event.chart._justFinishedDrawingId = null;
+            return true;
+          }
+          event.chart._clickedOnOverlay = true;
+          if (event.chart._setSelectedOverlayIds) {
+            const isCtrl = event.chart._isCtrlPressedRef?.current || false;
+            const currentSelected = event.chart._selectedOverlayIds || [];
+            if (isCtrl) {
+              if (currentSelected.includes(id)) {
+                event.chart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
+              } else {
+                event.chart._setSelectedOverlayIds([...currentSelected, id]);
+              }
+            } else {
+              event.chart._setSelectedOverlayIds([id]);
+            }
+          }
+          return true;
+        }
+      });
+      activeOverlayIdRef.current = (typeof id === 'string' ? id : (id as any)?.id) || null;
+    } else {
+      // Normal drawings
+      console.log(`[DEBUG] handleSelectTool - Creating native overlay '${overlayName}'`);
+      
+      const overlayOptions: any = {
+        name: overlayName,
+        paneId: 'candle_pane',
+        zLevel: 100,
+        mode: magnetMode,
+        modeSensitivity: 8,
+        onDrawStart: () => {
+          console.log(`[DEBUG] overlay '${overlayName}' - onDrawStart fired`);
+        },
+        onDrawing: (event: any) => {
+          console.log(`[DEBUG] overlay '${overlayName}' - onDrawing fired, step: ${event?.overlay?.currentStep}/${event?.overlay?.totalStep}, points:`, event?.overlay?.points);
+          
+          if (isShiftPressedRef.current && chartInstance.current) {
+            const points = event.overlay.points;
+            if (points && points.length >= 2) {
+              const movingIndex = points.length - 1;
+              const baseIndex = points.length - 2;
+              const pBase = points[baseIndex];
+              const pMoving = points[movingIndex];
+
+              if (pBase && pMoving) {
+                const pixels = chartInstance.current.convertToPixel([pBase, pMoving], { paneId: 'candle_pane' });
+                if (pixels && pixels.length === 2 && pixels[0] && pixels[1]) {
+                  const x1 = pixels[0].x;
+                  const y1 = pixels[0].y;
+                  const x2 = pixels[1].x;
+                  const y2 = pixels[1].y;
+
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const r = Math.sqrt(dx * dx + dy * dy);
+                  if (r > 0) {
+                    const angle = Math.atan2(dy, dx);
+
+                    // Snap to nearest 45 degrees
+                    const angleSteps = Math.PI / 4;
+                    const nearestStep = Math.round(angle / angleSteps);
+                    const snappedAngle = nearestStep * angleSteps;
+
+                    // Perpendicular projection of mouse pointer onto snapped line
+                    const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
+
+                    const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
+                    const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
+
+                    const snappedPoints = chartInstance.current.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
+                    if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
+                      // Modify the point in-place to preserve KLineCharts' internal reference tracking
+                      event.overlay.points[movingIndex] = snappedPoints[0];
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        onDrawEnd: (event: any) => {
+          console.log(`[DEBUG] overlay '${overlayName}' - Completed drawing. Overlay details:`, event);
+          
+          if (overlayName === 'rect') {
+            const points = event.overlay.points;
+            if (points && points.length >= 2) {
+              const p0 = points[0];
+              const p1 = points[points.length - 1]; // opposite corner
+              
+              const xMin = p0.timestamp;
+              const xMax = p1.timestamp;
+              const yMin = p0.value;
+              const yMax = p1.value;
+              const diMin = p0.dataIndex;
+              const diMax = p1.dataIndex;
+              
+              const xMid = (xMin + xMax) / 2;
+              const yMid = (yMin + yMax) / 2;
+              const diMid = (diMin !== undefined && diMax !== undefined) ? Math.round((diMin + diMax) / 2) : undefined;
+              
+              const newPoints = [
+                { timestamp: xMin, value: yMin, dataIndex: diMin }, // 0: top-left
+                { timestamp: xMax, value: yMin, dataIndex: diMax }, // 1: top-right
+                { timestamp: xMax, value: yMax, dataIndex: diMax }, // 2: bottom-right
+                { timestamp: xMin, value: yMax, dataIndex: diMin }, // 3: bottom-left
+                { timestamp: xMid, value: yMin, dataIndex: diMid }, // 4: top-center
+                { timestamp: xMid, value: yMax, dataIndex: diMid }, // 5: bottom-center
+                { timestamp: xMin, value: yMid, dataIndex: diMin }, // 6: left-center
+                { timestamp: xMax, value: yMid, dataIndex: diMax }  // 7: right-center
+              ];
+              
+              chartInstance.current?.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+          } else if (overlayName === 'priceChannel') {
+            const points = event.overlay.points;
+            if (points && points.length >= 3) {
+              const entryTs = points[0].timestamp;
+              const entryVal = points[0].value;
+              const endTs = points[1].timestamp;
+              const tpVal = points[1].value;
+              const slVal = points[2].value;
+
+              const xMin = Math.min(entryTs, endTs);
+              const xMax = Math.max(entryTs, endTs);
+
+              const diMin = entryTs < endTs ? points[0].dataIndex : points[1].dataIndex;
+              const diMax = entryTs < endTs ? points[1].dataIndex : points[0].dataIndex;
+
+              // 6 points: 4 corners (TP-left, TP-right, SL-right, SL-left) + 2 entry midpoints
+              const newPoints = [
+                { timestamp: xMin, value: tpVal, dataIndex: diMin },   // 0: TP-left (top-left corner)
+                { timestamp: xMax, value: tpVal, dataIndex: diMax },   // 1: TP-right (top-right corner)
+                { timestamp: xMax, value: slVal, dataIndex: diMax },   // 2: SL-right (bottom-right corner)
+                { timestamp: xMin, value: slVal, dataIndex: diMin },   // 3: SL-left (bottom-left corner)
+                { timestamp: xMin, value: entryVal, dataIndex: diMin }, // 4: Entry-left (left-center)
+                { timestamp: xMax, value: entryVal, dataIndex: diMax }  // 5: Entry-right (right-center)
+              ];
+
+              chartInstance.current?.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+          }
+
+          if (chartInstance.current) {
+            (chartInstance.current as any)._justFinishedDrawingId = event.overlay.id;
+          }
+
+          activeOverlayIdRef.current = null;
+          setActiveTool(null);
+          chartInstance.current?.setScrollEnabled(true);
+          chartInstance.current?.setZoomEnabled(true);
+          // Remove probe
+          const p = (chartInstance.current as any)?._debugDrawProbe;
+          const c = (chartInstance.current as any)?._debugDrawProbeContainer;
+          if (p && c) { c.removeEventListener('click', p); }
+          console.log(`[DEBUG] overlay '${overlayName}' - Restored scroll/zoom.`);
+          return true;
+        }
+      };
+
+      // Only attach generic style and event handlers if we are drawing native overlays (segment, horizontalStraightLine)
+      // Custom overlays (rect, priceChannel) define their own handlers in overlays.ts to avoid overwriting template callbacks
+      if (overlayName !== 'rect' && overlayName !== 'priceChannel') {
+        overlayOptions.styles = {
+          line: {
+            color: '#2196f3',
+            size: 1.5
+          }
+        };
+
+        overlayOptions.onPressedMoveStart = (event: any) => {
+          const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
+          let closestIndex = 0;
+          let minDistance = Infinity;
+          pts.forEach((pt: any, idx: number) => {
+            if (pt) {
+              const dist = Math.sqrt((pt.x - event.x) ** 2 + (pt.y - event.y) ** 2);
+              if (dist < minDistance) {
+                minDistance = dist;
+                closestIndex = idx;
+              }
+            }
+          });
+          const isHandle = minDistance < 12;
+          event.chart.overrideOverlay({
+            id: event.overlay.id,
+            extendData: { draggedIndex: isHandle ? closestIndex : null }
+          });
+
+          if (event.chart._initMultiMove) {
+            event.chart._initMultiMove(event);
+          }
+        };
+
+        overlayOptions.onPressedMoving = (event: any) => {
+          const draggedIndex = event.overlay.extendData?.draggedIndex;
+          if (draggedIndex === undefined) return;
+
+          if (draggedIndex === null) {
+            if (event.chart._handleMultiMove) {
+              event.chart._handleMultiMove(event);
+            }
+            return;
+          }
+
+          if (overlayName === 'segment') {
+            const points = event.overlay.points;
+            if (points && points.length === 2) {
+              const movingIndex = draggedIndex;
+              const baseIndex = draggedIndex === 0 ? 1 : 0;
+              const pBase = points[baseIndex];
+              const isShift = event.chart._isShiftPressedRef?.current || false;
+              
+              if (isShift && pBase) {
+                const pixels = event.chart.convertToPixel([pBase], { paneId: 'candle_pane' });
+                if (pixels && pixels.length > 0 && pixels[0]) {
+                  const x1 = pixels[0].x;
+                  const y1 = pixels[0].y;
+                  const x2 = event.x;
+                  const y2 = event.y;
+
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const r = Math.sqrt(dx * dx + dy * dy);
+                  if (r > 0) {
+                    const angle = Math.atan2(dy, dx);
+                    const angleSteps = Math.PI / 4;
+                    const nearestStep = Math.round(angle / angleSteps);
+                    const snappedAngle = nearestStep * angleSteps;
+
+                    const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
+                    const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
+                    const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
+
+                    const snappedPoints = event.chart.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
+                    if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
+                      const newPoints = [...points];
+                      newPoints[movingIndex] = snappedPoints[0];
+                      event.chart.overrideOverlay({
+                        id: event.overlay.id,
+                        points: newPoints
+                      });
+                      return;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Default free movement for any handle — apply magnet snap if active
+          const points = event.overlay.points;
+          if (points && draggedIndex !== null) {
+            const rawX = event.x;
+            const rawY = event.y;
+            const mode: string = event.chart._magnetMode ?? 'normal';
+            let snappedPt = null;
+
+            if (mode === 'weak_magnet' || mode === 'strong_magnet') {
+              const mousePt = event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' })?.[0];
+              if (mousePt) {
+                const dataList = event.chart.getDataList();
+                if (dataList && dataList.length > 0) {
+                  const rawIdx = Math.round(mousePt.dataIndex);
+                  const dataIndex = Math.max(0, Math.min(dataList.length - 1, rawIdx));
+                  const candle = dataList[dataIndex];
+                  if (candle) {
+                    const prices = [candle.open, candle.high, candle.low, candle.close];
+                    let closestPrice = prices[0];
+                    let minDiff = Math.abs(mousePt.value - closestPrice);
+                    for (let i = 1; i < prices.length; i++) {
+                      const diff = Math.abs(mousePt.value - prices[i]);
+                      if (diff < minDiff) { minDiff = diff; closestPrice = prices[i]; }
+                    }
+
+                    let shouldSnap = mode === 'strong_magnet';
+                    if (mode === 'weak_magnet') {
+                      const sensitivity = event.overlay.modeSensitivity || 8;
+                      const pixResult = event.chart.convertToPixel(
+                        [{ timestamp: candle.timestamp, value: closestPrice }],
+                        { paneId: 'candle_pane' }
+                      );
+                      const pixY = pixResult?.[0]?.y;
+                      if (pixY !== undefined && Math.abs(rawY - pixY) <= sensitivity) {
+                        shouldSnap = true;
+                      }
+                    }
+
+                    if (shouldSnap) {
+                      snappedPt = { ...mousePt, value: closestPrice };
+                    }
+                  }
+                }
+              }
+            }
+
+            const currentPoints = snappedPt
+              ? [snappedPt]
+              : event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' });
+            if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
+              const newPoints = [...points];
+              newPoints[draggedIndex] = currentPoints[0];
+              event.chart.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+          }
+        };
+
+        overlayOptions.onClick = (event: any) => {
+          const id = event.overlay.id;
+          if (event.chart._justFinishedDrawingId === id) {
+            event.chart._justFinishedDrawingId = null;
+            return true;
+          }
+          event.chart._clickedOnOverlay = true;
+          if (event.chart._setSelectedOverlayIds) {
+            const isCtrl = event.chart._isCtrlPressedRef?.current || false;
+            const currentSelected = event.chart._selectedOverlayIds || [];
+            if (isCtrl) {
+              if (currentSelected.includes(id)) {
+                event.chart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
+              } else {
+                event.chart._setSelectedOverlayIds([...currentSelected, id]);
+              }
+            } else {
+              event.chart._setSelectedOverlayIds([id]);
+            }
+          }
+          return true;
+        };
+      }
+
+      const id = chartInstance.current.createOverlay(overlayOptions);
+      activeOverlayIdRef.current = (typeof id === 'string' ? id : (id as any)?.id) || null;
+    }
+    console.log(`[DEBUG] handleSelectTool - Overlay '${overlayName}' created. Current overlays:`, chartInstance.current.getOverlays());
+  };
+
+  // Clear all drawings
+  const handleClearDrawings = () => {
+    console.log('[DEBUG] handleClearDrawings - Removing all overlays and resetting tools.');
+    if (chartInstance.current) {
+      chartInstance.current.removeOverlay();
+      // Re-create the custom persistent price line overlay
+      chartInstance.current.createOverlay({
+        name: 'customPriceLine',
+        id: 'custom_price_line_overlay',
+        points: [{ timestamp: 0, value: 0 }],
+        lock: true
+      });
+      setActiveTool(null);
+      chartInstance.current.setScrollEnabled(true);
+      chartInstance.current.setZoomEnabled(true);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen w-screen bg-[#131722] text-[#b2b5be] overflow-hidden select-none">
+      
+      {/* Top Navbar */}
+      <header className="h-12 bg-[#1e222d] border-b border-gray-950 flex items-center justify-between px-4 z-20">
+        
+        {/* Left Side: Asset Name & Status Indicators */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-indigo-400">
+            <LineChart className="w-5 h-5" />
+            <span className="font-semibold text-xs tracking-wider uppercase text-white">FX Freeplay</span>
+          </div>
+          <div className="h-4 w-px bg-gray-800" />
+          <span className="text-sm font-semibold text-white truncate max-w-[120px] sm:max-w-xs">{assetName}</span>
+
+          {hasData && parseFeedback && (
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                parseFeedback.skippedCount > 0
+                  ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400 hover:bg-yellow-500/20'
+                  : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${parseFeedback.skippedCount > 0 ? 'bg-yellow-400' : 'bg-green-400'}`} />
+              <span>{parseFeedback.skippedCount > 0 ? 'Warnings' : 'Import OK'}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Center: Timeframes */}
+        <div className="relative flex items-center bg-gray-950/40 p-0.5 rounded-lg border border-gray-800/80">
+          {HEADER_TIMEFRAMES.map((tfValue) => {
+            const isPresetActive = activeTimeframe === tfValue;
+            const preset = PRESET_TIMEFRAMES.find(p => p.value === tfValue);
+            const label = preset ? preset.label : tfValue;
+            return (
+              <button
+                key={tfValue}
+                disabled={!hasData}
+                onClick={() => handleTimeframeSwitch(tfValue)}
+                className={`px-3 py-1 rounded-md text-xs font-semibold tracking-wide transition-all ${
+                  isPresetActive
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-850 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+
+          {/* Temporary Active Button if it is not in the Header presets */}
+          {!HEADER_TIMEFRAMES.includes(activeTimeframe) && (
+            <button
+              disabled={!hasData}
+              className="px-3 py-1 rounded-md text-xs font-semibold tracking-wide bg-indigo-600 text-white shadow-md"
+            >
+              {activeTimeframe}
+            </button>
+          )}
+
+          {/* Dropdown Chevron Button */}
+          <button
+            disabled={!hasData}
+            onClick={() => setIsTfDropdownOpen(!isTfDropdownOpen)}
+            className={`p-1.5 ml-0.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-850 transition-colors disabled:opacity-40 ${
+              isTfDropdownOpen ? 'bg-gray-800 text-white' : ''
+            }`}
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+
+          {isTfDropdownOpen && (
+            <>
+              {/* Dismiss backdrop */}
+              <div 
+                className="fixed inset-0 z-30 cursor-default" 
+                onClick={() => setIsTfDropdownOpen(false)}
+              />
+              
+              {/* Premium Dropdown Popover */}
+              <div className="absolute top-full right-0 mt-1.5 z-40 w-72 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl p-3 flex flex-col gap-3 text-left">
+                {/* Minutes Grid */}
+                <div>
+                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Minutes</div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {['1m', '2m', '3m', '5m', '10m', '15m', '30m', '45m'].map((tfVal) => {
+                      const preset = PRESET_TIMEFRAMES.find(p => p.value === tfVal);
+                      const label = preset ? preset.label : tfVal;
+                      const isActive = activeTimeframe === tfVal;
+                      return (
+                        <button
+                          key={tfVal}
+                          onClick={() => {
+                            handleTimeframeSwitch(tfVal);
+                            setIsTfDropdownOpen(false);
+                          }}
+                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Hours Grid */}
+                <div>
+                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Hours</div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {['1h', '2h', '3h', '4h', '6h', '12h'].map((tfVal) => {
+                      const preset = PRESET_TIMEFRAMES.find(p => p.value === tfVal);
+                      const label = preset ? preset.label : tfVal;
+                      const isActive = activeTimeframe === tfVal;
+                      return (
+                        <button
+                          key={tfVal}
+                          onClick={() => {
+                            handleTimeframeSwitch(tfVal);
+                            setIsTfDropdownOpen(false);
+                          }}
+                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Days & Above Grid */}
+                <div>
+                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Days & Above</div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {['D', 'W', 'M'].map((tfVal) => {
+                      const preset = PRESET_TIMEFRAMES.find(p => p.value === tfVal);
+                      const label = preset ? preset.label : tfVal;
+                      const isActive = activeTimeframe === tfVal;
+                      return (
+                        <button
+                          key={tfVal}
+                          onClick={() => {
+                            handleTimeframeSwitch(tfVal);
+                            setIsTfDropdownOpen(false);
+                          }}
+                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Timeframes */}
+                {customTimeframes.length > 0 && (
+                  <div>
+                    <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Custom</div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {customTimeframes.map((tf) => {
+                        const isActive = activeTimeframe === tf.value;
+                        return (
+                          <button
+                            key={tf.value}
+                            onClick={() => {
+                              handleTimeframeSwitch(tf.value);
+                              setIsTfDropdownOpen(false);
+                            }}
+                            className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                              isActive
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                            }`}
+                          >
+                            {tf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="h-px bg-gray-800/80 my-0.5" />
+
+                {/* Add Custom Interval Form */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">Add Custom Interval</div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={customValue}
+                      onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-16 bg-gray-950 border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 text-center"
+                    />
+                    <select
+                      value={customUnit}
+                      onChange={(e: any) => setCustomUnit(e.target.value)}
+                      className="flex-1 bg-gray-950 border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="minutes">Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        handleAddCustomTimeframe(customValue, customUnit);
+                        setIsTfDropdownOpen(false);
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Right Side: Replay and Settings */}
+        <div className="flex items-center gap-2">
+          
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-2 rounded-lg border border-gray-800 bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-colors duration-150"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Floating CSV Import Stats Card */}
+      {hasData && parseFeedback && showStats && (
+        <div className="fixed top-14 left-4 z-40 w-80 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-150">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+            <span className="text-xs font-bold text-white uppercase tracking-wider">CSV Parsing Metrics</span>
+            <button
+              onClick={() => setShowStats(false)}
+              className="text-gray-400 hover:text-white transition-colors duration-150 p-0.5 rounded hover:bg-gray-850"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          
+          <div className="p-4 flex flex-col gap-3.5 text-xs">
+            <div className="flex items-center justify-between border-b border-gray-800/40 pb-2">
+              <span className="text-gray-400 font-medium">Status</span>
+              <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
+                parseFeedback.skippedCount > 0 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'
+              }`}>
+                {parseFeedback.skippedCount > 0 ? 'Warnings Detected' : 'Perfect Ingestion'}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">Total rows read</span>
+              <span className="text-white font-medium">{parseFeedback.rowCount.toLocaleString()}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">Successfully loaded</span>
+              <span className="text-green-400 font-bold">{parseFeedback.parsedCount.toLocaleString()} bars</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-400">Skipped (Format error)</span>
+              <span className={`${parseFeedback.skippedCount > 0 ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
+                {parseFeedback.skippedCount} rows
+              </span>
+            </div>
+
+            <div className="flex justify-between flex-wrap gap-1">
+              <span className="text-gray-400">Columns found</span>
+              <span className="text-white font-mono text-[10px] text-right break-all truncate max-w-[150px]">
+                {parseFeedback.headers.join(', ')}
+              </span>
+            </div>
+
+            {parseFeedback.errors.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-800">
+                <span className="text-xs font-semibold text-yellow-450 block mb-2 uppercase tracking-wide text-[10px]">Skipped Rows Details:</span>
+                <div className="max-h-24 overflow-y-auto bg-black/45 border border-gray-800 rounded-lg p-2.5 text-[10px] text-gray-400 font-mono flex flex-col gap-1.5">
+                  {parseFeedback.errors.slice(0, 5).map((err, i) => (
+                    <div key={i} className="flex gap-1.5">
+                      <span className="text-yellow-500 font-bold">•</span>
+                      <span>{err}</span>
+                    </div>
+                  ))}
+                  {parseFeedback.errors.length > 5 && (
+                    <div className="text-gray-500 italic mt-0.5">...and {parseFeedback.errors.length - 5} more lines</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Area */}
+      <div className="flex flex-1 w-full h-[calc(100vh-6rem)] overflow-hidden relative">
+        
+        {/* Left Toolbar */}
+        <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
+          <button
+            title="Trend Line"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('trendLine')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'trendLine'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M7.354 21.354l14-14-.707-.707-14 14z" />
+                <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Horizontal Line"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('horizontalLine')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'horizontalLine'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M4 15h8.5v-1h-8.5zM16.5 15h8.5v-1h-8.5z" />
+                <path d="M14.5 16c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Rectangle"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('rect')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'rect'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M7.5 6h13v-1h-13z" id="Line" />
+                <path d="M7.5 23h13v-1h-13z" />
+                <path d="M5 7.5v13h1v-13z" />
+                <path d="M22 7.5v13h1v-13z" />
+                <path d="M5.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Fibonacci Retracement"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('fibonacciLine')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'fibonacciLine'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M3 5h22v-1h-22z" />
+                <path d="M3 17h22v-1h-22z" />
+                <path d="M3 11h19.5v-1h-19.5z" />
+                <path d="M5.5 23h19.5v-1h-19.5z" />
+                <path d="M3.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM24.5 12c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Risk/Reward Long Position"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('priceChannel')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'priceChannel'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <path d="M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M25 18H5v-1h20zm-11-4h3v1h-4V9h1zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3" />
+            </svg>
+          </button>
+
+          <button
+            title="Text Annotation"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('simpleAnnotation')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'simpleAnnotation'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <path d="M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z" />
+            </svg>
+          </button>
+
+          <div className="w-6 h-[1px] bg-gray-800/80 my-0.5" />
+
+          {/* Save Reset Position */}
+          <button
+            title="Save current position as default reset view"
+            disabled={!hasData}
+            onClick={handleSaveResetPosition}
+            className="p-2 rounded-lg border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L12 12"/>
+              <path d="M8 8l4 4 4-4"/>
+              <path d="M3 15v2a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4v-2"/>
+            </svg>
+          </button>
+
+          <div className="w-6 h-[1px] bg-gray-800/80 my-0.5" />
+
+          <button
+            title="Clear Drawings"
+            disabled={!hasData}
+            onClick={handleClearDrawings}
+            className="p-2 rounded-lg border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+          >
+            <Trash2 className="w-4.5 h-4.5" />
+          </button>
+
+          <div className="relative">
+            <button
+              title="Magnet Mode (Snap to OHLC)"
+              disabled={!hasData}
+              onClick={handleToggleMagnet}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (!hasData) return;
+                setMagnetMenuPos({ x: e.clientX, y: e.clientY });
+                setIsMagnetMenuOpen(true);
+              }}
+              className={`p-2 rounded-lg border transition-all ${
+                magnetMode !== 'normal'
+                  ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+              }`}
+            >
+              {magnetMode === 'strong_magnet' ? (
+                <StrongMagnetIcon className="w-4.5 h-4.5" />
+              ) : (
+                <Magnet className="w-4.5 h-4.5" />
+              )}
+            </button>
+
+            {isMagnetMenuOpen && (
+              <div
+                ref={magnetMenuRef}
+                className="fixed z-50 bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1.5 text-sm min-w-[170px]"
+                style={{
+                  left: `${magnetMenuPos.x + 10}px`,
+                  top: `${magnetMenuPos.y - 40}px`,
+                }}
+              >
+                <button
+                  onClick={() => {
+                    selectMagnetMode('weak_magnet');
+                    setIsMagnetMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                    magnetMode === 'weak_magnet'
+                      ? 'bg-[#f0f3fa] text-gray-900 font-medium'
+                      : 'text-gray-200 hover:bg-gray-800/60'
+                  }`}
+                >
+                  <WeakMagnetIcon className={`w-4.5 h-4.5 ${magnetMode === 'weak_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
+                  <span>Weak magnet</span>
+                </button>
+                <button
+                  onClick={() => {
+                    selectMagnetMode('strong_magnet');
+                    setIsMagnetMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                    magnetMode === 'strong_magnet'
+                      ? 'bg-[#f0f3fa] text-gray-900 font-medium'
+                      : 'text-gray-200 hover:bg-gray-800/60'
+                  }`}
+                >
+                  <StrongMagnetIcon className={`w-4.5 h-4.5 ${magnetMode === 'strong_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
+                  <span>Strong magnet</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Charting Canvas container */}
+        <main className="flex-1 h-full w-[calc(100vw-3rem)] relative bg-[#131722]">
+          
+          {/* KLineChart mount element */}
+          <div
+            ref={chartContainerRef}
+            className={`w-full h-full transition-colors duration-200 ${isSelectingCutPoint ? 'cursor-cell' : ''}`}
+            style={{ backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background }}
+          />
+
+          {/* Reset View Button — appears on hover at bottom-center */}
+          {hasData && (
+            <button
+              onClick={resetChartView}
+              title="Reset view (center last candle)"
+              className="
+                absolute bottom-8 left-1/2 -translate-x-1/2 z-20
+                flex items-center gap-1.5
+                px-3.5 py-1.5
+                bg-[#1e222d]/80 hover:bg-[#2a2e3d]/95
+                border border-white/10 hover:border-indigo-400/50
+                text-gray-400 hover:text-indigo-300
+                text-[10px] font-semibold tracking-wider uppercase
+                rounded-full
+                backdrop-blur-sm
+                shadow-lg shadow-black/40
+                transition-all duration-200
+                opacity-0 hover:opacity-100
+                pointer-events-auto
+                select-none
+              "
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              Reset View
+            </button>
+          )}
+
+          {/* Large responsive asset watermark */}
+          {hasData && settings.showWatermark && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+              <div className="text-[7vw] font-extrabold tracking-wider text-white opacity-[0.025] uppercase font-sans">
+                {assetName}
+              </div>
+            </div>
+          )}
+
+          {/* Floating Crosshair Indicator */}
+          {activeTool && (
+            <div className="absolute top-3 left-3 px-3 py-1 bg-indigo-600 text-white rounded-md text-[10px] font-bold tracking-wider uppercase shadow-lg border border-indigo-500 animate-pulse pointer-events-none z-10">
+              Drawing Mode: {activeTool}
+            </div>
+          )}
+
+          {/* Vertical Cut Selection Line */}
+          {isSelectingCutPoint && cutPointHoverX !== null && (
+            <div
+              className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500 pointer-events-none z-10"
+              style={{ left: `${cutPointHoverX}px` }}
+            />
+          )}
+
+          {/* Cutpoint Selection Banner */}
+          {isReplayActive && isSelectingCutPoint && (
+            <div className="absolute top-14 left-1/2 transform -translate-x-1/2 z-30 bg-[#1e222d]/90 border border-indigo-500/35 backdrop-blur-md px-6 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-250">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" style={{ backgroundColor: '#6366f1' }} />
+              <span className="text-xs text-white font-medium">
+                Click on any candle in the chart to set the starting point for replay.
+              </span>
+              <button
+                onClick={() => setIsSelectingCutPoint(false)}
+                className="text-gray-400 hover:text-white text-xs font-semibold bg-gray-800/50 hover:bg-gray-800 px-2.5 py-1 rounded-lg transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+
+
+          {/* Loader when checking cache */}
+          {isCheckingCache && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#131722] gap-4 select-none">
+              <div className="relative w-12 h-12 flex items-center justify-center">
+                <div className="absolute w-12 h-12 border-[3px] border-indigo-500/20 rounded-full" />
+                <div className="absolute w-12 h-12 border-[3px] border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+              <div className="flex flex-col items-center gap-1.5 mt-2 animate-pulse">
+                <span className="text-xs font-bold uppercase tracking-widest text-white">Restoring Session</span>
+                <span className="text-[10px] text-gray-500 font-medium">Please wait while we load your chart data...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Dropzone (Hides automatically when hasData = true) */}
+          {!hasData && !isCheckingCache && (
+            <div
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 bg-[#131722]/98 transition-all gap-5 overflow-y-auto"
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".csv"
+                onChange={handleFileChange}
+              />
+              
+              {parseFeedback && parseFeedback.parsedCount === 0 ? (
+                // FAILED INGESTION LOG VIEW
+                <div className="max-w-xl w-full text-left flex flex-col bg-[#1e222d] border border-red-500/20 p-8 rounded-2xl shadow-xl backdrop-blur-md">
+                  <div className="flex items-center gap-3 text-red-500 mb-4 border-b border-gray-800 pb-3">
+                    <AlertCircle className="w-6 h-6" />
+                    <span className="font-semibold text-xs tracking-wider uppercase text-white">Import Failed</span>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                    The uploaded CSV file could not be parsed. Please check if the file format matches standard 1-Minute OHLCV columns (Date/Timestamp, Open, High, Low, Close, Volume).
+                  </p>
+
+                  <div className="bg-black/40 border border-gray-800 rounded-lg p-3.5 mb-5 flex flex-col gap-1.5 text-xs font-mono text-gray-400">
+                    <div><span className="text-gray-500 font-sans">Headers detected:</span> {parseFeedback.headers.length > 0 ? parseFeedback.headers.join(', ') : 'None'}</div>
+                    <div><span className="text-gray-500 font-sans">Total rows:</span> {parseFeedback.rowCount}</div>
+                  </div>
+
+                  <span className="text-[10px] font-bold text-red-400 mb-2 uppercase tracking-wider">Error Details:</span>
+                  <div className="max-h-40 overflow-y-auto bg-red-950/5 border border-red-950/15 rounded-lg p-4 mb-6 flex flex-col gap-2.5 text-xs text-red-300 font-mono">
+                    {parseFeedback.errors.map((err, idx) => (
+                      <div key={idx} className="flex gap-2">
+                        <span className="text-red-500 font-bold">•</span>
+                        <span>{err}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => setParseFeedback(null)}
+                      className="px-4 py-2 border border-gray-800 hover:bg-gray-800 hover:text-white rounded-xl text-xs font-semibold text-gray-400 hover:border-gray-700 transition-all"
+                    >
+                      Reset Upload
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Choose Different File</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // STANDARD DUAL MODE IMPORT VIEW
+                <div className="flex flex-col items-center justify-start h-[578px] w-full max-w-lg gap-5">
+                  {/* Mode Tab Switcher */}
+                  <div className="flex bg-[#131722] p-1 rounded-xl border border-gray-800/85 w-72 h-[38px] transition-all shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportMode('single');
+                        setIsBrokerTfDropdownOpen(false);
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                        importMode === 'single'
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Single File</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportMode('folder');
+                        setIsBrokerTfDropdownOpen(false);
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
+                        importMode === 'folder'
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>Folder Mode</span>
+                    </button>
+                  </div>
+
+                  {importMode === 'single' ? (
+                    // SINGLE FILE IMPORT PROMPT
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full max-w-lg text-center flex flex-col items-center bg-[#1e222d]/60 border border-gray-800 p-8 rounded-2xl shadow-xl backdrop-blur-md hover:border-gray-700 cursor-pointer group h-[520px] justify-between"
+                    >
+                      <div className="w-full h-[340px] flex flex-col justify-start gap-4 items-center">
+                        <div className="flex flex-col items-center mb-1">
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3">
+                            <FileSpreadsheet className="w-6 h-6" />
+                          </div>
+                          <h3 className="text-base font-semibold text-white mb-1.5 tracking-wide">
+                            Import Single CSV File
+                          </h3>
+                          <p className="text-xs text-gray-400 leading-relaxed max-w-md">
+                            Upload your 1-minute OHLCV data file to generate multiple higher timeframe chart views.
+                          </p>
+                        </div>
+
+                        <div className={`w-full border border-dashed rounded-xl p-6 flex flex-col items-center ${
+                          isDragging 
+                            ? 'border-indigo-500 bg-indigo-950/10' 
+                            : 'border-gray-800/80 group-hover:border-gray-700 bg-black/10'
+                        }`}>
+                          <Upload className="w-10 h-10 text-gray-500 group-hover:text-indigo-400 transition-colors mb-3" />
+                          <span className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors mb-1">Select 1-Min CSV File</span>
+                          <span className="text-[11px] text-gray-500 mb-3.5">Drag & drop your file here, or click to browse</span>
+                          <div className="w-72 h-[38px] flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 group-hover:bg-indigo-500 transition-all">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Choose CSV File</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Custom Timezone Selector */}
+                      <div 
+                        ref={brokerTfDropdownRef}
+                        onClick={(e) => e.stopPropagation()} 
+                        className="relative w-72 select-none text-left z-20"
+                      >
+                        <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1.5 text-center">
+                          Broker's Server Timezone (Optional)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsBrokerTfDropdownOpen(!isBrokerTfDropdownOpen)}
+                          className="w-full h-[38px] flex items-center justify-between bg-[#131722] hover:bg-[#131722]/80 border border-gray-800 focus:border-indigo-500 rounded-xl px-4 text-xs text-white transition-all cursor-pointer font-medium"
+                        >
+                          <span className="truncate">{tempBrokerOffset === 'exchange' ? 'Default / Disabled (Configure Later)' : tempBrokerOffset}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isBrokerTfDropdownOpen ? 'rotate-180 text-white' : ''}`} />
+                        </button>
+                        
+                        {isBrokerTfDropdownOpen && (
+                          <div className="absolute left-0 right-0 mt-1.5 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-gray-850">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempBrokerOffset('exchange');
+                                setIsBrokerTfDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-gray-800 hover:text-white cursor-pointer ${
+                                tempBrokerOffset === 'exchange' ? 'text-indigo-400 font-bold bg-indigo-500/5' : 'text-gray-400'
+                              }`}
+                            >
+                              Default / Disabled (Configure Later)
+                            </button>
+                            {TIMEZONE_OPTIONS.filter(opt => opt.value !== 'exchange').map((opt) => (
+                              <button
+                                key={opt.label}
+                                type="button"
+                                onClick={() => {
+                                  setTempBrokerOffset(opt.label);
+                                  setIsBrokerTfDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-gray-800 hover:text-white cursor-pointer ${
+                                  tempBrokerOffset === opt.label ? 'text-indigo-400 font-bold bg-indigo-500/5' : 'text-gray-400'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap justify-center gap-1.5 text-[10px] text-gray-500 font-mono">
+                        <span>Timestamp</span> • <span>Open</span> • <span>High</span> • <span>Low</span> • <span>Close</span> • <span>Volume</span>
+                      </div>
+                    </div>
+                  ) : (
+                    // FOLDER IMPORT PROMPT (UI ONLY)
+                    <div className="max-w-lg w-full text-center flex flex-col items-center bg-[#1e222d]/60 border border-gray-800 p-8 rounded-2xl shadow-xl backdrop-blur-md hover:border-gray-700 select-none group h-[520px] justify-between">
+                      <input
+                        type="file"
+                        ref={folderInputRef}
+                        className="hidden"
+                        multiple
+                        onChange={handleFolderChange}
+                        {...{ webkitdirectory: "", directory: "" }}
+                      />
+                      
+                      <div className="w-full h-[340px] flex flex-col justify-start gap-4 items-center">
+                        {!folderSymbol ? (
+                          <div className="flex flex-col items-center mb-1">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3">
+                              <FolderOpen className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-base font-semibold text-white mb-1.5 tracking-wide">
+                              Import Symbol Folder
+                            </h3>
+                            <p className="text-xs text-gray-400 leading-relaxed max-w-md">
+                              Select a folder named after your trading symbol (e.g. <code>EURUSD</code>) containing separate CSV files for individual timeframes.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center mb-1">
+                            <h3 className="text-sm font-semibold text-white tracking-wide flex items-center gap-1.5">
+                              <FolderOpen className="w-4 h-4 text-indigo-400" />
+                              <span>Symbol Folder Selected</span>
+                            </h3>
+                          </div>
+                        )}
+
+                        {folderSymbol ? (
+                          <div className="flex flex-col gap-3.5 text-left bg-black/30 border border-gray-850/30 rounded-xl p-4 w-full">
+                            <div className="flex justify-between items-center border-b border-gray-850 pb-2.5">
+                              <div>
+                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Detected Symbol</div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-sm font-bold text-white tracking-wide">{folderSymbol}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => folderInputRef.current?.click()}
+                                    className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-indigo-500/10 border border-indigo-500/20 rounded px-1.5 py-0.5"
+                                  >
+                                    <span>Change</span>
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">CSV Files</div>
+                                <div className="text-xs font-semibold text-indigo-400 font-mono mt-0.5">{folderFilesList.length} detected</div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2">Timeframe Mapping Status</div>
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {HEADER_TIMEFRAMES.map((tf) => {
+                                  const matchedFile = folderFilesList.find(f => f.timeframe === tf);
+                                  return (
+                                    <div 
+                                      key={tf} 
+                                      className={`flex items-center justify-between px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${
+                                        matchedFile 
+                                          ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-300 font-semibold' 
+                                          : 'bg-gray-900/40 border-gray-800/80 text-gray-400/85'
+                                      }`}
+                                    >
+                                      <span className="font-bold tracking-wide">{tf}</span>
+                                      {matchedFile ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                      ) : (
+                                        <span className="text-[8px] px-1 bg-gray-800/40 rounded text-gray-500 border border-gray-700/50">Resample</span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => folderInputRef.current?.click()}
+                            className="w-full border border-dashed rounded-xl p-6 flex flex-col items-center justify-center border-gray-800/80 group-hover:border-gray-700 bg-black/10 cursor-pointer"
+                          >
+                            <Folder className="w-10 h-10 text-gray-500 group-hover:text-indigo-400 transition-colors mb-3" />
+                            <span className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors mb-1">Select Symbol Directory</span>
+                            <span className="text-[11px] text-gray-500 mb-3.5">Click to browse your local symbol folder</span>
+                            <div className="w-72 h-[38px] flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 group-hover:bg-indigo-500 transition-all">
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span>Choose Folder</span>
+                            </div>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Custom Timezone Selector */}
+                      <div 
+                        ref={brokerTfDropdownRef}
+                        onClick={(e) => e.stopPropagation()} 
+                        className="relative w-72 select-none text-left z-20"
+                      >
+                        <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1.5 text-center">
+                          Broker's Server Timezone (Optional)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsBrokerTfDropdownOpen(!isBrokerTfDropdownOpen)}
+                          className="w-full h-[38px] flex items-center justify-between bg-[#131722] hover:bg-[#131722]/80 border border-gray-800 focus:border-indigo-500 rounded-xl px-4 text-xs text-white transition-all cursor-pointer font-medium"
+                        >
+                          <span className="truncate">{tempBrokerOffset === 'exchange' ? 'Default / Disabled (Configure Later)' : tempBrokerOffset}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isBrokerTfDropdownOpen ? 'rotate-180 text-white' : ''}`} />
+                        </button>
+                        
+                        {isBrokerTfDropdownOpen && (
+                          <div className="absolute left-0 right-0 mt-1.5 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-gray-850">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempBrokerOffset('exchange');
+                                setIsBrokerTfDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-gray-800 hover:text-white cursor-pointer ${
+                                tempBrokerOffset === 'exchange' ? 'text-indigo-400 font-bold bg-indigo-500/5' : 'text-gray-400'
+                              }`}
+                            >
+                              Default / Disabled (Configure Later)
+                            </button>
+                            {TIMEZONE_OPTIONS.filter(opt => opt.value !== 'exchange').map((opt) => (
+                              <button
+                                key={opt.label}
+                                type="button"
+                                onClick={() => {
+                                  setTempBrokerOffset(opt.label);
+                                  setIsBrokerTfDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-gray-800 hover:text-white cursor-pointer ${
+                                  tempBrokerOffset === opt.label ? 'text-indigo-400 font-bold bg-indigo-500/5' : 'text-gray-400'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Import Button with Coming Soon State */}
+                      <button
+                        onClick={() => setShowFolderComingSoonAlert(true)}
+                        className="w-72 h-[38px] flex items-center justify-center gap-2 bg-indigo-600/30 border border-indigo-500/20 text-gray-400 rounded-xl text-xs font-bold transition-all cursor-pointer hover:bg-indigo-600/40 hover:text-white"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>Import Folder</span>
+                        <span className="ml-1.5 px-1.5 py-0.5 bg-indigo-600/30 text-indigo-300 text-[8px] font-extrabold uppercase tracking-wider rounded border border-indigo-500/30">
+                          Coming Soon
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Footer */}
+      <footer className="h-12 bg-[#1e222d] border-t border-gray-950 flex items-center justify-between px-4 z-20 select-none">
+        {isReplayActive ? (
+          <div className="flex items-center justify-between w-full h-full">
+            {/* Left side: Replay Active Status */}
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Replay Active</span>
+            </div>
+
+            {/* Center: Replay Controls */}
+            <div className="flex items-center gap-4">
+              {/* Jump To / Scissors */}
+              <button
+                onClick={() => {
+                  console.log('[DEBUG] Replay Footer - Clicked Jump To.');
+                  setIsSelectingCutPoint(true);
+                  setIsReplayPlaying(false);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all ${
+                  isSelectingCutPoint
+                    ? 'border-indigo-500 bg-indigo-500/20 text-indigo-400 shadow-md shadow-indigo-500/10'
+                    : 'border-transparent text-gray-300 hover:bg-gray-805 hover:bg-gray-800 hover:text-white'
+                }`}
+                title="Jump to cutpoint (Click candle)"
+              >
+                <Scissors className="w-3.5 h-3.5" />
+                <span className="text-xs font-semibold">Jump To</span>
+              </button>
+
+              <div className="h-5 w-px bg-gray-800" />
+
+              {/* Step Backward */}
+              <button
+                disabled={isSelectingCutPoint || replayCurrentTimestamp === null}
+                onClick={() => {
+                  console.log('[DEBUG] Replay Footer - Step Backward clicked.');
+                  handleReplayStepBackward();
+                }}
+                className="p-1.5 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                title="Step Backward"
+              >
+                <SkipBack className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Play / Pause */}
+              <button
+                disabled={isSelectingCutPoint || replayCurrentTimestamp === null}
+                onClick={() => {
+                  console.log(`[DEBUG] Replay Footer - Play/Pause clicked. Current playing state: ${!isReplayPlaying}`);
+                  setIsReplayPlaying(!isReplayPlaying);
+                }}
+                className={`p-2 rounded-lg transition-all ${
+                  isReplayPlaying
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    : 'bg-indigo-650 text-white hover:bg-indigo-650 shadow-lg shadow-indigo-600/10'
+                } disabled:opacity-30 disabled:hover:bg-transparent`}
+                title={isReplayPlaying ? 'Pause' : 'Play Autoplay'}
+              >
+                {isReplayPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Step Forward */}
+              <button
+                disabled={isSelectingCutPoint || replayCurrentTimestamp === null}
+                onClick={() => {
+                  console.log('[DEBUG] Replay Footer - Step Forward clicked.');
+                  handleReplayStepForward();
+                }}
+                className="p-1.5 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                title="Step Forward"
+              >
+                <SkipForward className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="h-5 w-px bg-gray-800" />
+
+              {/* Speed Slider with Snap Mechanism */}
+              <div className="flex items-center gap-2.5">
+                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Speed:</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value={SPEED_STEPS.indexOf(replaySpeed)}
+                  onChange={(e) => {
+                    const idx = Number(e.target.value);
+                    const speedVal = SPEED_STEPS[idx];
+                    console.log(`[DEBUG] Replay Footer Speed - Slider changed to index ${idx} -> speed ${speedVal}s/b`);
+                    setReplaySpeed(speedVal);
+                  }}
+                  className="w-24 h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+                  title={`Playback speed: ${replaySpeed} seconds per bar`}
+                />
+                <span className="text-[11px] font-mono font-bold text-indigo-400 w-12 text-right">{replaySpeed}s/b</span>
+              </div>
+            </div>
+
+            {/* Right side: Exit Button */}
+            <button
+              onClick={() => {
+                console.log('[DEBUG] Replay Footer - Exit Replay clicked.');
+                exitReplayMode();
+              }}
+              className="flex items-center gap-1 px-3 py-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-semibold transition-all"
+              title="Exit Replay"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Exit Replay</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between w-full h-full text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Timezone:</span>
+              {/* Custom styled timezone dropdown matching import screen */}
+              <div
+                ref={footerTzDropdownRef}
+                className="relative select-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsFooterTzOpen(!isFooterTzOpen)}
+                  className="h-6 flex items-center gap-1.5 bg-[#131722] hover:bg-[#1e222d] border border-gray-800 hover:border-gray-700 focus:border-indigo-500 rounded-lg px-2.5 text-[10px] text-gray-300 font-bold transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  <span className="truncate max-w-[140px]">
+                    {settings.timezoneAdjustmentEnabled ? (settings.userTimezoneLabel || 'Exchange') : 'Exchange'}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform duration-200 flex-shrink-0 ${isFooterTzOpen ? 'rotate-180 text-white' : ''}`} />
+                </button>
+
+                {isFooterTzOpen && (
+                  <div className="absolute bottom-full mb-1.5 left-0 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl z-50 min-w-[220px] max-h-60 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-gray-850">
+                    {TIMEZONE_OPTIONS.map((opt) => {
+                      const isSelected = opt.value === 'exchange'
+                        ? !settings.timezoneAdjustmentEnabled
+                        : settings.timezoneAdjustmentEnabled && settings.userTimezoneLabel === opt.label;
+                      return (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => {
+                            setIsFooterTzOpen(false);
+                            if (opt.value === 'exchange') {
+                              const newSettings = { ...settings, timezoneAdjustmentEnabled: false };
+                              setSettings(newSettings);
+                              localStorage.setItem('tv_clone_settings', JSON.stringify(newSettings));
+                              if (raw1mData.length > 0) regenerateTimeframes(raw1mData, newSettings);
+                            } else {
+                              handleUserTimezoneChange(opt.label);
+                            }
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-gray-800 hover:text-white cursor-pointer ${
+                            isSelected ? 'text-indigo-400 font-bold bg-indigo-500/5' : 'text-gray-400'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <span>Precision: {settings.pricePrecision} Decimals</span>
+              <span>•</span>
+              <span>Ingested: {hasData ? assetName : 'None'}</span>
+              <div className="h-4 w-px bg-gray-800" />
+              <button
+                disabled={!hasData}
+                onClick={() => {
+                  setIsReplayActive(true);
+                  setIsSelectingCutPoint(true);
+                }}
+                className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors duration-150 text-xs font-bold normal-case tracking-normal disabled:opacity-30 disabled:pointer-events-none"
+                title="Bar Replay"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+                <span>Replay</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </footer>
+
+      {/* Floating Settings Modal */}
+      <ThemeSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSettingsSave={handleSettingsSave}
+        hasData={hasData}
+        lastCandleTimestamp={raw1mData.length > 0 ? raw1mData[raw1mData.length - 1].timestamp : null}
+        onUpdateData={handleUpdateData}
+        onExportCSV={handleExportCSV}
+        onClearDatabase={handleClearDatabase}
+        onUploadNewDataset={processCSVFile}
+        assetName={assetName}
+      />
+
+      {/* Folder Mode Coming Soon Alert Overlay */}
+      {showFolderComingSoonAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-205">
+          <div className="bg-[#1e222d] border border-indigo-500/30 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-left relative flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowFolderComingSoonAlert(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 text-indigo-400 mb-2">
+              <FolderOpen className="w-6 h-6" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-white">Folder Mode (Coming Soon)</h3>
+            </div>
+
+            <p className="text-xs text-gray-300 leading-relaxed">
+              The Folder Mode backend integration is currently under development!
+            </p>
+
+            <div className="bg-black/40 border border-gray-800/80 rounded-xl p-4 flex flex-col gap-3 text-xs leading-relaxed text-gray-400">
+              <div>
+                <span className="font-semibold text-white">How it will work:</span>
+                <ul className="list-disc pl-4 mt-1.5 space-y-1 text-gray-400">
+                  <li>Ingests timeframe-specific CSV files independently (e.g. 1m, 5m, 1h, D).</li>
+                  <li>Shows long-term historical bars on higher timeframes without ballooning the 1-minute file size.</li>
+                  <li>Automatically resamples missing intermediate timeframes using the closest available lower timeframe.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                onClick={() => setShowFolderComingSoonAlert(false)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
