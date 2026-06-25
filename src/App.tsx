@@ -23,7 +23,8 @@ import {
   Minus,
   ChevronRight,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  LayoutGrid
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, clearChartDataInIndexedDB, saveDirectoryHandle, loadDirectoryHandle, clearDirectoryHandle, detectPricePrecision, saveDirectoryHandles, loadDirectoryHandles } from './utils/dataUtils';
@@ -207,9 +208,150 @@ const StrongMagnetIcon = ({ className = "w-4.5 h-4.5" }: { className?: string })
   </svg>
 );
 
+const getLayoutChartCount = (type: string): number => {
+  if (type.startsWith('4')) return 4;
+  if (type.startsWith('3')) return 3;
+  if (type.startsWith('2')) return 2;
+  return 1;
+};
+
+const getLayoutClass = (type: string): string => {
+  switch (type) {
+    case '2v':
+      return 'grid grid-cols-2 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '2h':
+      return 'grid grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '3v':
+      return 'grid grid-cols-3 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '3h':
+      return 'grid grid-rows-3 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '3g1':
+      return 'grid grid-cols-3 grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '3g2':
+      return 'grid grid-cols-2 grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '4g':
+      return 'grid grid-cols-2 grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '4v':
+      return 'grid grid-cols-4 h-full w-full gap-2 p-2 bg-[#131722]';
+    case '4h':
+      return 'grid grid-rows-4 h-full w-full gap-2 p-2 bg-[#131722]';
+    default:
+      return 'w-full h-full bg-[#131722]';
+  }
+};
+
+const getSlotClass = (type: string, index: number): string => {
+  if (type === '3g1') {
+    if (index === 0) return 'col-span-2 row-span-2';
+    return 'col-span-1 row-span-1';
+  }
+  if (type === '3g2') {
+    if (index === 0) return 'col-span-2 row-span-1';
+    return 'col-span-1 row-span-1';
+  }
+  return '';
+};
+
+const ToggleSwitch = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => {
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-xs text-gray-400 font-medium">{label}</span>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+          checked ? 'bg-indigo-600' : 'bg-gray-800'
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+            checked ? 'translate-x-4' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
+  );
+};
+
+const layoutsList = [
+  { type: '1', label: '1 Chart', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900" />
+  )},
+  { type: '2v', label: '2 Columns', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex">
+      <div className="w-1/2 h-full border-r border-gray-500/85" />
+      <div className="w-1/2 h-full" />
+    </div>
+  )},
+  { type: '2h', label: '2 Rows', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex flex-col">
+      <div className="w-full h-1/2 border-b border-gray-500/85" />
+      <div className="w-full h-1/2" />
+    </div>
+  )},
+  { type: '3v', label: '3 Columns', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex">
+      <div className="w-1/3 h-full border-r border-gray-500/85" />
+      <div className="w-1/3 h-full border-r border-gray-500/85" />
+      <div className="w-1/3 h-full" />
+    </div>
+  )},
+  { type: '3h', label: '3 Rows', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex flex-col">
+      <div className="w-full h-1/3 border-b border-gray-500/85" />
+      <div className="w-full h-1/3 border-b border-gray-500/85" />
+      <div className="w-full h-1/3" />
+    </div>
+  )},
+  { type: '3g1', label: '3 Split Left', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex">
+      <div className="w-1/2 h-full border-r border-gray-500/85" />
+      <div className="w-1/2 h-full flex flex-col">
+        <div className="w-full h-1/2 border-b border-gray-500/85" />
+        <div className="w-full h-1/2" />
+      </div>
+    </div>
+  )},
+  { type: '3g2', label: '3 Split Top', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex flex-col">
+      <div className="w-full h-1/2 border-b border-gray-500/85" />
+      <div className="w-full h-1/2 flex">
+        <div className="w-1/2 h-full border-r border-gray-500/85" />
+        <div className="w-1/2 h-full" />
+      </div>
+    </div>
+  )},
+  { type: '4g', label: '2x2 Grid', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 grid grid-cols-2 grid-rows-2">
+      <div className="border-r border-b border-gray-500/85" />
+      <div className="border-b border-gray-500/85" />
+      <div className="border-r border-gray-500/85" />
+      <div className="h-full w-full" />
+    </div>
+  )},
+  { type: '4v', label: '4 Columns', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex">
+      <div className="w-1/4 h-full border-r border-gray-500/85" />
+      <div className="w-1/4 h-full border-r border-gray-500/85" />
+      <div className="w-1/4 h-full border-r border-gray-500/85" />
+      <div className="w-1/4 h-full" />
+    </div>
+  )},
+  { type: '4h', label: '4 Rows', icon: (
+    <div className="w-6 h-6 border border-gray-500 rounded bg-gray-900 flex flex-col">
+      <div className="w-full h-1/4 border-b border-gray-500/85" />
+      <div className="w-full h-1/4 border-b border-gray-500/85" />
+      <div className="w-full h-1/4 border-b border-gray-500/85" />
+      <div className="w-full h-1/4" />
+    </div>
+  )}
+];
+
 export default function App() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
+  const chartContainersRef = useRef<(HTMLDivElement | null)[]>([]);
+  const chartInstancesRef = useRef<(any | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCutAnimation = useRef<{
     timestamp: number;
@@ -325,6 +467,61 @@ export default function App() {
     '1m': []
   });
   const [raw1mData, setRaw1mData] = useState<KLineData[]>([]);
+
+  // Layout & Multi-Chart states
+  const [layoutType, setLayoutType] = useState<string>('1');
+  const [activeChartIndex, setActiveChartIndex] = useState<number>(0);
+  const [syncSymbol, setSyncSymbol] = useState<boolean>(true);
+  const [syncInterval, setSyncInterval] = useState<boolean>(true);
+  const [syncCrosshair, setSyncCrosshair] = useState<boolean>(true);
+  const [syncTime, setSyncTime] = useState<boolean>(true);
+  const [syncDateRange, setSyncDateRange] = useState<boolean>(true);
+
+  // Array of symbols & timeframes for the 4 slots
+  const [slots, setSlots] = useState<{ symbol: string | null; timeframe: Timeframe }[]>(() => [
+    { symbol: null, timeframe: '1m' },
+    { symbol: null, timeframe: '1m' },
+    { symbol: null, timeframe: '1m' },
+    { symbol: null, timeframe: '1m' }
+  ]);
+  const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState<boolean>(false);
+
+  // Sync toolbar changes back to slots
+  useEffect(() => {
+    if (!hasData) return;
+    setSlots(prev => {
+      if (prev[activeChartIndex].symbol === assetName && prev[activeChartIndex].timeframe === activeTimeframe) {
+        return prev;
+      }
+      const copy = [...prev];
+      copy[activeChartIndex] = { symbol: assetName, timeframe: activeTimeframe };
+      
+      if (syncSymbol) {
+        for (let i = 0; i < 4; i++) {
+          copy[i].symbol = assetName;
+        }
+      }
+      if (syncInterval) {
+        for (let i = 0; i < 4; i++) {
+          copy[i].timeframe = activeTimeframe;
+        }
+      }
+      return copy;
+    });
+  }, [assetName, activeTimeframe, activeChartIndex, hasData, syncSymbol, syncInterval]);
+
+  const handleSelectChartSlot = (index: number) => {
+    if (index === activeChartIndex) return;
+    setActiveChartIndex(index);
+    const targetSlot = slots[index];
+    if (targetSlot && targetSlot.symbol) {
+      setAssetName(targetSlot.symbol);
+      setActiveTimeframe(targetSlot.timeframe);
+      if (chartInstancesRef.current[index]) {
+        chartInstance.current = chartInstancesRef.current[index];
+      }
+    }
+  };
 
   // Custom Timeframes state
   const [customTimeframes, setCustomTimeframes] = useState<{ label: string; value: string; minutes: number }[]>([]);
@@ -1295,73 +1492,128 @@ export default function App() {
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData]);
+  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData, activeChartIndex]);
 
-  // 1. Initialize Chart
+  // 1a. Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
-    if (chartContainerRef.current && !chartInstance.current) {
-      // Register custom overlays (trendLine, horizontalLine, rect, priceChannel)
-      registerCustomOverlays();
+    const visibleCount = getLayoutChartCount(layoutType);
 
-      // Initialize with custom date formatter to show varying hours/minutes on intraday candles
-      const chart = init(chartContainerRef.current, {
-        formatter: {
-          formatDate: ({ timestamp }) => {
-            const date = new Date(timestamp);
-            if (isNaN(date.getTime())) return '-';
-            const day = String(date.getDate()).padStart(2, '0');
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const month = months[date.getMonth()];
-            const year = date.getFullYear();
-            let hours = date.getHours();
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12;
-            hours = hours ? hours : 12; // 0 hours should be 12 AM
-            const hoursStr = String(hours).padStart(2, '0');
-            return `${day} ${month} ${year} ${hoursStr}:${minutes} ${ampm}`;
+    // Initialize newly visible slots
+    for (let i = 0; i < visibleCount; i++) {
+      const container = chartContainersRef.current[i];
+      if (container && !chartInstancesRef.current[i]) {
+        // Register custom overlays first (safe to call multiple times)
+        registerCustomOverlays();
+
+        const chart = init(container, {
+          formatter: {
+            formatDate: ({ timestamp }) => {
+              const date = new Date(timestamp);
+              if (isNaN(date.getTime())) return '-';
+              const day = String(date.getDate()).padStart(2, '0');
+              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const month = months[date.getMonth()];
+              const year = date.getFullYear();
+              let hours = date.getHours();
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              const ampm = hours >= 12 ? 'PM' : 'AM';
+              hours = hours % 12;
+              hours = hours ? hours : 12;
+              const hoursStr = String(hours).padStart(2, '0');
+              return `${day} ${month} ${year} ${hoursStr}:${minutes} ${ampm}`;
+            }
           }
+        });
+        if (chart) {
+          chartInstancesRef.current[i] = chart;
+          applySettingsToChart(chart, settings);
+          
+          chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
+          chart.setPeriod({ type: 'minute', span: 1 });
+
+          chart.createOverlay({
+            name: 'customPriceLine',
+            id: 'custom_price_line_overlay',
+            points: [{ timestamp: 0, value: 0 }],
+            lock: true
+          });
+
+          chart.createOverlay({
+            name: 'sessionBreaks',
+            id: 'session_breaks_overlay',
+            lock: true
+          });
+
+          chart.resize();
         }
-      });
-      if (chart) {
-        chartInstance.current = chart;
-
-        // Apply initial settings styles
-        applySettingsToChart(chart, settings);
-
-        // Set default symbol and period to initialize the chart context
-        chart.setSymbol({ ticker: 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
-        chart.setPeriod({ type: 'minute', span: 1 });
-
-        chart.createOverlay({
-          name: 'customPriceLine',
-          id: 'custom_price_line_overlay',
-          points: [{ timestamp: 0, value: 0 }],
-          lock: true
-        });
-
-        chart.createOverlay({
-          name: 'sessionBreaks',
-          id: 'session_breaks_overlay',
-          lock: true
-        });
-
-        // Sync size
-        chart.resize();
       }
     }
 
+    // Dispose out-of-bounds slots
+    for (let i = visibleCount; i < 4; i++) {
+      if (chartInstancesRef.current[i]) {
+        dispose(chartContainersRef.current[i] || chartInstancesRef.current[i]);
+        chartInstancesRef.current[i] = null;
+      }
+    }
+
+    // Adjust active slot if it went out of bounds
+    if (activeChartIndex >= visibleCount) {
+      setActiveChartIndex(0);
+    }
+    
+    const activeChart = chartInstancesRef.current[activeChartIndex] || chartInstancesRef.current[0];
+    if (activeChart) {
+      chartInstance.current = activeChart;
+    }
+  }, [layoutType]);
+
+  // Clean up all charts on unmount
+  useEffect(() => {
     return () => {
-      if (chartInstance.current) {
-        dispose(chartInstance.current);
-        chartInstance.current = null;
+      for (let i = 0; i < 4; i++) {
+        if (chartInstancesRef.current[i]) {
+          dispose(chartInstancesRef.current[i]);
+          chartInstancesRef.current[i] = null;
+        }
       }
     };
   }, []);
 
+  // 1b. Settings synchronizer
+  useEffect(() => {
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        applySettingsToChart(chart, settings);
+      }
+    }
+  }, [settings, layoutType]);
+
+  // 1c. Sync active pointer and compat refs
+  useEffect(() => {
+    const activeChart = chartInstancesRef.current[activeChartIndex];
+    if (activeChart) {
+      chartInstance.current = activeChart;
+      (chartContainerRef as any).current = chartContainersRef.current[activeChartIndex];
+    }
+  }, [activeChartIndex]);
+
   // 2. Handle Browser Resizing
   useEffect(() => {
     const handleResize = () => {
+      const visibleCount = getLayoutChartCount(layoutType);
+      
+      // Resize all active charts
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          chart.resize();
+        }
+      }
+
+      // Read offset/tick info from active chart
       if (chartInstance.current) {
         capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
 
@@ -1383,9 +1635,6 @@ export default function App() {
         wasManualScaleRef.current = wasManual;
         capturedYAxisRangeRef.current = range;
 
-        console.log(`[DEBUG] handleResize - Captured offset before resize: ${capturedOffsetRef.current}, manual scale: ${wasManual}`);
-        chartInstance.current.resize();
-        // Recenter after resizing
         if (hasData) {
           centerLastCandle(activeTimeframe, undefined, true);
         }
@@ -1395,22 +1644,30 @@ export default function App() {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [hasData, activeTimeframe, allTimeframesData, isReplayActive, replayCurrentTimestamp]);
+  }, [hasData, activeTimeframe, allTimeframesData, isReplayActive, replayCurrentTimestamp, layoutType]);
 
   // Auto-resize and center the chart when data is loaded
   useEffect(() => {
-    if (hasData && chartInstance.current) {
-      console.log('[DEBUG] hasData changed to true. Triggering resize and center last candle.');
-      // Perform initial resize to adapt to the hidden dropzone layout
-      chartInstance.current.resize();
-      setTimeout(() => {
-        if (chartInstance.current) {
-          chartInstance.current.resize();
-          centerLastCandle(activeTimeframe);
+    if (hasData) {
+      console.log('[DEBUG] hasData changed to true. Triggering resize on all charts.');
+      const visibleCount = getLayoutChartCount(layoutType);
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          chart.resize();
         }
+      }
+      setTimeout(() => {
+        for (let i = 0; i < visibleCount; i++) {
+          const chart = chartInstancesRef.current[i];
+          if (chart) {
+            chart.resize();
+          }
+        }
+        centerLastCandle(activeTimeframe);
       }, 150);
     }
-  }, [hasData]);
+  }, [hasData, layoutType]);
 
   // 3. Handle Escape Key to Cancel Active Drawing or Clear Selection
   useEffect(() => {
@@ -3524,6 +3781,93 @@ export default function App() {
             </button>
           )}
 
+          {hasData && (
+            <div className="relative">
+              <button
+                onClick={() => setIsLayoutDropdownOpen(!isLayoutDropdownOpen)}
+                title="Select layout"
+                className={`p-2 rounded-lg border border-gray-800 bg-[#1e222d] hover:bg-gray-800 transition-colors duration-150 flex items-center justify-center ${
+                  isLayoutDropdownOpen ? 'text-indigo-400 border-indigo-500/50' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+
+              {isLayoutDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsLayoutDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 z-50 w-72 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                        Select Layout
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {layoutsList.map((lay) => {
+                          const isSelected = layoutType === lay.type;
+                          return (
+                            <button
+                              key={lay.type}
+                              onClick={() => {
+                                setLayoutType(lay.type);
+                                setIsLayoutDropdownOpen(false);
+                              }}
+                              title={lay.label}
+                              className={`p-1.5 rounded border transition-all duration-150 flex items-center justify-center cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400'
+                                  : 'border-gray-800 hover:border-gray-700 text-gray-400 hover:text-gray-200'
+                              }`}
+                            >
+                              {lay.icon}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-gray-800/80" />
+
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                        Sync in Layout
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <ToggleSwitch
+                          label="Symbol"
+                          checked={syncSymbol}
+                          onChange={setSyncSymbol}
+                        />
+                        <ToggleSwitch
+                          label="Interval"
+                          checked={syncInterval}
+                          onChange={setSyncInterval}
+                        />
+                        <ToggleSwitch
+                          label="Crosshair"
+                          checked={syncCrosshair}
+                          onChange={setSyncCrosshair}
+                        />
+                        <ToggleSwitch
+                          label="Time"
+                          checked={syncTime}
+                          onChange={setSyncTime}
+                        />
+                        <ToggleSwitch
+                          label="Date range"
+                          checked={syncDateRange}
+                          onChange={setSyncDateRange}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="p-2 rounded-lg border border-gray-800 bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-colors duration-150"
@@ -3809,12 +4153,42 @@ export default function App() {
         {/* Charting Canvas container */}
         <main className="flex-1 h-full min-w-0 relative bg-[#131722]">
           
-          {/* KLineChart mount element */}
-          <div
-            ref={chartContainerRef}
-            className={`w-full h-full transition-colors duration-200 ${isSelectingCutPoint ? 'cursor-cell' : ''}`}
-            style={{ backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background }}
-          />
+          {/* KLineChart mount element(s) based on layout configuration */}
+          <div className={getLayoutClass(layoutType)}>
+            {Array.from({ length: getLayoutChartCount(layoutType) }).map((_, i) => {
+              const isActive = i === activeChartIndex;
+              const slotClass = getSlotClass(layoutType, i);
+              return (
+                <div
+                  key={i}
+                  onClick={() => handleSelectChartSlot(i)}
+                  className={`
+                    relative w-full h-full bg-[#131722] rounded overflow-hidden transition-all duration-200 cursor-pointer
+                    ${isActive ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-[#131722] z-10 shadow-lg shadow-indigo-500/20' : 'border border-gray-800 hover:border-gray-750'}
+                    ${slotClass}
+                  `}
+                >
+                  <div
+                    ref={(el) => {
+                      chartContainersRef.current[i] = el;
+                    }}
+                    className={`w-full h-full ${isSelectingCutPoint && isActive ? 'cursor-cell' : ''}`}
+                    style={{
+                      backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background,
+                    }}
+                  />
+                  
+                  {/* Slot Info Badge (Top Left of each chart) */}
+                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#1e222d]/85 backdrop-blur-sm border border-gray-800 pointer-events-none select-none text-[10px] font-bold text-gray-300">
+                    <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
+                    <span>{slots[i]?.symbol || 'No Symbol'}</span>
+                    <span className="text-gray-500">•</span>
+                    <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           {/* Reset View Button — appears on hover at bottom-center */}
           {hasData && (
