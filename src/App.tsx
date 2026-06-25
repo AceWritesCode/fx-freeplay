@@ -4164,7 +4164,7 @@ export default function App() {
                   onClick={() => handleSelectChartSlot(i)}
                   className={`
                     relative w-full h-full bg-[#131722] rounded overflow-hidden transition-all duration-200 cursor-pointer
-                    ${isActive ? 'ring-2 ring-indigo-600 ring-offset-2 ring-offset-[#131722] z-10 shadow-lg shadow-indigo-500/20' : 'border border-gray-800 hover:border-gray-750'}
+                    ${isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : 'border border-gray-800 hover:border-gray-750'}
                     ${slotClass}
                   `}
                 >
