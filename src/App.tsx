@@ -3455,12 +3455,12 @@ export default function App() {
                       max={9999}
                       value={customValue}
                       onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="w-16 bg-gray-950 border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 text-center"
+                      className="w-16 bg-[#1e222d] border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 text-center"
                     />
                     <select
                       value={customUnit}
                       onChange={(e: any) => setCustomUnit(e.target.value)}
-                      className="flex-1 bg-gray-950 border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
+                      className="flex-1 bg-[#1e222d] border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="minutes">Minutes</option>
                       <option value="hours">Hours</option>
