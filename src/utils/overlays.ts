@@ -919,10 +919,10 @@ export function registerCustomOverlays() {
         const prevDate = new Date(prevCandle.timestamp);
         const currDate = new Date(currCandle.timestamp);
         
-        // Date transition check using UTC functions for absolute timezone consistency
-        const isNewDay = prevDate.getUTCDate() !== currDate.getUTCDate() ||
-                         prevDate.getUTCMonth() !== currDate.getUTCMonth() ||
-                         prevDate.getUTCFullYear() !== currDate.getUTCFullYear();
+        // Date transition check using local functions to match chart's X-axis date formatting
+        const isNewDay = prevDate.getDate() !== currDate.getDate() ||
+                         prevDate.getMonth() !== currDate.getMonth() ||
+                         prevDate.getFullYear() !== currDate.getFullYear();
 
         if (isNewDay) {
           dayTransitionIndices.push(i);
