@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   List,
   Plus,
+  Minus,
   ChevronRight,
   Loader2,
   RefreshCw
@@ -3449,31 +3450,57 @@ export default function App() {
                 <div className="flex flex-col gap-1.5">
                   <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">Add Custom Interval</div>
                   <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={1}
-                      max={9999}
-                      value={customValue}
-                      onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="w-16 bg-[#1e222d] border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 text-center"
-                    />
-                    <select
-                      value={customUnit}
-                      onChange={(e: any) => setCustomUnit(e.target.value)}
-                      className="flex-1 bg-[#1e222d] border border-gray-800 text-white text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="minutes">Minutes</option>
-                      <option value="hours">Hours</option>
-                      <option value="days">Days</option>
-                      <option value="weeks">Weeks</option>
-                      <option value="months">Months</option>
-                    </select>
+                    {/* Custom Number Input with Spinner buttons replaced */}
+                    <div className="flex items-center bg-[#1e222d] border border-gray-800 rounded h-[30px] w-[90px] overflow-hidden focus-within:border-indigo-500 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setCustomValue((prev) => Math.max(1, prev - 1))}
+                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/80 active:bg-gray-800 transition-colors border-r border-gray-800/60"
+                        title="Decrease"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={9999}
+                        value={customValue}
+                        onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        className="w-9 text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCustomValue((prev) => Math.min(9999, prev + 1))}
+                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/80 active:bg-gray-800 transition-colors border-l border-gray-800/60"
+                        title="Increase"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Custom Dropdown Selector */}
+                    <div className="relative flex-1 h-[30px]">
+                      <select
+                        value={customUnit}
+                        onChange={(e: any) => setCustomUnit(e.target.value)}
+                        className="w-full h-full bg-[#1e222d] border border-gray-800 text-white text-xs rounded pl-2.5 pr-8 appearance-none focus:outline-none focus:border-indigo-500 cursor-pointer transition-colors"
+                      >
+                        <option value="minutes">Minutes</option>
+                        <option value="hours">Hours</option>
+                        <option value="days">Days</option>
+                        <option value="weeks">Weeks</option>
+                        <option value="months">Months</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+
+                    {/* Add Button */}
                     <button
                       onClick={() => {
                         handleAddCustomTimeframe(customValue, customUnit);
                         setIsTfDropdownOpen(false);
                       }}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors"
+                      className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold px-3 h-[30px] rounded transition-colors flex items-center justify-center"
                     >
                       Add
                     </button>
