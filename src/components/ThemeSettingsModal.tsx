@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Database, Trash2, FileSpreadsheet, Upload } from 'lucide-react';
-
-import { parseCSV } from '../utils/dataUtils';
+import { X, Paintbrush, Percent, Clock, Database, Trash2, FileSpreadsheet, Upload, Folder, FolderOpen } from 'lucide-react';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -57,7 +55,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showWicks: true,
     bullWickColor: '#474f66',
     bearWickColor: '#474f66',
-    pricePrecision: 4,
+    pricePrecision: 0,
     showPriceLine: true,
     priceLineStyle: 'dashed',
     priceLineSize: 1,
@@ -90,7 +88,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showWicks: true,
     bullWickColor: '#333333',
     bearWickColor: '#333333',
-    pricePrecision: 4,
+    pricePrecision: 0,
     showPriceLine: true,
     priceLineStyle: 'dashed',
     priceLineSize: 1,
@@ -123,7 +121,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showWicks: true,
     bullWickColor: '#415a77',
     bearWickColor: '#415a77',
-    pricePrecision: 5,
+    pricePrecision: 0,
     showPriceLine: true,
     priceLineStyle: 'solid',
     priceLineSize: 2,
@@ -284,12 +282,12 @@ interface ThemeSettingsModalProps {
   settings: ChartSettings;
   onSettingsSave: (newSettings: ChartSettings) => void;
   hasData: boolean;
-  lastCandleTimestamp: number | null;
-  onUpdateData?: (timeframe: string, file: File) => void;
-  onExportCSV?: () => void;
   onClearDatabase?: () => void;
   onUploadNewDataset?: (file: File) => void;
   assetName?: string;
+  importMode?: 'single' | 'folder';
+  savedFolderHandle?: any;
+  onSelectFolder?: () => void;
 }
 
 type TabType = 'Symbol' | 'Canvas' | 'Scales' | 'Timezone' | 'UpdateData';
@@ -300,29 +298,17 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   settings,
   onSettingsSave,
   hasData,
-  lastCandleTimestamp,
-  onUpdateData,
-  onExportCSV,
   onClearDatabase,
   onUploadNewDataset,
   assetName = 'No Asset Loaded',
+  importMode = 'single',
+  savedFolderHandle = null,
+  onSelectFolder,
 }) => {
   if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState<TabType>('Symbol');
   const [formState, setFormState] = useState<ChartSettings>({ ...settings });
-
-  // Update Data local states
-  const [updateTf, setUpdateTf] = useState<string>('1m');
-  const [updateFile, setUpdateFile] = useState<File | null>(null);
-  const updateFileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Phase 2 Validation States
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [validationWarning, setValidationWarning] = useState<string | null>(null);
-  const [showWarningConfirm, setShowWarningConfirm] = useState<boolean>(false);
-  const [updateInfo, setUpdateInfo] = useState<{ duplicates: number; newBars: number; latestTime: number } | null>(null);
 
   // Custom presets: stored in localStorage, keyed by user-chosen name
   const [customPresets, setCustomPresets] = useState<{ [name: string]: ChartSettings }>(() => {
@@ -350,140 +336,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     }));
   };
 
-  const handleClearUpdateFile = () => {
-    setUpdateFile(null);
-    setValidationError(null);
-    setValidationWarning(null);
-    setShowWarningConfirm(false);
-    setUpdateInfo(null);
-    if (updateFileInputRef.current) {
-      updateFileInputRef.current.value = '';
-    }
-  };
 
-  const validateUpdateFile = (file: File, selectedTf: string) => {
-    setIsValidating(true);
-    setValidationError(null);
-    setValidationWarning(null);
-    setShowWarningConfirm(false);
-    setUpdateInfo(null);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        if (!text) {
-          setValidationError("The uploaded file is empty.");
-          setIsValidating(false);
-          return;
-        }
-
-        const result = parseCSV(text);
-        if (result.parsedCount === 0) {
-          setValidationError("No valid candlestick rows found in the CSV file.");
-          setIsValidating(false);
-          return;
-        }
-
-        // 1. Timeframe check
-        const TIMEFRAME_MINUTES: Record<string, number> = {
-          '1m': 1,
-          '5m': 5,
-          '15m': 15,
-          '30m': 30,
-          '1h': 60,
-          '4h': 240,
-          '1D': 1440,
-          '1W': 10080,
-        };
-
-        const selectedMinutes = TIMEFRAME_MINUTES[selectedTf] || 1;
-
-        // Detect timeframe from timestamps in the file
-        let minDiffMs = Infinity;
-        for (let i = 1; i < Math.min(result.data.length, 20); i++) {
-          const diff = Math.abs(result.data[i].timestamp - result.data[i - 1].timestamp);
-          if (diff > 0 && diff < minDiffMs) {
-            minDiffMs = diff;
-          }
-        }
-
-        let detectedMinutes = 1;
-        if (minDiffMs !== Infinity) {
-          detectedMinutes = Math.round(minDiffMs / (60 * 1000));
-        }
-
-        if (detectedMinutes !== selectedMinutes) {
-          // Format detected minutes nicely
-          let tfLabel = `${detectedMinutes}m`;
-          if (detectedMinutes >= 60) {
-            const hrs = detectedMinutes / 60;
-            tfLabel = hrs === 24 ? '1D' : hrs === 168 ? '1W' : `${hrs}h`;
-          }
-          setValidationError(`Timeframe mismatch! The selected timeframe is ${selectedTf}, but the file appears to be in timeframe ${tfLabel}.`);
-          setIsValidating(false);
-          return;
-        }
-
-        // 2. Data alignment check (Gap / Overlap check)
-        let duplicates = 0;
-        let newBars = 0;
-        const latestTime = result.data[result.data.length - 1].timestamp;
-
-        if (lastCandleTimestamp !== null) {
-          duplicates = result.data.filter(row => row.timestamp <= lastCandleTimestamp).length;
-          newBars = result.data.filter(row => row.timestamp > lastCandleTimestamp).length;
-
-          const updateFirstTimestamp = result.data[0].timestamp;
-          const expectedGapMs = selectedMinutes * 60 * 1000;
-
-          if (updateFirstTimestamp > lastCandleTimestamp + expectedGapMs) {
-            // Gap detected
-            const gapMs = updateFirstTimestamp - lastCandleTimestamp;
-            const gapMin = Math.round(gapMs / (60 * 1000));
-            let gapText = `${gapMin} minutes`;
-            if (gapMin >= 1440) {
-              gapText = `${(gapMin / 1440).toFixed(1)} days`;
-            } else if (gapMin >= 60) {
-              const hours = Math.floor(gapMin / 60);
-              const mins = gapMin % 60;
-              gapText = `${hours}h ${mins}m`;
-            }
-
-            setValidationWarning(
-              `A data gap of ${gapText} was detected. Your last candle is from ${formatDateFeedback(lastCandleTimestamp)}, but this update file starts at ${formatDateFeedback(updateFirstTimestamp)}. Some data might be missing (e.g. weekend or offline periods).`
-            );
-            setShowWarningConfirm(true);
-          }
-        } else {
-          newBars = result.data.length;
-        }
-
-        setUpdateInfo({
-          duplicates,
-          newBars,
-          latestTime
-        });
-
-      } catch (err) {
-        console.error('[DEBUG] validateUpdateFile error:', err);
-        setValidationError("An error occurred while validating the CSV file.");
-      } finally {
-        setIsValidating(false);
-      }
-    };
-    reader.onerror = () => {
-      setValidationError("Failed to read the file.");
-      setIsValidating(false);
-    };
-    reader.readAsText(file);
-  };
-
-  React.useEffect(() => {
-    if (updateFile) {
-      validateUpdateFile(updateFile, updateTf);
-    }
-  }, [updateTf]);
 
   const handleApplyPreset = (presetKey: string) => {
     const builtIn = PRESET_SETTINGS[presetKey];
@@ -793,6 +646,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     onChange={(e) => handleFieldChange('pricePrecision', parseInt(e.target.value))}
                     className="w-32 bg-[#131722] border border-gray-800 rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                   >
+                    <option value="0">Auto (Detect)</option>
                     <option value="2">2 Decimals</option>
                     <option value="3">3 Decimals</option>
                     <option value="4">4 Decimals</option>
@@ -998,273 +852,151 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 </div>
 
                 {!hasData ? (
-                  <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
-                    <Database className="w-8 h-8 text-gray-600" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-400 mb-1">No Dataset Loaded</p>
-                      <p className="text-[11px] text-gray-500 max-w-xs">
-                        Import a standard 1-Minute CSV dataset to begin replay and charting.
-                      </p>
+                  importMode === 'folder' ? (
+                    <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
+                      <Folder className="w-8 h-8 text-gray-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-400 mb-1">No Folder Selected</p>
+                        <p className="text-[11px] text-gray-500 max-w-xs">
+                          Select a master folder containing subfolders for each trading pair to populate the watchlist and load charts.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectFolder) onSelectFolder();
+                        }}
+                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>Select Symbol Directory</span>
+                      </button>
                     </div>
-                    <input
-                      type="file"
-                      id="modal-main-file-upload"
-                      accept=".csv"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0] && onUploadNewDataset) {
-                          onUploadNewDataset(e.target.files[0]);
-                          onClose();
-                        }
-                      }}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById('modal-main-file-upload')?.click()}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Select Main CSV File</span>
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
+                      <Database className="w-8 h-8 text-gray-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-400 mb-1">No Dataset Loaded</p>
+                        <p className="text-[11px] text-gray-500 max-w-xs">
+                          Import a standard 1-Minute CSV dataset to begin replay and charting.
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        id="modal-main-file-upload"
+                        accept=".csv"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0] && onUploadNewDataset) {
+                            onUploadNewDataset(e.target.files[0]);
+                            onClose();
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('modal-main-file-upload')?.click()}
+                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Select Main CSV File</span>
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="flex flex-col gap-4">
                     {/* Active Dataset Section */}
                     <div className="bg-[#1a1d26]/40 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
-                      <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
-                        <div>
-                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Dataset</span>
-                          <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
-                            {assetName}
-                          </span>
-                        </div>
-                        <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                          Connected
-                        </span>
-                      </div>
                       
-                      <div className="flex gap-2">
-                        <input
-                          type="file"
-                          id="modal-change-file-upload"
-                          accept=".csv"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0] && onUploadNewDataset) {
-                              onUploadNewDataset(e.target.files[0]);
-                              onClose();
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => document.getElementById('modal-change-file-upload')?.click()}
-                          className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          <FileSpreadsheet className="w-3.5 h-3.5" />
-                          <span>Change File</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowClearConfirm(true)}
-                          className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Clear Database</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Incremental Data Update Section */}
-                    <div className="border border-gray-800 rounded-xl p-4 flex flex-col gap-3.5">
-                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
-                        Incremental Data Update
-                      </div>
-
-                      {/* Timeframe Select */}
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-gray-300">Update Timeframe</span>
-                        <select
-                          value={updateTf}
-                          onChange={(e) => setUpdateTf(e.target.value)}
-                          className="w-40 bg-[#131722] border border-gray-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                        >
-                          <option value="1m">1 Minute (1m)</option>
-                          <option value="5m">5 Minutes (5m)</option>
-                          <option value="15m">15 Minutes (15m)</option>
-                          <option value="30m">30 Minutes (30m)</option>
-                          <option value="1h">1 Hour (1h)</option>
-                          <option value="4h">4 Hours (4h)</option>
-                          <option value="1D">1 Day (1D)</option>
-                          <option value="1W">1 Week (1W)</option>
-                        </select>
-                      </div>
-
-                      {/* File Selection */}
-                      <div className="flex flex-col gap-2 mt-2">
-                        <span className="font-semibold text-gray-300">Update File (CSV)</span>
-                        
-                        <input
-                          type="file"
-                          ref={updateFileInputRef}
-                          accept=".csv"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              const file = e.target.files[0];
-                              setUpdateFile(file);
-                              validateUpdateFile(file, updateTf);
-                            }
-                          }}
-                          className="hidden"
-                        />
-
-                        <div 
-                          className={`relative flex flex-col items-center justify-center p-6 rounded-xl border transition-all duration-150 group ${
-                            validationError 
-                              ? 'border-red-500/40 bg-red-950/5' 
-                              : validationWarning 
-                              ? 'border-amber-500/40 bg-amber-950/5' 
-                              : 'border-gray-800 bg-[#1a1d26]/50 hover:bg-[#1a1d26]/80 hover:border-indigo-500/50'
-                          }`}
-                        >
-                          {updateFile && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleClearUpdateFile();
-                              }}
-                              className="absolute top-2.5 right-2.5 text-gray-500 hover:text-white transition-colors duration-150 p-1 hover:bg-gray-800 rounded"
-                              title="Clear selected file"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <div 
-                            onClick={() => updateFileInputRef.current?.click()}
-                            className="w-full flex flex-col items-center justify-center cursor-pointer"
-                          >
-                            <Database className={`w-6 h-6 mb-2 transition-colors ${
-                              validationError 
-                                ? 'text-red-500' 
-                                : validationWarning 
-                                ? 'text-amber-500' 
-                                : 'text-gray-500 group-hover:text-indigo-400'
-                            }`} />
-                            <span className="text-xs font-semibold text-gray-300 group-hover:text-white transition-colors">
-                              {updateFile ? updateFile.name : 'Select CSV File'}
-                            </span>
-                            <span className="text-[10px] text-gray-500 mt-1">
-                              {updateFile 
-                                ? `${(updateFile.size / 1024).toFixed(1)} KB` 
-                                : 'Click to browse files'}
+                      {importMode === 'folder' ? (
+                        <>
+                          <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
+                            <div>
+                              <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Symbol / Watchlist</span>
+                              <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
+                                {assetName}
+                              </span>
+                              {savedFolderHandle && (
+                                <span className="text-[10px] text-gray-400 block mt-1">
+                                  Folder: <span className="text-emerald-400 font-medium font-mono">{savedFolderHandle.name}</span>
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                              Connected
                             </span>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Error Display */}
-                      {validationError && (
-                        <div className="p-3 bg-red-950/20 border border-red-500/30 rounded-lg text-red-400 text-[11px] leading-relaxed animate-in fade-in slide-in-from-top-1 duration-150">
-                          <strong className="font-bold">⚠️ Timeframe Mismatch:</strong> {validationError}
-                        </div>
-                      )}
-
-                      {/* Validation Feedback (Duplicates / Success) */}
-                      {updateInfo && !validationError && (
-                        <div className="flex flex-col gap-2 mt-1">
-                          {updateInfo.duplicates > 0 && (
-                            <div className="p-3 bg-indigo-950/20 border border-indigo-500/30 rounded-lg text-indigo-300 text-[11px] leading-relaxed animate-in fade-in duration-150">
-                              <span className="font-semibold">ℹ️ Overlap:</span> Found {updateInfo.duplicates.toLocaleString()} duplicate rows with identical timestamps; these will be discarded.
-                            </div>
-                          )}
-                          {updateInfo.newBars > 0 ? (
-                            !validationWarning && (
-                              <div className="p-3 bg-emerald-950/25 border border-emerald-500/35 rounded-lg text-emerald-400 text-[11px] leading-relaxed animate-in fade-in duration-150">
-                                <span className="font-semibold">✅ Perfect Match:</span> Found {updateInfo.newBars.toLocaleString()} new bars extending up to {formatDateFeedback(updateInfo.latestTime)}.
-                              </div>
-                            )
-                          ) : (
-                            <div className="p-3 bg-[#1a1d26] border border-gray-800 rounded-lg text-gray-400 text-[11px] leading-relaxed animate-in fade-in duration-150">
-                              <span className="font-semibold">ℹ️ No New Data:</span> All rows in the update file are duplicates. No new bars to import.
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Warning Confirmation Overlay */}
-                      {validationWarning && showWarningConfirm && (
-                        <div className="p-4 bg-amber-950/30 border border-amber-500/40 rounded-xl text-amber-300 flex flex-col gap-3.5 mt-1 shadow-lg animate-in fade-in zoom-in-95 duration-150">
-                          <div className="flex gap-2.5">
-                            <Database className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                            <div className="flex flex-col gap-1">
-                              <span className="font-bold text-xs uppercase tracking-wide">Data Gap Warning</span>
-                              <span className="text-[11px] leading-relaxed text-amber-200/90">{validationWarning}</span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleClearUpdateFile()}
-                              className="px-3.5 py-1.5 border border-gray-700 hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                            >
-                              Cancel
-                            </button>
+                          <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => {
-                                setShowWarningConfirm(false);
-                                if (updateFile && onUpdateData) {
-                                  onUpdateData(updateTf, updateFile);
-                                  console.log(`[DEBUG] Update Data trigger (User bypassed gap) - tf: ${updateTf}, file: ${updateFile.name}`);
-                                  handleClearUpdateFile();
+                                if (onSelectFolder) onSelectFolder();
+                              }}
+                              className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span>Change Folder</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setShowClearConfirm(true)}
+                              className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Clear Database</span>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
+                            <div>
+                              <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Dataset</span>
+                              <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
+                                {assetName}
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                              Connected
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input
+                              type="file"
+                              id="modal-change-file-upload"
+                              accept=".csv"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0] && onUploadNewDataset) {
+                                  onUploadNewDataset(e.target.files[0]);
                                   onClose();
                                 }
                               }}
-                              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-bold transition-all shadow-md shadow-amber-600/20 cursor-pointer"
+                              className="hidden"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById('modal-change-file-upload')?.click()}
+                              className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
-                              Continue Anyway
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                              <span>Change File</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setShowClearConfirm(true)}
+                              className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Clear Database</span>
                             </button>
                           </div>
-                        </div>
+                        </>
                       )}
 
-                      {/* Action Button */}
-                      {!showWarningConfirm && (
-                        <button
-                          type="button"
-                          disabled={!updateFile || isValidating || !!validationError || (updateInfo !== null && updateInfo.newBars === 0)}
-                          onClick={() => {
-                            if (updateFile && onUpdateData) {
-                              onUpdateData(updateTf, updateFile);
-                              console.log(`[DEBUG] Update Data trigger - tf: ${updateTf}, file: ${updateFile.name}`);
-                              handleClearUpdateFile();
-                              onClose();
-                            }
-                          }}
-                          className="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-bold transition-all shadow-md shadow-indigo-600/10 cursor-pointer"
-                        >
-                          {isValidating ? 'Validating File...' : 'Update Chart Data'}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Export Current Data Section */}
-                    <div className="border border-gray-800 rounded-xl p-4 flex flex-col gap-2">
-                      <span className="font-semibold text-gray-300">Export Current Dataset</span>
-                      <p className="text-[10px] text-gray-500 leading-normal">
-                        Download the combined, chronologically sorted, and row-capped dataset as a CSV file.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onExportCSV) onExportCSV();
-                        }}
-                        className="w-full mt-1.5 py-2 bg-[#1a1d26] hover:bg-gray-800 border border-gray-800 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
-                      >
-                        Download Current CSV
-                      </button>
                     </div>
                   </div>
                 )}

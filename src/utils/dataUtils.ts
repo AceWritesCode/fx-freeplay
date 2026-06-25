@@ -293,7 +293,9 @@ function getDB(): Promise<IDBDatabase> {
 export async function saveChartDataToIndexedDB(
   raw1mData: KLineData[],
   assetName: string,
-  savedResetOffset: number | null
+  savedResetOffset: number | null,
+  watchlistSymbols?: any[],
+  activeTimeframe?: string
 ): Promise<void> {
   try {
     const db = await getDB();
@@ -302,6 +304,12 @@ export async function saveChartDataToIndexedDB(
     store.put(raw1mData, 'raw1mData');
     store.put(assetName, 'assetName');
     store.put(savedResetOffset, 'savedResetOffset');
+    if (watchlistSymbols !== undefined) {
+      store.put(watchlistSymbols, 'watchlistSymbols');
+    }
+    if (activeTimeframe !== undefined) {
+      store.put(activeTimeframe, 'activeTimeframe');
+    }
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -315,6 +323,8 @@ export async function loadChartDataFromIndexedDB(): Promise<{
   raw1mData: KLineData[] | null;
   assetName: string | null;
   savedResetOffset: number | null;
+  watchlistSymbols: any[] | null;
+  activeTimeframe: string | null;
 }> {
   try {
     const db = await getDB();
@@ -324,6 +334,8 @@ export async function loadChartDataFromIndexedDB(): Promise<{
     const rawRequest = store.get('raw1mData');
     const nameRequest = store.get('assetName');
     const offsetRequest = store.get('savedResetOffset');
+    const watchlistRequest = store.get('watchlistSymbols');
+    const tfRequest = store.get('activeTimeframe');
     
     await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -333,11 +345,13 @@ export async function loadChartDataFromIndexedDB(): Promise<{
     return {
       raw1mData: rawRequest.result || null,
       assetName: nameRequest.result || null,
-      savedResetOffset: offsetRequest.result !== undefined ? offsetRequest.result : null
+      savedResetOffset: offsetRequest.result !== undefined ? offsetRequest.result : null,
+      watchlistSymbols: watchlistRequest.result || null,
+      activeTimeframe: tfRequest.result || null
     };
   } catch (err) {
     console.error('Failed to load from IndexedDB:', err);
-    return { raw1mData: null, assetName: null, savedResetOffset: null };
+    return { raw1mData: null, assetName: null, savedResetOffset: null, watchlistSymbols: null, activeTimeframe: null };
   }
 }
 
@@ -401,8 +415,110 @@ export async function exportToCSV(data: KLineData[], filename: string) {
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `${filename}.csv`);
-  link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// ------------------------------------------------------------------------------------------------
+// IndexedDB Directory Handle Persistence
+// ------------------------------------------------------------------------------------------------
+
+export async function saveDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(handle, 'folderHandle');
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Failed to save directory handle:', err);
+  }
+}
+
+export async function loadDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get('folderHandle');
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    return request.result || null;
+  } catch (err) {
+    console.error('Failed to load directory handle:', err);
+    return null;
+  }
+}
+
+export async function saveDirectoryHandles(handles: FileSystemDirectoryHandle[]): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(handles, 'folderHandles');
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Failed to save directory handles:', err);
+  }
+}
+
+export async function loadDirectoryHandles(): Promise<FileSystemDirectoryHandle[]> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get('folderHandles');
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    return request.result || [];
+  } catch (err) {
+    console.error('Failed to load directory handles:', err);
+    return [];
+  }
+}
+
+export async function clearDirectoryHandle(): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.delete('folderHandle');
+    store.delete('folderHandles');
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Failed to clear directory handle:', err);
+  }
+}
+
+export function detectPricePrecision(data: KLineData[]): number {
+  if (!data || data.length === 0) return 4;
+  
+  let maxDecimals = 2; // minimum 2
+  const sampleSize = Math.min(data.length, 1000);
+  
+  for (let i = 0; i < sampleSize; i++) {
+    const price = data[i].close;
+    if (price === undefined || isNaN(price)) continue;
+    
+    const str = price.toString();
+    const dotIndex = str.indexOf('.');
+    if (dotIndex !== -1) {
+      const decimals = str.length - dotIndex - 1;
+      if (decimals > maxDecimals) {
+        maxDecimals = decimals;
+      }
+    }
+  }
+  
+  return Math.min(maxDecimals, 8);
 }

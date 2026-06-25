@@ -17,10 +17,15 @@ import {
   ChevronDown,
   FolderOpen,
   Folder,
-  CheckCircle2
+  CheckCircle2,
+  List,
+  Plus,
+  ChevronRight,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
-import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, exportToCSV, clearChartDataInIndexedDB } from './utils/dataUtils';
+import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, clearChartDataInIndexedDB, saveDirectoryHandle, loadDirectoryHandle, clearDirectoryHandle, detectPricePrecision, saveDirectoryHandles, loadDirectoryHandles } from './utils/dataUtils';
 import type { KLineData } from './utils/dataUtils';
 import { registerCustomOverlays } from './utils/overlays';
 import { ThemeSettingsModal, PRESET_SETTINGS, TIMEZONE_OPTIONS, getLabelOffset } from './components/ThemeSettingsModal';
@@ -56,6 +61,54 @@ const PRESET_TIMEFRAMES: TimeframeOption[] = [
   { label: 'W', value: 'W', minutes: 10080 },
   { label: 'M', value: 'M', minutes: 43200 },
 ];
+
+const getTimeframeMinutes = (tf: string): number => {
+  if (tf === 'D') return 1440;
+  if (tf === 'W') return 10080;
+  if (tf === 'M') return 43200;
+  if (tf.endsWith('m')) return parseInt(tf) || 1;
+  if (tf.endsWith('h') || tf.endsWith('H')) return (parseInt(tf) || 1) * 60;
+  return 1;
+};
+
+const getBestTimeframeFile = (
+  files: Record<string, File>,
+  targetTf: string
+): { file: File; tf: string; minutes: number } | null => {
+  const targetMinutes = getTimeframeMinutes(targetTf);
+  
+  let bestFile: File | null = null;
+  let bestTf = '';
+  let bestMinutes = -1;
+
+  for (const [tf, file] of Object.entries(files)) {
+    const fileMinutes = getTimeframeMinutes(tf);
+    if (fileMinutes <= targetMinutes && targetMinutes % fileMinutes === 0) {
+      if (fileMinutes > bestMinutes) {
+        bestMinutes = fileMinutes;
+        bestTf = tf;
+        bestFile = file;
+      }
+    }
+  }
+
+  if (bestFile) {
+    return { file: bestFile, tf: bestTf, minutes: bestMinutes };
+  }
+  
+  for (const [tf, file] of Object.entries(files)) {
+    const fileMinutes = getTimeframeMinutes(tf);
+    if (fileMinutes <= targetMinutes) {
+      if (fileMinutes > bestMinutes) {
+        bestMinutes = fileMinutes;
+        bestTf = tf;
+        bestFile = file;
+      }
+    }
+  }
+
+  return bestFile ? { file: bestFile, tf: bestTf, minutes: bestMinutes } : null;
+};
 
 const HEADER_TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
 
@@ -280,15 +333,33 @@ export default function App() {
   const [tempBrokerOffset, setTempBrokerOffset] = useState<string>('exchange');
 
   // Import Mode selection states
-  const [importMode, setImportMode] = useState<'single' | 'folder'>('single');
+  const [importMode, setImportMode] = useState<'single' | 'folder'>(() => {
+    return (localStorage.getItem('tv_clone_import_mode') as 'single' | 'folder') || 'single';
+  });
+  const changeImportMode = (mode: 'single' | 'folder') => {
+    setImportMode(mode);
+    localStorage.setItem('tv_clone_import_mode', mode);
+  };
   const [folderSymbol, setFolderSymbol] = useState<string>('');
   const [folderFilesList, setFolderFilesList] = useState<{ name: string; size: number; timeframe: string | null }[]>([]);
-  const folderInputRef = useRef<HTMLInputElement>(null);
-  const [showFolderComingSoonAlert, setShowFolderComingSoonAlert] = useState<boolean>(false);
+  const [symbolFilesMap, setSymbolFilesMap] = useState<Record<string, Record<string, File>>>({});
   const [isBrokerTfDropdownOpen, setIsBrokerTfDropdownOpen] = useState<boolean>(false);
+  const [savedFolderHandle, setSavedFolderHandle] = useState<any>(null);
+  const [savedFolderHandles, setSavedFolderHandles] = useState<any[]>([]);
+  const [isVerifyingFolder, setIsVerifyingFolder] = useState<boolean>(false);
+
+  // Watchlist panel state
+  const [isWatchlistOpen, setIsWatchlistOpen] = useState<boolean>(false);
+  const [watchlistSymbols, setWatchlistSymbols] = useState<{ name: string; raw1m: KLineData[]; settings: any }[]>([]);
+  const [activeWatchlistSymbol, setActiveWatchlistSymbol] = useState<string | null>(null);
+  const watchlistAddInputRef = useRef<HTMLInputElement>(null);
+  const [watchlistToast, setWatchlistToast] = useState<{ msg: string; type: 'error' | 'info' } | null>(null);
+  const [pendingRemoveSymbol, setPendingRemoveSymbol] = useState<string | null>(null);
+  const [customAlert, setCustomAlert] = useState<{ title: string; message: string } | null>(null);
   const brokerTfDropdownRef = useRef<HTMLDivElement>(null);
   const [isFooterTzOpen, setIsFooterTzOpen] = useState<boolean>(false);
   const footerTzDropdownRef = useRef<HTMLDivElement>(null);
+  const [isLoadingSymbol, setIsLoadingSymbol] = useState<boolean>(false);
 
   // Parser logs & metrics state
   const [parseFeedback, setParseFeedback] = useState<{
@@ -336,6 +407,45 @@ export default function App() {
   useEffect(() => {
     const initCachedData = async () => {
       try {
+        const cachedHandles = await loadDirectoryHandles();
+        const cachedHandle = await loadDirectoryHandle();
+        
+        let handles = cachedHandles || [];
+        if (handles.length === 0 && cachedHandle) {
+          handles = [cachedHandle];
+          await saveDirectoryHandles(handles);
+        }
+        
+        const storedImportMode = localStorage.getItem('tv_clone_import_mode');
+        if (handles.length > 0) {
+          setSavedFolderHandles(handles);
+          setSavedFolderHandle(handles[0]);
+          if (storedImportMode === 'folder' || !storedImportMode) {
+            setImportMode('folder');
+            localStorage.setItem('tv_clone_import_mode', 'folder');
+          }
+          
+          // Check if permission is already granted on startup for all handles
+          const options = { mode: 'read' as const };
+          try {
+            let allGranted = true;
+            for (const h of handles) {
+              if ((await (h as any).queryPermission(options)) !== 'granted') {
+                allGranted = false;
+                break;
+              }
+            }
+            if (allGranted) {
+              console.log('[DEBUG] All directory permissions already granted on startup. Auto-loading folders...');
+              await handleSelectFoldersAPI(handles, true);
+              setIsCheckingCache(false);
+              return;
+            }
+          } catch (pe) {
+            console.error('Error querying directory permission:', pe);
+          }
+        }
+
         const cached = await loadChartDataFromIndexedDB();
         if (cached && cached.raw1mData && cached.raw1mData.length > 0 && cached.assetName) {
           console.log(`[DEBUG] IndexedDB - Found cached dataset for symbol: ${cached.assetName}. Restoring...`);
@@ -349,13 +459,58 @@ export default function App() {
             if (chartInstance.current) {
               clearInterval(checkChartInstance);
               
-              // Set settings and bind data
-              chartInstance.current.setSymbol({ ticker: cached.assetName!, pricePrecision: settings.pricePrecision, volumePrecision: 4 });
-              chartInstance.current.setPeriod({ type: 'minute', span: 1 });
+              const restoredTf = (cached.activeTimeframe || '1m') as Timeframe;
               
-              regenerateTimeframes(cached.raw1mData!, settings);
+              // Set settings and bind data
+              const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(cached.raw1mData || []);
+              chartInstance.current.setSymbol({ ticker: cached.assetName!, pricePrecision: precision, volumePrecision: 4 });
+              
+              // Map timeframe values to type and span parameters
+              let span = 1;
+              let type: 'minute' | 'hour' | 'day' | 'week' | 'month' = 'minute';
+              if (restoredTf.endsWith('m')) {
+                span = parseInt(restoredTf, 10) || 1;
+                type = 'minute';
+              } else if (restoredTf.endsWith('H') || restoredTf.endsWith('h')) {
+                span = parseInt(restoredTf, 10) || 1;
+                type = 'hour';
+              } else if (restoredTf.endsWith('D') || restoredTf.endsWith('d')) {
+                span = parseInt(restoredTf, 10) || 1;
+                type = 'day';
+              } else if (restoredTf.endsWith('W') || restoredTf.endsWith('w')) {
+                span = parseInt(restoredTf, 10) || 1;
+                type = 'week';
+              } else if (restoredTf.endsWith('M')) {
+                span = parseInt(restoredTf, 10) || 1;
+                type = 'month';
+              }
+              chartInstance.current.setPeriod({ type, span });
+              
+              // Seed the cache for the restored timeframe so it doesn't need to resample on first render
+              setAllTimeframesData({ [restoredTf]: cached.raw1mData! });
+              
+              chartInstance.current.setDataLoader({
+                getBars: ({ type: loadType, callback }: any) => {
+                  if (loadType === 'init') {
+                    callback(cached.raw1mData!);
+                  } else {
+                    callback([]);
+                  }
+                }
+              });
+              chartInstance.current.resetData();
+              
               setHasData(true);
-              setActiveTimeframe('1m');
+              setActiveTimeframe(restoredTf);
+              
+              // Restore watchlist symbols from cache or fallback to active symbol
+              const restoredWatchlist = cached.watchlistSymbols && cached.watchlistSymbols.length > 0
+                ? cached.watchlistSymbols
+                : [{ name: cached.assetName!, raw1m: cached.raw1mData!, settings }];
+              setWatchlistSymbols(restoredWatchlist);
+              setActiveWatchlistSymbol(cached.assetName!);
+              
+              centerLastCandle(restoredTf, null, true);
               setIsCheckingCache(false);
             }
           }, 50);
@@ -664,14 +819,7 @@ export default function App() {
     const offset = chartInstance.current.getOffsetRightDistance();
     savedResetOffsetRef.current = offset;
     console.log(`[DEBUG] handleSaveResetPosition - Saved offset: ${offset}px`);
-    saveChartDataToIndexedDB(raw1mData, assetName, offset);
-  };
-
-  // Export updated CSV file
-  const handleExportCSV = () => {
-    if (raw1mData.length === 0) return;
-    exportToCSV(raw1mData, assetName);
-    console.log(`[DEBUG] handleExportCSV - Exported ${raw1mData.length} bars to CSV for symbol ${assetName}`);
+    saveChartDataToIndexedDB(raw1mData, assetName, offset, watchlistSymbols, activeTimeframe);
   };
 
   // Clear Database Cache and Reset App State
@@ -679,6 +827,7 @@ export default function App() {
     try {
       console.log('[DEBUG] handleClearDatabase - Clearing IndexedDB cache and resetting app state.');
       await clearChartDataInIndexedDB();
+      await clearDirectoryHandle();
       
       // Reset data state
       setRaw1mData([]);
@@ -686,6 +835,16 @@ export default function App() {
       setHasData(false);
       setAllTimeframesData({ '1m': [] });
       setParseFeedback(null);
+      setWatchlistSymbols([]);
+      setActiveWatchlistSymbol(null);
+      setSymbolFilesMap({});
+      setSavedFolderHandle(null);
+      setSavedFolderHandles([]);
+      
+      // Clear localStorage variables
+      localStorage.removeItem('active_watchlist_symbol');
+      localStorage.removeItem('active_timeframe');
+      localStorage.removeItem('tv_clone_import_mode');
       
       // Reset replay state
       setIsReplayActive(false);
@@ -706,6 +865,62 @@ export default function App() {
       setIsSettingsOpen(false);
     } catch (err) {
       console.error('Failed to clear database and reset app:', err);
+    }
+  };
+
+  // Watchlist: confirm-remove a symbol — clears its data from IndexedDB then switches or resets
+  const handleWatchlistRemoveConfirm = async (symbolName: string) => {
+    try {
+      // Clear IndexedDB (currently single-slot storage)
+      await clearChartDataInIndexedDB();
+      console.log(`[DEBUG] handleWatchlistRemoveConfirm - Cleared IndexedDB for '${symbolName}'`);
+
+      // Build the new watchlist without this symbol
+      const remaining = watchlistSymbols.filter(s => s.name !== symbolName);
+      setWatchlistSymbols(remaining);
+      setPendingRemoveSymbol(null);
+
+      if (remaining.length > 0) {
+        // Switch to the next available symbol
+        const next = remaining[0];
+        setActiveWatchlistSymbol(next.name);
+        setAssetName(next.name);
+        setRaw1mData(next.raw1m);
+        setHasData(true);
+        setActiveTimeframe('1m');
+        setIsReplayActive(false);
+        setIsSelectingCutPoint(false);
+        setIsReplayPlaying(false);
+        setReplayCurrentTimestamp(null);
+        savedResetOffsetRef.current = null;
+        regenerateTimeframes(next.raw1m, settings);
+        if (chartInstance.current) {
+          const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(next.raw1m);
+          chartInstance.current.setSymbol({ ticker: next.name, pricePrecision: precision, volumePrecision: 4 });
+          chartInstance.current.setPeriod({ type: 'minute', span: 1 });
+        }
+        // Persist the newly active symbol to IndexedDB
+        saveChartDataToIndexedDB(next.raw1m, next.name, null, remaining, '1m');
+      } else {
+        // No symbols left — reset to import screen
+        setRaw1mData([]);
+        setAssetName('No Asset Loaded');
+        setHasData(false);
+        setAllTimeframesData({ '1m': [] });
+        setParseFeedback(null);
+        setActiveWatchlistSymbol(null);
+        setIsReplayActive(false);
+        setIsSelectingCutPoint(false);
+        setIsReplayPlaying(false);
+        setReplayCurrentTimestamp(null);
+        savedResetOffsetRef.current = null;
+        if (chartInstance.current) {
+          chartInstance.current.resetData();
+          chartInstance.current.setSymbol({ ticker: 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
+        }
+      }
+    } catch (err) {
+      console.error('[DEBUG] handleWatchlistRemoveConfirm - Failed:', err);
     }
   };
 
@@ -1564,15 +1779,9 @@ export default function App() {
       '1m': baseData
     };
 
-    PRESET_TIMEFRAMES.forEach(tf => {
-      if (tf.value !== '1m') {
-        newTimeframesData[tf.value] = resample1mToTimeframe(baseData, tf.minutes);
-      }
-    });
-
-    customTimeframes.forEach(tf => {
-      newTimeframesData[tf.value] = resample1mToTimeframe(baseData, tf.minutes);
-    });
+    if (activeTimeframe && activeTimeframe !== '1m') {
+      newTimeframesData[activeTimeframe] = resample1mToTimeframe(baseData, getTimeframeMinutes(activeTimeframe));
+    }
 
     console.log(`[DEBUG] regenerateTimeframes - Rebuild finished. Timeframes loaded: [${Object.keys(newTimeframesData).join(', ')}]`);
 
@@ -1612,71 +1821,6 @@ export default function App() {
     }
   };
 
-  // Update data handler (Phase 3 implementation)
-  const handleUpdateData = (timeframe: string, file: File) => {
-    console.log(`[DEBUG] handleUpdateData - Starting update with timeframe: ${timeframe}, File: ${file.name}`);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        if (!text) {
-          console.error('[DEBUG] handleUpdateData - Update file is empty.');
-          return;
-        }
-
-        const result = parseCSV(text);
-        if (result.parsedCount === 0) {
-          console.error('[DEBUG] handleUpdateData - No valid rows parsed from update file.');
-          return;
-        }
-
-        // Sort update data chronologically (ascending: oldest first, latest last)
-        const updateDataSorted = [...result.data].sort((a, b) => a.timestamp - b.timestamp);
-
-        // Find existing last candle timestamp
-        const lastCandleTs = raw1mData.length > 0 ? raw1mData[raw1mData.length - 1].timestamp : null;
-
-        // Filter out duplicate rows (timestamp <= lastCandleTimestamp)
-        const newUniqueRows = lastCandleTs !== null
-          ? updateDataSorted.filter(row => row.timestamp > lastCandleTs)
-          : updateDataSorted;
-
-        const uniqueCount = newUniqueRows.length;
-        if (uniqueCount === 0) {
-          console.log('[DEBUG] handleUpdateData - No new unique rows to add.');
-          return;
-        }
-
-        const maxLimit = 300000;
-        let merged = [...raw1mData];
-
-        if (merged.length + uniqueCount > maxLimit) {
-          // Slice off the oldest U rows from the main dataset (where U = uniqueCount)
-          const deleteCount = Math.min(merged.length, uniqueCount);
-          console.log(`[DEBUG] handleUpdateData - Merged size (${merged.length + uniqueCount}) exceeds 300k. Deleting oldest ${deleteCount} rows from main file.`);
-          merged = merged.slice(deleteCount);
-        }
-
-        // Append the new unique rows
-        merged = [...merged, ...newUniqueRows];
-
-        // Update raw data state
-        setRaw1mData(merged);
-
-        // Save raw unadjusted data to IndexedDB
-        saveChartDataToIndexedDB(merged, assetName, savedResetOffsetRef.current);
-
-        // Regenerate timeframes and reload chart
-        regenerateTimeframes(merged, settings);
-
-        console.log(`[DEBUG] handleUpdateData - Successfully merged ${uniqueCount} new bars. Total main dataset size: ${merged.length}`);
-      } catch (err) {
-        console.error('[DEBUG] handleUpdateData error:', err);
-      }
-    };
-    reader.readAsText(file);
-  };
-
   // Save settings and push changes to the chart
   const handleSettingsSave = (newSettings: ChartSettings) => {
     console.log('[DEBUG] handleSettingsSave - Saving new settings layout:', newSettings);
@@ -1694,12 +1838,14 @@ export default function App() {
       applySettingsToChart(chartInstance.current, newSettings);
       
       // Update symbol precision based on settings
+      const activeData = allTimeframesData[activeTimeframe] || [];
+      const precision = newSettings.pricePrecision !== 0 ? newSettings.pricePrecision : detectPricePrecision(activeData);
       chartInstance.current.setSymbol({
         ticker: assetName === 'No Asset Loaded' ? 'INGEST' : assetName,
-        pricePrecision: newSettings.pricePrecision,
+        pricePrecision: precision,
         volumePrecision: 4
       });
-      console.log(`[DEBUG] handleSettingsSave - Applied settings and updated chart ticker '${assetName}' precision to ${newSettings.pricePrecision}`);
+      console.log(`[DEBUG] handleSettingsSave - Applied settings and updated chart ticker '${assetName}' precision to ${precision}`);
       
       if (timezoneChanged && raw1mData.length > 0) {
         console.log('[DEBUG] handleSettingsSave - Timezone settings changed. Regenerating all timeframe datasets...');
@@ -1802,15 +1948,45 @@ export default function App() {
       // Clear any saved reset position from a previous file
       savedResetOffsetRef.current = null;
 
-      // Save raw unadjusted data to IndexedDB
-      saveChartDataToIndexedDB(result.data, cleanName, null);
-
       // Apply timezone adjustment, resample and cache
       regenerateTimeframes(result.data, updatedSettings);
 
+      // Add / update watchlist entry for this symbol
+      let updatedWatchlist: any[] = [];
+      setWatchlistSymbols(prev => {
+        const entry = { name: cleanName, raw1m: result.data, settings: updatedSettings };
+        if (importMode === 'single') {
+          const oldSymbol = assetName;
+          const filtered = prev.filter(s => s.name !== oldSymbol || oldSymbol === cleanName);
+          const exists = filtered.findIndex(s => s.name === cleanName);
+          let nextList = [...filtered];
+          if (exists >= 0) {
+            nextList[exists] = entry;
+          } else {
+            nextList.push(entry);
+          }
+          updatedWatchlist = nextList;
+          return nextList;
+        } else {
+          const exists = prev.findIndex(s => s.name === cleanName);
+          let nextList = [...prev];
+          if (exists >= 0) {
+            nextList[exists] = entry;
+          } else {
+            nextList.push(entry);
+          }
+          updatedWatchlist = nextList;
+          return nextList;
+        }
+      });
+      setActiveWatchlistSymbol(cleanName);
+      // Save raw unadjusted data and watchlist to IndexedDB
+      saveChartDataToIndexedDB(result.data, cleanName, null, updatedWatchlist, '1m');
+
       // Populate chart context
       if (chartInstance.current) {
-        chartInstance.current.setSymbol({ ticker: cleanName, pricePrecision: updatedSettings.pricePrecision, volumePrecision: 4 });
+        const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(result.data);
+        chartInstance.current.setSymbol({ ticker: cleanName, pricePrecision: precision, volumePrecision: 4 });
         chartInstance.current.setPeriod({ type: 'minute', span: 1 });
       } else {
         console.error('[DEBUG] processCSVFile - Chart instance not found during initialization!');
@@ -1825,41 +2001,473 @@ export default function App() {
     }
   };
 
-  const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-      console.log(`[DEBUG] handleFolderChange - Selected ${files.length} files from folder`);
+  const processDirectoryHandle = async (dirHandle: any, symbolMap: Record<string, Record<string, File>>, currentPath: string = '') => {
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === 'file') {
+        if (entry.name.toLowerCase().endsWith('.csv')) {
+          const file = await entry.getFile();
+          
+          const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+          const parts = relativePath.split('/');
+          
+          let symbol = '';
+          let filename = '';
+
+          if (parts.length >= 3) {
+            symbol = parts[1].toUpperCase();
+            filename = parts[parts.length - 1];
+          } else if (parts.length === 2) {
+            symbol = parts[0].toUpperCase();
+            filename = parts[1];
+          } else {
+            const namePart = file.name.split(/[._-]/)[0];
+            symbol = namePart ? namePart.toUpperCase() : 'SYMBOL';
+            filename = file.name;
+          }
+
+          const tf = matchFileToTimeframe(filename);
+          if (tf) {
+            if (!symbolMap[symbol]) {
+              symbolMap[symbol] = {};
+            }
+            symbolMap[symbol][tf] = file;
+          }
+        }
+      } else if (entry.kind === 'directory') {
+        const nextPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+        await processDirectoryHandle(entry, symbolMap, nextPath);
+      }
+    }
+  };
+
+  const handleSelectFoldersAPI = async (handlesToUse: any[], autoImport = false) => {
+    try {
+      setIsLoadingSymbol(true);
       
-      const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
-      if (csvFiles.length === 0) {
-        alert('No CSV files found in the selected folder.');
+      const mergedSymbolMap: Record<string, Record<string, File>> = {};
+      
+      for (const dirHandle of handlesToUse) {
+        const symbolMap: Record<string, Record<string, File>> = {};
+        await processDirectoryHandle(dirHandle, symbolMap, dirHandle.name);
+        
+        // Merge symbolMap into mergedSymbolMap
+        Object.entries(symbolMap).forEach(([sym, files]) => {
+          mergedSymbolMap[sym] = {
+            ...(mergedSymbolMap[sym] || {}),
+            ...files
+          };
+        });
+      }
+      
+      const symbolsList = Object.keys(mergedSymbolMap).sort();
+      if (symbolsList.length === 0) {
+        setCustomAlert({
+          title: 'No CSV Files Detected',
+          message: 'No valid timeframe CSV files found. Please ensure files match standard timeframe names (e.g. m1, h4, d1).'
+        });
+        setIsLoadingSymbol(false);
         return;
       }
 
-      // Try to determine symbol name from the folder name
-      let symbol = '';
-      const firstPath = csvFiles[0].webkitRelativePath;
-      if (firstPath && firstPath.includes('/')) {
-        symbol = firstPath.split('/')[0].toUpperCase();
-      } else {
-        const namePart = csvFiles[0].name.split(/[._-]/)[0];
-        symbol = namePart ? namePart.toUpperCase() : 'SYMBOL';
-      }
-      setFolderSymbol(symbol);
-
-      // Map files to timeframes
-      const mapped = csvFiles.map(file => {
-        const timeframe = matchFileToTimeframe(file.name);
-        return {
+      setSymbolFilesMap(mergedSymbolMap);
+      
+      if (symbolsList.length === 1) {
+        setFolderSymbol(symbolsList[0]);
+        const mapped = Object.entries(mergedSymbolMap[symbolsList[0]]).map(([tf, file]) => ({
           name: file.name,
           size: file.size,
-          timeframe
-        };
+          timeframe: tf
+        }));
+        setFolderFilesList(mapped);
+      } else {
+        setFolderSymbol(`${symbolsList.length} Symbols Detected`);
+        const allMapped: { name: string; size: number; timeframe: string | null }[] = [];
+        symbolsList.forEach(sym => {
+          Object.entries(mergedSymbolMap[sym]).forEach(([tf, file]) => {
+            allMapped.push({ name: `${sym}/${file.name}`, size: file.size, timeframe: tf });
+          });
+        });
+        setFolderFilesList(allMapped);
+      }
+      
+      console.log(`[DEBUG] handleSelectFoldersAPI - Extracted Symbol Map:`, mergedSymbolMap);
+      setIsLoadingSymbol(false);
+
+      if (autoImport) {
+        // Automatically confirm import and load the chart
+        const firstSymbol = symbolsList[0];
+        
+        let updatedSettings = { ...settings };
+        if (tempBrokerOffset !== 'exchange') {
+          const brokerLabel = tempBrokerOffset;
+          const brokerOffset = getLabelOffset(brokerLabel);
+          updatedSettings = {
+            ...settings,
+            timezoneAdjustmentEnabled: true,
+            brokerTimezoneOffset: brokerOffset,
+            brokerTimezoneLabel: brokerLabel
+          };
+        } else {
+          updatedSettings = {
+            ...settings,
+            timezoneAdjustmentEnabled: false
+          };
+        }
+        setSettings(updatedSettings);
+        localStorage.setItem('tv_clone_settings', JSON.stringify(updatedSettings));
+        if (chartInstance.current) {
+          applySettingsToChart(chartInstance.current, updatedSettings);
+        }
+
+        // Merge folder symbols into watchlist symbols instead of overwriting!
+        setWatchlistSymbols(prev => {
+          const merged = [...prev];
+          symbolsList.forEach(sym => {
+            if (!merged.some(s => s.name === sym)) {
+              merged.push({ name: sym, raw1m: [], settings: updatedSettings });
+            }
+          });
+          
+          const lastSymbol = localStorage.getItem('active_watchlist_symbol');
+          const targetSymbol = (lastSymbol && symbolsList.includes(lastSymbol)) ? lastSymbol : firstSymbol;
+          const lastTf = (localStorage.getItem('active_timeframe') as Timeframe) || '1m';
+
+          setTimeout(() => {
+            handleWatchlistSymbolSwitch(targetSymbol, lastTf, mergedSymbolMap);
+          }, 0);
+
+          saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, merged, activeTimeframe);
+          return merged;
+        });
+        
+        setFolderSymbol('');
+        setFolderFilesList([]);
+        setIsWatchlistOpen(true);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to select folders:', err);
+        setCustomAlert({
+          title: 'Import Error',
+          message: 'Failed to select folders or read files. Please ensure you have read permissions.'
+        });
+      }
+      setIsLoadingSymbol(false);
+    }
+  };
+
+  const handleSelectFolderAPI = async (handleToUse?: any, autoImport = false) => {
+    try {
+      let dirHandle = handleToUse;
+      if (!dirHandle) {
+        if (!('showDirectoryPicker' in window)) {
+          setCustomAlert({
+            title: 'Unsupported Browser',
+            message: 'Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.'
+          });
+          return;
+        }
+        dirHandle = await (window as any).showDirectoryPicker({ startIn: 'documents' });
+      }
+
+      setSavedFolderHandle(dirHandle);
+      setSavedFolderHandles([dirHandle]);
+      await saveDirectoryHandle(dirHandle);
+      await saveDirectoryHandles([dirHandle]);
+
+      await handleSelectFoldersAPI([dirHandle], autoImport);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to select folder:', err);
+        setCustomAlert({
+          title: 'Import Error',
+          message: 'Failed to select folder or read files. Please ensure you have read permissions.'
+        });
+      }
+      setIsLoadingSymbol(false);
+    }
+  };
+
+  const handleRestoreSavedFolder = async () => {
+    if (!savedFolderHandles || savedFolderHandles.length === 0) return;
+    setIsVerifyingFolder(true);
+    try {
+      const options = { mode: 'read' as const };
+      const validHandles = [];
+      for (const handle of savedFolderHandles) {
+        if ((await (handle as any).queryPermission(options)) !== 'granted') {
+          const request = await (handle as any).requestPermission(options);
+          if (request !== 'granted') {
+            continue;
+          }
+        }
+        validHandles.push(handle);
+      }
+      if (validHandles.length > 0) {
+        await handleSelectFoldersAPI(validHandles, true);
+      }
+    } catch (err) {
+      console.error('Error verifying folder permission:', err);
+    }
+    setIsVerifyingFolder(false);
+  };
+
+  const handleFolderImportConfirm = async () => {
+    const symbolsList = Object.keys(symbolFilesMap).sort();
+    if (symbolsList.length === 0) return;
+
+    // Apply timezone adjustment settings
+    let updatedSettings = { ...settings };
+    if (tempBrokerOffset !== 'exchange') {
+      const brokerLabel = tempBrokerOffset;
+      const brokerOffset = getLabelOffset(brokerLabel);
+      updatedSettings = {
+        ...settings,
+        timezoneAdjustmentEnabled: true,
+        brokerTimezoneOffset: brokerOffset,
+        brokerTimezoneLabel: brokerLabel
+      };
+    } else {
+      updatedSettings = {
+        ...settings,
+        timezoneAdjustmentEnabled: false
+      };
+    }
+    setSettings(updatedSettings);
+    localStorage.setItem('tv_clone_settings', JSON.stringify(updatedSettings));
+    if (chartInstance.current) {
+      applySettingsToChart(chartInstance.current, updatedSettings);
+    }
+
+    const firstSymbol = symbolsList[0];
+    
+    // Merge folder symbols into watchlist symbols instead of overwriting!
+    setWatchlistSymbols(prev => {
+      const merged = [...prev];
+      symbolsList.forEach(sym => {
+        if (!merged.some(s => s.name === sym)) {
+          merged.push({ name: sym, raw1m: [], settings: updatedSettings });
+        }
+      });
+      
+      const lastSymbol = localStorage.getItem('active_watchlist_symbol');
+      const targetSymbol = (lastSymbol && symbolsList.includes(lastSymbol)) ? lastSymbol : firstSymbol;
+      const lastTf = (localStorage.getItem('active_timeframe') as Timeframe) || '1m';
+
+      // Give state a tick to update, then switch symbol
+      setTimeout(() => {
+        handleWatchlistSymbolSwitch(targetSymbol, lastTf, symbolFilesMap);
+      }, 0);
+
+      saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, merged, activeTimeframe);
+      return merged;
+    });
+    
+    // Reset folder mode states for next time
+    setFolderSymbol('');
+    setFolderFilesList([]);
+
+    // Auto-open the watchlist panel
+    setIsWatchlistOpen(true);
+  };
+
+  const handleWatchlistAddFolder = async () => {
+    try {
+      if (!('showDirectoryPicker' in window)) {
+        setCustomAlert({
+          title: 'Unsupported Browser',
+          message: 'Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.'
+        });
+        return;
+      }
+      const dirHandle = await (window as any).showDirectoryPicker({ startIn: 'documents' });
+      setIsLoadingSymbol(true);
+
+      const symbolMap: Record<string, Record<string, File>> = {};
+      await processDirectoryHandle(dirHandle, symbolMap, dirHandle.name);
+
+      const symbolsList = Object.keys(symbolMap).sort();
+      if (symbolsList.length === 0) {
+        setCustomAlert({
+          title: 'No CSV Files Detected',
+          message: 'No valid timeframe CSV files found in the selected folder.'
+        });
+        setIsLoadingSymbol(false);
+        return;
+      }
+
+      // Add to savedFolderHandles if not already present
+      setSavedFolderHandles(prev => {
+        const alreadyExists = prev.some(h => h.name === dirHandle.name);
+        const updated = alreadyExists ? prev : [...prev, dirHandle];
+        saveDirectoryHandles(updated);
+        // Also update savedFolderHandle to the first handle if not already set
+        if (!savedFolderHandle) {
+          setSavedFolderHandle(dirHandle);
+          saveDirectoryHandle(dirHandle);
+        }
+        return updated;
       });
 
-      setFolderFilesList(mapped);
-      console.log(`[DEBUG] handleFolderChange - Extracted Symbol: ${symbol}, mapped files:`, mapped);
+      // Merge symbolMap into symbolFilesMap
+      setSymbolFilesMap(prev => {
+        const updated = { ...prev };
+        symbolsList.forEach(sym => {
+          updated[sym] = {
+            ...(updated[sym] || {}),
+            ...symbolMap[sym]
+          };
+        });
+        return updated;
+      });
+
+      // Merge into watchlistSymbols
+      setWatchlistSymbols(prev => {
+        const merged = [...prev];
+        symbolsList.forEach(sym => {
+          if (!merged.some(s => s.name === sym)) {
+            merged.push({ name: sym, raw1m: [], settings });
+          }
+        });
+        saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, merged, activeTimeframe);
+        return merged;
+      });
+
+      setIsLoadingSymbol(false);
+      
+      setWatchlistToast({ msg: `Added ${symbolsList.length} symbol(s) from folder.`, type: 'info' });
+      setTimeout(() => setWatchlistToast(null), 2500);
+
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to select folder:', err);
+        setCustomAlert({
+          title: 'Import Error',
+          message: 'Failed to select folder or read files. Please ensure you have read permissions.'
+        });
+      }
+      setIsLoadingSymbol(false);
     }
+  };
+
+  // Watchlist: add a single CSV file as an additional symbol without replacing current chart
+  const handleWatchlistAddFile = (file: File) => {
+    // Derive the symbol name the same way processCSVFile does — before reading
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
+
+    // Reject if already in watchlist
+    setWatchlistSymbols(prev => {
+      if (prev.some(s => s.name === cleanName)) {
+        setWatchlistToast({ msg: `'${cleanName}' is already in the watchlist.`, type: 'error' });
+        setTimeout(() => setWatchlistToast(null), 2500);
+        return prev; // no change
+      }
+      return prev; // will be updated after parse below
+    });
+
+    // Check synchronously via a flag so we don't read unnecessarily
+    // Re-read current state via closure isn't reliable here, so we check with a ref-free approach:
+    // We do the real duplicate guard inside the setter above; now just bail if it fired a toast
+    // by scheduling the reader only after a microtask so the state setter above runs first.
+    // Simpler: just check directly — watchlistSymbols is captured in closure here.
+    if (watchlistSymbols.some(s => s.name === cleanName)) {
+      return; // toast was already triggered above
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      const result = parseCSV(text);
+      if (result.parsedCount === 0) {
+        setWatchlistToast({ msg: `Could not parse '${cleanName}' — no valid bars found.`, type: 'error' });
+        setTimeout(() => setWatchlistToast(null), 2500);
+        return;
+      }
+      setWatchlistSymbols(prev => {
+        // Final duplicate guard inside setter (handles race conditions)
+        if (prev.some(s => s.name === cleanName)) {
+          setWatchlistToast({ msg: `'${cleanName}' is already in the watchlist.`, type: 'error' });
+          setTimeout(() => setWatchlistToast(null), 2500);
+          return prev;
+        }
+        const updated = [...prev, { name: cleanName, raw1m: result.data, settings }];
+        saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, updated, activeTimeframe);
+        return updated;
+      });
+      console.log(`[DEBUG] handleWatchlistAddFile - Added '${cleanName}' to watchlist (${result.parsedCount} bars)`);
+    };
+    reader.readAsText(file);
+  };
+
+  // Watchlist: switch active symbol onto the chart (supports on-demand loading for Folder Mode)
+  const handleWatchlistSymbolSwitch = async (
+    symbolName: string, 
+    preferredTf?: string, 
+    overrideFilesMap?: Record<string, Record<string, File>>
+  ) => {
+    let rawData: KLineData[] = [];
+    let targetTf = preferredTf || activeTimeframe || '1m';
+
+    const currentFilesMap = overrideFilesMap || symbolFilesMap;
+    const files = currentFilesMap[symbolName];
+
+    if (files) {
+      // Folder mode
+      if (!preferredTf) {
+        // Maintain the active timeframe if a suitable folder file exists or can be resampled.
+        const bestMatch = activeTimeframe ? getBestTimeframeFile(files, activeTimeframe) : null;
+        if (bestMatch) {
+          targetTf = activeTimeframe;
+        } else {
+          const TF_PRIORITY = ['1m','2m','3m','4m','5m','10m','15m','30m','1h','2h','4h','6h','12h','D','W','M'];
+          const foundTf = TF_PRIORITY.find(tf => files[tf]);
+          if (!foundTf) {
+            setWatchlistToast({ msg: `No valid timeframes found for '${symbolName}'.`, type: 'error' });
+            setTimeout(() => setWatchlistToast(null), 2500);
+            return;
+          }
+          targetTf = foundTf;
+        }
+      }
+    } else {
+      // Single file mode
+      const entry = watchlistSymbols.find(s => s.name === symbolName);
+      if (entry) rawData = entry.raw1m;
+      
+      if (rawData.length === 0) {
+        setWatchlistToast({ msg: `No data found for '${symbolName}'.`, type: 'error' });
+        setTimeout(() => setWatchlistToast(null), 2500);
+        return;
+      }
+    }
+
+    // Persist active symbol
+    localStorage.setItem('active_watchlist_symbol', symbolName);
+
+    setActiveWatchlistSymbol(symbolName);
+    setAssetName(symbolName);
+    setRaw1mData(rawData);
+    setAllTimeframesData({}); // Clear cache for new symbol
+    setHasData(true);
+
+    // Stop any active replay
+    setIsReplayActive(false);
+    setIsSelectingCutPoint(false);
+    setIsReplayPlaying(false);
+    setReplayCurrentTimestamp(null);
+    savedResetOffsetRef.current = null;
+
+    if (chartInstance.current) {
+      const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : (rawData.length > 0 ? detectPricePrecision(rawData) : 4);
+      chartInstance.current.setSymbol({ ticker: symbolName, pricePrecision: precision, volumePrecision: 4 });
+    }
+    console.log(`[DEBUG] handleWatchlistSymbolSwitch - Switched to '${symbolName}'`);
+    
+    // Trigger lazy loading of the active timeframe
+    setTimeout(() => {
+      handleTimeframeSwitch(targetTf, symbolName, rawData, currentFilesMap);
+    }, 0);
   };
 
   // Drag & drop handlers
@@ -1890,50 +2498,141 @@ export default function App() {
   };
 
   // Timeframe switching
-  const handleTimeframeSwitch = (tf: Timeframe) => {
-    if (!hasData) {
+  const handleTimeframeSwitch = async (
+    tf: Timeframe, 
+    overrideSymbol?: string, 
+    overrideRawData?: KLineData[], 
+    overrideFilesMap?: Record<string, Record<string, File>>
+  ) => {
+    if (!hasData && !overrideSymbol) {
       console.warn('[DEBUG] handleTimeframeSwitch - Attempted switch but no data is loaded.');
       return;
     }
-    console.log(`[DEBUG] handleTimeframeSwitch - Switch requested to: ${tf}`);
+    const isSymbolSwitch = !!overrideSymbol;
+    console.log(`[DEBUG] handleTimeframeSwitch - Switch requested to: ${tf} (symbol: ${overrideSymbol || assetName}), isSymbolSwitch: ${isSymbolSwitch}`);
 
-    if (chartInstance.current) {
-      capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
+    setIsLoadingSymbol(true);
 
-      let wasManual = false;
-      let range = null;
-      const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
-      const yAxis = pane?.getYAxisComponents?.()?.[0];
-      if (yAxis) {
-        wasManual = !yAxis.getAutoCalcTickFlag();
-        if (wasManual) {
-          const r = yAxis.getRange();
-          if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
-            range = r;
-          } else {
-            wasManual = false;
+    const currentSymbol = overrideSymbol || assetName;
+    const currentRaw1m = overrideRawData || raw1mData;
+    const currentFilesMap = overrideFilesMap || symbolFilesMap;
+
+    let targetData = isSymbolSwitch ? undefined : allTimeframesData[tf];
+
+    try {
+      if (!targetData || targetData.length === 0) {
+        let tfData: KLineData[] = [];
+        const files = currentFilesMap[currentSymbol];
+        
+        if (files) {
+          const bestMatch = getBestTimeframeFile(files, tf);
+          if (bestMatch) {
+            console.log(`[DEBUG] handleTimeframeSwitch - Folder mode: found best file ${bestMatch.file.name} for target tf ${tf}`);
+            
+            let baseData = (isSymbolSwitch ? undefined : allTimeframesData[bestMatch.tf]) || [];
+            if (baseData.length === 0) {
+              const text = await bestMatch.file.text();
+              const result = parseCSV(text);
+              if (result.parsedCount > 0) {
+                let adjustedData = result.data;
+                if (settings.timezoneAdjustmentEnabled) {
+                  const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
+                  adjustedData = result.data.map(c => ({
+                    ...c,
+                    timestamp: c.timestamp + offsetDiffMs
+                  }));
+                }
+                baseData = adjustedData;
+                
+                setAllTimeframesData(prev => ({ ...prev, [bestMatch.tf]: baseData }));
+              } else {
+                baseData = [];
+              }
+            }
+
+            if (bestMatch.tf === tf) {
+              tfData = baseData;
+            } else if (baseData.length > 0) {
+              tfData = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
+            }
           }
         }
-      }
-      wasManualScaleRef.current = wasManual;
-      capturedYAxisRangeRef.current = range;
 
-      console.log(`[DEBUG] handleTimeframeSwitch - Captured offset before switch: ${capturedOffsetRef.current}, manual scale: ${wasManual}, range:`, range);
+        if (tfData.length === 0 && currentRaw1m.length > 0) {
+          console.log(`[DEBUG] handleTimeframeSwitch - Resampling from raw base data for target tf ${tf}`);
+          let baseData = currentRaw1m;
+          if (settings.timezoneAdjustmentEnabled) {
+            const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
+            baseData = currentRaw1m.map(c => ({
+              ...c,
+              timestamp: c.timestamp + offsetDiffMs
+            }));
+          }
+          tfData = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
+        }
+
+        if (tfData.length > 0) {
+          setAllTimeframesData(prev => ({ ...prev, [tf]: tfData }));
+          targetData = tfData;
+        } else {
+          console.error(`[DEBUG] handleTimeframeSwitch - Failed to generate data for timeframe ${tf}`);
+          setIsLoadingSymbol(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('[DEBUG] handleTimeframeSwitch - Error loading timeframe data:', err);
+      setIsLoadingSymbol(false);
+      return;
     }
 
-    let alignedTimestamp = replayCurrentTimestamp;
-    if (isReplayActive && replayCurrentTimestamp !== null) {
-      const fullData = allTimeframesData[tf];
+    if (chartInstance.current) {
+      if (isSymbolSwitch) {
+        // Clear offset/scale cache for new symbol so we don't apply the old symbol's scroll/zoom position
+        capturedOffsetRef.current = null;
+        wasManualScaleRef.current = false;
+        capturedYAxisRangeRef.current = null;
+        console.log(`[DEBUG] handleTimeframeSwitch - Symbol switch: cleared offset/scale cache.`);
+      } else {
+        capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
+
+        let wasManual = false;
+        let range = null;
+        const pane = chartInstance.current.getDrawPaneById?.('candle_pane');
+        const yAxis = pane?.getYAxisComponents?.()?.[0];
+        if (yAxis) {
+          wasManual = !yAxis.getAutoCalcTickFlag();
+          if (wasManual) {
+            const r = yAxis.getRange();
+            if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
+              range = r;
+            } else {
+              wasManual = false;
+            }
+          }
+        }
+        wasManualScaleRef.current = wasManual;
+        capturedYAxisRangeRef.current = range;
+
+        console.log(`[DEBUG] handleTimeframeSwitch - Captured offset before switch: ${capturedOffsetRef.current}, manual scale: ${wasManual}, range:`, range);
+      }
+    }
+
+    const activeReplay = isSymbolSwitch ? false : isReplayActive;
+    let alignedTimestamp = activeReplay ? replayCurrentTimestamp : null;
+    if (activeReplay && alignedTimestamp !== null && targetData) {
+      const fullData = targetData;
       let alignedBar = null;
       for (let i = fullData.length - 1; i >= 0; i--) {
-        if (fullData[i].timestamp <= replayCurrentTimestamp) {
+        if (fullData[i].timestamp <= alignedTimestamp) {
           alignedBar = fullData[i];
           break;
         }
       }
       if (alignedBar) {
+        const originalTs = alignedTimestamp;
         alignedTimestamp = alignedBar.timestamp;
-        console.log(`[DEBUG] handleTimeframeSwitch - Aligned replay timestamp from ${new Date(replayCurrentTimestamp).toLocaleString()} to new timeframe ${tf} timestamp: ${new Date(alignedTimestamp).toLocaleString()}`);
+        console.log(`[DEBUG] handleTimeframeSwitch - Aligned replay timestamp from ${new Date(originalTs).toLocaleString()} to new timeframe ${tf} timestamp: ${new Date(alignedTimestamp).toLocaleString()}`);
         setReplayCurrentTimestamp(alignedTimestamp);
       } else if (fullData.length > 0) {
         alignedTimestamp = fullData[0].timestamp;
@@ -1943,8 +2642,9 @@ export default function App() {
     }
 
     setActiveTimeframe(tf);
-    if (chartInstance.current) {
-      const fullData = allTimeframesData[tf];
+    localStorage.setItem('active_timeframe', tf);
+    if (chartInstance.current && targetData) {
+      const fullData = targetData;
       const visibleData = isReplayActive && alignedTimestamp !== null
         ? fullData.filter(d => d.timestamp <= alignedTimestamp)
         : fullData;
@@ -1969,6 +2669,11 @@ export default function App() {
         type = 'month';
       }
 
+      // Dynamically detect or apply configured price precision
+      const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(targetData);
+      chartInstance.current.setSymbol({ ticker: currentSymbol, pricePrecision: precision, volumePrecision: 4 });
+
+      // Set the data loader BEFORE resetting data so that the chart immediately triggers the correct loading callback
       chartInstance.current.setDataLoader({
         getBars: ({ type: loadType, callback }: any) => {
           if (loadType === 'init') {
@@ -1979,16 +2684,22 @@ export default function App() {
           }
         }
       });
+      chartInstance.current.resetData();
 
       // Update period to trigger redraw with the new resampled data
       console.log(`[DEBUG] handleTimeframeSwitch - setPeriod triggered with type: ${type}, span: ${span}`);
       chartInstance.current.setPeriod({ type, span });
       
-      // Preserve the user's current scroll position when switching timeframes
-      centerLastCandle(tf, alignedTimestamp, true);
+      // Preserve the user's current scroll position when switching timeframes, but center if it's a symbol switch
+      centerLastCandle(tf, alignedTimestamp, !isSymbolSwitch);
+
+      // Save loaded timeframe data and watchlist to IndexedDB
+      saveChartDataToIndexedDB(visibleData, currentSymbol, capturedOffsetRef.current || savedResetOffsetRef.current, watchlistSymbols, tf);
     } else {
       console.error('[DEBUG] handleTimeframeSwitch - Chart instance is missing!');
     }
+    
+    setIsLoadingSymbol(false);
   };
 
   // Add custom timeframe on the fly
@@ -2023,14 +2734,6 @@ export default function App() {
       handleTimeframeSwitch(tfValue);
       return;
     }
-
-    const data1m = allTimeframesData['1m'] || [];
-    const resampledData = resample1mToTimeframe(data1m, minutes);
-
-    setAllTimeframesData(prev => ({
-      ...prev,
-      [tfValue]: resampledData
-    }));
 
     const newTf = { label: tfLabel, value: tfValue, minutes };
     setCustomTimeframes(prev => [...prev, newTf]);
@@ -2765,7 +3468,17 @@ export default function App() {
 
         {/* Right Side: Replay and Settings */}
         <div className="flex items-center gap-2">
-          
+          {hasData && importMode === 'folder' && savedFolderHandle && (
+            <button
+              onClick={handleRestoreSavedFolder}
+              disabled={isVerifyingFolder}
+              title="Refresh all folder data (re-read CSV files)"
+              className="p-2 rounded-lg border border-gray-800 bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-colors duration-150 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="p-2 rounded-lg border border-gray-800 bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-colors duration-150"
@@ -3049,7 +3762,7 @@ export default function App() {
         </aside>
 
         {/* Charting Canvas container */}
-        <main className="flex-1 h-full w-[calc(100vw-3rem)] relative bg-[#131722]">
+        <main className="flex-1 h-full min-w-0 relative bg-[#131722]">
           
           {/* KLineChart mount element */}
           <div
@@ -3130,15 +3843,17 @@ export default function App() {
 
 
 
-          {/* Loader when checking cache */}
-          {isCheckingCache && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#131722] gap-4 select-none">
+          {/* Loader when checking cache or loading symbol on demand */}
+          {(isCheckingCache || isLoadingSymbol) && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#131722]/90 backdrop-blur-sm gap-4 select-none">
               <div className="relative w-12 h-12 flex items-center justify-center">
                 <div className="absolute w-12 h-12 border-[3px] border-indigo-500/20 rounded-full" />
                 <div className="absolute w-12 h-12 border-[3px] border-indigo-500 border-t-transparent rounded-full animate-spin" />
               </div>
               <div className="flex flex-col items-center gap-1.5 mt-2 animate-pulse">
-                <span className="text-xs font-bold uppercase tracking-widest text-white">Restoring Session</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-white">
+                  {isLoadingSymbol ? 'Loading Data' : 'Restoring Session'}
+                </span>
                 <span className="text-[10px] text-gray-500 font-medium">Please wait while we load your chart data...</span>
               </div>
             </div>
@@ -3206,13 +3921,13 @@ export default function App() {
                 </div>
               ) : (
                 // STANDARD DUAL MODE IMPORT VIEW
-                <div className="flex flex-col items-center justify-start h-[578px] w-full max-w-lg gap-5">
+                <div className="flex flex-col items-center justify-start min-h-[578px] h-auto w-full max-w-lg gap-5 py-2">
                   {/* Mode Tab Switcher */}
                   <div className="flex bg-[#131722] p-1 rounded-xl border border-gray-800/85 w-72 h-[38px] transition-all shadow-lg">
                     <button
                       type="button"
                       onClick={() => {
-                        setImportMode('single');
+                        changeImportMode('single');
                         setIsBrokerTfDropdownOpen(false);
                       }}
                       className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
@@ -3227,7 +3942,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        setImportMode('folder');
+                        changeImportMode('folder');
                         setIsBrokerTfDropdownOpen(false);
                       }}
                       className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all cursor-pointer text-[11px] font-bold ${
@@ -3245,9 +3960,9 @@ export default function App() {
                     // SINGLE FILE IMPORT PROMPT
                     <div
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full max-w-lg text-center flex flex-col items-center bg-[#1e222d]/60 border border-gray-800 p-8 rounded-2xl shadow-xl backdrop-blur-md hover:border-gray-700 cursor-pointer group h-[520px] justify-between"
+                      className="w-full max-w-lg text-center flex flex-col items-center bg-[#1e222d]/60 border border-gray-800 p-8 rounded-2xl shadow-xl backdrop-blur-md hover:border-gray-700 cursor-pointer group min-h-[520px] h-auto justify-between"
                     >
-                      <div className="w-full h-[340px] flex flex-col justify-start gap-4 items-center">
+                      <div className="w-full flex-1 flex flex-col justify-start gap-4 items-center">
                         <div className="flex flex-col items-center mb-1">
                           <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3">
                             <FileSpreadsheet className="w-6 h-6" />
@@ -3279,7 +3994,7 @@ export default function App() {
                       <div 
                         ref={brokerTfDropdownRef}
                         onClick={(e) => e.stopPropagation()} 
-                        className="relative w-72 select-none text-left z-20"
+                        className="relative w-72 select-none text-left z-20 mb-5"
                       >
                         <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1.5 text-center">
                           Broker's Server Timezone (Optional)
@@ -3331,18 +4046,10 @@ export default function App() {
                       </div>
                     </div>
                   ) : (
-                    // FOLDER IMPORT PROMPT (UI ONLY)
-                    <div className="max-w-lg w-full text-center flex flex-col items-center bg-[#1e222d]/60 border border-gray-800 p-8 rounded-2xl shadow-xl backdrop-blur-md hover:border-gray-700 select-none group h-[520px] justify-between">
-                      <input
-                        type="file"
-                        ref={folderInputRef}
-                        className="hidden"
-                        multiple
-                        onChange={handleFolderChange}
-                        {...{ webkitdirectory: "", directory: "" }}
-                      />
+                    // FOLDER IMPORT PROMPT (ACTIVE MULTI-SYMBOL)
+                    <div className="max-w-lg w-full text-center flex flex-col items-center bg-[#1e222d]/60 border border-gray-800 p-8 rounded-2xl shadow-xl backdrop-blur-md hover:border-gray-700 select-none group min-h-[520px] h-auto justify-between">
                       
-                      <div className="w-full h-[340px] flex flex-col justify-start gap-4 items-center">
+                      <div className="w-full flex-1 flex flex-col justify-start gap-4 items-center">
                         {!folderSymbol ? (
                           <div className="flex flex-col items-center mb-1">
                             <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3">
@@ -3352,7 +4059,7 @@ export default function App() {
                               Import Symbol Folder
                             </h3>
                             <p className="text-xs text-gray-400 leading-relaxed max-w-md">
-                              Select a folder named after your trading symbol (e.g. <code>EURUSD</code>) containing separate CSV files for individual timeframes.
+                              Select a master folder containing subfolders for each trading pair (e.g. <code>EURUSD</code>, <code>GBPUSD</code>) containing timeframe CSV files.
                             </p>
                           </div>
                         ) : (
@@ -3368,12 +4075,14 @@ export default function App() {
                           <div className="flex flex-col gap-3.5 text-left bg-black/30 border border-gray-850/30 rounded-xl p-4 w-full">
                             <div className="flex justify-between items-center border-b border-gray-850 pb-2.5">
                               <div>
-                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Detected Symbol</div>
+                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">
+                                  {Object.keys(symbolFilesMap).length > 1 ? 'Detected Folder' : 'Detected Symbol'}
+                                </div>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <span className="text-sm font-bold text-white tracking-wide">{folderSymbol}</span>
                                   <button
                                     type="button"
-                                    onClick={() => folderInputRef.current?.click()}
+                                    onClick={() => handleSelectFolderAPI()}
                                     className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-indigo-500/10 border border-indigo-500/20 rounded px-1.5 py-0.5"
                                   >
                                     <span>Change</span>
@@ -3386,45 +4095,80 @@ export default function App() {
                               </div>
                             </div>
 
-                            <div>
-                              <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2">Timeframe Mapping Status</div>
-                              <div className="grid grid-cols-3 gap-1.5">
-                                {HEADER_TIMEFRAMES.map((tf) => {
-                                  const matchedFile = folderFilesList.find(f => f.timeframe === tf);
-                                  return (
-                                    <div 
-                                      key={tf} 
-                                      className={`flex items-center justify-between px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${
-                                        matchedFile 
-                                          ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-300 font-semibold' 
-                                          : 'bg-gray-900/40 border-gray-800/80 text-gray-400/85'
-                                      }`}
-                                    >
-                                      <span className="font-bold tracking-wide">{tf}</span>
-                                      {matchedFile ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                                      ) : (
-                                        <span className="text-[8px] px-1 bg-gray-800/40 rounded text-gray-500 border border-gray-700/50">Resample</span>
-                                      )}
+                            {Object.keys(symbolFilesMap).length > 1 ? (
+                              <div>
+                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2">Detected Symbol Subfolders</div>
+                                <div className="max-h-[160px] overflow-y-auto bg-[#131722]/50 border border-gray-850 rounded-lg p-2 flex flex-col gap-1 scrollbar-thin scrollbar-thumb-gray-800">
+                                  {Object.keys(symbolFilesMap).sort().map(sym => (
+                                    <div key={sym} className="flex justify-between items-center bg-[#1e222d]/60 border border-gray-850/40 rounded-lg px-3 py-1.5 text-xs text-white">
+                                      <span className="font-semibold tracking-wide text-indigo-300">{sym}</span>
+                                      <span className="text-[10px] text-gray-500 font-mono">
+                                        {Object.keys(symbolFilesMap[sym]).length} timeframes
+                                      </span>
                                     </div>
-                                  );
-                                })}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
+                            ) : (
+                              <div>
+                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2">Timeframe Mapping Status</div>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {HEADER_TIMEFRAMES.map((tf) => {
+                                    const matchedFile = folderFilesList.find(f => f.timeframe === tf);
+                                    return (
+                                      <div 
+                                        key={tf} 
+                                        className={`flex items-center justify-between px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${
+                                          matchedFile 
+                                            ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-300 font-semibold' 
+                                            : 'bg-gray-900/40 border-gray-800/80 text-gray-400/85'
+                                        }`}
+                                      >
+                                        <span className="font-bold tracking-wide">{tf}</span>
+                                        {matchedFile ? (
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                        ) : (
+                                          <span className="text-[8px] px-1 bg-gray-800/40 rounded text-gray-500 border border-gray-700/50">Resample</span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <button
-                            onClick={() => folderInputRef.current?.click()}
-                            className="w-full border border-dashed rounded-xl p-6 flex flex-col items-center justify-center border-gray-800/80 group-hover:border-gray-700 bg-black/10 cursor-pointer"
-                          >
-                            <Folder className="w-10 h-10 text-gray-500 group-hover:text-indigo-400 transition-colors mb-3" />
-                            <span className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors mb-1">Select Symbol Directory</span>
-                            <span className="text-[11px] text-gray-500 mb-3.5">Click to browse your local symbol folder</span>
-                            <div className="w-72 h-[38px] flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 group-hover:bg-indigo-500 transition-all">
-                              <FolderOpen className="w-3.5 h-3.5" />
-                              <span>Choose Folder</span>
-                            </div>
-                          </button>
+                          <div className="w-full flex flex-col gap-3 items-center">
+                            {savedFolderHandle && (
+                              <button
+                                onClick={handleRestoreSavedFolder}
+                                disabled={isVerifyingFolder || isLoadingSymbol}
+                                className="w-full border border-emerald-500/30 bg-emerald-600/10 hover:bg-emerald-600/20 rounded-xl p-4 flex items-center justify-between transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Folder className="w-6 h-6 text-emerald-400" />
+                                  <div className="flex flex-col items-start text-left">
+                                    <span className="text-sm font-semibold text-emerald-100">Load Saved Folder</span>
+                                    <span className="text-[10px] text-emerald-300/70">{savedFolderHandle.name}</span>
+                                  </div>
+                                </div>
+                                {(isVerifyingFolder || isLoadingSymbol) ? <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" /> : <ChevronRight className="w-5 h-5 text-emerald-400" />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleSelectFolderAPI()}
+                              disabled={isVerifyingFolder || isLoadingSymbol}
+                              className="w-full border border-dashed rounded-xl p-6 flex flex-col items-center justify-center border-gray-800/80 hover:border-gray-700 bg-black/10 cursor-pointer disabled:opacity-50"
+                            >
+                              <Folder className="w-10 h-10 text-gray-500 hover:text-indigo-400 transition-colors mb-3" />
+                              <span className="text-sm font-semibold text-gray-300 transition-colors mb-1">Select Symbol Directory</span>
+                              <span className="text-[11px] text-gray-500 mb-3.5">Click to browse your local symbol folder</span>
+                              <div className="w-72 h-[38px] flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all">
+                                <FolderOpen className="w-3.5 h-3.5" />
+                                <span>Choose Folder</span>
+                              </div>
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -3432,7 +4176,7 @@ export default function App() {
                       <div 
                         ref={brokerTfDropdownRef}
                         onClick={(e) => e.stopPropagation()} 
-                        className="relative w-72 select-none text-left z-20"
+                        className="relative w-72 select-none text-left z-20 mt-10 mb-5"
                       >
                         <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1.5 text-center">
                           Broker's Server Timezone (Optional)
@@ -3479,16 +4223,18 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Import Button with Coming Soon State */}
+                      {/* Import Button */}
                       <button
-                        onClick={() => setShowFolderComingSoonAlert(true)}
-                        className="w-72 h-[38px] flex items-center justify-center gap-2 bg-indigo-600/30 border border-indigo-500/20 text-gray-400 rounded-xl text-xs font-bold transition-all cursor-pointer hover:bg-indigo-600/40 hover:text-white"
+                        onClick={handleFolderImportConfirm}
+                        disabled={!folderSymbol}
+                        className={`w-72 h-[38px] mt-2.5 flex items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          folderSymbol
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500'
+                            : 'bg-indigo-600/10 border border-indigo-500/5 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
                         <FolderOpen className="w-3.5 h-3.5" />
-                        <span>Import Folder</span>
-                        <span className="ml-1.5 px-1.5 py-0.5 bg-indigo-600/30 text-indigo-300 text-[8px] font-extrabold uppercase tracking-wider rounded border border-indigo-500/30">
-                          Coming Soon
-                        </span>
+                        <span>{folderSymbol ? 'Import Detected Symbols' : 'Import Folder'}</span>
                       </button>
                     </div>
                   )}
@@ -3497,7 +4243,175 @@ export default function App() {
             </div>
           )}
         </main>
+
+        {/* ── Watchlist sliding panel — opens between chart and right icon bar ── */}
+        <aside
+          className={`
+            flex-shrink-0 h-full
+            bg-[#1a1e2e] border-r border-gray-900
+            flex flex-col
+            transition-all duration-300 ease-in-out overflow-hidden
+            ${isWatchlistOpen ? 'w-64' : 'w-0'}
+          `}
+        >
+          {/* Panel inner — fixed width prevents content bleed during slide */}
+          <div className={`w-64 h-full flex flex-col transition-opacity duration-200 ${isWatchlistOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
+              <div className="flex items-center gap-2">
+                <List className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
+                {watchlistSymbols.length > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">
+                    {watchlistSymbols.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Refresh folder button (visible in folder mode when savedFolderHandle is present) */}
+                {importMode === 'folder' && savedFolderHandle && (
+                  <button
+                    onClick={handleRestoreSavedFolder}
+                    disabled={isVerifyingFolder}
+                    title="Refresh folder data"
+                    className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+                {/* + Add symbol icon button */}
+                <button
+                  onClick={() => {
+                    if (importMode === 'folder') {
+                      handleWatchlistAddFolder();
+                    } else {
+                      watchlistAddInputRef.current?.click();
+                    }
+                  }}
+                  title={importMode === 'folder' ? "Add symbol folder" : "Add symbol from CSV"}
+                  className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  ref={watchlistAddInputRef}
+                  type="file"
+                  accept=".csv"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      Array.from(e.target.files).forEach(file => {
+                        handleWatchlistAddFile(file);
+                      });
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Symbol list */}
+            <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-gray-800">
+
+              {/* Inline toast banner */}
+              {watchlistToast && (
+                <div className={`mx-2 mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+                  watchlistToast.type === 'error'
+                    ? 'bg-red-500/10 border border-red-500/25 text-red-400'
+                    : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-300'
+                }`}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{watchlistToast.msg}</span>
+                </div>
+              )}
+
+              {watchlistSymbols.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+                    <List className="w-5 h-5 text-indigo-400/60" />
+                  </div>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Load a CSV file to add symbols here. Use the <span className="text-indigo-400 font-semibold">+</span> button to add more.
+                  </p>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-0.5 px-2">
+                  {watchlistSymbols.map((sym) => {
+                    const isActive = sym.name === activeWatchlistSymbol;
+                    return (
+                      <li key={sym.name}>
+                        <div
+                          onClick={() => handleWatchlistSymbolSwitch(sym.name)}
+                          className={`
+                            w-full flex items-center justify-between gap-2
+                            px-3 py-2.5 rounded-xl text-left cursor-pointer
+                            transition-all duration-150 group
+                            ${isActive
+                              ? 'bg-indigo-600/20 border border-indigo-500/30 text-white'
+                              : 'border border-transparent text-gray-400 hover:bg-gray-800/60 hover:text-white'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
+                              isActive ? 'bg-indigo-400' : 'bg-gray-700 group-hover:bg-gray-500'
+                            }`} />
+                            <span className="text-xs font-semibold tracking-wide truncate">{sym.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-[9px] text-gray-600 group-hover:text-gray-400 transition-colors">
+                              {sym.raw1m.length > 0 ? `${sym.raw1m.length.toLocaleString()}b` : 'Folder'}
+                            </span>
+                            {isActive && <ChevronRight className="w-3 h-3 text-indigo-400" />}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingRemoveSymbol(sym.name);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-600 hover:text-red-400 transition-all"
+                              title="Remove from watchlist"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+          </div>
+        </aside>
+
+        {/* ── Right icon bar — always pinned to right edge of screen ── */}
+        <aside className="w-12 flex-shrink-0 bg-[#1e222d] border-l border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
+
+          {/* Watchlist / Playlist toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setIsWatchlistOpen(v => !v)}
+              title={isWatchlistOpen ? 'Close Watchlist' : 'Open Watchlist'}
+              className={`p-2 rounded-lg border transition-all ${
+                isWatchlistOpen
+                  ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60'
+              }`}
+            >
+              <List className="w-4.5 h-4.5" />
+            </button>
+          </div>
+
+          {/* Divider — space for future right-panel tools */}
+          <div className="w-6 h-px bg-gray-800 my-0.5" />
+
+        </aside>
       </div>
+
+
 
       {/* Footer */}
       <footer className="h-12 bg-[#1e222d] border-t border-gray-950 flex items-center justify-between px-4 z-20 select-none">
@@ -3666,7 +4580,12 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <span>Precision: {settings.pricePrecision} Decimals</span>
+              <span>
+                Precision:{' '}
+                {settings.pricePrecision === 0
+                  ? `Auto (${hasData ? detectPricePrecision(allTimeframesData[activeTimeframe] || []) : 4}d)`
+                  : `${settings.pricePrecision}d`}
+              </span>
               <span>•</span>
               <span>Ingested: {hasData ? assetName : 'None'}</span>
               <div className="h-4 w-px bg-gray-800" />
@@ -3694,56 +4613,82 @@ export default function App() {
         settings={settings}
         onSettingsSave={handleSettingsSave}
         hasData={hasData}
-        lastCandleTimestamp={raw1mData.length > 0 ? raw1mData[raw1mData.length - 1].timestamp : null}
-        onUpdateData={handleUpdateData}
-        onExportCSV={handleExportCSV}
         onClearDatabase={handleClearDatabase}
         onUploadNewDataset={processCSVFile}
         assetName={assetName}
+        importMode={importMode}
+        savedFolderHandle={savedFolderHandle}
+        onSelectFolder={async () => {
+          setIsSettingsOpen(false);
+          await handleSelectFolderAPI(undefined, true);
+        }}
       />
 
-      {/* Folder Mode Coming Soon Alert Overlay */}
-      {showFolderComingSoonAlert && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-205">
-          <div className="bg-[#1e222d] border border-indigo-500/30 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-left relative flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setShowFolderComingSoonAlert(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-center gap-3 text-indigo-400 mb-2">
-              <FolderOpen className="w-6 h-6" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">Folder Mode (Coming Soon)</h3>
+      {/* Watchlist Remove Confirmation Dialog */}
+      {pendingRemoveSymbol && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1e222d] border border-red-500/20 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
             </div>
-
-            <p className="text-xs text-gray-300 leading-relaxed">
-              The Folder Mode backend integration is currently under development!
-            </p>
-
-            <div className="bg-black/40 border border-gray-800/80 rounded-xl p-4 flex flex-col gap-3 text-xs leading-relaxed text-gray-400">
-              <div>
-                <span className="font-semibold text-white">How it will work:</span>
-                <ul className="list-disc pl-4 mt-1.5 space-y-1 text-gray-400">
-                  <li>Ingests timeframe-specific CSV files independently (e.g. 1m, 5m, 1h, D).</li>
-                  <li>Shows long-term historical bars on higher timeframes without ballooning the 1-minute file size.</li>
-                  <li>Automatically resamples missing intermediate timeframes using the closest available lower timeframe.</li>
-                </ul>
-              </div>
+            <div>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-white mb-1">Remove Symbol?</h3>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Remove <span className="text-white font-semibold">{pendingRemoveSymbol}</span> from the watchlist and delete its stored data?
+              </p>
+              <p className="text-[11px] text-gray-600 mt-2">
+                {watchlistSymbols.filter(s => s.name !== pendingRemoveSymbol).length > 0
+                  ? `The chart will switch to the next symbol in the watchlist.`
+                  : `No other symbols remain — the import screen will open.`
+                }
+              </p>
             </div>
-
-            <div className="flex justify-end gap-3 mt-2">
+            <div className="flex items-center gap-3 justify-center">
               <button
-                onClick={() => setShowFolderComingSoonAlert(false)}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+                type="button"
+                onClick={() => setPendingRemoveSymbol(null)}
+                className="px-4 py-2 border border-gray-800 hover:bg-gray-800 hover:text-white rounded-xl text-xs font-semibold text-gray-400 transition-all cursor-pointer"
               >
-                Got it
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleWatchlistRemoveConfirm(pendingRemoveSymbol)}
+                className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/25 transition-all cursor-pointer"
+              >
+                Remove & Delete
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Custom Alert Dialog */}
+      {customAlert && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1e222d] border border-indigo-500/20 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-white mb-1">{customAlert.title}</h3>
+              <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">
+                {customAlert.message}
+              </p>
+            </div>
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setCustomAlert(null)}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

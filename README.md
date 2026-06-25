@@ -8,21 +8,22 @@ Load any CSV of OHLCV data, replay it bar by bar, draw on the chart, and study y
 
 ## Features
 
-- **CSV Import** — Load 1-minute OHLCV data from a CSV file. Supports MetaTrader, TradingView, and custom formats
-- **Multi-Timeframe Resampling** — Automatically resamples 1m data into 5m, 15m, 30m, 1H, 4H, D, W, M
-- **Custom Timeframes** — Define any timeframe by minutes, hours, days, weeks, or months
-- **Bar Replay** — Step through historical bars one at a time or play/pause with speed control
-- **IndexedDB Caching** — Loaded data is cached locally so you never have to re-import on refresh
-- **Data Management** — Update existing data with a new CSV, download the current dataset, or clear the database
+- **CSV Import & Folder Mode** — Load single 1-minute OHLCV CSV files, or select a master folder containing subfolders for each trading pair (e.g. `EURUSD`, `GBPUSD`) containing timeframe-specific CSV files.
+- **Watchlist & Multi-Folder Support** — Add extra symbols from multiple folders via the watchlist `+` button. Other imported symbols are preserved without disappearing.
+- **On-Demand Loading & Smart Resampling** — Timeframe CSV files (such as `m1.csv`, `m5.csv`, `h1.csv`, `d1.csv`) are parsed lazily on-demand when switching timeframes. Missing timeframes are automatically resampled from the best available lower timeframe file to maximize history.
+- **IndexedDB Auto-Restore Cache** — Active datasets, chart states, timeframe selection, and watchlist symbols persist in the browser's IndexedDB and localStorage, auto-restoring your workspace on page refresh.
+- **Auto Price Precision** — Auto-detects the price precision directly from the historical closing data (handling Yen crosses, Gold, major pairs, and indices dynamically).
+- **Custom Timeframes** — Define any timeframe by minutes, hours, days, weeks, or months.
+- **Bar Replay** — Step through historical bars one at a time or play/pause with speed control.
 - **Drawing Tools**
   - Trend Line (with Shift-lock for angle snapping)
   - Horizontal Line
   - Rectangle
   - Risk/Reward (Price Channel) tool
   - Text Annotation
-- **Magnet Snapping** — Snap drawing handles to candle OHLC values. Weak (proximity-based) and Strong (always-on) modes, configurable via right-click
-- **Theme & Style Settings** — Customise candle colours, background, price line, grid, and more
-- **Timezone Support** — Display candles in your local timezone or exchange time
+- **Magnet Snapping** — Snap drawing handles to candle OHLC values. Weak (proximity-based) and Strong (always-on) modes, configurable via right-click.
+- **Theme & Style Settings** — Customize candle colors, background, price line, grid, and more.
+- **Timezone Support** — Display candles in your local timezone or exchange time.
 
 ---
 
