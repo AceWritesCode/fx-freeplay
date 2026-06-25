@@ -884,4 +884,79 @@ export function registerCustomOverlays() {
       ];
     }
   });
+
+  // 6. Customizable Session Breaks overlay (draws vertical lines at day transitions)
+  registerOverlay({
+    name: 'sessionBreaks',
+    totalStep: 0,
+    createPointFigures: ({ chart, bounding }: any) => {
+      if (!chart._showSessionBreaks) {
+        return [];
+      }
+
+      // Check period and hide session breaks on Daily, Weekly, and Monthly charts to avoid clutter
+      const period = chart.getPeriod?.();
+      if (period && (period.type === 'day' || period.type === 'week' || period.type === 'month')) {
+        return [];
+      }
+
+      const dataList = chart.getDataList();
+      if (!dataList || dataList.length === 0) return [];
+
+      const figures: any[] = [];
+      const height = bounding?.height ?? 800;
+      const color = chart._sessionBreaksColor || 'rgba(139, 147, 166, 0.4)';
+      const style = chart._sessionBreaksStyle || 'dashed';
+      const size = chart._sessionBreaksSize || 1;
+
+      // Find all transitions of days
+      const dayTransitionIndices: number[] = [];
+      for (let i = 1; i < dataList.length; i++) {
+        const prevCandle = dataList[i - 1];
+        const currCandle = dataList[i];
+        if (!prevCandle || !currCandle) continue;
+
+        const prevDate = new Date(prevCandle.timestamp);
+        const currDate = new Date(currCandle.timestamp);
+        
+        // Date transition check using UTC functions for absolute timezone consistency
+        const isNewDay = prevDate.getUTCDate() !== currDate.getUTCDate() ||
+                         prevDate.getUTCMonth() !== currDate.getUTCMonth() ||
+                         prevDate.getUTCFullYear() !== currDate.getUTCFullYear();
+
+        if (isNewDay) {
+          dayTransitionIndices.push(i);
+        }
+      }
+
+      // Convert only those day transitions to lines
+      dayTransitionIndices.forEach(idx => {
+        const candle = dataList[idx];
+        const xResult = chart.convertToPixel(
+          [{ timestamp: candle.timestamp, value: candle.close }],
+          { paneId: 'candle_pane' }
+        );
+        const x = xResult?.[0]?.x;
+        if (x !== undefined && !isNaN(x)) {
+          figures.push({
+            type: 'line',
+            attrs: {
+              coordinates: [
+                { x, y: 0 },
+                { x, y: height }
+              ]
+            },
+            styles: {
+              style: style,
+              color: color,
+              size: size,
+              dashedValue: [4, 4]
+            }
+          });
+        }
+      });
+
+      return figures;
+    }
+  });
 }

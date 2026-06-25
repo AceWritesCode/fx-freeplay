@@ -285,7 +285,7 @@ export default function App() {
       chartInstance.current._magnetMode = mode;
       const overlays = chartInstance.current.getOverlays();
       overlays.forEach((ov: any) => {
-        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return;
+        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return;
         chartInstance.current.overrideOverlay({
           id: ov.id,
           mode: mode,
@@ -304,7 +304,7 @@ export default function App() {
       chartInstance.current._magnetMode = nextMode;
       const overlays = chartInstance.current.getOverlays();
       overlays.forEach((ov: any) => {
-        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return;
+        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return;
         chartInstance.current.overrideOverlay({
           id: ov.id,
           mode: nextMode,
@@ -541,6 +541,12 @@ export default function App() {
     chart._priceLineUseCandleColor = s.priceLineUseCandleColor;
     chart._bullColor = s.bullColor;
     chart._bearColor = s.bearColor;
+
+    // Synchronize session breaks settings
+    chart._showSessionBreaks = s.showSessionBreaks;
+    chart._sessionBreaksColor = s.sessionBreaksColor;
+    chart._sessionBreaksStyle = s.sessionBreaksStyle;
+    chart._sessionBreaksSize = s.sessionBreaksSize;
 
     chart.setStyles({
       grid: {
@@ -1333,6 +1339,12 @@ export default function App() {
           lock: true
         });
 
+        chart.createOverlay({
+          name: 'sessionBreaks',
+          id: 'session_breaks_overlay',
+          lock: true
+        });
+
         // Sync size
         chart.resize();
       }
@@ -1435,7 +1447,7 @@ export default function App() {
       // Update styles for all overlays to highlight selection
       const overlays = chartInstance.current.getOverlays();
       overlays.forEach((ov: any) => {
-        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return; // Skip price line
+        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return; // Skip persistent overlays
         const isSelected = selectedOverlayIds.includes(ov.id);
         
         if (ov.name === 'segment' || ov.name === 'horizontalStraightLine') {
@@ -1538,7 +1550,7 @@ export default function App() {
           console.log(`[DEBUG] Deleting selected overlays:`, chartInstance.current._selectedOverlayIds);
           chartInstance.current._selectedOverlayIds.forEach((id: string) => {
             const ov = chartInstance.current.getOverlays().find((o: any) => o.id === id);
-            if (id === 'custom_price_line_overlay' || ov?.name === 'customPriceLine') return; // Skip price line
+            if (id === 'custom_price_line_overlay' || ov?.name === 'customPriceLine' || id === 'session_breaks_overlay' || ov?.name === 'sessionBreaks') return; // Skip persistent overlays
             chartInstance.current.removeOverlay({ id });
           });
           chartInstance.current._selectedOverlayIds = [];
@@ -3222,6 +3234,12 @@ export default function App() {
         name: 'customPriceLine',
         id: 'custom_price_line_overlay',
         points: [{ timestamp: 0, value: 0 }],
+        lock: true
+      });
+      // Re-create the customizable session breaks overlay
+      chartInstance.current.createOverlay({
+        name: 'sessionBreaks',
+        id: 'session_breaks_overlay',
         lock: true
       });
       setActiveTool(null);

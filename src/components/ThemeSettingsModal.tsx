@@ -29,6 +29,10 @@ export interface ChartSettings {
   gridColor: string;
   gridStyle: 'dashed' | 'solid';
   showWatermark: boolean;
+  showSessionBreaks: boolean;
+  sessionBreaksColor: string;
+  sessionBreaksStyle: 'dashed' | 'solid';
+  sessionBreaksSize: number;
 
   // Scales Settings
   scalesTextSize: number;
@@ -68,6 +72,10 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     gridColor: '#242832',
     gridStyle: 'dashed',
     showWatermark: true,
+    showSessionBreaks: false,
+    sessionBreaksColor: 'rgba(139, 147, 166, 0.4)',
+    sessionBreaksStyle: 'dashed',
+    sessionBreaksSize: 1,
     scalesTextSize: 11,
     scalesTextColor: '#b2b5be',
     showScalesLines: true,
@@ -101,6 +109,10 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     gridColor: '#1a1a1a',
     gridStyle: 'dashed',
     showWatermark: true,
+    showSessionBreaks: false,
+    sessionBreaksColor: 'rgba(136, 136, 136, 0.4)',
+    sessionBreaksStyle: 'dashed',
+    sessionBreaksSize: 1,
     scalesTextSize: 11,
     scalesTextColor: '#888888',
     showScalesLines: true,
@@ -134,6 +146,10 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     gridColor: '#1b263b',
     gridStyle: 'solid',
     showWatermark: true,
+    showSessionBreaks: false,
+    sessionBreaksColor: 'rgba(0, 255, 102, 0.25)',
+    sessionBreaksStyle: 'dashed',
+    sessionBreaksSize: 1,
     scalesTextSize: 12,
     scalesTextColor: '#00FF66',
     showScalesLines: true,
@@ -727,6 +743,50 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     />
                     <span>Asset Watermark</span>
                   </label>
+                </div>
+
+                {/* Session Breaks */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formState.showSessionBreaks}
+                      onChange={(e) => handleFieldChange('showSessionBreaks', e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-gray-700 bg-gray-800 text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                    />
+                    <span>Session breaks</span>
+                  </label>
+                  
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={formState.sessionBreaksStyle}
+                      disabled={!formState.showSessionBreaks}
+                      onChange={(e) => handleFieldChange('sessionBreaksStyle', e.target.value)}
+                      className="w-20 bg-[#131722] border border-gray-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer disabled:opacity-40"
+                    >
+                      <option value="dashed">Dashed</option>
+                      <option value="solid">Solid</option>
+                    </select>
+
+                    <select
+                      value={formState.sessionBreaksSize}
+                      disabled={!formState.showSessionBreaks}
+                      onChange={(e) => handleFieldChange('sessionBreaksSize', parseInt(e.target.value, 10))}
+                      className="w-16 bg-[#131722] border border-gray-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer disabled:opacity-40"
+                    >
+                      <option value="1">1 px</option>
+                      <option value="2">2 px</option>
+                      <option value="3">3 px</option>
+                    </select>
+
+                    <input
+                      type="color"
+                      disabled={!formState.showSessionBreaks}
+                      value={formState.sessionBreaksColor}
+                      onChange={(e) => handleFieldChange('sessionBreaksColor', e.target.value)}
+                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-gray-700 [&::-webkit-color-swatch]:rounded"
+                    />
+                  </div>
                 </div>
               </div>
             )}
