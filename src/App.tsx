@@ -336,8 +336,6 @@ export default function App() {
   const capturedOffsetRef = useRef<number | null>(null);
   const capturedYAxisRangeRef = useRef<{ from: number; to: number } | null>(null);
   const wasManualScaleRef = useRef<boolean>(false);
-  // Stores a user-pinned offset for the reset view position
-  const savedResetOffsetRef = useRef<number | null>(null);
 
   // Replay state
   const [isReplayActive, setIsReplayActive] = useState<boolean>(false);
@@ -1136,7 +1134,6 @@ export default function App() {
           
           setRaw1mData(cached.raw1mData);
           setAssetName(cached.assetName);
-          savedResetOffsetRef.current = cached.savedResetOffset;
           
           // Wait for the chart instance to be ready, then bind the data
           const checkChartInstance = setInterval(() => {
@@ -1493,8 +1490,8 @@ export default function App() {
       if (yAxis) yAxis.setAutoCalcTickFlag(true);
     } catch (_) { /* ignore */ }
 
-    // Use the user's saved position if they pinned one, otherwise default to half-screen
-    const targetOffset = savedResetOffsetRef.current !== null ? savedResetOffsetRef.current : chartWidth / 2;
+    // Permanently center the last candle close (default reset view location)
+    const targetOffset = chartWidth / 2;
 
     chart.resize();
     chart.setOffsetRightDistance(targetOffset);
@@ -1505,14 +1502,7 @@ export default function App() {
     });
   };
 
-  // Save current last-bar position as the default reset view location
-  const handleSaveResetPosition = () => {
-    if (!chartInstance.current) return;
-    const offset = getTrueOffsetRightDistance(chartInstance.current);
-    savedResetOffsetRef.current = offset;
-    console.log(`[DEBUG] handleSaveResetPosition - Saved offset: ${offset}px`);
-    saveChartDataToIndexedDB(raw1mData, assetName, offset, watchlistSymbols, activeTimeframe);
-  };
+
 
   // Clear Database Cache and Reset App State
   const handleClearDatabase = async () => {
@@ -1543,9 +1533,6 @@ export default function App() {
       setIsSelectingCutPoint(false);
       setIsReplayPlaying(false);
       setReplayCurrentTimestamp(null);
-      
-      // Clear saved offset
-      savedResetOffsetRef.current = null;
       
       // Clear chart instance data
       if (chartInstance.current) {
@@ -1584,7 +1571,6 @@ export default function App() {
         setIsSelectingCutPoint(false);
         setIsReplayPlaying(false);
         setReplayCurrentTimestamp(null);
-        savedResetOffsetRef.current = null;
         regenerateTimeframes(next.raw1m, settings);
         if (chartInstance.current) {
           const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(next.raw1m);
@@ -1605,7 +1591,6 @@ export default function App() {
         setIsSelectingCutPoint(false);
         setIsReplayPlaying(false);
         setReplayCurrentTimestamp(null);
-        savedResetOffsetRef.current = null;
         if (chartInstance.current) {
           chartInstance.current.resetData();
           chartInstance.current.setSymbol({ ticker: 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
@@ -2684,7 +2669,6 @@ export default function App() {
       if (result.parsedCount === 0) {
         console.error('[DEBUG] processCSVFile - Failed completely. No valid candlestick bars could be extracted.');
         setHasData(false);
-        savedResetOffsetRef.current = null;
         return;
       }
 
@@ -2728,9 +2712,6 @@ export default function App() {
       setIsSelectingCutPoint(false);
       setIsReplayPlaying(false);
       setReplayCurrentTimestamp(null);
-
-      // Clear any saved reset position from a previous file
-      savedResetOffsetRef.current = null;
 
       // Apply timezone adjustment, resample and cache
       regenerateTimeframes(result.data, updatedSettings);
@@ -2922,7 +2903,7 @@ export default function App() {
             handleWatchlistSymbolSwitch(targetSymbol, lastTf, mergedSymbolMap);
           }, 0);
 
-          saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, merged, activeTimeframe);
+          saveChartDataToIndexedDB(raw1mData, assetName, null, merged, activeTimeframe);
           return merged;
         });
         
@@ -3049,7 +3030,7 @@ export default function App() {
         handleWatchlistSymbolSwitch(targetSymbol, lastTf, symbolFilesMap);
       }, 0);
 
-      saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, merged, activeTimeframe);
+      saveChartDataToIndexedDB(raw1mData, assetName, null, merged, activeTimeframe);
       return merged;
     });
     
@@ -3119,7 +3100,7 @@ export default function App() {
             merged.push({ name: sym, raw1m: [], settings });
           }
         });
-        saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, merged, activeTimeframe);
+        saveChartDataToIndexedDB(raw1mData, assetName, null, merged, activeTimeframe);
         return merged;
       });
 
@@ -3182,7 +3163,7 @@ export default function App() {
           return prev;
         }
         const updated = [...prev, { name: cleanName, raw1m: result.data, settings }];
-        saveChartDataToIndexedDB(raw1mData, assetName, savedResetOffsetRef.current, updated, activeTimeframe);
+        saveChartDataToIndexedDB(raw1mData, assetName, null, updated, activeTimeframe);
         return updated;
       });
       console.log(`[DEBUG] handleWatchlistAddFile - Added '${cleanName}' to watchlist (${result.parsedCount} bars)`);
@@ -3247,7 +3228,6 @@ export default function App() {
     setIsSelectingCutPoint(false);
     setIsReplayPlaying(false);
     setReplayCurrentTimestamp(null);
-    savedResetOffsetRef.current = null;
 
     if (chartInstance.current) {
       const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : (rawData.length > 0 ? detectPricePrecision(rawData) : 4);
@@ -3485,7 +3465,7 @@ export default function App() {
       centerLastCandle(tf, alignedTimestamp, !isSymbolSwitch);
 
       // Save loaded timeframe data and watchlist to IndexedDB
-      saveChartDataToIndexedDB(visibleData, currentSymbol, capturedOffsetRef.current || savedResetOffsetRef.current, watchlistSymbols, tf);
+      saveChartDataToIndexedDB(visibleData, currentSymbol, capturedOffsetRef.current || null, watchlistSymbols, tf);
     } else {
       console.error('[DEBUG] handleTimeframeSwitch - Chart instance is missing!');
     }
@@ -4852,22 +4832,6 @@ export default function App() {
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
               <path d="M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z" />
-            </svg>
-          </button>
-
-          <div className="w-6 h-[1px] bg-gray-800/80 my-0.5" />
-
-          {/* Save Reset Position */}
-          <button
-            title="Save current position as default reset view"
-            disabled={!hasData}
-            onClick={handleSaveResetPosition}
-            className="p-2 rounded-lg border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L12 12"/>
-              <path d="M8 8l4 4 4-4"/>
-              <path d="M3 15v2a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4v-2"/>
             </svg>
           </button>
 
