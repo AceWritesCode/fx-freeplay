@@ -1948,11 +1948,13 @@ export default function App() {
             setIsSelectingCutPoint(false);
             setCutPointHoverX(null);
 
-            const savedOffset = chartInstance.current ? getTrueOffsetRightDistance(chartInstance.current) : 0;
+            const chartSize = chartInstance.current.getSize();
+            const chartWidth = chartSize ? chartSize.width : 800;
+            const centerOffset = chartWidth / 2;
             pendingCutAnimation.current = {
               timestamp,
               clickX: x,
-              savedOffset
+              savedOffset: centerOffset
             };
 
             setReplayCurrentTimestamp(timestamp);
