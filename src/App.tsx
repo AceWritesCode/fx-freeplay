@@ -336,6 +336,7 @@ export default function App() {
   const capturedOffsetRef = useRef<number | null>(null);
   const capturedYAxisRangeRef = useRef<{ from: number; to: number } | null>(null);
   const wasManualScaleRef = useRef<boolean>(false);
+  const dataVersionRef = useRef<number>(0);
 
   // Replay state
   const [isReplayActive, setIsReplayActive] = useState<boolean>(false);
@@ -1030,6 +1031,24 @@ export default function App() {
       ? tfData.filter(d => d.timestamp <= alignedTimestamp)
       : tfData;
 
+    if (
+      chart._loadedSymbol === slot.symbol &&
+      chart._loadedTimeframe === tf &&
+      chart._loadedReplayActive === activeReplay &&
+      chart._loadedReplayTimestamp === alignedTimestamp &&
+      chart._loadedDataLength === visibleData.length &&
+      chart._loadedDataVersion === dataVersionRef.current
+    ) {
+      return;
+    }
+
+    chart._loadedSymbol = slot.symbol;
+    chart._loadedTimeframe = tf;
+    chart._loadedReplayActive = activeReplay;
+    chart._loadedReplayTimestamp = alignedTimestamp;
+    chart._loadedDataLength = visibleData.length;
+    chart._loadedDataVersion = dataVersionRef.current;
+
     const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData);
     chart.setSymbol({ ticker: slot.symbol, pricePrecision: precision, volumePrecision: 4 });
 
@@ -1589,6 +1608,7 @@ export default function App() {
       await clearDirectoryHandle();
       
       // Reset data state
+      dataVersionRef.current += 1;
       setRaw1mData([]);
       setAssetName('No Asset Loaded');
       setHasData(false);
@@ -2716,6 +2736,7 @@ export default function App() {
       
       if (timezoneChanged && raw1mData.length > 0) {
         console.log('[DEBUG] handleSettingsSave - Timezone settings changed. Regenerating all timeframe datasets...');
+        dataVersionRef.current += 1;
         regenerateTimeframes(raw1mData, newSettings);
       }
     } else {
@@ -2738,6 +2759,7 @@ export default function App() {
       applySettingsToChart(chartInstance.current, newSettings);
     }
     if (raw1mData.length > 0) {
+      dataVersionRef.current += 1;
       regenerateTimeframes(raw1mData, newSettings);
     }
   };
@@ -2812,6 +2834,7 @@ export default function App() {
       setReplayCurrentTimestamp(null);
 
       // Apply timezone adjustment, resample and cache
+      dataVersionRef.current += 1;
       regenerateTimeframes(result.data, updatedSettings);
 
       // Add / update watchlist entry for this symbol
@@ -3323,6 +3346,7 @@ export default function App() {
     setActiveWatchlistSymbol(symbolName);
     setAssetName(symbolName);
     setRaw1mData(rawData);
+    dataVersionRef.current += 1;
     setAllTimeframesData({}); // Clear cache for new symbol
     setHasData(true);
 
