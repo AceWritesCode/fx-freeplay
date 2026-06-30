@@ -3085,8 +3085,6 @@ export default function App() {
 
       setSavedFolderHandle(dirHandle);
       setSavedFolderHandles([dirHandle]);
-      await saveDirectoryHandle(dirHandle);
-      await saveDirectoryHandles([dirHandle]);
 
       await handleSelectFoldersAPI([dirHandle], autoImport);
     } catch (err: any) {
@@ -3187,6 +3185,18 @@ export default function App() {
       return merged;
     });
     
+    // Save folder directory handles to IndexedDB after successful import confirmation
+    try {
+      if (savedFolderHandle) {
+        await saveDirectoryHandle(savedFolderHandle);
+      }
+      if (savedFolderHandles && savedFolderHandles.length > 0) {
+        await saveDirectoryHandles(savedFolderHandles);
+      }
+    } catch (err) {
+      console.error('[DEBUG] handleFolderImportConfirm - Failed to save directory handles:', err);
+    }
+
     // Reset folder mode states for next time
     setFolderSymbol('');
     setFolderFilesList([]);
