@@ -1526,7 +1526,7 @@ export default function App() {
     setTimeout(() => {
       if (!chartInstance.current) return;
       const chartSize = chartInstance.current.getSize();
-      const chartWidth = chartSize ? chartSize.width : 0;
+      const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
 
       const fullData = allTimeframesData[tf];
       if (!fullData) return;
@@ -1569,7 +1569,7 @@ export default function App() {
     const chart = chartInstance.current;
 
     const chartSize = chart.getSize();
-    const chartWidth = chartSize ? chartSize.width : 0;
+    const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
     const fullData = allTimeframesData[activeTimeframe];
     if (!fullData) return;
     const activeData =
@@ -1933,7 +1933,7 @@ export default function App() {
       let tempOffset = currentOffset;
       if (anim && anim.timestamp === replayCurrentTimestamp) {
         const chartSize = chartInstance.current.getSize();
-        const chartWidth = chartSize ? chartSize.width : 0;
+        const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
         tempOffset = chartWidth - anim.clickX;
         console.log(`[DEBUG] dataSync hook - Pending cut animation found. Using temporary click offset: ${tempOffset} (clickX: ${anim.clickX}, chartWidth: ${chartWidth})`);
       }
@@ -2052,7 +2052,7 @@ export default function App() {
             setCutPointHoverX(null);
 
             const chartSize = chartInstance.current.getSize();
-            const chartWidth = chartSize ? chartSize.width : 800;
+            const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
             const centerOffset = chartWidth / 2;
             pendingCutAnimation.current = {
               timestamp,
@@ -2183,7 +2183,20 @@ export default function App() {
     if (activeChart) {
       chartInstance.current = activeChart;
     }
-  }, [layoutType]);
+
+    // Resize and re-center charts to fit the new layout layout size changes
+    setTimeout(() => {
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          chart.resize();
+        }
+      }
+      if (hasData) {
+        centerLastCandle(activeTimeframe, undefined, true);
+      }
+    }, 150);
+  }, [layoutType, hasData, activeTimeframe]);
 
   // Clean up all charts on unmount
   useEffect(() => {
