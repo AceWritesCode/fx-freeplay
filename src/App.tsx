@@ -868,7 +868,12 @@ export default function App() {
           isSyncedCopy: true,
           sourceChartIndex: sourceIndex,
           originalId: orig.id,
-          styles: orig.styles
+          styles: orig.styles,
+          onClick: () => {
+            return true; // Trap click so it doesn't trigger selection or show handles
+          },
+          onPressedMoveStart: () => false,
+          onPressedMoving: () => false
         };
 
         if (existingCopy) {
@@ -2467,101 +2472,100 @@ export default function App() {
     };
   }, [activeTool]);
 
-  // Synchronize selected overlay IDs with the chart instance, attach state setter, and trigger repaint
+  // Synchronize selected overlay IDs and move helpers with all visible chart slots, and trigger repaint
   useEffect(() => {
-    if (chartInstance.current) {
-      chartInstance.current._selectedOverlayIds = selectedOverlayIds;
-      chartInstance.current._setSelectedOverlayIds = setSelectedOverlayIds;
-      chartInstance.current._isCtrlPressedRef = isCtrlPressedRef;
-      chartInstance.current._isShiftPressedRef = isShiftPressedRef;
-      
-      // Update styles for all overlays to highlight selection
-      const overlays = chartInstance.current.getOverlays();
-      overlays.forEach((ov: any) => {
-        if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return; // Skip persistent overlays
-        const isSelected = selectedOverlayIds.includes(ov.id);
-        
-        if (ov.name === 'segment' || ov.name === 'horizontalStraightLine') {
-          chartInstance.current.overrideOverlay({
-            id: ov.id,
-            styles: {
-              line: {
-                color: isSelected ? '#ff9800' : '#2196f3',
-                size: isSelected ? 2.5 : 1.5
-              }
-            }
-          });
-        } else if (ov.name === 'simpleAnnotation') {
-          chartInstance.current.overrideOverlay({
-            id: ov.id,
-            styles: {
-              text: {
-                color: isSelected ? '#ff9800' : '#2196f3'
-              }
-            }
-          });
-        } else {
-          // Custom overlays (rect, priceChannel) check chart._selectedOverlayIds internally
-          chartInstance.current.overrideOverlay({
-            id: ov.id
-          });
-        }
-      });
-    }
-  }, [selectedOverlayIds]);
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        (chart as any)._selectedOverlayIds = selectedOverlayIds;
+        (chart as any)._setSelectedOverlayIds = setSelectedOverlayIds;
+        (chart as any)._isCtrlPressedRef = isCtrlPressedRef;
+        (chart as any)._isShiftPressedRef = isShiftPressedRef;
 
-  // Shared multi-move helper functions attached to chart
-  useEffect(() => {
-    if (chartInstance.current) {
-      chartInstance.current._initMultiMove = (event: any) => {
-        const chart = event.chart;
-        if (chart._selectedOverlayIds?.includes(event.overlay.id)) {
-          chart._startingPoints = {};
-          chart._selectedOverlayIds.forEach((id: string) => {
-            const ov = chart.getOverlays().find((o: any) => o.id === id);
-            if (ov) {
-              chart._startingPoints[id] = JSON.parse(JSON.stringify(ov.points));
-            }
-          });
-          chart._draggedStartPoints = JSON.parse(JSON.stringify(event.overlay.points));
-        }
-      };
-
-      chartInstance.current._handleMultiMove = (event: any) => {
-        const chart = event.chart;
-        const draggedOverlay = event.overlay;
-        
-        if (chart._selectedOverlayIds?.includes(draggedOverlay.id) && chart._draggedStartPoints && chart._startingPoints) {
-          const startPt = chart._draggedStartPoints[0];
-          const currentPt = draggedOverlay.points[0];
-          if (startPt && currentPt) {
-            const deltaTimestamp = currentPt.timestamp - startPt.timestamp;
-            const deltaValue = currentPt.value - startPt.value;
-            const deltaDataIndex = (currentPt.dataIndex !== undefined && startPt.dataIndex !== undefined)
-              ? currentPt.dataIndex - startPt.dataIndex
-              : 0;
-
-            chart._selectedOverlayIds.forEach((id: string) => {
-              if (id === draggedOverlay.id) return;
-              const startingPts = chart._startingPoints[id];
-              if (startingPts) {
-                const newPts = startingPts.map((pt: any) => ({
-                  ...pt,
-                  timestamp: pt.timestamp + deltaTimestamp,
-                  value: pt.value + deltaValue,
-                  dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
-                }));
-                chart.overrideOverlay({
-                  id,
-                  points: newPts
-                });
+        (chart as any)._initMultiMove = (event: any) => {
+          const c = event.chart as any;
+          if (c._selectedOverlayIds?.includes(event.overlay.id)) {
+            c._startingPoints = {};
+            c._selectedOverlayIds.forEach((id: string) => {
+              const ov = c.getOverlays().find((o: any) => o.id === id);
+              if (ov) {
+                c._startingPoints[id] = JSON.parse(JSON.stringify(ov.points));
               }
             });
+            c._draggedStartPoints = JSON.parse(JSON.stringify(event.overlay.points));
           }
-        }
-      };
+        };
+
+        (chart as any)._handleMultiMove = (event: any) => {
+          const c = event.chart as any;
+          const draggedOverlay = event.overlay;
+          
+          if (c._selectedOverlayIds?.includes(draggedOverlay.id) && c._draggedStartPoints && c._startingPoints) {
+            const startPt = c._draggedStartPoints[0];
+            const currentPt = draggedOverlay.points[0];
+            if (startPt && currentPt) {
+              const deltaTimestamp = currentPt.timestamp - startPt.timestamp;
+              const deltaValue = currentPt.value - startPt.value;
+              const deltaDataIndex = (currentPt.dataIndex !== undefined && startPt.dataIndex !== undefined)
+                ? currentPt.dataIndex - startPt.dataIndex
+                : 0;
+
+              c._selectedOverlayIds.forEach((id: string) => {
+                if (id === draggedOverlay.id) return;
+                const startingPts = c._startingPoints[id];
+                if (startingPts) {
+                  const newPts = startingPts.map((pt: any) => ({
+                    ...pt,
+                    timestamp: pt.timestamp + deltaTimestamp,
+                    value: pt.value + deltaValue,
+                    dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+                  }));
+                  c.overrideOverlay({
+                    id,
+                    points: newPts
+                  });
+                }
+              });
+            }
+          }
+        };
+
+        // Update styles for all overlays to highlight selection
+        const overlays = chart.getOverlays();
+        overlays.forEach((ov: any) => {
+          if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return; // Skip persistent overlays
+          const isSelected = selectedOverlayIds.includes(ov.id);
+
+          if (ov.name === 'segment' || ov.name === 'horizontalStraightLine') {
+            chart.overrideOverlay({
+              id: ov.id,
+              styles: {
+                line: {
+                  color: isSelected ? '#ff9800' : '#2196f3',
+                  size: isSelected ? 2.5 : 1.5
+                }
+              }
+            });
+          } else if (ov.name === 'simpleAnnotation') {
+            chart.overrideOverlay({
+              id: ov.id,
+              styles: {
+                text: {
+                  color: isSelected ? '#ff9800' : '#2196f3'
+                }
+              }
+            });
+          } else {
+            // Custom overlays (rect, priceChannel) check chart._selectedOverlayIds internally
+            chart.overrideOverlay({
+              id: ov.id
+            });
+          }
+        });
+      }
     }
-  }, []);
+  }, [selectedOverlayIds, layoutType]);
 
   // Keyboard Events: Control key tracking, Delete/Backspace for deleting selected drawings
   useEffect(() => {
@@ -4231,6 +4235,9 @@ export default function App() {
                         id: event.overlay.id,
                         points: newPoints
                       });
+                      if (event.chart._onDrawingSync) {
+                        event.chart._onDrawingSync();
+                      }
                       return;
                     }
                   }
