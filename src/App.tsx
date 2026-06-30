@@ -557,7 +557,7 @@ export default function App() {
     }
   }, [syncCrosshair, layoutType]);
 
-  const handleSelectChartSlot = (index: number) => {
+  const handleSelectChartSlot = async (index: number) => {
     if (index === activeChartIndex) return;
     setActiveChartIndex(index);
     const targetSlot = slots[index];
@@ -566,6 +566,63 @@ export default function App() {
       setActiveTimeframe(targetSlot.timeframe);
       if (chartInstancesRef.current[index]) {
         chartInstance.current = chartInstancesRef.current[index];
+      }
+
+      // Load target slot's resampled data into allTimeframesData cache for replay sync
+      try {
+        const tf = targetSlot.timeframe;
+        let tfData: KLineData[] = [];
+        const currentFilesMap = symbolFilesMap[targetSlot.symbol];
+        
+        if (importMode === 'folder' && currentFilesMap) {
+          const fileKey = tf;
+          const fileEntry = currentFilesMap[fileKey];
+          if (fileEntry) {
+            const text = await fileEntry.text();
+            const result = parseCSV(text);
+            if (result.data.length > 0) {
+              tfData = result.data;
+            }
+          } else {
+            const TF_PRIORITY = ['1m','2m','3m','4m','5m','10m','15m','30m','1h','2h','4h','6h','12h','D','W','M'];
+            const foundTf = TF_PRIORITY.find(t => currentFilesMap[t]);
+            if (foundTf) {
+              const text = await currentFilesMap[foundTf].text();
+              const result = parseCSV(text);
+              if (result.data.length > 0) {
+                const baseData = result.data;
+                if (foundTf === tf) {
+                  tfData = baseData;
+                } else {
+                  tfData = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
+                }
+              }
+            }
+          }
+        }
+
+        if (tfData.length === 0) {
+          const rawData = getRawDataForSymbol(targetSlot.symbol);
+          if (rawData.length > 0) {
+            tfData = resample1mToTimeframe(rawData, getTimeframeMinutes(tf));
+            if (settings.timezoneAdjustmentEnabled) {
+              const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
+              tfData = tfData.map(c => ({
+                ...c,
+                timestamp: c.timestamp + offsetDiffMs
+              }));
+            }
+          }
+        }
+
+        if (tfData.length > 0) {
+          setAllTimeframesData(prev => ({
+            ...prev,
+            [tf]: tfData
+          }));
+        }
+      } catch (err) {
+        console.error('[DEBUG] handleSelectChartSlot - Error loading slot data:', err);
       }
     }
   };
