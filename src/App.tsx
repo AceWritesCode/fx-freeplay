@@ -215,42 +215,6 @@ const getLayoutChartCount = (type: string): number => {
   return 1;
 };
 
-const getLayoutClass = (type: string): string => {
-  switch (type) {
-    case '2v':
-      return 'grid grid-cols-2 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '2h':
-      return 'grid grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '3v':
-      return 'grid grid-cols-3 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '3h':
-      return 'grid grid-rows-3 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '3g1':
-      return 'grid grid-cols-3 grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '3g2':
-      return 'grid grid-cols-2 grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '4g':
-      return 'grid grid-cols-2 grid-rows-2 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '4v':
-      return 'grid grid-cols-4 h-full w-full gap-2 p-2 bg-[#131722]';
-    case '4h':
-      return 'grid grid-rows-4 h-full w-full gap-2 p-2 bg-[#131722]';
-    default:
-      return 'w-full h-full bg-[#131722]';
-  }
-};
-
-const getSlotClass = (type: string, index: number): string => {
-  if (type === '3g1') {
-    if (index === 0) return 'col-span-2 row-span-2';
-    return 'col-span-1 row-span-1';
-  }
-  if (type === '3g2') {
-    if (index === 0) return 'col-span-2 row-span-1';
-    return 'col-span-1 row-span-1';
-  }
-  return '';
-};
 
 const ToggleSwitch = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => {
   return (
@@ -352,6 +316,10 @@ export default function App() {
   const chartInstance = useRef<any>(null);
   const chartContainersRef = useRef<(HTMLDivElement | null)[]>([]);
   const chartInstancesRef = useRef<(any | null)[]>([]);
+  const layoutContainerRef = useRef<HTMLDivElement>(null);
+  const subContainerRef1 = useRef<HTMLDivElement>(null);
+  const subContainerRef2 = useRef<HTMLDivElement>(null);
+  const subContainerRef3 = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCutAnimation = useRef<{
     timestamp: number;
@@ -363,6 +331,14 @@ export default function App() {
   const wasManualScaleRef = useRef<boolean>(false);
   // Stores a user-pinned offset for the reset view position
   const savedResetOffsetRef = useRef<number | null>(null);
+
+  // Replay state
+  const [isReplayActive, setIsReplayActive] = useState<boolean>(false);
+  const [isSelectingCutPoint, setIsSelectingCutPoint] = useState<boolean>(false);
+  const [replayCurrentTimestamp, setReplayCurrentTimestamp] = useState<number | null>(null);
+  const [isReplayPlaying, setIsReplayPlaying] = useState<boolean>(false);
+  const [replaySpeed, setReplaySpeed] = useState<number>(1); // seconds per bar
+  const [cutPointHoverX, setCutPointHoverX] = useState<number | null>(null);
 
   // Magnet Mode state
   const [magnetMode, setMagnetMode] = useState<'normal' | 'weak_magnet' | 'strong_magnet'>('normal');
@@ -469,7 +445,9 @@ export default function App() {
   const [raw1mData, setRaw1mData] = useState<KLineData[]>([]);
 
   // Layout & Multi-Chart states
-  const [layoutType, setLayoutType] = useState<string>('1');
+  const [layoutType, setLayoutType] = useState<string>(() => {
+    return localStorage.getItem('layout_type') || '1';
+  });
   const [activeChartIndex, setActiveChartIndex] = useState<number>(0);
   const [syncSymbol, setSyncSymbol] = useState<boolean>(true);
   const [syncInterval, setSyncInterval] = useState<boolean>(true);
@@ -477,13 +455,46 @@ export default function App() {
   const [syncTime, setSyncTime] = useState<boolean>(true);
   const [syncDateRange, setSyncDateRange] = useState<boolean>(true);
 
+  // Resizable layout sizes state (in percentages)
+  const [layoutSizes, setLayoutSizes] = useState<Record<string, number[]>>(() => {
+    const saved = localStorage.getItem('layout_sizes');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      '2v': [50, 50],
+      '2h': [50, 50],
+      '3v': [33.33, 33.33, 33.34],
+      '3h': [33.33, 33.33, 33.34],
+      '3g1_main': [66.66, 33.34], // [Left width, Right width]
+      '3g1_sub': [50, 50],       // [Right top height, Right bottom height]
+      '3g2_main': [66.66, 33.34], // [Top height, Bottom height]
+      '3g2_sub': [50, 50],       // [Bottom left width, Bottom right width]
+      '4g_main': [50, 50],       // [Left col width, Right col width]
+      '4g_left': [50, 50],       // [Left top height, Left bottom height]
+      '4g_right': [50, 50],      // [Right top height, Right bottom height]
+      '4v': [25, 25, 25, 25],
+      '4h': [25, 25, 25, 25]
+    };
+  });
+
   // Array of symbols & timeframes for the 4 slots
-  const [slots, setSlots] = useState<{ symbol: string | null; timeframe: Timeframe }[]>(() => [
-    { symbol: null, timeframe: '1m' },
-    { symbol: null, timeframe: '1m' },
-    { symbol: null, timeframe: '1m' },
-    { symbol: null, timeframe: '1m' }
-  ]);
+  const [slots, setSlots] = useState<{ symbol: string | null; timeframe: Timeframe }[]>(() => {
+    const saved = localStorage.getItem('layout_slots');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [
+      { symbol: null, timeframe: '1m' },
+      { symbol: null, timeframe: '1m' },
+      { symbol: null, timeframe: '1m' },
+      { symbol: null, timeframe: '1m' }
+    ];
+  });
   const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState<boolean>(false);
 
   // Sync toolbar changes back to slots
@@ -510,6 +521,19 @@ export default function App() {
     });
   }, [assetName, activeTimeframe, activeChartIndex, hasData, syncSymbol, syncInterval]);
 
+  // Persist layout type, slot configurations, and split sizes to localStorage
+  useEffect(() => {
+    localStorage.setItem('layout_type', layoutType);
+  }, [layoutType]);
+
+  useEffect(() => {
+    localStorage.setItem('layout_slots', JSON.stringify(slots));
+  }, [slots]);
+
+  useEffect(() => {
+    localStorage.setItem('layout_sizes', JSON.stringify(layoutSizes));
+  }, [layoutSizes]);
+
   const handleSelectChartSlot = (index: number) => {
     if (index === activeChartIndex) return;
     setActiveChartIndex(index);
@@ -522,6 +546,192 @@ export default function App() {
       }
     }
   };
+
+  // Generic drag splitter resizing handler
+  const startResize = (
+    key: string,
+    index: number, // index of the divider
+    direction: 'horizontal' | 'vertical',
+    containerElement: HTMLDivElement | null
+  ) => (mouseDownEvent: React.MouseEvent) => {
+    if (!containerElement) return;
+    mouseDownEvent.preventDefault();
+
+    const rect = containerElement.getBoundingClientRect();
+    const isVertical = direction === 'vertical';
+    const totalSize = isVertical ? rect.width : rect.height;
+
+    const initialSizes = [...layoutSizes[key]];
+    const startPos = isVertical ? mouseDownEvent.clientX : mouseDownEvent.clientY;
+
+    const handleMouseMove = (mouseMoveEvent: MouseEvent) => {
+      const currentPos = isVertical ? mouseMoveEvent.clientX : mouseMoveEvent.clientY;
+      const delta = currentPos - startPos;
+      const deltaPercent = (delta / totalSize) * 100;
+
+      const newSizes = [...initialSizes];
+      const sizeSum = newSizes[index] + newSizes[index + 1];
+      let newSize1 = initialSizes[index] + deltaPercent;
+      let newSize2 = initialSizes[index + 1] - deltaPercent;
+
+      // Min width/height: 150px
+      const minPercent = (150 / totalSize) * 100;
+
+      if (newSize1 < minPercent) {
+        newSize1 = minPercent;
+        newSize2 = sizeSum - minPercent;
+      } else if (newSize2 < minPercent) {
+        newSize2 = minPercent;
+        newSize1 = sizeSum - minPercent;
+      }
+
+      newSizes[index] = newSize1;
+      newSizes[index + 1] = newSize2;
+
+      setLayoutSizes(prev => ({
+        ...prev,
+        [key]: newSizes
+      }));
+
+      // Trigger redraws during drag
+      const visibleCount = getLayoutChartCount(layoutType);
+      for (let i = 0; i < visibleCount; i++) {
+        chartInstancesRef.current[i]?.resize();
+      }
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const getRawDataForSymbol = (symbolName: string | null): KLineData[] => {
+    if (!symbolName) return [];
+    const watchlistMatch = watchlistSymbols.find(s => s.name === symbolName);
+    if (watchlistMatch && watchlistMatch.raw1m && watchlistMatch.raw1m.length > 0) {
+      return watchlistMatch.raw1m;
+    }
+    if (symbolName === assetName) {
+      return raw1mData;
+    }
+    return [];
+  };
+
+  const loadDataForSlot = async (index: number, chart: any) => {
+    if (!chart) return;
+    const slot = slots[index];
+    if (!slot || !slot.symbol) return;
+
+    const tf = slot.timeframe;
+    let tfData: KLineData[] = [];
+
+    // Check if we are in Folder Mode and have directory files for this symbol
+    const files = symbolFilesMap[slot.symbol];
+    if (files) {
+      const bestMatch = getBestTimeframeFile(files, tf);
+      if (bestMatch) {
+        try {
+          const text = await bestMatch.file.text();
+          const result = parseCSV(text);
+          if (result.parsedCount > 0) {
+            let baseData = result.data;
+            if (settings.timezoneAdjustmentEnabled) {
+              const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
+              baseData = result.data.map(c => ({
+                ...c,
+                timestamp: c.timestamp + offsetDiffMs
+              }));
+            }
+            if (bestMatch.tf === tf) {
+              tfData = baseData;
+            } else {
+              tfData = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
+            }
+          }
+        } catch (err) {
+          console.error(`[DEBUG] loadDataForSlot - Error parsing folder file for slot ${index}:`, err);
+        }
+      }
+    }
+
+    // Fallback to Single File Mode in-memory raw data if folder mode files aren't present or failed
+    if (tfData.length === 0) {
+      const rawData = getRawDataForSymbol(slot.symbol);
+      if (rawData.length > 0) {
+        tfData = resample1mToTimeframe(rawData, getTimeframeMinutes(tf));
+        if (settings.timezoneAdjustmentEnabled) {
+          const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
+          tfData = tfData.map(c => ({
+            ...c,
+            timestamp: c.timestamp + offsetDiffMs
+          }));
+        }
+      }
+    }
+
+    if (tfData.length === 0) {
+      console.warn(`[DEBUG] loadDataForSlot - No data found for slot ${index} (${slot.symbol})`);
+      return;
+    }
+
+    const activeReplay = isReplayActive;
+    const alignedTimestamp = activeReplay ? replayCurrentTimestamp : null;
+    const visibleData = activeReplay && alignedTimestamp !== null
+      ? tfData.filter(d => d.timestamp <= alignedTimestamp)
+      : tfData;
+
+    const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData);
+    chart.setSymbol({ ticker: slot.symbol, pricePrecision: precision, volumePrecision: 4 });
+
+    let span = 1;
+    let type: 'minute' | 'hour' | 'day' | 'week' | 'month' = 'minute';
+    if (tf.endsWith('m')) {
+      span = parseInt(tf, 10) || 1;
+      type = 'minute';
+    } else if (tf.endsWith('H') || tf.endsWith('h')) {
+      span = parseInt(tf, 10) || 1;
+      type = 'hour';
+    } else if (tf.endsWith('D') || tf.endsWith('d')) {
+      span = parseInt(tf, 10) || 1;
+      type = 'day';
+    } else if (tf.endsWith('W') || tf.endsWith('w')) {
+      span = parseInt(tf, 10) || 1;
+      type = 'week';
+    } else if (tf.endsWith('M')) {
+      span = parseInt(tf, 10) || 1;
+      type = 'month';
+    }
+
+    chart.setDataLoader({
+      getBars: ({ type: loadType, callback }: any) => {
+        if (loadType === 'init') {
+          callback(visibleData);
+        } else {
+          callback([]);
+        }
+      }
+    });
+
+    chart.resetData();
+    chart.setPeriod({ type, span });
+    chart.resize();
+  };
+
+  // 1d. Slot Data Loader Effect
+  useEffect(() => {
+    if (!hasData) return;
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        loadDataForSlot(i, chart);
+      }
+    }
+  }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp]);
 
   // Custom Timeframes state
   const [customTimeframes, setCustomTimeframes] = useState<{ label: string; value: string; minutes: number }[]>([]);
@@ -580,13 +790,7 @@ export default function App() {
   const selectionBoxRef = useRef<{ startX: number; startY: number; div: HTMLDivElement | null } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Replay state
-  const [isReplayActive, setIsReplayActive] = useState<boolean>(false);
-  const [isSelectingCutPoint, setIsSelectingCutPoint] = useState<boolean>(false);
-  const [replayCurrentTimestamp, setReplayCurrentTimestamp] = useState<number | null>(null);
-  const [isReplayPlaying, setIsReplayPlaying] = useState<boolean>(false);
-  const [replaySpeed, setReplaySpeed] = useState<number>(1); // seconds per bar
-  const [cutPointHoverX, setCutPointHoverX] = useState<number | null>(null);
+
 
   // Chart Settings state (loaded from localStorage or default to TradingView Classic)
   const [settings, setSettings] = useState<ChartSettings>(() => {
@@ -772,7 +976,9 @@ export default function App() {
         },
         tooltip: {
           showRule: 'always',
+          offsetTop: 35,
           title: {
+            show: false,
             family: 'Noto Sans, sans-serif',
           },
           legend: {
@@ -1544,6 +1750,7 @@ export default function App() {
             lock: true
           });
 
+          loadDataForSlot(i, chart);
           chart.resize();
         }
       }
@@ -2361,7 +2568,9 @@ export default function App() {
       }
       
       console.log(`[DEBUG] handleSelectFoldersAPI - Extracted Symbol Map:`, mergedSymbolMap);
-      setIsLoadingSymbol(false);
+      if (!autoImport) {
+        setIsLoadingSymbol(false);
+      }
 
       if (autoImport) {
         // Automatically confirm import and load the chart
@@ -2461,6 +2670,7 @@ export default function App() {
   const handleRestoreSavedFolder = async () => {
     if (!savedFolderHandles || savedFolderHandles.length === 0) return;
     setIsVerifyingFolder(true);
+    setIsLoadingSymbol(true);
     try {
       const options = { mode: 'read' as const };
       const validHandles = [];
@@ -2475,9 +2685,12 @@ export default function App() {
       }
       if (validHandles.length > 0) {
         await handleSelectFoldersAPI(validHandles, true);
+      } else {
+        setIsLoadingSymbol(false);
       }
     } catch (err) {
       console.error('Error verifying folder permission:', err);
+      setIsLoadingSymbol(false);
     }
     setIsVerifyingFolder(false);
   };
@@ -2676,6 +2889,7 @@ export default function App() {
     preferredTf?: string, 
     overrideFilesMap?: Record<string, Record<string, File>>
   ) => {
+    setIsLoadingSymbol(true);
     let rawData: KLineData[] = [];
     let targetTf = preferredTf || activeTimeframe || '1m';
 
@@ -3506,6 +3720,277 @@ export default function App() {
     }
   };
 
+  const renderLayout = () => {
+    switch (layoutType) {
+      case '2v':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-row h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ width: `${layoutSizes['2v'][0]}%` }} className="h-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('2v', 0, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ width: `${layoutSizes['2v'][1]}%` }} className="h-full">
+              {renderSlot(1)}
+            </div>
+          </div>
+        );
+      case '2h':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-col h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ height: `${layoutSizes['2h'][0]}%` }} className="w-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('2h', 0, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ height: `${layoutSizes['2h'][1]}%` }} className="w-full">
+              {renderSlot(1)}
+            </div>
+          </div>
+        );
+      case '3v':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-row h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ width: `${layoutSizes['3v'][0]}%` }} className="h-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('3v', 0, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ width: `${layoutSizes['3v'][1]}%` }} className="h-full">
+              {renderSlot(1)}
+            </div>
+            <div
+              onMouseDown={startResize('3v', 1, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ width: `${layoutSizes['3v'][2]}%` }} className="h-full">
+              {renderSlot(2)}
+            </div>
+          </div>
+        );
+      case '3h':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-col h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ height: `${layoutSizes['3h'][0]}%` }} className="w-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('3h', 0, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ height: `${layoutSizes['3h'][1]}%` }} className="w-full">
+              {renderSlot(1)}
+            </div>
+            <div
+              onMouseDown={startResize('3h', 1, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ height: `${layoutSizes['3h'][2]}%` }} className="w-full">
+              {renderSlot(2)}
+            </div>
+          </div>
+        );
+      case '3g1':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-row h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ width: `${layoutSizes['3g1_main'][0]}%` }} className="h-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('3g1_main', 0, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div
+              ref={subContainerRef1}
+              style={{ width: `${layoutSizes['3g1_main'][1]}%` }}
+              className="flex flex-col h-full"
+            >
+              <div style={{ height: `${layoutSizes['3g1_sub'][0]}%` }} className="w-full">
+                {renderSlot(1)}
+              </div>
+              <div
+                onMouseDown={startResize('3g1_sub', 0, 'horizontal', subContainerRef1.current)}
+                className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+              />
+              <div style={{ height: `${layoutSizes['3g1_sub'][1]}%` }} className="w-full">
+                {renderSlot(2)}
+              </div>
+            </div>
+          </div>
+        );
+      case '3g2':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-col h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ height: `${layoutSizes['3g2_main'][0]}%` }} className="w-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('3g2_main', 0, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div
+              ref={subContainerRef1}
+              style={{ height: `${layoutSizes['3g2_main'][1]}%` }}
+              className="flex flex-row w-full h-full"
+            >
+              <div style={{ width: `${layoutSizes['3g2_sub'][0]}%` }} className="h-full">
+                {renderSlot(1)}
+              </div>
+              <div
+                onMouseDown={startResize('3g2_sub', 0, 'vertical', subContainerRef1.current)}
+                className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+              />
+              <div style={{ width: `${layoutSizes['3g2_sub'][1]}%` }} className="h-full">
+                {renderSlot(2)}
+              </div>
+            </div>
+          </div>
+        );
+      case '4g':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-row h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div
+              ref={subContainerRef2}
+              style={{ width: `${layoutSizes['4g_main'][0]}%` }}
+              className="flex flex-col h-full"
+            >
+              <div style={{ height: `${layoutSizes['4g_left'][0]}%` }} className="w-full">
+                {renderSlot(0)}
+              </div>
+              <div
+                onMouseDown={startResize('4g_left', 0, 'horizontal', subContainerRef2.current)}
+                className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+              />
+              <div style={{ height: `${layoutSizes['4g_left'][1]}%` }} className="w-full">
+                {renderSlot(2)}
+              </div>
+            </div>
+            <div
+              onMouseDown={startResize('4g_main', 0, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div
+              ref={subContainerRef3}
+              style={{ width: `${layoutSizes['4g_main'][1]}%` }}
+              className="flex flex-col h-full"
+            >
+              <div style={{ height: `${layoutSizes['4g_right'][0]}%` }} className="w-full">
+                {renderSlot(1)}
+              </div>
+              <div
+                onMouseDown={startResize('4g_right', 0, 'horizontal', subContainerRef3.current)}
+                className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+              />
+              <div style={{ height: `${layoutSizes['4g_right'][1]}%` }} className="w-full">
+                {renderSlot(3)}
+              </div>
+            </div>
+          </div>
+        );
+      case '4v':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-row h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ width: `${layoutSizes['4v'][0]}%` }} className="h-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('4v', 0, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ width: `${layoutSizes['4v'][1]}%` }} className="h-full">
+              {renderSlot(1)}
+            </div>
+            <div
+              onMouseDown={startResize('4v', 1, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ width: `${layoutSizes['4v'][2]}%` }} className="h-full">
+              {renderSlot(2)}
+            </div>
+            <div
+              onMouseDown={startResize('4v', 2, 'vertical', layoutContainerRef.current)}
+              className="w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 bg-gray-900 border-l border-r border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ width: `${layoutSizes['4v'][3]}%` }} className="h-full">
+              {renderSlot(3)}
+            </div>
+          </div>
+        );
+      case '4h':
+        return (
+          <div ref={layoutContainerRef} className="flex flex-col h-full w-full bg-[#131722] p-1.5 gap-0">
+            <div style={{ height: `${layoutSizes['4h'][0]}%` }} className="w-full">
+              {renderSlot(0)}
+            </div>
+            <div
+              onMouseDown={startResize('4h', 0, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ height: `${layoutSizes['4h'][1]}%` }} className="w-full">
+              {renderSlot(1)}
+            </div>
+            <div
+              onMouseDown={startResize('4h', 1, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ height: `${layoutSizes['4h'][2]}%` }} className="w-full">
+              {renderSlot(2)}
+            </div>
+            <div
+              onMouseDown={startResize('4h', 2, 'horizontal', layoutContainerRef.current)}
+              className="h-1.5 w-full cursor-row-resize hover:bg-indigo-500/50 bg-gray-900 border-t border-b border-gray-800 transition-colors z-20 flex-shrink-0"
+            />
+            <div style={{ height: `${layoutSizes['4h'][3]}%` }} className="w-full">
+              {renderSlot(3)}
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="w-full h-full bg-[#131722]">
+            {renderSlot(0)}
+          </div>
+        );
+    }
+  };
+
+  const renderSlot = (i: number) => {
+    const isActive = i === activeChartIndex;
+    return (
+      <div
+        onClick={() => handleSelectChartSlot(i)}
+        className={`
+          relative w-full h-full bg-[#131722] rounded overflow-hidden transition-all duration-200 cursor-pointer min-w-[150px] min-h-[150px]
+          ${isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : 'border border-gray-800 hover:border-gray-750'}
+        `}
+      >
+        <div
+          ref={(el) => {
+            chartContainersRef.current[i] = el;
+          }}
+          className={`w-full h-full ${isSelectingCutPoint && isActive ? 'cursor-cell' : ''}`}
+          style={{
+            backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background,
+          }}
+        />
+        
+        {/* Slot Info Badge (Top Left of each chart) */}
+        <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#1e222d]/85 backdrop-blur-sm border border-gray-800 pointer-events-none select-none text-[10px] font-bold text-gray-300">
+          <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
+          <span>{slots[i]?.symbol || 'No Symbol'}</span>
+          <span className="text-gray-500">•</span>
+          <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#131722] text-[#b2b5be] overflow-hidden select-none">
       
@@ -3811,6 +4296,12 @@ export default function App() {
                             <button
                               key={lay.type}
                               onClick={() => {
+                                const currentSymbol = slots[0]?.symbol || assetName;
+                                const currentTf = slots[0]?.timeframe || activeTimeframe;
+                                setSlots(prev => prev.map(() => ({
+                                  symbol: hasData ? currentSymbol : null,
+                                  timeframe: currentTf
+                                })));
                                 setLayoutType(lay.type);
                                 setIsLayoutDropdownOpen(false);
                               }}
@@ -4154,41 +4645,7 @@ export default function App() {
         <main className="flex-1 h-full min-w-0 relative bg-[#131722]">
           
           {/* KLineChart mount element(s) based on layout configuration */}
-          <div className={getLayoutClass(layoutType)}>
-            {Array.from({ length: getLayoutChartCount(layoutType) }).map((_, i) => {
-              const isActive = i === activeChartIndex;
-              const slotClass = getSlotClass(layoutType, i);
-              return (
-                <div
-                  key={i}
-                  onClick={() => handleSelectChartSlot(i)}
-                  className={`
-                    relative w-full h-full bg-[#131722] rounded overflow-hidden transition-all duration-200 cursor-pointer
-                    ${isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : 'border border-gray-800 hover:border-gray-750'}
-                    ${slotClass}
-                  `}
-                >
-                  <div
-                    ref={(el) => {
-                      chartContainersRef.current[i] = el;
-                    }}
-                    className={`w-full h-full ${isSelectingCutPoint && isActive ? 'cursor-cell' : ''}`}
-                    style={{
-                      backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background,
-                    }}
-                  />
-                  
-                  {/* Slot Info Badge (Top Left of each chart) */}
-                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#1e222d]/85 backdrop-blur-sm border border-gray-800 pointer-events-none select-none text-[10px] font-bold text-gray-300">
-                    <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
-                    <span>{slots[i]?.symbol || 'No Symbol'}</span>
-                    <span className="text-gray-500">•</span>
-                    <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {renderLayout()}
 
           {/* Reset View Button — appears on hover at bottom-center */}
           {hasData && (
