@@ -997,13 +997,22 @@ export default function App() {
   useEffect(() => {
     if (!hasData) return;
     const visibleCount = getLayoutChartCount(layoutType);
-    for (let i = 0; i < visibleCount; i++) {
-      const chart = chartInstancesRef.current[i];
-      if (chart) {
-        loadDataForSlot(i, chart);
+    
+    isSyncingRangeRef.current = true;
+    try {
+      for (let i = 0; i < visibleCount; i++) {
+        if (isReplayActive && i === activeChartIndex) continue;
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          loadDataForSlot(i, chart);
+        }
       }
+    } finally {
+      setTimeout(() => {
+        isSyncingRangeRef.current = false;
+      }, 100);
     }
-  }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp]);
+  }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp, activeChartIndex]);
 
   // Custom Timeframes state
   const [customTimeframes, setCustomTimeframes] = useState<{ label: string; value: string; minutes: number }[]>([]);
@@ -1794,97 +1803,105 @@ export default function App() {
   useEffect(() => {
     if (!chartInstance.current || !isReplayActive || replayCurrentTimestamp === null) return;
 
-    // Check if Y-axis auto-calculation flag is custom (manual scale) BEFORE data update
-    const pane = (chartInstance.current as any).getDrawPaneById?.('candle_pane');
-    const yAxis = pane?.getYAxisComponents?.()?.[0];
-    const wasManualScale = yAxis ? !yAxis.getAutoCalcTickFlag() : false;
-    const prevRange = wasManualScale && yAxis ? yAxis.getRange() : null;
+    isSyncingRangeRef.current = true;
+    try {
+      // Check if Y-axis auto-calculation flag is custom (manual scale) BEFORE data update
+      const pane = (chartInstance.current as any).getDrawPaneById?.('candle_pane');
+      const yAxis = pane?.getYAxisComponents?.()?.[0];
+      const wasManualScale = yAxis ? !yAxis.getAutoCalcTickFlag() : false;
+      const prevRange = wasManualScale && yAxis ? yAxis.getRange() : null;
 
-    const fullData = allTimeframesData[activeTimeframe];
-    const visibleData = fullData.filter(d => d.timestamp <= replayCurrentTimestamp);
-    console.log(`[DEBUG] dataSync hook - Slicing data at timestamp: ${new Date(replayCurrentTimestamp).toLocaleString()}. Visible bars: ${visibleData.length}/${fullData.length}`);
+      const fullData = allTimeframesData[activeTimeframe];
+      const visibleData = fullData.filter(d => d.timestamp <= replayCurrentTimestamp);
+      console.log(`[DEBUG] dataSync hook - Slicing data at timestamp: ${new Date(replayCurrentTimestamp).toLocaleString()}. Visible bars: ${visibleData.length}/${fullData.length}`);
 
-    // Read current scroll offset BEFORE updating data.
-    // If we have a captured offset from a timeframe switch or resize, use it instead of the current stale chart offset.
-    const currentOffset = capturedOffsetRef.current !== null
-      ? capturedOffsetRef.current
-      : getTrueOffsetRightDistance(chartInstance.current);
+      // Read current scroll offset BEFORE updating data.
+      // If we have a captured offset from a timeframe switch or resize, use it instead of the current stale chart offset.
+      const currentOffset = capturedOffsetRef.current !== null
+        ? capturedOffsetRef.current
+        : getTrueOffsetRightDistance(chartInstance.current);
 
-    if (capturedOffsetRef.current !== null) {
-      capturedOffsetRef.current = null;
-    }
-
-    // Check if there is a pending cut animation
-    const anim = pendingCutAnimation.current;
-    let tempOffset = currentOffset;
-    if (anim && anim.timestamp === replayCurrentTimestamp) {
-      const chartSize = chartInstance.current.getSize();
-      const chartWidth = chartSize ? chartSize.width : 0;
-      tempOffset = chartWidth - anim.clickX;
-      console.log(`[DEBUG] dataSync hook - Pending cut animation found. Using temporary click offset: ${tempOffset} (clickX: ${anim.clickX}, chartWidth: ${chartWidth})`);
-    }
-
-    chartInstance.current.setDataLoader({
-      getBars: ({ type: loadType, callback }: any) => {
-        if (loadType === 'init') {
-          console.log(`[DEBUG] dataSync dataLoader - Supplying ${visibleData.length} visible bars to chart`);
-          callback(visibleData);
-        } else {
-          callback([]);
-        }
+      if (capturedOffsetRef.current !== null) {
+        capturedOffsetRef.current = null;
       }
-    });
 
-    chartInstance.current.resetData();
-    
-    // Explicitly restore the user's custom offset on the chart instance to prevent reset-to-default behavior.
-    // By setting this offset globally, KLineCharts will naturally draw the new end candle at this position.
-    console.log(`[DEBUG] dataSync hook - Saved offsetRightDistance: ${tempOffset}. Restoring now.`);
-    chartInstance.current.setOffsetRightDistance(tempOffset);
+      // Check if there is a pending cut animation
+      const anim = pendingCutAnimation.current;
+      let tempOffset = currentOffset;
+      if (anim && anim.timestamp === replayCurrentTimestamp) {
+        const chartSize = chartInstance.current.getSize();
+        const chartWidth = chartSize ? chartSize.width : 0;
+        tempOffset = chartWidth - anim.clickX;
+        console.log(`[DEBUG] dataSync hook - Pending cut animation found. Using temporary click offset: ${tempOffset} (clickX: ${anim.clickX}, chartWidth: ${chartWidth})`);
+      }
 
-    // Restore the custom Y-axis range if wasManualScale is true, otherwise always unlock auto-scale
-    if (wasManualScale && yAxis && prevRange) {
-      console.log('[DEBUG] dataSync hook - Restoring manual Y-axis range:', prevRange);
-      yAxis.setRange({ ...prevRange });
-      yAxis.setAutoCalcTickFlag(false);
-    } else if (yAxis) {
-      // Ensure Y-axis auto-scale is re-enabled so the chart isn't locked vertically
-      yAxis.setAutoCalcTickFlag(true);
-    }
-
-    // If there is a pending cut animation, trigger it!
-    if (anim && anim.timestamp === replayCurrentTimestamp) {
-      pendingCutAnimation.current = null; // consume it
-
-      const startTime = performance.now();
-      const startOffset = tempOffset;
-      const endOffset = anim.savedOffset;
-      const duration = 700;
-
-      console.log(`[DEBUG] dataSync hook - Sliced data loaded. Animating offset slide from tempOffset ${tempOffset} to savedOffset ${anim.savedOffset} over 700ms`);
-
-      const animate = (time: number) => {
-        if (!chartInstance.current || !isReplayActive) return;
-        const elapsed = time - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing: easeOutCubic
-        const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-        const current = startOffset + (endOffset - startOffset) * easeOutCubic;
-        
-        chartInstance.current.setOffsetRightDistance(current);
-        
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          console.log(`[DEBUG] dataSync hook - Animation completed. Locking final offset ${endOffset}`);
-          chartInstance.current.setOffsetRightDistance(endOffset);
+      chartInstance.current.setDataLoader({
+        getBars: ({ type: loadType, callback }: any) => {
+          if (loadType === 'init') {
+            console.log(`[DEBUG] dataSync dataLoader - Supplying ${visibleData.length} visible bars to chart`);
+            callback(visibleData);
+          } else {
+            callback([]);
+          }
         }
-      };
+      });
 
-      requestAnimationFrame(animate);
+      chartInstance.current.resetData();
+      
+      // Explicitly restore the user's custom offset on the chart instance to prevent reset-to-default behavior.
+      // By setting this offset globally, KLineCharts will naturally draw the new end candle at this position.
+      console.log(`[DEBUG] dataSync hook - Saved offsetRightDistance: ${tempOffset}. Restoring now.`);
+      chartInstance.current.setOffsetRightDistance(tempOffset);
+
+      // Restore the custom Y-axis range if wasManualScale is true, otherwise always unlock auto-scale
+      if (wasManualScale && yAxis && prevRange) {
+        console.log('[DEBUG] dataSync hook - Restoring manual Y-axis range:', prevRange);
+        yAxis.setRange({ ...prevRange });
+        yAxis.setAutoCalcTickFlag(false);
+      } else if (yAxis) {
+        // Ensure Y-axis auto-scale is re-enabled so the chart isn't locked vertically
+        yAxis.setAutoCalcTickFlag(true);
+      }
+
+      // If there is a pending cut animation, trigger it!
+      if (anim && anim.timestamp === replayCurrentTimestamp) {
+        pendingCutAnimation.current = null; // consume it
+
+        const startTime = performance.now();
+        const startOffset = tempOffset;
+        const endOffset = anim.savedOffset;
+        const duration = 700;
+
+        console.log(`[DEBUG] dataSync hook - Sliced data loaded. Animating offset slide from tempOffset ${tempOffset} to savedOffset ${anim.savedOffset} over 700ms`);
+
+        const animate = (time: number) => {
+          if (!chartInstance.current || !isReplayActive) return;
+          const elapsed = time - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          // Easing: easeOutCubic
+          const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+          const current = startOffset + (endOffset - startOffset) * easeOutCubic;
+          
+          chartInstance.current.setOffsetRightDistance(current);
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            console.log(`[DEBUG] dataSync hook - Animation completed. Locking final offset ${endOffset}`);
+            chartInstance.current.setOffsetRightDistance(endOffset);
+          }
+        };
+
+        requestAnimationFrame(animate);
+      }
+    } finally {
+      setTimeout(() => {
+        isSyncingRangeRef.current = false;
+        handleDateRangeSync(activeChartIndex);
+      }, 100);
     }
-  }, [replayCurrentTimestamp, activeTimeframe, isReplayActive, allTimeframesData]);
+  }, [replayCurrentTimestamp, activeTimeframe, isReplayActive, allTimeframesData, activeChartIndex]);
 
   // Click-to-cut point selector hook using DOM click + coordinate convertFromPixel
   useEffect(() => {
