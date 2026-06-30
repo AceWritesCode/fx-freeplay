@@ -4389,12 +4389,13 @@ export default function App() {
 
   const renderSlot = (i: number) => {
     const isActive = i === activeChartIndex;
+    const showHighlight = layoutType !== '1';
     return (
       <div
         onClick={() => handleSelectChartSlot(i)}
         className={`
           relative w-full h-full bg-[#131722] rounded overflow-hidden transition-all duration-200 cursor-pointer min-w-[150px] min-h-[150px]
-          ${isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : 'border border-gray-800 hover:border-gray-750'}
+          ${showHighlight && isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : (showHighlight ? 'border border-gray-800 hover:border-gray-750' : '')}
         `}
       >
         <div
