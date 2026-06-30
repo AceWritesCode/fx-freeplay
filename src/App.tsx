@@ -789,6 +789,33 @@ export default function App() {
     const currentSlots = slotsRef.current;
     const visibleCount = getLayoutChartCount(currentLayout);
 
+    // 0. Sync back modified synced copies to original drawings
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (!chart) continue;
+
+      const overlays = (chart as any).getOverlays();
+      overlays.forEach((ov: any) => {
+        if (ov.isSyncedCopy) {
+          const sourceChart = chartInstancesRef.current[ov.sourceChartIndex];
+          if (sourceChart) {
+            const originalOverlay = (sourceChart as any).getOverlays().find((o: any) => o.id === ov.originalId);
+            if (originalOverlay) {
+              const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
+              const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
+              if (pointsChanged || extendDataChanged) {
+                (sourceChart as any).overrideOverlay({
+                  id: ov.originalId,
+                  points: JSON.parse(JSON.stringify(ov.points)),
+                  extendData: ov.extendData
+                });
+              }
+            }
+          }
+        }
+      });
+    }
+
     // 1. Gather all original drawings from all visible charts
     const originalDrawingsBySymbol: Record<string, { chartIndex: number; overlay: any }[]> = {};
 
@@ -799,7 +826,7 @@ export default function App() {
       const symbol = currentSlots[i]?.symbol;
       if (!symbol) continue;
 
-      const overlays = chart.getOverlays();
+      const overlays = (chart as any).getOverlays();
       const originals = overlays.filter(
         (ov: any) =>
           !ov.isSyncedCopy &&
@@ -825,17 +852,17 @@ export default function App() {
       const symbol = currentSlots[i]?.symbol;
       if (!symbol) {
         // Clear all synced copies if no symbol
-        const targetOverlays = targetChart.getOverlays();
+        const targetOverlays = (targetChart as any).getOverlays();
         targetOverlays.forEach((ov: any) => {
           if (ov.isSyncedCopy) {
-            targetChart.removeOverlay({ id: ov.id });
+            (targetChart as any).removeOverlay({ id: ov.id });
           }
         });
         continue;
       }
 
       const activeOriginals = originalDrawingsBySymbol[symbol] || [];
-      const targetOverlays = targetChart.getOverlays();
+      const targetOverlays = (targetChart as any).getOverlays();
 
       // Find synced copies currently on this target chart
       const existingSyncedCopies = targetOverlays.filter((ov: any) => ov.isSyncedCopy);
@@ -847,7 +874,7 @@ export default function App() {
       // Remove any synced copies that are no longer needed
       existingSyncedCopies.forEach((copy: any) => {
         if (!desiredCopyIds.has(copy.id)) {
-          targetChart.removeOverlay({ id: copy.id });
+          (targetChart as any).removeOverlay({ id: copy.id });
         }
       });
 
@@ -864,23 +891,18 @@ export default function App() {
           paneId: orig.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(orig.points)),
           extendData: orig.extendData,
-          lock: true, // Non-selectable, non-editable
+          lock: false, // Unlocked!
           isSyncedCopy: true,
           sourceChartIndex: sourceIndex,
           originalId: orig.id,
-          styles: orig.styles,
-          onClick: () => {
-            return true; // Trap click so it doesn't trigger selection or show handles
-          },
-          onPressedMoveStart: () => false,
-          onPressedMoving: () => false
+          styles: orig.styles
         };
 
         if (existingCopy) {
           const pointsChanged = JSON.stringify(existingCopy.points) !== JSON.stringify(overlayOptions.points);
           const extendDataChanged = JSON.stringify(existingCopy.extendData) !== JSON.stringify(overlayOptions.extendData);
           if (pointsChanged || extendDataChanged) {
-            targetChart.overrideOverlay({
+            (targetChart as any).overrideOverlay({
               id: syncId,
               points: overlayOptions.points,
               extendData: overlayOptions.extendData,
@@ -888,7 +910,7 @@ export default function App() {
             });
           }
         } else {
-          targetChart.createOverlay(overlayOptions);
+          (targetChart as any).createOverlay(overlayOptions);
         }
       });
     }
@@ -1307,7 +1329,6 @@ export default function App() {
   // Drawing selection states
   const [selectedOverlayIds, setSelectedOverlayIds] = useState<string[]>([]);
   const isCtrlPressedRef = useRef<boolean>(false);
-  const selectionBoxRef = useRef<{ startX: number; startY: number; div: HTMLDivElement | null } | null>(null);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
 
@@ -2584,9 +2605,17 @@ export default function App() {
         if (chartInstance.current && chartInstance.current._selectedOverlayIds?.length > 0) {
           console.log(`[DEBUG] Deleting selected overlays:`, chartInstance.current._selectedOverlayIds);
           chartInstance.current._selectedOverlayIds.forEach((id: string) => {
-            const ov = chartInstance.current.getOverlays().find((o: any) => o.id === id);
+            const ov = (chartInstance.current as any).getOverlays().find((o: any) => o.id === id);
             if (id === 'custom_price_line_overlay' || ov?.name === 'customPriceLine' || id === 'session_breaks_overlay' || ov?.name === 'sessionBreaks') return; // Skip persistent overlays
-            chartInstance.current.removeOverlay({ id });
+            
+            if (ov?.isSyncedCopy) {
+              const sourceChart = chartInstancesRef.current[ov.sourceChartIndex];
+              if (sourceChart) {
+                (sourceChart as any).removeOverlay({ id: ov.originalId });
+              }
+            } else {
+              (chartInstance.current as any).removeOverlay({ id });
+            }
           });
           chartInstance.current._selectedOverlayIds = [];
           setSelectedOverlayIds([]);
@@ -2612,8 +2641,18 @@ export default function App() {
 
   // Mouse selection box drawing
   useEffect(() => {
-    const container = chartContainerRef.current;
-    if (!container) return;
+    const visibleCount = getLayoutChartCount(layoutType);
+    const containers: HTMLDivElement[] = [];
+
+    // Gather all active containers
+    for (let i = 0; i < visibleCount; i++) {
+      const container = chartContainersRef.current[i];
+      if (container) {
+        containers.push(container);
+      }
+    }
+
+    if (containers.length === 0) return;
 
     // Helper to check if drawing intersects the selection box
     const doesOverlayIntersectRect = (ov: any, xMin: number, xMax: number, yMin: number, yMax: number, chart: any): boolean => {
@@ -2672,138 +2711,161 @@ export default function App() {
       return validPts.some(isPointInRect);
     };
 
+    let activeContainer: HTMLDivElement | null = null;
+    let activeChart: any = null;
+
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return; // Only handle left click
-      // Record starting mouse coordinates for click vs scroll detection
       mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
 
-      if (isCtrlPressedRef.current && chartInstance.current) {
-        e.preventDefault();
-        e.stopPropagation();
+      const container = e.currentTarget as HTMLDivElement;
+      const slotIndex = chartContainersRef.current.indexOf(container);
+      if (slotIndex === -1) return;
 
-        const rect = container.getBoundingClientRect();
-        const startX = e.clientX - rect.left;
-        const startY = e.clientY - rect.top;
+      const chart = chartInstancesRef.current[slotIndex];
+      if (!chart) return;
 
-        // Create selection box element
-        const div = document.createElement('div');
-        div.style.position = 'absolute';
-        div.style.border = '1.5px dashed #ff9800';
-        div.style.backgroundColor = 'rgba(255, 152, 0, 0.08)';
-        div.style.pointerEvents = 'none';
-        div.style.zIndex = '50';
-        div.style.left = `${startX}px`;
-        div.style.top = `${startY}px`;
-        div.style.width = '0px';
-        div.style.height = '0px';
-        container.appendChild(div);
-
-        selectionBoxRef.current = { startX, startY, div };
-
-        // Disable scroll and zoom during box selection
-        chartInstance.current.setScrollEnabled(false);
-        chartInstance.current.setZoomEnabled(false);
-      }
+      activeContainer = container;
+      activeChart = chart;
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      const box = selectionBoxRef.current;
-      if (box && box.div) {
+      if (!activeContainer || !activeChart || !mouseDownPosRef.current) return;
+
+      const rect = activeContainer.getBoundingClientRect();
+      const currentX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+      const currentY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+
+      const startX = mouseDownPosRef.current.x - rect.left;
+      const startY = mouseDownPosRef.current.y - rect.top;
+
+      const dx = Math.abs(startX - currentX);
+      const dy = Math.abs(startY - currentY);
+
+      if (isCtrlPressedRef.current) {
+        // Prevent default browser text/drag selection behavior
         e.preventDefault();
-        e.stopPropagation();
 
-        const rect = container.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        let div = activeContainer.querySelector('#selection-box-indicator') as HTMLDivElement;
+        if (!div && (dx > 4 || dy > 4)) {
+          div = document.createElement('div');
+          div.style.position = 'absolute';
+          div.style.border = '1.5px dashed #ff9800';
+          div.style.backgroundColor = 'rgba(255, 152, 0, 0.08)';
+          div.style.pointerEvents = 'none';
+          div.style.zIndex = '50';
+          div.style.left = `${startX}px`;
+          div.style.top = `${startY}px`;
+          div.style.width = '0px';
+          div.style.height = '0px';
+          div.id = 'selection-box-indicator';
+          activeContainer.appendChild(div);
 
-        const x = Math.min(box.startX, currentX);
-        const y = Math.min(box.startY, currentY);
-        const width = Math.abs(box.startX - currentX);
-        const height = Math.abs(box.startY - currentY);
+          // Disable scroll and zoom during box selection
+          activeChart.setScrollEnabled(false);
+          activeChart.setZoomEnabled(false);
+        }
 
-        box.div.style.left = `${x}px`;
-        box.div.style.top = `${y}px`;
-        box.div.style.width = `${width}px`;
-        box.div.style.height = `${height}px`;
+        if (div) {
+          const xMin = Math.min(startX, currentX);
+          const yMin = Math.min(startY, currentY);
+          const w = Math.abs(startX - currentX);
+          const h = Math.abs(startY - currentY);
+
+          div.style.left = `${xMin}px`;
+          div.style.top = `${yMin}px`;
+          div.style.width = `${w}px`;
+          div.style.height = `${h}px`;
+        }
       }
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (e.button !== 0) return; // Only handle left click
-      const box = selectionBoxRef.current;
       const startPos = mouseDownPosRef.current;
       mouseDownPosRef.current = null;
 
-      if (box) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (box.div && box.div.parentNode) {
-          box.div.parentNode.removeChild(box.div);
-        }
-
-        const rect = container.getBoundingClientRect();
-        const endX = e.clientX - rect.left;
-        const endY = e.clientY - rect.top;
-
-        const xMin = Math.min(box.startX, endX);
-        const xMax = Math.max(box.startX, endX);
-        const yMin = Math.min(box.startY, endY);
-        const yMax = Math.max(box.startY, endY);
-
-        selectionBoxRef.current = null;
-
-        // Restore scroll and zoom
-        if (chartInstance.current) {
+      if (activeContainer && activeChart) {
+        const div = activeContainer.querySelector('#selection-box-indicator');
+        if (div) {
+          // Restore scroll and zoom
           if (!activeTool) {
-            chartInstance.current.setScrollEnabled(true);
-            chartInstance.current.setZoomEnabled(true);
+            activeChart.setScrollEnabled(true);
+            activeChart.setZoomEnabled(true);
           }
 
-          const width = xMax - xMin;
-          const height = yMax - yMin;
+          const rect = activeContainer.getBoundingClientRect();
+          const currentX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+          const currentY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
 
-          if (width > 3 && height > 3) {
-            // Box selection complete: check which overlays have points in the box
-            const newlySelected: string[] = [];
-            const overlays = chartInstance.current.getOverlays();
-            overlays.forEach((ov: any) => {
-              if (doesOverlayIntersectRect(ov, xMin, xMax, yMin, yMax, chartInstance.current)) {
-                newlySelected.push(ov.id);
+          if (startPos) {
+            const startX = startPos.x - rect.left;
+            const startY = startPos.y - rect.top;
+
+            const xMin = Math.min(startX, currentX);
+            const xMax = Math.max(startX, currentX);
+            const yMin = Math.min(startY, currentY);
+            const yMax = Math.max(startY, currentY);
+
+            div.remove();
+
+            const dx = xMax - xMin;
+            const dy = yMax - yMin;
+
+            if (dx > 4 && dy > 4) {
+              const overlays = activeChart.getOverlays();
+              const newlySelected: string[] = [];
+              overlays.forEach((ov: any) => {
+                if (doesOverlayIntersectRect(ov, xMin, xMax, yMin, yMax, activeChart)) {
+                  newlySelected.push(ov.id);
+                }
+              });
+              setSelectedOverlayIds(newlySelected);
+              console.log(`[DEBUG] Selection rectangle matched overlays:`, newlySelected);
+            }
+          }
+        } else if (startPos) {
+          // Normal click check (without Ctrl drag box)
+          const dx = Math.abs(e.clientX - startPos.x);
+          const dy = Math.abs(e.clientY - startPos.y);
+          const isClick = dx <= 4 && dy <= 4;
+
+          if (isClick && !activeTool) {
+            if (!isCtrlPressedRef.current) {
+              // Only clear selection on normal click without Ctrl
+              if (activeChart._clickedOnOverlay) {
+                activeChart._clickedOnOverlay = false;
+              } else {
+                console.log('[DEBUG] Clicked on empty space. Clearing selection.');
+                setSelectedOverlayIds([]);
               }
-            });
-            setSelectedOverlayIds(newlySelected);
-            console.log(`[DEBUG] Selection rectangle matched overlays:`, newlySelected);
-          }
-        }
-      } else if (startPos && chartInstance.current) {
-        // Normal click check (without Ctrl drag box)
-        const dx = Math.abs(e.clientX - startPos.x);
-        const dy = Math.abs(e.clientY - startPos.y);
-        const isClick = dx <= 4 && dy <= 4;
-
-        if (isClick && !isCtrlPressedRef.current && !activeTool) {
-          // Normal click: check if clicked on an overlay, otherwise clear selection
-          if (chartInstance.current._clickedOnOverlay) {
-            chartInstance.current._clickedOnOverlay = false;
-          } else {
-            console.log('[DEBUG] Clicked on empty space. Clearing selection.');
-            setSelectedOverlayIds([]);
+            } else {
+              // Ctrl click: reset overlay click flag if it was clicked
+              if (activeChart._clickedOnOverlay) {
+                activeChart._clickedOnOverlay = false;
+              }
+            }
           }
         }
       }
+
+      activeContainer = null;
+      activeChart = null;
     };
 
-    container.addEventListener('mousedown', handleMouseDown);
+    containers.forEach(container => {
+      container.addEventListener('mousedown', handleMouseDown);
+    });
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
 
     return () => {
-      container.removeEventListener('mousedown', handleMouseDown);
+      containers.forEach(container => {
+        container.removeEventListener('mousedown', handleMouseDown);
+      });
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [activeTool]);
+  }, [layoutType, activeTool]);
 
   // Regenerate all preset and custom timeframes with timezone shift applied
   const regenerateTimeframes = (raw1m: KLineData[], s: ChartSettings) => {
