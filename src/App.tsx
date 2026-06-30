@@ -321,6 +321,7 @@ export default function App() {
   const isSyncingRangeRef = useRef<boolean>(false);
   const syncTimeRef = useRef<boolean>(localStorage.getItem('sync_time') !== 'false');
   const syncDateRangeRef = useRef<boolean>(localStorage.getItem('sync_date_range') !== 'false');
+  const syncDrawingsRef = useRef<boolean>(localStorage.getItem('sync_drawings') !== 'false');
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const layoutContainerRef = useRef<HTMLDivElement>(null);
@@ -471,6 +472,9 @@ export default function App() {
   const [syncDateRange, setSyncDateRange] = useState<boolean>(() => {
     return localStorage.getItem('sync_date_range') !== 'false';
   });
+  const [syncDrawings, setSyncDrawings] = useState<boolean>(() => {
+    return localStorage.getItem('sync_drawings') !== 'false';
+  });
 
   // Resizable layout sizes state (in percentages)
   const [layoutSizes, setLayoutSizes] = useState<Record<string, number[]>>(() => {
@@ -555,6 +559,7 @@ export default function App() {
 
   useEffect(() => { syncTimeRef.current = syncTime; }, [syncTime]);
   useEffect(() => { syncDateRangeRef.current = syncDateRange; }, [syncDateRange]);
+  useEffect(() => { syncDrawingsRef.current = syncDrawings; }, [syncDrawings]);
 
   useEffect(() => {
     localStorage.setItem('sync_symbol', String(syncSymbol));
@@ -562,7 +567,28 @@ export default function App() {
     localStorage.setItem('sync_crosshair', String(syncCrosshair));
     localStorage.setItem('sync_time', String(syncTime));
     localStorage.setItem('sync_date_range', String(syncDateRange));
-  }, [syncSymbol, syncInterval, syncCrosshair, syncTime, syncDateRange]);
+    localStorage.setItem('sync_drawings', String(syncDrawings));
+  }, [syncSymbol, syncInterval, syncCrosshair, syncTime, syncDateRange, syncDrawings]);
+
+  useEffect(() => {
+    syncDrawingsRef.current = syncDrawings;
+    if (syncDrawings) {
+      syncAllDrawings();
+    } else {
+      const visibleCount = getLayoutChartCount(layoutTypeRef.current);
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          const overlays = chart.getOverlays();
+          overlays.forEach((ov: any) => {
+            if (ov.isSyncedCopy) {
+              chart.removeOverlay({ id: ov.id });
+            }
+          });
+        }
+      }
+    }
+  }, [syncDrawings]);
 
   useEffect(() => {
     syncCrosshairRef.current = syncCrosshair;
@@ -754,6 +780,112 @@ export default function App() {
       console.error('Error syncing crosshairs:', err);
     } finally {
       isSyncingCrosshairRef.current = false;
+    }
+  };
+
+  const syncAllDrawings = () => {
+    if (!syncDrawingsRef.current) return;
+    const currentLayout = layoutTypeRef.current;
+    const currentSlots = slotsRef.current;
+    const visibleCount = getLayoutChartCount(currentLayout);
+
+    // 1. Gather all original drawings from all visible charts
+    const originalDrawingsBySymbol: Record<string, { chartIndex: number; overlay: any }[]> = {};
+
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (!chart) continue;
+
+      const symbol = currentSlots[i]?.symbol;
+      if (!symbol) continue;
+
+      const overlays = chart.getOverlays();
+      const originals = overlays.filter(
+        (ov: any) =>
+          !ov.isSyncedCopy &&
+          ov.id !== 'custom_price_line_overlay' &&
+          ov.name !== 'customPriceLine' &&
+          ov.id !== 'session_breaks_overlay' &&
+          ov.name !== 'sessionBreaks'
+      );
+
+      if (!originalDrawingsBySymbol[symbol]) {
+        originalDrawingsBySymbol[symbol] = [];
+      }
+      originals.forEach((ov: any) => {
+        originalDrawingsBySymbol[symbol].push({ chartIndex: i, overlay: ov });
+      });
+    }
+
+    // 2. Apply/sync drawings to each target chart
+    for (let i = 0; i < visibleCount; i++) {
+      const targetChart = chartInstancesRef.current[i];
+      if (!targetChart) continue;
+
+      const symbol = currentSlots[i]?.symbol;
+      if (!symbol) {
+        // Clear all synced copies if no symbol
+        const targetOverlays = targetChart.getOverlays();
+        targetOverlays.forEach((ov: any) => {
+          if (ov.isSyncedCopy) {
+            targetChart.removeOverlay({ id: ov.id });
+          }
+        });
+        continue;
+      }
+
+      const activeOriginals = originalDrawingsBySymbol[symbol] || [];
+      const targetOverlays = targetChart.getOverlays();
+
+      // Find synced copies currently on this target chart
+      const existingSyncedCopies = targetOverlays.filter((ov: any) => ov.isSyncedCopy);
+
+      // Determine which synced copies should exist on this target chart
+      const desiredCopies = activeOriginals.filter(item => item.chartIndex !== i);
+      const desiredCopyIds = new Set(desiredCopies.map(item => `sync_${item.overlay.id}_from_${item.chartIndex}`));
+
+      // Remove any synced copies that are no longer needed
+      existingSyncedCopies.forEach((copy: any) => {
+        if (!desiredCopyIds.has(copy.id)) {
+          targetChart.removeOverlay({ id: copy.id });
+        }
+      });
+
+      // Create or update desired synced copies
+      desiredCopies.forEach(item => {
+        const orig = item.overlay;
+        const sourceIndex = item.chartIndex;
+        const syncId = `sync_${orig.id}_from_${sourceIndex}`;
+        const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
+
+        const overlayOptions = {
+          name: orig.name,
+          id: syncId,
+          paneId: orig.paneId || 'candle_pane',
+          points: JSON.parse(JSON.stringify(orig.points)),
+          extendData: orig.extendData,
+          lock: true, // Non-selectable, non-editable
+          isSyncedCopy: true,
+          sourceChartIndex: sourceIndex,
+          originalId: orig.id,
+          styles: orig.styles
+        };
+
+        if (existingCopy) {
+          const pointsChanged = JSON.stringify(existingCopy.points) !== JSON.stringify(overlayOptions.points);
+          const extendDataChanged = JSON.stringify(existingCopy.extendData) !== JSON.stringify(overlayOptions.extendData);
+          if (pointsChanged || extendDataChanged) {
+            targetChart.overrideOverlay({
+              id: syncId,
+              points: overlayOptions.points,
+              extendData: overlayOptions.extendData,
+              styles: overlayOptions.styles
+            });
+          }
+        } else {
+          targetChart.createOverlay(overlayOptions);
+        }
+      });
     }
   };
 
@@ -1093,12 +1225,13 @@ export default function App() {
     const visibleCount = getLayoutChartCount(layoutType);
     
     isSyncingRangeRef.current = true;
+    const promises: Promise<void>[] = [];
     try {
       for (let i = 0; i < visibleCount; i++) {
         if (isReplayActive && i === activeChartIndex) continue;
         const chart = chartInstancesRef.current[i];
         if (chart) {
-          loadDataForSlot(i, chart);
+          promises.push(loadDataForSlot(i, chart));
         }
       }
     } finally {
@@ -1106,6 +1239,12 @@ export default function App() {
         isSyncingRangeRef.current = false;
       }, 100);
     }
+
+    Promise.all(promises).then(() => {
+      syncAllDrawings();
+    }).catch(err => {
+      console.error('[DEBUG] Error loading slots data:', err);
+    });
   }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp, activeChartIndex]);
 
   // Custom Timeframes state
@@ -2162,6 +2301,7 @@ export default function App() {
             lock: true
           });
 
+          (chart as any)._onDrawingSync = syncAllDrawings;
           loadDataForSlot(i, chart);
           chart.resize();
         }
@@ -2192,6 +2332,7 @@ export default function App() {
         const chart = chartInstancesRef.current[i];
         if (chart) {
           chart.resize();
+          (chart as any)._onDrawingSync = syncAllDrawings;
         }
       }
       if (hasData) {
@@ -2445,6 +2586,8 @@ export default function App() {
           });
           chartInstance.current._selectedOverlayIds = [];
           setSelectedOverlayIds([]);
+          
+          syncAllDrawings();
         }
       }
     };
@@ -3813,6 +3956,7 @@ export default function App() {
           const c = (chartInstance.current as any)?._debugDrawProbeContainer;
           if (p && c) { c.removeEventListener('click', p); }
           console.log(`[DEBUG] simpleAnnotation - Completed and restored scroll/zoom.`);
+          syncAllDrawings();
           return true;
         },
         onPressedMoveStart: (event: any) => {
@@ -3829,6 +3973,9 @@ export default function App() {
             });
             if (event.chart._handleMultiMove) {
               event.chart._handleMultiMove(event);
+            }
+            if (event.chart._onDrawingSync) {
+              event.chart._onDrawingSync();
             }
           }
         },
@@ -3997,6 +4144,7 @@ export default function App() {
           const c = (chartInstance.current as any)?._debugDrawProbeContainer;
           if (p && c) { c.removeEventListener('click', p); }
           console.log(`[DEBUG] overlay '${overlayName}' - Restored scroll/zoom.`);
+          syncAllDrawings();
           return true;
         }
       };
@@ -4149,6 +4297,9 @@ export default function App() {
               });
             }
           }
+          if (event.chart._onDrawingSync) {
+            event.chart._onDrawingSync();
+          }
         };
 
         overlayOptions.onClick = (event: any) => {
@@ -4202,6 +4353,7 @@ export default function App() {
       setActiveTool(null);
       chartInstance.current.setScrollEnabled(true);
       chartInstance.current.setZoomEnabled(true);
+      syncAllDrawings();
     }
   };
 
@@ -4836,6 +4988,11 @@ export default function App() {
                           label="Date range"
                           checked={syncDateRange}
                           onChange={setSyncDateRange}
+                        />
+                        <ToggleSwitch
+                          label="Drawings"
+                          checked={syncDrawings}
+                          onChange={setSyncDrawings}
                         />
                       </div>
                     </div>
