@@ -2854,6 +2854,9 @@ export default function App() {
       } else {
         console.error('[DEBUG] processCSVFile - Chart instance not found during initialization!');
       }
+
+      // Auto-open the watchlist panel when a new dataset is imported for the first time
+      setIsWatchlistOpen(true);
     };
     reader.readAsText(file);
   };
@@ -3007,7 +3010,9 @@ export default function App() {
         
         setFolderSymbol('');
         setFolderFilesList([]);
-        setIsWatchlistOpen(true);
+        if (!autoImport) {
+          setIsWatchlistOpen(true);
+        }
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
