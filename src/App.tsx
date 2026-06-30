@@ -316,6 +316,10 @@ export default function App() {
   const chartInstance = useRef<any>(null);
   const chartContainersRef = useRef<(HTMLDivElement | null)[]>([]);
   const chartInstancesRef = useRef<(any | null)[]>([]);
+  const isSyncingCrosshairRef = useRef<boolean>(false);
+  const syncCrosshairRef = useRef<boolean>(true);
+  const slotsRef = useRef<any[]>([]);
+  const layoutTypeRef = useRef<string>('1');
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const subContainerRef1 = useRef<HTMLDivElement>(null);
   const subContainerRef2 = useRef<HTMLDivElement>(null);
@@ -524,15 +528,30 @@ export default function App() {
   // Persist layout type, slot configurations, and split sizes to localStorage
   useEffect(() => {
     localStorage.setItem('layout_type', layoutType);
+    layoutTypeRef.current = layoutType;
   }, [layoutType]);
 
   useEffect(() => {
     localStorage.setItem('layout_slots', JSON.stringify(slots));
+    slotsRef.current = slots;
   }, [slots]);
 
   useEffect(() => {
     localStorage.setItem('layout_sizes', JSON.stringify(layoutSizes));
   }, [layoutSizes]);
+
+  useEffect(() => {
+    syncCrosshairRef.current = syncCrosshair;
+    if (!syncCrosshair) {
+      const visibleCount = getLayoutChartCount(layoutType);
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          chart.executeAction('onCrosshairChange', {});
+        }
+      }
+    }
+  }, [syncCrosshair, layoutType]);
 
   const handleSelectChartSlot = (index: number) => {
     if (index === activeChartIndex) return;
@@ -607,6 +626,54 @@ export default function App() {
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleCrosshairSync = (sourceIndex: number, params: any) => {
+    if (isSyncingCrosshairRef.current) return;
+    if (!syncCrosshairRef.current) return;
+
+    const currentLayout = layoutTypeRef.current;
+    const currentSlots = slotsRef.current;
+    const visibleCount = getLayoutChartCount(currentLayout);
+    const sourceChart = chartInstancesRef.current[sourceIndex];
+    if (!sourceChart) return;
+
+    isSyncingCrosshairRef.current = true;
+    try {
+      const isCrosshairActive = params && typeof params.x === 'number' && typeof params.y === 'number';
+
+      for (let i = 0; i < visibleCount; i++) {
+        if (i === sourceIndex) continue;
+        const targetChart = chartInstancesRef.current[i];
+        if (!targetChart) continue;
+
+        if (isCrosshairActive) {
+          const sourceSymbol = currentSlots[sourceIndex]?.symbol;
+          const targetSymbol = currentSlots[i]?.symbol;
+          if (sourceSymbol && targetSymbol && sourceSymbol === targetSymbol) {
+            const points = sourceChart.convertFromPixel([{ x: params.x, y: params.y }]);
+            if (points && points.length > 0) {
+              const { timestamp, value } = points[0];
+              if (timestamp !== undefined && value !== undefined) {
+                const coords = targetChart.convertToPixel([{ timestamp, value }]);
+                if (coords && coords.length > 0) {
+                  const { x, y } = coords[0];
+                  if (x !== undefined && y !== undefined) {
+                    targetChart.executeAction('onCrosshairChange', { x, y });
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          targetChart.executeAction('onCrosshairChange', {});
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing crosshairs:', err);
+    } finally {
+      isSyncingCrosshairRef.current = false;
+    }
   };
 
   const getRawDataForSymbol = (symbolName: string | null): KLineData[] => {
@@ -1736,6 +1803,10 @@ export default function App() {
           
           chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
           chart.setPeriod({ type: 'minute', span: 1 });
+
+          chart.subscribeAction('onCrosshairChange', (params: any) => {
+            handleCrosshairSync(i, params);
+          });
 
           chart.createOverlay({
             name: 'customPriceLine',
