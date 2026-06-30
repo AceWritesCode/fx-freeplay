@@ -5057,7 +5057,7 @@ export default function App() {
         <main className="flex-1 h-full min-w-0 relative bg-[#131722]">
           
           {/* KLineChart mount element(s) based on layout configuration */}
-          {renderLayout()}
+          {hasData && renderLayout()}
 
           {/* Reset View Button — appears on hover at bottom-center */}
           {hasData && (
