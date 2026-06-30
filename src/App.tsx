@@ -1435,6 +1435,7 @@ export default function App() {
       const chartWidth = chartSize ? chartSize.width : 0;
 
       const fullData = allTimeframesData[tf];
+      if (!fullData) return;
       const targetTimestamp = overrideTimestamp !== undefined ? overrideTimestamp : replayCurrentTimestamp;
       const activeData = isReplayActive && targetTimestamp !== null
         ? fullData.filter(d => d.timestamp <= targetTimestamp)
@@ -1476,12 +1477,13 @@ export default function App() {
     const chartSize = chart.getSize();
     const chartWidth = chartSize ? chartSize.width : 0;
     const fullData = allTimeframesData[activeTimeframe];
+    if (!fullData) return;
     const activeData =
       isReplayActive && replayCurrentTimestamp !== null
         ? fullData.filter((d: any) => d.timestamp <= replayCurrentTimestamp)
         : fullData;
 
-    if (!activeData || activeData.length === 0) return;
+    if (activeData.length === 0) return;
 
     // Re-enable Y-axis auto-scale so prices appear correctly after any manual zoom
     try {
@@ -1609,8 +1611,8 @@ export default function App() {
     }
 
     const fullData = allTimeframesData[activeTimeframe];
-    if (fullData.length === 0) {
-      console.warn('[DEBUG] handleReplayStepForward - Empty data for active timeframe:', activeTimeframe);
+    if (!fullData || fullData.length === 0) {
+      console.warn('[DEBUG] handleReplayStepForward - Empty or missing data for active timeframe:', activeTimeframe);
       return;
     }
 
@@ -1644,8 +1646,8 @@ export default function App() {
     }
 
     const fullData = allTimeframesData[activeTimeframe];
-    if (fullData.length === 0) {
-      console.warn('[DEBUG] handleReplayStepBackward - Empty data for active timeframe:', activeTimeframe);
+    if (!fullData || fullData.length === 0) {
+      console.warn('[DEBUG] handleReplayStepBackward - Empty or missing data for active timeframe:', activeTimeframe);
       return;
     }
 
@@ -1689,7 +1691,7 @@ export default function App() {
 
     const fullData = allTimeframesData[activeTimeframe];
     let slicedIndex = -1;
-    if (replayCurrentTimestamp !== null) {
+    if (replayCurrentTimestamp !== null && fullData) {
       slicedIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
     }
 
@@ -1798,6 +1800,10 @@ export default function App() {
       const prevRange = wasManualScale && yAxis ? yAxis.getRange() : null;
 
       const fullData = allTimeframesData[activeTimeframe];
+      if (!fullData) {
+        console.warn(`[DEBUG] dataSync hook - allTimeframesData[${activeTimeframe}] is not loaded yet.`);
+        return;
+      }
       const visibleData = fullData.filter(d => d.timestamp <= replayCurrentTimestamp);
       console.log(`[DEBUG] dataSync hook - Slicing data at timestamp: ${new Date(replayCurrentTimestamp).toLocaleString()}. Visible bars: ${visibleData.length}/${fullData.length}`);
 
@@ -1915,16 +1921,17 @@ export default function App() {
           if (!timestamp && typeof dataPoint.dataIndex === 'number') {
             const dataIndex = Math.round(dataPoint.dataIndex);
             const fullData = allTimeframesData[activeTimeframe];
-            console.log(`[DEBUG] cutpoint click event - Mapping dataIndex ${dataPoint.dataIndex} (rounded: ${dataIndex}) to timeframe data. Total bars: ${fullData.length}`);
-            
-            if (dataIndex >= 0 && dataIndex < fullData.length) {
-              timestamp = fullData[dataIndex].timestamp;
-            } else if (dataIndex >= fullData.length) {
-              timestamp = fullData[fullData.length - 1].timestamp;
-              console.warn(`[DEBUG] cutpoint click event - dataIndex ${dataIndex} exceeds bounds. Snapped to last bar.`);
-            } else if (dataIndex < 0) {
-              timestamp = fullData[0].timestamp;
-              console.warn(`[DEBUG] cutpoint click event - dataIndex ${dataIndex} is negative. Snapped to first bar.`);
+            if (fullData) {
+              console.log(`[DEBUG] cutpoint click event - Mapping dataIndex ${dataPoint.dataIndex} (rounded: ${dataIndex}) to timeframe data. Total bars: ${fullData.length}`);
+              if (dataIndex >= 0 && dataIndex < fullData.length) {
+                timestamp = fullData[dataIndex].timestamp;
+              } else if (dataIndex >= fullData.length) {
+                timestamp = fullData[fullData.length - 1].timestamp;
+                console.warn(`[DEBUG] cutpoint click event - dataIndex ${dataIndex} exceeds bounds. Snapped to last bar.`);
+              } else if (dataIndex < 0) {
+                timestamp = fullData[0].timestamp;
+                console.warn(`[DEBUG] cutpoint click event - dataIndex ${dataIndex} is negative. Snapped to first bar.`);
+              }
             }
           }
 
