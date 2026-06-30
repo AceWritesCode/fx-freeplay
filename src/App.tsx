@@ -704,8 +704,9 @@ export default function App() {
   };
 
   const getTrueOffsetRightDistance = (chart: any): number => {
-    if (chart && chart._chartStore && typeof chart._chartStore._offsetRightDistance === 'number') {
-      return chart._chartStore._offsetRightDistance;
+    if (chart && chart._chartStore && typeof chart._chartStore._lastBarRightSideDiffBarCount === 'number') {
+      const space = getChartBarSpace(chart);
+      return chart._chartStore._lastBarRightSideDiffBarCount * space;
     }
     return chart ? chart.getOffsetRightDistance() : 0;
   };
