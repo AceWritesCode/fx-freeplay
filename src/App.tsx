@@ -1123,6 +1123,7 @@ export default function App() {
     localStorage.setItem('tv_clone_import_mode', mode);
   };
   const [folderSymbol, setFolderSymbol] = useState<string>('');
+  const [selectedFolderSymbols, setSelectedFolderSymbols] = useState<Record<string, boolean>>({});
   const [folderFilesList, setFolderFilesList] = useState<{ name: string; size: number; timeframe: string | null }[]>([]);
   const [symbolFilesMap, setSymbolFilesMap] = useState<Record<string, Record<string, File>>>({});
   const [isBrokerTfDropdownOpen, setIsBrokerTfDropdownOpen] = useState<boolean>(false);
@@ -2972,6 +2973,12 @@ export default function App() {
       }
 
       setSymbolFilesMap(mergedSymbolMap);
+
+      const initialSelected: Record<string, boolean> = {};
+      symbolsList.forEach(sym => {
+        initialSelected[sym] = true;
+      });
+      setSelectedFolderSymbols(initialSelected);
       
       if (symbolsList.length === 1) {
         setFolderSymbol(symbolsList[0]);
@@ -3123,8 +3130,15 @@ export default function App() {
   };
 
   const handleFolderImportConfirm = async () => {
-    const symbolsList = Object.keys(symbolFilesMap).sort();
-    if (symbolsList.length === 0) return;
+    const allSymbols = Object.keys(symbolFilesMap).sort();
+    const symbolsList = allSymbols.filter(sym => selectedFolderSymbols[sym]);
+    if (symbolsList.length === 0) {
+      setCustomAlert({
+        title: 'Selection Required',
+        message: 'Please select at least one symbol subfolder to import.'
+      });
+      return;
+    }
 
     // Apply timezone adjustment settings
     let updatedSettings = { ...settings };
@@ -5379,22 +5393,52 @@ export default function App() {
                               </div>
                               <div className="text-right">
                                 <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">CSV Files</div>
-                                <div className="text-xs font-semibold text-indigo-400 font-mono mt-0.5">{folderFilesList.length} detected</div>
+                                <div className="text-xs font-semibold text-indigo-400 font-mono mt-0.5">
+                                  {
+                                    Object.keys(symbolFilesMap).length > 1
+                                      ? Object.keys(symbolFilesMap).filter(k => selectedFolderSymbols[k]).reduce((acc, k) => acc + Object.keys(symbolFilesMap[k]).length, 0)
+                                      : folderFilesList.length
+                                  } detected
+                                </div>
                               </div>
                             </div>
 
                             {Object.keys(symbolFilesMap).length > 1 ? (
                               <div>
-                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2">Detected Symbol Subfolders</div>
+                                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2">
+                                  Detected Symbol Subfolders ({Object.keys(symbolFilesMap).filter(k => selectedFolderSymbols[k]).length} Selected)
+                                </div>
                                 <div className="max-h-[160px] overflow-y-auto bg-[#131722]/50 border border-gray-850 rounded-lg p-2 flex flex-col gap-1 scrollbar-thin scrollbar-thumb-gray-800">
-                                  {Object.keys(symbolFilesMap).sort().map(sym => (
-                                    <div key={sym} className="flex justify-between items-center bg-[#1e222d]/60 border border-gray-850/40 rounded-lg px-3 py-1.5 text-xs text-white">
-                                      <span className="font-semibold tracking-wide text-indigo-300">{sym}</span>
-                                      <span className="text-[10px] text-gray-500 font-mono">
-                                        {Object.keys(symbolFilesMap[sym]).length} timeframes
-                                      </span>
-                                    </div>
-                                  ))}
+                                  {Object.keys(symbolFilesMap).sort().map(sym => {
+                                    const isSelected = !!selectedFolderSymbols[sym];
+                                    return (
+                                      <div
+                                        key={sym}
+                                        onClick={() => {
+                                          setSelectedFolderSymbols(prev => ({
+                                            ...prev,
+                                            [sym]: !prev[sym]
+                                          }));
+                                        }}
+                                        className={`flex justify-between items-center bg-[#1e222d]/60 border rounded-lg px-3 py-1.5 text-xs text-white cursor-pointer select-none transition-all ${
+                                          isSelected ? 'border-indigo-500/40 hover:border-indigo-400/60' : 'border-gray-850/40 opacity-40 hover:opacity-60'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            readOnly
+                                            className="w-3.5 h-3.5 accent-indigo-500 rounded cursor-pointer"
+                                          />
+                                          <span className={`font-semibold tracking-wide ${isSelected ? 'text-indigo-300' : 'text-gray-400'}`}>{sym}</span>
+                                        </div>
+                                        <span className="text-[10px] text-gray-500 font-mono">
+                                          {Object.keys(symbolFilesMap[sym]).length} timeframes
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ) : (
@@ -5522,7 +5566,13 @@ export default function App() {
                         }`}
                       >
                         <FolderOpen className="w-3.5 h-3.5" />
-                        <span>{folderSymbol ? 'Import Detected Symbols' : 'Import Folder'}</span>
+                        <span>
+                          {folderSymbol
+                            ? (Object.keys(symbolFilesMap).length > 1
+                              ? `Import ${Object.keys(symbolFilesMap).filter(k => selectedFolderSymbols[k]).length} Selected Symbols`
+                              : 'Import Detected Symbol')
+                            : 'Import Folder'}
+                        </span>
                       </button>
                     </div>
                   )}
