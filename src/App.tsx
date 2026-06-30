@@ -317,10 +317,10 @@ export default function App() {
   const chartContainersRef = useRef<(HTMLDivElement | null)[]>([]);
   const chartInstancesRef = useRef<(any | null)[]>([]);
   const isSyncingCrosshairRef = useRef<boolean>(false);
-  const syncCrosshairRef = useRef<boolean>(true);
+  const syncCrosshairRef = useRef<boolean>(localStorage.getItem('sync_crosshair') !== 'false');
   const isSyncingRangeRef = useRef<boolean>(false);
-  const syncTimeRef = useRef<boolean>(true);
-  const syncDateRangeRef = useRef<boolean>(true);
+  const syncTimeRef = useRef<boolean>(localStorage.getItem('sync_time') !== 'false');
+  const syncDateRangeRef = useRef<boolean>(localStorage.getItem('sync_date_range') !== 'false');
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const layoutContainerRef = useRef<HTMLDivElement>(null);
@@ -454,11 +454,21 @@ export default function App() {
     return localStorage.getItem('layout_type') || '1';
   });
   const [activeChartIndex, setActiveChartIndex] = useState<number>(0);
-  const [syncSymbol, setSyncSymbol] = useState<boolean>(true);
-  const [syncInterval, setSyncInterval] = useState<boolean>(true);
-  const [syncCrosshair, setSyncCrosshair] = useState<boolean>(true);
-  const [syncTime, setSyncTime] = useState<boolean>(true);
-  const [syncDateRange, setSyncDateRange] = useState<boolean>(true);
+  const [syncSymbol, setSyncSymbol] = useState<boolean>(() => {
+    return localStorage.getItem('sync_symbol') !== 'false';
+  });
+  const [syncInterval, setSyncInterval] = useState<boolean>(() => {
+    return localStorage.getItem('sync_interval') !== 'false';
+  });
+  const [syncCrosshair, setSyncCrosshair] = useState<boolean>(() => {
+    return localStorage.getItem('sync_crosshair') !== 'false';
+  });
+  const [syncTime, setSyncTime] = useState<boolean>(() => {
+    return localStorage.getItem('sync_time') !== 'false';
+  });
+  const [syncDateRange, setSyncDateRange] = useState<boolean>(() => {
+    return localStorage.getItem('sync_date_range') !== 'false';
+  });
 
   // Resizable layout sizes state (in percentages)
   const [layoutSizes, setLayoutSizes] = useState<Record<string, number[]>>(() => {
@@ -543,6 +553,14 @@ export default function App() {
 
   useEffect(() => { syncTimeRef.current = syncTime; }, [syncTime]);
   useEffect(() => { syncDateRangeRef.current = syncDateRange; }, [syncDateRange]);
+
+  useEffect(() => {
+    localStorage.setItem('sync_symbol', String(syncSymbol));
+    localStorage.setItem('sync_interval', String(syncInterval));
+    localStorage.setItem('sync_crosshair', String(syncCrosshair));
+    localStorage.setItem('sync_time', String(syncTime));
+    localStorage.setItem('sync_date_range', String(syncDateRange));
+  }, [syncSymbol, syncInterval, syncCrosshair, syncTime, syncDateRange]);
 
   useEffect(() => {
     syncCrosshairRef.current = syncCrosshair;
