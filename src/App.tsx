@@ -337,6 +337,7 @@ export default function App() {
   const capturedYAxisRangeRef = useRef<{ from: number; to: number } | null>(null);
   const wasManualScaleRef = useRef<boolean>(false);
   const dataVersionRef = useRef<number>(0);
+  const draggedIndexRef = useRef<number | null>(null);
 
   // Replay state
   const [isReplayActive, setIsReplayActive] = useState<boolean>(false);
@@ -3405,6 +3406,39 @@ export default function App() {
     }, 0);
   };
 
+  // Watchlist Drag and Drop Reordering Handlers
+  const handleDragStartWatchlist = (e: React.DragEvent, index: number) => {
+    draggedIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOverWatchlist = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    const dragIndex = draggedIndexRef.current;
+    if (dragIndex === null || dragIndex === index) return;
+
+    setWatchlistSymbols(prev => {
+      const updated = [...prev];
+      const draggedItem = updated[dragIndex];
+      updated.splice(dragIndex, 1);
+      updated.splice(index, 0, draggedItem);
+      
+      draggedIndexRef.current = index;
+      return updated;
+    });
+  };
+
+  const handleDragEndWatchlist = () => {
+    draggedIndexRef.current = null;
+    
+    // Save to IndexedDB using functional setter to ensure latest order is written
+    setWatchlistSymbols(prev => {
+      saveChartDataToIndexedDB(raw1mData, assetName, null, prev, activeTimeframe);
+      return prev;
+    });
+  };
+
   // Drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -5686,10 +5720,17 @@ export default function App() {
                 </div>
               ) : (
                 <ul className="flex flex-col gap-0.5 px-2">
-                  {watchlistSymbols.map((sym) => {
+                  {watchlistSymbols.map((sym, idx) => {
                     const isActive = sym.name === activeWatchlistSymbol;
                     return (
-                      <li key={sym.name}>
+                      <li
+                        key={sym.name}
+                        draggable={true}
+                        onDragStart={(e) => handleDragStartWatchlist(e, idx)}
+                        onDragOver={(e) => handleDragOverWatchlist(e, idx)}
+                        onDragEnd={handleDragEndWatchlist}
+                        className="list-none"
+                      >
                         <div
                           onClick={() => handleWatchlistSymbolSwitch(sym.name)}
                           className={`
@@ -5703,6 +5744,17 @@ export default function App() {
                           `}
                         >
                           <div className="flex items-center gap-2 min-w-0">
+                            {/* Grip drag handle icon */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-500 hover:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="9" cy="12" r="1"/>
+                                <circle cx="9" cy="5" r="1"/>
+                                <circle cx="9" cy="19" r="1"/>
+                                <circle cx="15" cy="12" r="1"/>
+                                <circle cx="15" cy="5" r="1"/>
+                                <circle cx="15" cy="19" r="1"/>
+                              </svg>
+                            </div>
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
                               isActive ? 'bg-indigo-400' : 'bg-gray-700 group-hover:bg-gray-500'
                             }`} />
