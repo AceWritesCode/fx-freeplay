@@ -318,6 +318,9 @@ export default function App() {
   const chartInstancesRef = useRef<(any | null)[]>([]);
   const isSyncingCrosshairRef = useRef<boolean>(false);
   const syncCrosshairRef = useRef<boolean>(true);
+  const isSyncingRangeRef = useRef<boolean>(false);
+  const syncTimeRef = useRef<boolean>(true);
+  const syncDateRangeRef = useRef<boolean>(true);
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const layoutContainerRef = useRef<HTMLDivElement>(null);
@@ -540,6 +543,9 @@ export default function App() {
     localStorage.setItem('layout_sizes', JSON.stringify(layoutSizes));
   }, [layoutSizes]);
 
+  useEffect(() => { syncTimeRef.current = syncTime; }, [syncTime]);
+  useEffect(() => { syncDateRangeRef.current = syncDateRange; }, [syncDateRange]);
+
   useEffect(() => {
     syncCrosshairRef.current = syncCrosshair;
     if (!syncCrosshair) {
@@ -673,6 +679,205 @@ export default function App() {
       console.error('Error syncing crosshairs:', err);
     } finally {
       isSyncingCrosshairRef.current = false;
+    }
+  };
+
+  const getTimeframeMs = (tf: string): number => {
+    const num = parseInt(tf);
+    const unit = tf.replace(String(num), '');
+    if (!unit || unit === 'm') return num * 60 * 1000;
+    if (unit === 'h') return num * 60 * 60 * 1000;
+    if (unit === 'D') return num * 24 * 60 * 60 * 1000;
+    if (unit === 'W') return num * 7 * 24 * 60 * 60 * 1000;
+    return 60 * 1000;
+  };
+
+  const getChartBarSpace = (chart: any): number => {
+    const space = chart.getBarSpace();
+    if (typeof space === 'object' && space !== null) {
+      return space.bar || space.barSpace || 6;
+    }
+    if (typeof space === 'number') {
+      return space;
+    }
+    return 6;
+  };
+
+  const getTrueOffsetRightDistance = (chart: any): number => {
+    if (chart && chart._chartStore && typeof chart._chartStore._offsetRightDistance === 'number') {
+      return chart._chartStore._offsetRightDistance;
+    }
+    return chart ? chart.getOffsetRightDistance() : 0;
+  };
+
+  const findDataIndexByTimestamp = (data: any[], timestamp: number, tfMs: number): number => {
+    if (data.length === 0) return 0;
+    if (timestamp < data[0].timestamp) {
+      const diff = data[0].timestamp - timestamp;
+      return -Math.round(diff / tfMs);
+    }
+    if (timestamp > data[data.length - 1].timestamp) {
+      const diff = timestamp - data[data.length - 1].timestamp;
+      return (data.length - 1) + Math.round(diff / tfMs);
+    }
+    let low = 0;
+    let high = data.length - 1;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      if (data[mid].timestamp === timestamp) return mid;
+      if (data[mid].timestamp < timestamp) low = mid + 1;
+      else high = mid - 1;
+    }
+    if (low >= data.length) return data.length - 1;
+    if (high < 0) return 0;
+    return Math.abs(data[low].timestamp - timestamp) < Math.abs(data[high].timestamp - timestamp) ? low : high;
+  };
+
+  const centerTimestampOnChart = (chart: any, timestamp: number, tfMs: number) => {
+    const data = chart.getDataList();
+    if (data.length === 0) return;
+    const targetIndex = findDataIndexByTimestamp(data, timestamp, tfMs);
+    const size = chart.getSize();
+    const width = size?.width || 800;
+    const space = getChartBarSpace(chart);
+    const offsetRightDistance = (targetIndex - data.length) * space + (width / 2);
+    chart.setOffsetRightDistance(offsetRightDistance);
+  };
+
+  const handleTimeSync = (sourceIndex: number, param: any) => {
+    if (isSyncingRangeRef.current || !syncTimeRef.current) return;
+    const timestamp = param?.data?.current?.timestamp || param?.data?.timestamp || param?.timestamp;
+    if (!timestamp) return;
+
+    const currentLayout = layoutTypeRef.current;
+    const visibleCount = getLayoutChartCount(currentLayout);
+    
+    isSyncingRangeRef.current = true;
+    try {
+      for (let i = 0; i < visibleCount; i++) {
+        const targetChart = chartInstancesRef.current[i];
+        if (!targetChart) continue;
+        const targetTfMs = getTimeframeMs(slotsRef.current[i]?.timeframe || '1m');
+        centerTimestampOnChart(targetChart, timestamp, targetTfMs);
+      }
+
+      if (syncCrosshairRef.current) {
+        setTimeout(() => {
+          const sourceChart = chartInstancesRef.current[sourceIndex];
+          if (sourceChart) {
+            const sourceData = sourceChart.getDataList();
+            const sourceIdx = findDataIndexByTimestamp(sourceData, timestamp, getTimeframeMs(slotsRef.current[sourceIndex]?.timeframe || '1m'));
+            const sourceCandle = sourceData[sourceIdx];
+            if (sourceCandle) {
+              const coords = sourceChart.convertToPixel([{ timestamp, value: sourceCandle.close }]);
+              if (coords && coords.length > 0) {
+                sourceChart.executeAction('onCrosshairChange', { x: coords[0].x, y: coords[0].y });
+              }
+            }
+          }
+
+          for (let i = 0; i < visibleCount; i++) {
+            if (i === sourceIndex) continue;
+            const targetChart = chartInstancesRef.current[i];
+            if (!targetChart) continue;
+
+            const targetData = targetChart.getDataList();
+            const targetTfMs = getTimeframeMs(slotsRef.current[i]?.timeframe || '1m');
+            const targetIdx = findDataIndexByTimestamp(targetData, timestamp, targetTfMs);
+            const targetCandle = targetData[targetIdx];
+            if (targetCandle) {
+              const coords = targetChart.convertToPixel([{ timestamp, value: targetCandle.close }]);
+              if (coords && coords.length > 0) {
+                const { x, y } = coords[0];
+                if (x !== undefined && y !== undefined) {
+                  targetChart.executeAction('onCrosshairChange', { x, y });
+                }
+              }
+            }
+          }
+        }, 50);
+      }
+    } catch (err) {
+      console.error('Error syncing time:', err);
+    } finally {
+      isSyncingRangeRef.current = false;
+    }
+  };
+
+  const handleDateRangeSync = (sourceIndex: number) => {
+    if (isSyncingRangeRef.current || !syncDateRangeRef.current) return;
+
+    const currentLayout = layoutTypeRef.current;
+    const currentSlots = slotsRef.current;
+    const visibleCount = getLayoutChartCount(currentLayout);
+    const sourceChart = chartInstancesRef.current[sourceIndex];
+    if (!sourceChart) return;
+
+    const sourceData = sourceChart.getDataList();
+    const sourceVisibleRange = sourceChart.getVisibleRange();
+    if (sourceData.length === 0 || !sourceVisibleRange) return;
+
+    isSyncingRangeRef.current = true;
+    try {
+      const sourceTfMs = getTimeframeMs(currentSlots[sourceIndex]?.timeframe || '1m');
+      
+      const fromIdx = Math.round(sourceVisibleRange.realFrom);
+      let t1: number;
+      if (fromIdx < 0) {
+        t1 = sourceData[0].timestamp + fromIdx * sourceTfMs;
+      } else if (fromIdx >= sourceData.length) {
+        t1 = sourceData[sourceData.length - 1].timestamp + (fromIdx - (sourceData.length - 1)) * sourceTfMs;
+      } else {
+        t1 = sourceData[fromIdx].timestamp;
+      }
+
+      const toIdx = Math.round(sourceVisibleRange.realTo);
+      let t2: number;
+      if (toIdx < 0) {
+        t2 = sourceData[0].timestamp + toIdx * sourceTfMs;
+      } else if (toIdx >= sourceData.length) {
+        t2 = sourceData[sourceData.length - 1].timestamp + (toIdx - (sourceData.length - 1)) * sourceTfMs;
+      } else {
+        t2 = sourceData[toIdx].timestamp;
+      }
+
+      if (isNaN(t1) || isNaN(t2)) return;
+
+      for (let i = 0; i < visibleCount; i++) {
+        if (i === sourceIndex) continue;
+        const targetChart = chartInstancesRef.current[i];
+        if (!targetChart) continue;
+        
+        const targetData = targetChart.getDataList();
+        if (targetData.length === 0) continue;
+
+        const targetTfMs = getTimeframeMs(currentSlots[i]?.timeframe || '1m');
+        const targetSymbol = currentSlots[i]?.symbol;
+        const sourceSymbol = currentSlots[sourceIndex]?.symbol;
+
+        if (sourceSymbol === targetSymbol && currentSlots[i]?.timeframe === currentSlots[sourceIndex]?.timeframe) {
+          const oldSpace = getChartBarSpace(sourceChart);
+          const oldOffset = getTrueOffsetRightDistance(sourceChart);
+          targetChart.setBarSpace(oldSpace);
+          targetChart.setOffsetRightDistance(oldOffset);
+        } else {
+          const targetFrom = findDataIndexByTimestamp(targetData, t1, targetTfMs);
+          const targetTo = findDataIndexByTimestamp(targetData, t2, targetTfMs);
+          const visibleBarsCount = Math.max(1, targetTo - targetFrom);
+          const targetWidth = targetChart.getSize()?.width || 800;
+          const desiredBarSpace = targetWidth / visibleBarsCount;
+          
+          targetChart.setBarSpace(desiredBarSpace);
+          const actualSpace = getChartBarSpace(targetChart);
+          const offsetRightDistance = (targetTo - targetData.length) * actualSpace;
+          
+          targetChart.setOffsetRightDistance(offsetRightDistance);
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing date ranges:', err);
+    } finally {
+      isSyncingRangeRef.current = false;
     }
   };
 
@@ -1187,7 +1392,7 @@ export default function App() {
     const capturedOffset = preserveOffset
       ? (capturedOffsetRef.current !== null
         ? capturedOffsetRef.current
-        : (chartInstance.current ? chartInstance.current.getOffsetRightDistance() : null))
+        : (chartInstance.current ? getTrueOffsetRightDistance(chartInstance.current) : null))
       : null;
 
     console.log(`[DEBUG] centerLastCandle - captured offset: ${capturedOffset}, preserve: ${!!preserveOffset}`);
@@ -1293,7 +1498,7 @@ export default function App() {
   // Save current last-bar position as the default reset view location
   const handleSaveResetPosition = () => {
     if (!chartInstance.current) return;
-    const offset = chartInstance.current.getOffsetRightDistance();
+    const offset = getTrueOffsetRightDistance(chartInstance.current);
     savedResetOffsetRef.current = offset;
     console.log(`[DEBUG] handleSaveResetPosition - Saved offset: ${offset}px`);
     saveChartDataToIndexedDB(raw1mData, assetName, offset, watchlistSymbols, activeTimeframe);
@@ -1464,7 +1669,7 @@ export default function App() {
   const exitReplayMode = () => {
     console.log('[DEBUG] exitReplayMode - Exiting Replay Mode. Restoring full dataset.');
 
-    const currentOffset = chartInstance.current ? chartInstance.current.getOffsetRightDistance() : null;
+    const currentOffset = chartInstance.current ? getTrueOffsetRightDistance(chartInstance.current) : null;
     capturedOffsetRef.current = currentOffset;
 
     let wasManual = false;
@@ -1603,7 +1808,7 @@ export default function App() {
     // If we have a captured offset from a timeframe switch or resize, use it instead of the current stale chart offset.
     const currentOffset = capturedOffsetRef.current !== null
       ? capturedOffsetRef.current
-      : chartInstance.current.getOffsetRightDistance();
+      : getTrueOffsetRightDistance(chartInstance.current);
 
     if (capturedOffsetRef.current !== null) {
       capturedOffsetRef.current = null;
@@ -1725,7 +1930,7 @@ export default function App() {
             setIsSelectingCutPoint(false);
             setCutPointHoverX(null);
 
-            const savedOffset = chartInstance.current ? chartInstance.current.getOffsetRightDistance() : 0;
+            const savedOffset = chartInstance.current ? getTrueOffsetRightDistance(chartInstance.current) : 0;
             pendingCutAnimation.current = {
               timestamp,
               clickX: x,
@@ -1801,11 +2006,22 @@ export default function App() {
           chartInstancesRef.current[i] = chart;
           applySettingsToChart(chart, settings);
           
+          chart.setMaxOffsetLeftDistance(10000);
+          chart.setMaxOffsetRightDistance(10000);
+          
           chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
           chart.setPeriod({ type: 'minute', span: 1 });
 
           chart.subscribeAction('onCrosshairChange', (params: any) => {
             handleCrosshairSync(i, params);
+          });
+
+          chart.subscribeAction('onVisibleRangeChange', () => {
+            handleDateRangeSync(i);
+          });
+
+          chart.subscribeAction('onCandleBarClick', (param: any) => {
+            handleTimeSync(i, param);
           });
 
           chart.createOverlay({
@@ -1893,7 +2109,7 @@ export default function App() {
 
       // Read offset/tick info from active chart
       if (chartInstance.current) {
-        capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
+        capturedOffsetRef.current = getTrueOffsetRightDistance(chartInstance.current);
 
         let wasManual = false;
         let range = null;
@@ -3149,7 +3365,7 @@ export default function App() {
         capturedYAxisRangeRef.current = null;
         console.log(`[DEBUG] handleTimeframeSwitch - Symbol switch: cleared offset/scale cache.`);
       } else {
-        capturedOffsetRef.current = chartInstance.current.getOffsetRightDistance();
+        capturedOffsetRef.current = getTrueOffsetRightDistance(chartInstance.current);
 
         let wasManual = false;
         let range = null;
