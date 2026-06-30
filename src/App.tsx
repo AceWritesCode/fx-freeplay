@@ -1678,10 +1678,12 @@ export default function App() {
       return;
     }
 
-    const currentIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
-    if (currentIndex === -1) {
-      console.warn(`[DEBUG] handleReplayStepForward - Replay timestamp ${replayCurrentTimestamp} not found in timeframe ${activeTimeframe}`);
-      return;
+    let currentIndex = -1;
+    for (let i = fullData.length - 1; i >= 0; i--) {
+      if (fullData[i].timestamp <= replayCurrentTimestamp) {
+        currentIndex = i;
+        break;
+      }
     }
 
     if (currentIndex >= fullData.length - 1) {
@@ -1708,7 +1710,13 @@ export default function App() {
       return;
     }
 
-    const currentIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
+    let currentIndex = -1;
+    for (let i = fullData.length - 1; i >= 0; i--) {
+      if (fullData[i].timestamp <= replayCurrentTimestamp) {
+        currentIndex = i;
+        break;
+      }
+    }
     if (currentIndex <= 0) {
       console.warn(`[DEBUG] handleReplayStepBackward - Cannot step back further. Current index: ${currentIndex}`);
       return;
@@ -1750,6 +1758,14 @@ export default function App() {
     let slicedIndex = -1;
     if (replayCurrentTimestamp !== null && fullData) {
       slicedIndex = fullData.findIndex(d => d.timestamp === replayCurrentTimestamp);
+      if (slicedIndex === -1) {
+        for (let i = fullData.length - 1; i >= 0; i--) {
+          if (fullData[i].timestamp <= replayCurrentTimestamp) {
+            slicedIndex = i;
+            break;
+          }
+        }
+      }
     }
 
     setIsReplayActive(false);
