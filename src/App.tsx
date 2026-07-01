@@ -4170,6 +4170,7 @@ export default function App() {
     
     console.log(`[DEBUG] handleSelectTool - Selection requested for: '${toolName}' (framework placeholder)`);
   };
+  (window as any).handleSelectTool = handleSelectTool;
 
   // Clear all drawings
   const handleClearDrawings = () => {
@@ -4922,115 +4923,7 @@ export default function App() {
         
         {/* Left Toolbar */}
         <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
-          <button
-            title="Trend Line"
-            disabled={!hasData}
-            onClick={() => handleSelectTool('trendLine')}
-            className={`p-2 rounded-lg border transition-all ${
-              activeTool === 'trendLine'
-                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
-              <g fillRule="nonzero">
-                <path d="M7.354 21.354l14-14-.707-.707-14 14z" />
-                <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
-              </g>
-            </svg>
-          </button>
-
-          <button
-            title="Horizontal Line"
-            disabled={!hasData}
-            onClick={() => handleSelectTool('horizontalLine')}
-            className={`p-2 rounded-lg border transition-all ${
-              activeTool === 'horizontalLine'
-                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
-              <g fillRule="nonzero">
-                <path d="M4 15h8.5v-1h-8.5zM16.5 15h8.5v-1h-8.5z" />
-                <path d="M14.5 16c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
-              </g>
-            </svg>
-          </button>
-
-          <button
-            title="Rectangle"
-            disabled={!hasData}
-            onClick={() => handleSelectTool('rect')}
-            className={`p-2 rounded-lg border transition-all ${
-              activeTool === 'rect'
-                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
-              <g fillRule="nonzero">
-                <path d="M7.5 6h13v-1h-13z" id="Line" />
-                <path d="M7.5 23h13v-1h-13z" />
-                <path d="M5 7.5v13h1v-13z" />
-                <path d="M22 7.5v13h1v-13z" />
-                <path d="M5.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
-              </g>
-            </svg>
-          </button>
-
-          <button
-            title="Fibonacci Retracement"
-            disabled={!hasData}
-            onClick={() => handleSelectTool('fibonacciLine')}
-            className={`p-2 rounded-lg border transition-all ${
-              activeTool === 'fibonacciLine'
-                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
-              <g fillRule="nonzero">
-                <path d="M3 5h22v-1h-22z" />
-                <path d="M3 17h22v-1h-22z" />
-                <path d="M3 11h19.5v-1h-19.5z" />
-                <path d="M5.5 23h19.5v-1h-19.5z" />
-                <path d="M3.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM24.5 12c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
-              </g>
-            </svg>
-          </button>
-
-          <button
-            title="Risk/Reward Long Position"
-            disabled={!hasData}
-            onClick={() => handleSelectTool('priceChannel')}
-            className={`p-2 rounded-lg border transition-all ${
-              activeTool === 'priceChannel'
-                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
-              <path d="M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M25 18H5v-1h20zm-11-4h3v1h-4V9h1zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3" />
-            </svg>
-          </button>
-
-          <button
-            title="Text Annotation"
-            disabled={!hasData}
-            onClick={() => handleSelectTool('simpleAnnotation')}
-            className={`p-2 rounded-lg border transition-all ${
-              activeTool === 'simpleAnnotation'
-                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
-              <path d="M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z" />
-            </svg>
-          </button>
-
-          <div className="w-6 h-[1px] bg-gray-800/80 my-0.5" />
+          {/* Drawing tools have been removed for the new extensible framework flyouts */}
 
           <button
             title="Clear Drawings"
