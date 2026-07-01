@@ -322,6 +322,7 @@ export default function App() {
   const syncTimeRef = useRef<boolean>(localStorage.getItem('sync_time') !== 'false');
   const syncDateRangeRef = useRef<boolean>(localStorage.getItem('sync_date_range') !== 'false');
   const syncDrawingsRef = useRef<boolean>(localStorage.getItem('sync_drawings') !== 'false');
+  const activeChartIndexRef = useRef<number>(0);
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const layoutContainerRef = useRef<HTMLDivElement>(null);
@@ -560,6 +561,7 @@ export default function App() {
   useEffect(() => { syncTimeRef.current = syncTime; }, [syncTime]);
   useEffect(() => { syncDateRangeRef.current = syncDateRange; }, [syncDateRange]);
   useEffect(() => { syncDrawingsRef.current = syncDrawings; }, [syncDrawings]);
+  useEffect(() => { activeChartIndexRef.current = activeChartIndex; }, [activeChartIndex]);
 
   useEffect(() => {
     localStorage.setItem('sync_symbol', String(syncSymbol));
@@ -791,6 +793,9 @@ export default function App() {
 
     // 0. Sync back modified synced copies to original drawings
     for (let i = 0; i < visibleCount; i++) {
+      // Only sync back from the active slot where the user is interacting!
+      if (i !== activeChartIndexRef.current) continue;
+
       const chart = chartInstancesRef.current[i];
       if (!chart) continue;
 
