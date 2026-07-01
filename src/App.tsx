@@ -24,14 +24,17 @@ import {
   ChevronRight,
   Loader2,
   RefreshCw,
-  LayoutGrid
+  LayoutGrid,
+  Layers
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, clearChartDataInIndexedDB, saveDirectoryHandle, loadDirectoryHandle, clearDirectoryHandle, detectPricePrecision, saveDirectoryHandles, loadDirectoryHandles } from './utils/dataUtils';
 import type { KLineData } from './utils/dataUtils';
-import { registerCustomOverlays, snapPointToCandle } from './utils/overlays';
+import { registerCustomOverlays, snapPointToCandle, getInteractiveOverlayOptions } from './utils/overlays';
 import { ThemeSettingsModal, PRESET_SETTINGS, TIMEZONE_OPTIONS, getLabelOffset } from './components/ThemeSettingsModal';
 import type { ChartSettings } from './components/ThemeSettingsModal';
+import { ToolRegistry } from './framework/tools';
+import { DrawingFloatingToolbar } from './components/DrawingFloatingToolbar';
 
 type Timeframe = string;
 
@@ -828,11 +831,13 @@ export default function App() {
             if (originalOverlay) {
               const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
               const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
-              if (pointsChanged || extendDataChanged) {
+              const lockChanged = originalOverlay.lock !== ov.lock;
+              if (pointsChanged || extendDataChanged || lockChanged) {
                 (sourceChart as any).overrideOverlay({
                   id: originalId,
                   points: JSON.parse(JSON.stringify(ov.points)),
-                  extendData: ov.extendData
+                  extendData: ov.extendData,
+                  lock: ov.lock
                 });
               }
             }
@@ -916,7 +921,7 @@ export default function App() {
           paneId: orig.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(orig.points)),
           extendData: orig.extendData,
-          lock: false, // Unlocked!
+          lock: orig.lock,
           styles: orig.styles,
           onRemoved: (event: any) => {
             console.log(`[DEBUG] synced copy - onRemoved callback fired for id: ${event.overlay.id}`);
@@ -1490,8 +1495,41 @@ export default function App() {
   const [savedFolderHandles, setSavedFolderHandles] = useState<any[]>([]);
   const [isVerifyingFolder, setIsVerifyingFolder] = useState<boolean>(false);
 
-  // Watchlist panel state
-  const [isWatchlistOpen, setIsWatchlistOpen] = useState<boolean>(false);
+  // Right panel state (Watchlist / Object Tree)
+  const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | null>(null);
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(260);
+  const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
+  const isResizingRightPanelRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizingRightPanelRef.current) {
+        // Calculate new width: viewport width - mouse X - right icon bar width (48px)
+        const newWidth = window.innerWidth - e.clientX - 48;
+        if (newWidth >= 200 && newWidth <= 600) {
+          setRightPanelWidth(newWidth);
+        }
+      }
+    };
+    const handleMouseUp = () => {
+      if (isResizingRightPanelRef.current) {
+        isResizingRightPanelRef.current = false;
+        setIsResizingRightPanel(false);
+        document.body.style.cursor = 'default';
+        // Resize charts after panel resizes
+        setTimeout(() => {
+          chartInstancesRef.current.forEach(chart => chart?.resize());
+        }, 50);
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   const [watchlistSymbols, setWatchlistSymbols] = useState<{ name: string; raw1m: KLineData[]; settings: any }[]>([]);
   const [activeWatchlistSymbol, setActiveWatchlistSymbol] = useState<string | null>(null);
   const watchlistAddInputRef = useRef<HTMLInputElement>(null);
@@ -1520,6 +1558,8 @@ export default function App() {
 
   // Drawing selection states
   const [selectedOverlayIds, setSelectedOverlayIds] = useState<string[]>([]);
+  const [drawingTrigger, setDrawingTrigger] = useState<number>(0);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
   const isCtrlPressedRef = useRef<boolean>(false);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -2780,31 +2820,15 @@ export default function App() {
           if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return; // Skip persistent overlays
           const isSelected = selectedOverlayIds.includes(ov.id);
 
-          if (ov.name === 'segment' || ov.name === 'horizontalStraightLine') {
-            chart.overrideOverlay({
-              id: ov.id,
-              styles: {
-                line: {
-                  color: isSelected ? '#ff9800' : '#2196f3',
-                  size: isSelected ? 2.5 : 1.5
-                }
-              }
-            });
-          } else if (ov.name === 'simpleAnnotation') {
-            chart.overrideOverlay({
-              id: ov.id,
-              styles: {
-                text: {
-                  color: isSelected ? '#ff9800' : '#2196f3'
-                }
-              }
-            });
-          } else {
-            // Custom overlays (rect, priceChannel) check chart._selectedOverlayIds internally
-            chart.overrideOverlay({
-              id: ov.id
-            });
-          }
+          // Set isSelected in extendData so tools can render their own selection handles
+          const currentExtendData = typeof ov.extendData === 'object' && ov.extendData !== null ? ov.extendData : {};
+          chart.overrideOverlay({
+            id: ov.id,
+            extendData: {
+              ...currentExtendData,
+              isSelected
+            }
+          });
         });
       }
     }
@@ -3331,7 +3355,7 @@ export default function App() {
       }
 
       // Auto-open the watchlist panel when a new dataset is imported for the first time
-      setIsWatchlistOpen(true);
+      setActiveRightTab('watchlist');
     };
     reader.readAsText(file);
   };
@@ -3492,7 +3516,7 @@ export default function App() {
         setFolderSymbol('');
         setFolderFilesList([]);
         if (!autoImport) {
-          setIsWatchlistOpen(true);
+          setActiveRightTab('watchlist');
         }
       }
     } catch (err: any) {
@@ -3640,7 +3664,7 @@ export default function App() {
     setFolderFilesList([]);
 
     // Auto-open the watchlist panel
-    setIsWatchlistOpen(true);
+    setActiveRightTab('watchlist');
   };
 
   const handleWatchlistAddFolder = async () => {
@@ -4168,7 +4192,16 @@ export default function App() {
     chartInstance.current.setScrollEnabled(false);
     chartInstance.current.setZoomEnabled(false);
     
-    console.log(`[DEBUG] handleSelectTool - Selection requested for: '${toolName}' (framework placeholder)`);
+    // Create the overlay using the robust interactive framework options
+    const overlayOptions = getInteractiveOverlayOptions(
+      toolName,
+      chartInstance,
+      chartInstancesRef,
+      isShiftPressedRef,
+      syncAllDrawings,
+      setActiveTool
+    );
+    chartInstance.current.createOverlay(overlayOptions);
   };
   (window as any).handleSelectTool = handleSelectTool;
 
@@ -4923,7 +4956,26 @@ export default function App() {
         
         {/* Left Toolbar */}
         <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
-          {/* Drawing tools have been removed for the new extensible framework flyouts */}
+          
+          {ToolRegistry.getAll().map((tool) => {
+            const Icon = tool.icon;
+            const isActive = activeTool === tool.id;
+            return (
+              <button
+                key={tool.id}
+                title={tool.name}
+                disabled={!hasData}
+                onClick={() => handleSelectTool(tool.id)}
+                className={`p-2 rounded-lg border transition-all ${
+                  isActive
+                    ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                    : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                }`}
+              >
+                <Icon />
+              </button>
+            );
+          })}
 
           <button
             title="Clear Drawings"
@@ -5019,8 +5071,90 @@ export default function App() {
         </aside>
 
         {/* Charting Canvas container */}
-        <main className="flex-1 h-full min-w-0 relative bg-[#131722]">
+        <main className="flex-1 h-full min-w-0 relative bg-[#131722] overflow-hidden">
           
+          <DrawingFloatingToolbar 
+            selectedOverlayIds={selectedOverlayIds} 
+            drawingTrigger={drawingTrigger}
+            onUpdateSettings={(settingsUpdate) => {
+              chartInstancesRef.current.forEach(chart => {
+                if (!chart) return;
+                selectedOverlayIds.forEach(id => {
+                  const overlay = chart.getOverlays().find((o: any) => o.id === id);
+                  if (overlay) {
+                    chart.overrideOverlay({
+                      id,
+                      extendData: {
+                        ...overlay.extendData,
+                        customSettings: {
+                          ...(overlay.extendData?.customSettings || {}),
+                          ...settingsUpdate
+                        }
+                      }
+                    });
+                  }
+                });
+              });
+              syncAllDrawings();
+            }}
+            getOverlay={(id) => {
+               for (let i = 0; i < chartInstancesRef.current.length; i++) {
+                 const chart = chartInstancesRef.current[i];
+                 if (chart) {
+                   const overlay = chart.getOverlays().find((o: any) => o.id === id);
+                   if (overlay) return overlay;
+                 }
+               }
+               return null;
+            }}
+            onLock={() => {
+              chartInstancesRef.current.forEach(chart => {
+                if (!chart) return;
+                selectedOverlayIds.forEach(id => {
+                  const overlay = chart.getOverlays().find((o: any) => o.id === id);
+                  if (overlay) {
+                    chart.overrideOverlay({
+                      id,
+                      lock: !overlay.lock
+                    });
+                  }
+                });
+                chart.resize(); // Force redraw of canvas to reflect new selection point sizes
+              });
+              syncAllDrawings();
+              setDrawingTrigger(prev => prev + 1);
+            }}
+            onDelete={() => {
+              let hasLocked = false;
+              selectedOverlayIds.forEach(id => {
+                for (let i = 0; i < chartInstancesRef.current.length; i++) {
+                  const chart = chartInstancesRef.current[i];
+                  if (chart) {
+                    const overlay = chart.getOverlays().find((o: any) => o.id === id);
+                    if (overlay && overlay.lock) {
+                      hasLocked = true;
+                    }
+                  }
+                }
+              });
+
+              if (hasLocked) {
+                setDeleteConfirmOpen(true);
+              } else {
+                // Delete immediately if none are locked
+                chartInstancesRef.current.forEach(chart => {
+                  if (!chart) return;
+                  selectedOverlayIds.forEach(id => {
+                    chart.removeOverlay({ id });
+                  });
+                });
+                setSelectedOverlayIds([]);
+                syncAllDrawings();
+                setDrawingTrigger(prev => prev + 1);
+              }
+            }}
+          />
+
           {/* KLineChart mount element(s) based on layout configuration */}
           {hasData && renderLayout()}
 
@@ -5533,163 +5667,203 @@ export default function App() {
           )}
         </main>
 
-        {/* ── Watchlist sliding panel — opens between chart and right icon bar ── */}
+        {/* ── Right Panel (Watchlist or Object Tree) ── */}
         <aside
+          style={{ width: activeRightTab ? `${rightPanelWidth}px` : '0px' }}
           className={`
             flex-shrink-0 h-full
             bg-[#1a1e2e] border-r border-gray-900
-            flex flex-col
-            transition-all duration-300 ease-in-out overflow-hidden
-            ${isWatchlistOpen ? 'w-64' : 'w-0'}
+            flex flex-col relative overflow-hidden
+            ${!isResizingRightPanel ? 'transition-[width] duration-300 ease-in-out' : ''}
           `}
         >
+          {/* Resize handle (left edge of panel, acts when panel is open) */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-indigo-500/50 z-10 transition-colors"
+            onMouseDown={() => {
+              isResizingRightPanelRef.current = true;
+              setIsResizingRightPanel(true);
+              document.body.style.cursor = 'col-resize';
+            }}
+          />
+
           {/* Panel inner — fixed width prevents content bleed during slide */}
-          <div className={`w-64 h-full flex flex-col transition-opacity duration-200 ${isWatchlistOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div 
+            style={{ width: `${rightPanelWidth}px` }} 
+            className={`h-full flex flex-col transition-opacity duration-200 ${activeRightTab ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          >
 
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
-              <div className="flex items-center gap-2">
-                <List className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
-                {watchlistSymbols.length > 0 && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">
-                    {watchlistSymbols.length}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                {/* Refresh folder button (visible in folder mode when savedFolderHandle is present) */}
-                {importMode === 'folder' && savedFolderHandle && (
-                  <button
-                    onClick={handleRestoreSavedFolder}
-                    disabled={isVerifyingFolder}
-                    title="Refresh folder data"
-                    className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
-                  </button>
-                )}
-                {/* + Add symbol icon button */}
-                <button
-                  onClick={() => {
-                    if (importMode === 'folder') {
-                      handleWatchlistAddFolder();
-                    } else {
-                      watchlistAddInputRef.current?.click();
-                    }
-                  }}
-                  title={importMode === 'folder' ? "Add symbol folder" : "Add symbol from CSV"}
-                  className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-                <input
-                  ref={watchlistAddInputRef}
-                  type="file"
-                  accept=".csv"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      Array.from(e.target.files).forEach(file => {
-                        handleWatchlistAddFile(file);
-                      });
-                      e.target.value = '';
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Symbol list */}
-            <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-gray-800">
-
-              {/* Inline toast banner */}
-              {watchlistToast && (
-                <div className={`mx-2 mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
-                  watchlistToast.type === 'error'
-                    ? 'bg-red-500/10 border border-red-500/25 text-red-400'
-                    : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-300'
-                }`}>
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span>{watchlistToast.msg}</span>
-                </div>
-              )}
-
-              {watchlistSymbols.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
-                    <List className="w-5 h-5 text-indigo-400/60" />
+            {activeRightTab === 'watchlist' && (
+              <>
+                {/* Watchlist Panel header */}
+                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
+                  <div className="flex items-center gap-2">
+                    <List className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
+                    {watchlistSymbols.length > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">
+                        {watchlistSymbols.length}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[11px] text-gray-500 leading-relaxed">
-                    Load a CSV file to add symbols here. Use the <span className="text-indigo-400 font-semibold">+</span> button to add more.
-                  </p>
-                </div>
-              ) : (
-                <ul className="flex flex-col gap-0.5 px-2">
-                  {watchlistSymbols.map((sym, idx) => {
-                    const isActive = sym.name === activeWatchlistSymbol;
-                    return (
-                      <li
-                        key={sym.name}
-                        draggable={true}
-                        onDragStart={(e) => handleDragStartWatchlist(e, idx)}
-                        onDragOver={(e) => handleDragOverWatchlist(e, idx)}
-                        onDragEnd={handleDragEndWatchlist}
-                        className="list-none"
+                  <div className="flex items-center gap-1">
+                    {/* Refresh folder button (visible in folder mode when savedFolderHandle is present) */}
+                    {importMode === 'folder' && savedFolderHandle && (
+                      <button
+                        onClick={handleRestoreSavedFolder}
+                        disabled={isVerifyingFolder}
+                        title="Refresh folder data"
+                        className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors disabled:opacity-50"
                       >
-                        <div
-                          onClick={() => handleWatchlistSymbolSwitch(sym.name)}
-                          className={`
-                            w-full flex items-center justify-between gap-2
-                            px-3 py-2.5 rounded-xl text-left cursor-pointer
-                            transition-all duration-150 group
-                            ${isActive
-                              ? 'bg-indigo-600/20 border border-indigo-500/30 text-white'
-                              : 'border border-transparent text-gray-400 hover:bg-gray-800/60 hover:text-white'
-                            }
-                          `}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {/* Grip drag handle icon */}
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0 cursor-grab active:cursor-grabbing">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-500 hover:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="9" cy="12" r="1"/>
-                                <circle cx="9" cy="5" r="1"/>
-                                <circle cx="9" cy="19" r="1"/>
-                                <circle cx="15" cy="12" r="1"/>
-                                <circle cx="15" cy="5" r="1"/>
-                                <circle cx="15" cy="19" r="1"/>
-                              </svg>
-                            </div>
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
-                              isActive ? 'bg-indigo-400' : 'bg-gray-700 group-hover:bg-gray-500'
-                            }`} />
-                            <span className="text-xs font-semibold tracking-wide truncate">{sym.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <span className="text-[9px] text-gray-600 group-hover:text-gray-400 transition-colors">
-                              {sym.raw1m.length > 0 ? `${sym.raw1m.length.toLocaleString()}b` : 'Folder'}
-                            </span>
-                            {isActive && <ChevronRight className="w-3 h-3 text-indigo-400" />}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingRemoveSymbol(sym.name);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-600 hover:text-red-400 transition-all"
-                              title="Remove from watchlist"
+                        <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+                    {/* + Add symbol icon button */}
+                    <button
+                      onClick={() => {
+                        if (importMode === 'folder') {
+                          handleWatchlistAddFolder();
+                        } else {
+                          watchlistAddInputRef.current?.click();
+                        }
+                      }}
+                      title={importMode === 'folder' ? "Add symbol folder" : "Add symbol from CSV"}
+                      className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      ref={watchlistAddInputRef}
+                      type="file"
+                      accept=".csv"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          Array.from(e.target.files).forEach(file => {
+                            handleWatchlistAddFile(file);
+                          });
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Symbol list */}
+                <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-gray-800">
+
+                  {/* Inline toast banner */}
+                  {watchlistToast && (
+                    <div className={`mx-2 mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+                      watchlistToast.type === 'error'
+                        ? 'bg-red-500/10 border border-red-500/25 text-red-400'
+                        : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-300'
+                    }`}>
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{watchlistToast.msg}</span>
+                    </div>
+                  )}
+
+                  {watchlistSymbols.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+                        <List className="w-5 h-5 text-indigo-400/60" />
+                      </div>
+                      <p className="text-[11px] text-gray-500 leading-relaxed">
+                        Load a CSV file to add symbols here. Use the <span className="text-indigo-400 font-semibold">+</span> button to add more.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="flex flex-col gap-0.5 px-2">
+                      {watchlistSymbols.map((sym, idx) => {
+                        const isActive = sym.name === activeWatchlistSymbol;
+                        return (
+                          <li
+                            key={sym.name}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStartWatchlist(e, idx)}
+                            onDragOver={(e) => handleDragOverWatchlist(e, idx)}
+                            onDragEnd={handleDragEndWatchlist}
+                            className="list-none"
+                          >
+                            <div
+                              onClick={() => handleWatchlistSymbolSwitch(sym.name)}
+                              className={`
+                                w-full flex items-center justify-between gap-2
+                                px-3 py-2.5 rounded-xl text-left cursor-pointer
+                                transition-all duration-150 group
+                                ${isActive
+                                  ? 'bg-indigo-600/20 border border-indigo-500/30 text-white'
+                                  : 'border border-transparent text-gray-400 hover:bg-gray-800/60 hover:text-white'
+                                }
+                              `}
                             >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                {/* Grip drag handle icon */}
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-500 hover:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="9" cy="12" r="1"/>
+                                    <circle cx="9" cy="5" r="1"/>
+                                    <circle cx="9" cy="19" r="1"/>
+                                    <circle cx="15" cy="12" r="1"/>
+                                    <circle cx="15" cy="5" r="1"/>
+                                    <circle cx="15" cy="19" r="1"/>
+                                  </svg>
+                                </div>
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
+                                  isActive ? 'bg-indigo-400' : 'bg-gray-700 group-hover:bg-gray-500'
+                                }`} />
+                                <span className="text-xs font-semibold tracking-wide truncate">{sym.name}</span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <span className="text-[9px] text-gray-600 group-hover:text-gray-400 transition-colors">
+                                  {sym.raw1m.length > 0 ? `${sym.raw1m.length.toLocaleString()}b` : 'Folder'}
+                                </span>
+                                {isActive && <ChevronRight className="w-3 h-3 text-indigo-400" />}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingRemoveSymbol(sym.name);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-600 hover:text-red-400 transition-all"
+                                  title="Remove from watchlist"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeRightTab === 'objectTree' && (
+              <>
+                {/* Object Tree Panel header */}
+                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-white">Object Tree</span>
+                  </div>
+                </div>
+                {/* Object Tree content */}
+                <div className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-gray-800">
+                  <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+                      <Layers className="w-5 h-5 text-indigo-400/60" />
+                    </div>
+                    <p className="text-[11px] text-gray-500 leading-relaxed">
+                      Drawings and objects will appear here in the future.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
           </div>
         </aside>
@@ -5697,18 +5871,33 @@ export default function App() {
         {/* ── Right icon bar — always pinned to right edge of screen ── */}
         <aside className="w-12 flex-shrink-0 bg-[#1e222d] border-l border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
 
-          {/* Watchlist / Playlist toggle */}
+          {/* Watchlist toggle */}
           <div className="relative">
             <button
-              onClick={() => setIsWatchlistOpen(v => !v)}
-              title={isWatchlistOpen ? 'Close Watchlist' : 'Open Watchlist'}
+              onClick={() => setActiveRightTab(v => v === 'watchlist' ? null : 'watchlist')}
+              title={activeRightTab === 'watchlist' ? 'Close Watchlist' : 'Open Watchlist'}
               className={`p-2 rounded-lg border transition-all ${
-                isWatchlistOpen
+                activeRightTab === 'watchlist'
                   ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60'
               }`}
             >
               <List className="w-4.5 h-4.5" />
+            </button>
+          </div>
+
+          {/* Object Tree toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setActiveRightTab(v => v === 'objectTree' ? null : 'objectTree')}
+              title={activeRightTab === 'objectTree' ? 'Close Object Tree' : 'Open Object Tree'}
+              className={`p-2 rounded-lg border transition-all ${
+                activeRightTab === 'objectTree'
+                  ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60'
+              }`}
+            >
+              <Layers className="w-4.5 h-4.5" />
             </button>
           </div>
 
@@ -5990,6 +6179,50 @@ export default function App() {
                 className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
               >
                 Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Drawings Confirmation Dialog */}
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1e222d] border border-red-500/20 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-white mb-1">Delete Drawings?</h3>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                One or more selected drawings are locked. Are you sure you want to delete them?
+              </p>
+            </div>
+            <div className="flex items-center gap-3 justify-center mt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="px-4 py-2 border border-gray-800 hover:bg-gray-800 hover:text-white rounded-xl text-xs font-semibold text-gray-400 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  chartInstancesRef.current.forEach(chart => {
+                    if (!chart) return;
+                    selectedOverlayIds.forEach(id => {
+                      chart.removeOverlay({ id });
+                    });
+                  });
+                  setSelectedOverlayIds([]);
+                  syncAllDrawings();
+                  setDrawingTrigger(prev => prev + 1);
+                }}
+                className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/25 transition-all cursor-pointer"
+              >
+                Delete
               </button>
             </div>
           </div>
