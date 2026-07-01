@@ -350,7 +350,7 @@ export default function App() {
   const [cutPointHoverX, setCutPointHoverX] = useState<number | null>(null);
 
   // Magnet Mode state
-  const [magnetMode, setMagnetMode] = useState<'normal' | 'weak_magnet' | 'strong_magnet'>('normal');
+  const [magnetMode, setMagnetMode] = useState<'normal' | 'normal_magnet' | 'weak_magnet' | 'strong_magnet'>('normal');
   const [isMagnetMenuOpen, setIsMagnetMenuOpen] = useState<boolean>(false);
   const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const magnetMenuRef = useRef<HTMLDivElement>(null);
@@ -406,7 +406,17 @@ export default function App() {
     };
   }, []);
 
-  const selectMagnetMode = (mode: 'weak_magnet' | 'strong_magnet') => {
+  const getMagnetSensitivity = (mode: string, s: typeof settings) => {
+    if (mode === 'normal_magnet') return s.magnetNormalSensitivity ?? 30;
+    if (mode === 'weak_magnet') return s.magnetWeakSensitivity ?? 10;
+    if (mode === 'strong_magnet') {
+      const v = s.magnetStrongSensitivity ?? 85;
+      return v >= 100 ? 999999 : v;
+    }
+    return 999999;
+  };
+
+  const selectMagnetMode = (mode: 'normal_magnet' | 'weak_magnet' | 'strong_magnet') => {
     setMagnetMode(mode);
     if (chartInstance.current) {
       // Write to chart instance so overlays.ts snapPointToCandle reads live state during drag
@@ -414,10 +424,14 @@ export default function App() {
       const overlays = chartInstance.current.getOverlays();
       overlays.forEach((ov: any) => {
         if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return;
+        const sensitivity = getMagnetSensitivity(mode, settings);
+        // Map 'normal_magnet' -> 'weak_magnet' for klinecharts: it only understands weak/strong.
+        // Our _magnetMode flag handles sensitivity in snapPointToCandle.
+        const klcMode = mode === 'normal_magnet' ? 'weak_magnet' : mode;
         chartInstance.current.overrideOverlay({
           id: ov.id,
-          mode: mode,
-          modeSensitivity: 8,
+          mode: klcMode,
+          modeSensitivity: sensitivity,
         });
       });
       console.log(`[DEBUG] Magnet mode updated on ${overlays.length} existing overlays to: ${mode}`);
@@ -425,7 +439,7 @@ export default function App() {
   };
 
   const handleToggleMagnet = () => {
-    const nextMode = magnetMode === 'normal' ? 'weak_magnet' : 'normal';
+    const nextMode: 'normal' | 'normal_magnet' | 'weak_magnet' | 'strong_magnet' = magnetMode === 'normal' ? 'normal_magnet' : 'normal';
     setMagnetMode(nextMode);
     if (chartInstance.current) {
       // Write to chart instance so overlays.ts snapPointToCandle reads live state during drag
@@ -433,10 +447,13 @@ export default function App() {
       const overlays = chartInstance.current.getOverlays();
       overlays.forEach((ov: any) => {
         if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return;
+        const sensitivity = getMagnetSensitivity(nextMode, settings);
+        // Map 'normal_magnet' -> 'weak_magnet' for klinecharts
+        const klcMode = (nextMode as string) === 'normal_magnet' ? 'weak_magnet' : nextMode;
         chartInstance.current.overrideOverlay({
           id: ov.id,
-          mode: nextMode,
-          modeSensitivity: 8,
+          mode: klcMode,
+          modeSensitivity: sensitivity,
         });
       });
       console.log(`[DEBUG] Magnet mode updated on ${overlays.length} existing overlays to: ${nextMode}`);
@@ -2444,67 +2461,81 @@ export default function App() {
     // Initialize newly visible slots
     for (let i = 0; i < visibleCount; i++) {
       const container = chartContainersRef.current[i];
-      if (container && !chartInstancesRef.current[i]) {
-        // Register custom overlays first (safe to call multiple times)
-        registerCustomOverlays();
-
-        const chart = init(container, {
-          formatter: {
-            formatDate: ({ timestamp }) => {
-              const date = new Date(timestamp);
-              if (isNaN(date.getTime())) return '-';
-              const day = String(date.getDate()).padStart(2, '0');
-              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-              const month = months[date.getMonth()];
-              const year = date.getFullYear();
-              let hours = date.getHours();
-              const minutes = String(date.getMinutes()).padStart(2, '0');
-              const ampm = hours >= 12 ? 'PM' : 'AM';
-              hours = hours % 12;
-              hours = hours ? hours : 12;
-              const hoursStr = String(hours).padStart(2, '0');
-              return `${day} ${month} ${year} ${hoursStr}:${minutes} ${ampm}`;
-            }
+      if (container) {
+        // If container has no children but chart instance already exists,
+        // it means the container was remounted by React and the chart is dead.
+        if (chartInstancesRef.current[i] && container.children.length === 0) {
+          console.log(`[DEBUG] Container for slot ${i} was remounted. Disposing dead chart instance.`);
+          try {
+            dispose(chartInstancesRef.current[i]);
+          } catch (e) {
+            console.error(e);
           }
-        });
-        if (chart) {
-          chartInstancesRef.current[i] = chart;
-          applySettingsToChart(chart, settings);
-          
-          chart.setMaxOffsetLeftDistance(10000);
-          chart.setMaxOffsetRightDistance(10000);
-          
-          chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
-          chart.setPeriod({ type: 'minute', span: 1 });
+          chartInstancesRef.current[i] = null;
+        }
 
-          chart.subscribeAction('onCrosshairChange', (params: any) => {
-            handleCrosshairSync(i, params);
+        if (!chartInstancesRef.current[i]) {
+          // Register custom overlays first (safe to call multiple times)
+          registerCustomOverlays();
+
+          const chart = init(container, {
+            formatter: {
+              formatDate: ({ timestamp }) => {
+                const date = new Date(timestamp);
+                if (isNaN(date.getTime())) return '-';
+                const day = String(date.getDate()).padStart(2, '0');
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[date.getMonth()];
+                const year = date.getFullYear();
+                let hours = date.getHours();
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                const hoursStr = String(hours).padStart(2, '0');
+                return `${day} ${month} ${year} ${hoursStr}:${minutes} ${ampm}`;
+              }
+            }
           });
+          if (chart) {
+            chartInstancesRef.current[i] = chart;
+            applySettingsToChart(chart, settings);
+            
+            chart.setMaxOffsetLeftDistance(10000);
+            chart.setMaxOffsetRightDistance(10000);
+            
+            chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
+            chart.setPeriod({ type: 'minute', span: 1 });
 
-          chart.subscribeAction('onVisibleRangeChange', () => {
-            handleDateRangeSync(i);
-          });
+            chart.subscribeAction('onCrosshairChange', (params: any) => {
+              handleCrosshairSync(i, params);
+            });
 
-          chart.subscribeAction('onCandleBarClick', (param: any) => {
-            handleTimeSync(i, param);
-          });
+            chart.subscribeAction('onVisibleRangeChange', () => {
+              handleDateRangeSync(i);
+            });
 
-          chart.createOverlay({
-            name: 'customPriceLine',
-            id: 'custom_price_line_overlay',
-            points: [{ timestamp: 0, value: 0 }],
-            lock: true
-          });
+            chart.subscribeAction('onCandleBarClick', (param: any) => {
+              handleTimeSync(i, param);
+            });
 
-          chart.createOverlay({
-            name: 'sessionBreaks',
-            id: 'session_breaks_overlay',
-            lock: true
-          });
+            chart.createOverlay({
+              name: 'customPriceLine',
+              id: 'custom_price_line_overlay',
+              points: [{ timestamp: 0, value: 0 }],
+              lock: true
+            });
 
-          (chart as any)._onDrawingSync = syncAllDrawings;
-          loadDataForSlot(i, chart);
-          chart.resize();
+            chart.createOverlay({
+              name: 'sessionBreaks',
+              id: 'session_breaks_overlay',
+              lock: true
+            });
+
+            (chart as any)._onDrawingSync = syncAllDrawings;
+            loadDataForSlot(i, chart);
+            chart.resize();
+          }
         }
       }
     }
@@ -2561,6 +2592,21 @@ export default function App() {
       const chart = chartInstancesRef.current[i];
       if (chart) {
         applySettingsToChart(chart, settings);
+
+        // Re-apply magnet sensitivity to all existing drawing overlays
+        if (magnetMode !== 'normal') {
+          const overlays = chart.getOverlays();
+          overlays.forEach((ov: any) => {
+            if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return;
+            const sensitivity = getMagnetSensitivity(magnetMode, settings);
+            const klcMode = magnetMode === 'normal_magnet' ? 'weak_magnet' : magnetMode;
+            chart.overrideOverlay({
+              id: ov.id,
+              mode: klcMode,
+              modeSensitivity: sensitivity,
+            });
+          });
+        }
       }
     }
   }, [settings, layoutType]);
@@ -4172,8 +4218,8 @@ export default function App() {
         name: 'simpleAnnotation',
         paneId: 'candle_pane',
         zLevel: 100,
-        mode: magnetMode,
-        modeSensitivity: 8,
+        mode: magnetMode === 'normal_magnet' ? 'weak_magnet' : magnetMode,
+        modeSensitivity: getMagnetSensitivity(magnetMode, settings),
         styles: {
           text: {
             color: '#2196f3'
@@ -4277,8 +4323,8 @@ export default function App() {
         name: overlayName,
         paneId: 'candle_pane',
         zLevel: 100,
-        mode: magnetMode,
-        modeSensitivity: 8,
+        mode: magnetMode === 'normal_magnet' ? 'weak_magnet' : magnetMode,
+        modeSensitivity: getMagnetSensitivity(magnetMode, settings),
         onDrawStart: () => {
           console.log(`[DEBUG] overlay '${overlayName}' - onDrawStart fired`);
         },
@@ -4567,42 +4613,8 @@ export default function App() {
             const mode: string = event.chart._magnetMode ?? 'normal';
             let snappedPt = null;
 
-            if (mode === 'weak_magnet' || mode === 'strong_magnet') {
-              const mousePt = event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' })?.[0];
-              if (mousePt) {
-                const dataList = event.chart.getDataList();
-                if (dataList && dataList.length > 0) {
-                  const rawIdx = Math.round(mousePt.dataIndex);
-                  const dataIndex = Math.max(0, Math.min(dataList.length - 1, rawIdx));
-                  const candle = dataList[dataIndex];
-                  if (candle) {
-                    const prices = [candle.open, candle.high, candle.low, candle.close];
-                    let closestPrice = prices[0];
-                    let minDiff = Math.abs(mousePt.value - closestPrice);
-                    for (let i = 1; i < prices.length; i++) {
-                      const diff = Math.abs(mousePt.value - prices[i]);
-                      if (diff < minDiff) { minDiff = diff; closestPrice = prices[i]; }
-                    }
-
-                    let shouldSnap = mode === 'strong_magnet';
-                    if (mode === 'weak_magnet') {
-                      const sensitivity = event.overlay.modeSensitivity || 8;
-                      const pixResult = event.chart.convertToPixel(
-                        [{ timestamp: candle.timestamp, value: closestPrice }],
-                        { paneId: 'candle_pane' }
-                      );
-                      const pixY = pixResult?.[0]?.y;
-                      if (pixY !== undefined && Math.abs(rawY - pixY) <= sensitivity) {
-                        shouldSnap = true;
-                      }
-                    }
-
-                    if (shouldSnap) {
-                      snappedPt = { ...mousePt, value: closestPrice };
-                    }
-                  }
-                }
-              }
+            if (mode !== 'normal') {
+              snappedPt = snapPointToCandle(event, rawX, rawY);
             }
 
             const currentPoints = snappedPt
@@ -4924,7 +4936,7 @@ export default function App() {
       <div
         onClick={() => handleSelectChartSlot(i)}
         className={`
-          relative w-full h-full bg-[#131722] rounded overflow-hidden transition-all duration-200 cursor-pointer min-w-[150px] min-h-[150px]
+          relative w-full h-full bg-[#131722] rounded overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
           ${showHighlight && isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : (showHighlight ? 'border border-gray-800 hover:border-gray-750' : '')}
         `}
       >
@@ -5539,9 +5551,13 @@ export default function App() {
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
             >
-              {magnetMode === 'strong_magnet' ? (
+              {magnetMode === 'strong_magnet' && (
                 <StrongMagnetIcon className="w-4.5 h-4.5" />
-              ) : (
+              )}
+              {magnetMode === 'weak_magnet' && (
+                <WeakMagnetIcon className="w-4.5 h-4.5" />
+              )}
+              {(magnetMode === 'normal_magnet' || magnetMode === 'normal') && (
                 <Magnet className="w-4.5 h-4.5" />
               )}
             </button>
@@ -5568,6 +5584,20 @@ export default function App() {
                 >
                   <WeakMagnetIcon className={`w-4.5 h-4.5 ${magnetMode === 'weak_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
                   <span>Weak magnet</span>
+                </button>
+                <button
+                  onClick={() => {
+                    selectMagnetMode('normal_magnet');
+                    setIsMagnetMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                    magnetMode === 'normal_magnet'
+                      ? 'bg-[#f0f3fa] text-gray-900 font-medium'
+                      : 'text-gray-200 hover:bg-gray-800/60'
+                  }`}
+                >
+                  <Magnet className={`w-4.5 h-4.5 ${magnetMode === 'normal_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
+                  <span>Normal magnet</span>
                 </button>
                 <button
                   onClick={() => {

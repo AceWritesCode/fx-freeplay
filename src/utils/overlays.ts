@@ -4,7 +4,7 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   // Always read mode from the live chart-level flag so drag events on
   // pre-existing overlays still respect the current magnet state.
   const mode: string = event.chart._magnetMode ?? event.overlay.mode ?? 'normal';
-  if (mode !== 'weak_magnet' && mode !== 'strong_magnet') {
+  if (mode !== 'normal_magnet' && mode !== 'weak_magnet' && mode !== 'strong_magnet') {
     return null;
   }
   const point = event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' })[0];
@@ -29,17 +29,36 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
     }
   }
 
+  const sensitivity = event.overlay.modeSensitivity;
+
   if (mode === 'strong_magnet') {
-    return {
-      value: closestPrice,
-      // Keep original X (timestamp/dataIndex) from mouse — only snap Y price.
-      timestamp: point.timestamp,
-      dataIndex: point.dataIndex
-    };
+    // 999999 = always snap (user set slider to 100). Otherwise use pixel threshold.
+    if (sensitivity === undefined || sensitivity >= 999999) {
+      return {
+        value: closestPrice,
+        timestamp: point.timestamp,
+        dataIndex: point.dataIndex
+      };
+    }
+    // Proximity-based snap for strong mode when user reduced from "always"
+    const closestPixelResult = event.chart.convertToPixel(
+      [{ timestamp: candle.timestamp, value: closestPrice }],
+      { paneId: 'candle_pane' }
+    );
+    const closestPixelY = closestPixelResult?.[0]?.y;
+    if (closestPixelY !== undefined && Math.abs(rawY - closestPixelY) <= sensitivity) {
+      return {
+        value: closestPrice,
+        timestamp: point.timestamp,
+        dataIndex: point.dataIndex
+      };
+    }
+    return null;
   }
 
-  if (mode === 'weak_magnet') {
-    const sensitivity = event.overlay.modeSensitivity || 8;
+  if (mode === 'normal_magnet' || mode === 'weak_magnet') {
+    const defaultSens = mode === 'normal_magnet' ? 30 : 10;
+    const proximitySens = sensitivity || defaultSens;
     const closestPixelResult = event.chart.convertToPixel(
       [{ timestamp: candle.timestamp, value: closestPrice }],
       { paneId: 'candle_pane' }
@@ -47,10 +66,9 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
     const closestPixelY = closestPixelResult?.[0]?.y;
     if (closestPixelY !== undefined) {
       const pixelDist = Math.abs(rawY - closestPixelY);
-      if (pixelDist <= sensitivity) {
+      if (pixelDist <= proximitySens) {
         return {
           value: closestPrice,
-          // Keep original X from mouse — only snap Y price.
           timestamp: point.timestamp,
           dataIndex: point.dataIndex
         };

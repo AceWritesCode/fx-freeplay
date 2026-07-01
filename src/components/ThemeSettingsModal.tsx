@@ -46,6 +46,11 @@ export interface ChartSettings {
   brokerTimezoneLabel: string;
   userTimezoneOffset: number;
   userTimezoneLabel: string;
+
+  // Magnet Sensitivity Settings (pixel proximity thresholds per mode)
+  magnetWeakSensitivity: number;   // 0-20
+  magnetNormalSensitivity: number; // 20-60
+  magnetStrongSensitivity: number; // 60-100 (100 = always snap)
 }
 
 export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
@@ -85,6 +90,9 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     brokerTimezoneLabel: '(UTC+3) Moscow',
     userTimezoneOffset: 330,
     userTimezoneLabel: '(UTC+5:30) Kolkata',
+    magnetWeakSensitivity: 10,
+    magnetNormalSensitivity: 30,
+    magnetStrongSensitivity: 85,
   },
   obsidian: {
     showBody: true,
@@ -122,6 +130,9 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     brokerTimezoneLabel: '(UTC+3) Moscow',
     userTimezoneOffset: 330,
     userTimezoneLabel: '(UTC+5:30) Kolkata',
+    magnetWeakSensitivity: 10,
+    magnetNormalSensitivity: 30,
+    magnetStrongSensitivity: 85,
   },
   matrix: {
     showBody: true,
@@ -159,6 +170,9 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     brokerTimezoneLabel: '(UTC+3) Moscow',
     userTimezoneOffset: 330,
     userTimezoneLabel: '(UTC+5:30) Kolkata',
+    magnetWeakSensitivity: 10,
+    magnetNormalSensitivity: 30,
+    magnetStrongSensitivity: 85,
   },
 };
 
@@ -786,6 +800,71 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       onChange={(e) => handleFieldChange('sessionBreaksColor', e.target.value)}
                       className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-gray-700 [&::-webkit-color-swatch]:rounded"
                     />
+                  </div>
+                </div>
+
+                {/* Magnet Sensitivity */}
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mt-2 mb-1">Magnet Snap Intensity</div>
+                {/* Weak Magnet slider (0-20) */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-300">Weak magnet</span>
+                    <span className="text-xs font-mono text-indigo-400 w-8 text-right">{formState.magnetWeakSensitivity}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={20}
+                    step={1}
+                    value={formState.magnetWeakSensitivity}
+                    onChange={(e) => handleFieldChange('magnetWeakSensitivity', parseInt(e.target.value))}
+                    className="w-full h-1.5 appearance-none rounded-full bg-gray-700 accent-indigo-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-gray-600 mt-0.5">
+                    <span>0px (off)</span>
+                    <span>20px</span>
+                  </div>
+                </div>
+                {/* Normal Magnet slider (20-60) */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-300">Normal magnet</span>
+                    <span className="text-xs font-mono text-indigo-400 w-8 text-right">{formState.magnetNormalSensitivity}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={20}
+                    max={60}
+                    step={1}
+                    value={formState.magnetNormalSensitivity}
+                    onChange={(e) => handleFieldChange('magnetNormalSensitivity', parseInt(e.target.value))}
+                    className="w-full h-1.5 appearance-none rounded-full bg-gray-700 accent-indigo-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-gray-600 mt-0.5">
+                    <span>20px</span>
+                    <span>60px</span>
+                  </div>
+                </div>
+                {/* Strong Magnet slider (60-100) */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-300">Strong magnet</span>
+                    <span className="text-xs font-mono text-indigo-400 w-8 text-right">
+                      {formState.magnetStrongSensitivity >= 100 ? 'Always' : `${formState.magnetStrongSensitivity}px`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={60}
+                    max={100}
+                    step={1}
+                    value={formState.magnetStrongSensitivity}
+                    onChange={(e) => handleFieldChange('magnetStrongSensitivity', parseInt(e.target.value))}
+                    className="w-full h-1.5 appearance-none rounded-full bg-gray-700 accent-indigo-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-gray-600 mt-0.5">
+                    <span>60px</span>
+                    <span>Always</span>
                   </div>
                 </div>
               </div>
