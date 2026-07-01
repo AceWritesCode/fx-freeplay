@@ -29,7 +29,7 @@ import {
 import { init, dispose } from 'klinecharts';
 import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, clearChartDataInIndexedDB, saveDirectoryHandle, loadDirectoryHandle, clearDirectoryHandle, detectPricePrecision, saveDirectoryHandles, loadDirectoryHandles } from './utils/dataUtils';
 import type { KLineData } from './utils/dataUtils';
-import { registerCustomOverlays } from './utils/overlays';
+import { registerCustomOverlays, snapPointToCandle } from './utils/overlays';
 import { ThemeSettingsModal, PRESET_SETTINGS, TIMEZONE_OPTIONS, getLabelOffset } from './components/ThemeSettingsModal';
 import type { ChartSettings } from './components/ThemeSettingsModal';
 
@@ -893,18 +893,185 @@ export default function App() {
         const syncId = `sync_${orig.id}_from_${sourceIndex}`;
         const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
 
-        const overlayOptions = {
+        const overlayOptions: any = {
           name: orig.name,
           id: syncId,
           paneId: orig.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(orig.points)),
           extendData: orig.extendData,
           lock: false, // Unlocked!
-          isSyncedCopy: true,
-          sourceChartIndex: sourceIndex,
-          originalId: orig.id,
-          styles: orig.styles
+          styles: orig.styles,
+          onRemoved: (event: any) => {
+            console.log(`[DEBUG] synced copy - onRemoved callback fired for id: ${event.overlay.id}`);
+            const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+            if (syncMatch) {
+              const originalId = syncMatch[1];
+              const sourceIndex = parseInt(syncMatch[2]);
+              const sourceChart = chartInstancesRef.current[sourceIndex];
+              if (sourceChart) {
+                (sourceChart as any).removeOverlay({ id: originalId });
+              }
+            }
+            setTimeout(() => {
+              syncAllDrawings();
+            }, 50);
+          }
         };
+
+        if (orig.name !== 'rect' && orig.name !== 'priceChannel' && orig.name !== 'simpleAnnotation') {
+          overlayOptions.onPressedMoveStart = (event: any) => {
+            const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
+            let closestIndex = 0;
+            let minDistance = Infinity;
+            pts.forEach((pt: any, idx: number) => {
+              if (pt) {
+                const dist = Math.sqrt((pt.x - event.x) ** 2 + (pt.y - event.y) ** 2);
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  closestIndex = idx;
+                }
+              }
+            });
+            const isHandle = minDistance < 12;
+            const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+            event.chart.overrideOverlay({
+              id: event.overlay.id,
+              extendData: { 
+                draggedIndex: isHandle ? closestIndex : null,
+                startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
+                startMousePt
+              }
+            });
+
+            if (event.chart._initMultiMove) {
+              event.chart._initMultiMove(event);
+            }
+          };
+
+          overlayOptions.onPressedMoving = (event: any) => {
+            const draggedIndex = event.overlay.extendData?.draggedIndex;
+            if (draggedIndex === undefined) return;
+
+            if (draggedIndex === null) {
+              const startPoints = event.overlay.extendData?.startPoints;
+              const startMousePt = event.overlay.extendData?.startMousePt;
+              const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+
+              if (startPoints && startMousePt && currentMousePt) {
+                const deltaTimestamp = currentMousePt.timestamp - startMousePt.timestamp;
+                const deltaValue = currentMousePt.value - startMousePt.value;
+                const deltaDataIndex = (currentMousePt.dataIndex !== undefined && startMousePt.dataIndex !== undefined)
+                  ? currentMousePt.dataIndex - startMousePt.dataIndex
+                  : 0;
+
+                const newPoints = startPoints.map((pt: any) => ({
+                  ...pt,
+                  timestamp: pt.timestamp + deltaTimestamp,
+                  value: pt.value + deltaValue,
+                  dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+                }));
+
+                event.chart.overrideOverlay({
+                  id: event.overlay.id,
+                  points: newPoints
+                });
+              }
+
+              if (event.chart._handleMultiMove) {
+                event.chart._handleMultiMove(event);
+              }
+              if (event.chart._onDrawingSync) {
+                event.chart._onDrawingSync();
+              }
+              return;
+            }
+
+            const points = event.overlay.points;
+            if (points && draggedIndex !== null) {
+              const rawX = event.x;
+              const rawY = event.y;
+              const mode: string = event.chart._magnetMode ?? 'normal';
+              const isShift = event.chart._isShiftPressedRef?.current || false;
+
+              if (orig.name === 'segment' && isShift) {
+                const baseIndex = draggedIndex === 0 ? 1 : 0;
+                const pBase = points[baseIndex];
+                if (pBase) {
+                  const pixels = event.chart.convertToPixel([pBase], { paneId: 'candle_pane' });
+                  if (pixels && pixels.length > 0 && pixels[0]) {
+                    const x1 = pixels[0].x;
+                    const y1 = pixels[0].y;
+                    const x2 = rawX;
+                    const y2 = rawY;
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const r = Math.sqrt(dx * dx + dy * dy);
+                    if (r > 0) {
+                      const angle = Math.atan2(dy, dx);
+                      const angleSteps = Math.PI / 4;
+                      const nearestStep = Math.round(angle / angleSteps);
+                      const snappedAngle = nearestStep * angleSteps;
+                      const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
+                      const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
+                      const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
+                      const snappedPoints = event.chart.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
+                      if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
+                        const newPoints = [...points];
+                        newPoints[draggedIndex] = snappedPoints[0];
+                        event.chart.overrideOverlay({
+                          id: event.overlay.id,
+                          points: newPoints
+                        });
+                        if (event.chart._onDrawingSync) {
+                          event.chart._onDrawingSync();
+                        }
+                        return;
+                      }
+                    }
+                  }
+                }
+              }
+
+              let snapped = null;
+              if (mode === 'strong' || (mode === 'weak' && !event.isSelectionPoint)) {
+                snapped = snapPointToCandle(event, rawX, rawY);
+              }
+              const mousePt = event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' })?.[0];
+              const targetPt = snapped || mousePt;
+
+              if (targetPt) {
+                const newPoints = [...points];
+                newPoints[draggedIndex] = targetPt;
+                event.chart.overrideOverlay({
+                  id: event.overlay.id,
+                  points: newPoints
+                });
+              }
+
+              if (event.chart._onDrawingSync) {
+                event.chart._onDrawingSync();
+              }
+            }
+          };
+        } else if (orig.name === 'simpleAnnotation') {
+          overlayOptions.onPressedMoveStart = (event: any) => {
+            if (event.chart._initMultiMove) {
+              event.chart._initMultiMove(event);
+            }
+          };
+          overlayOptions.onPressedMoving = (event: any) => {
+            const currentPoints = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' });
+            if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
+              event.chart.overrideOverlay({
+                id: event.overlay.id,
+                points: currentPoints
+              });
+              if (event.chart._onDrawingSync) {
+                event.chart._onDrawingSync();
+              }
+            }
+          };
+        }
 
         if (existingCopy) {
           const pointsChanged = JSON.stringify(existingCopy.points) !== JSON.stringify(overlayOptions.points);
@@ -2501,7 +2668,7 @@ export default function App() {
     };
   }, [activeTool]);
 
-  // Synchronize selected overlay IDs and move helpers with all visible chart slots, and trigger repaint
+// Synchronize selected overlay IDs and move helpers with all visible chart slots, and trigger repaint
   useEffect(() => {
     const visibleCount = getLayoutChartCount(layoutType);
     for (let i = 0; i < visibleCount; i++) {
@@ -2511,6 +2678,7 @@ export default function App() {
         (chart as any)._setSelectedOverlayIds = setSelectedOverlayIds;
         (chart as any)._isCtrlPressedRef = isCtrlPressedRef;
         (chart as any)._isShiftPressedRef = isShiftPressedRef;
+        (chart as any)._chartInstancesRef = chartInstancesRef;
 
         (chart as any)._initMultiMove = (event: any) => {
           const c = event.chart as any;
@@ -2632,7 +2800,9 @@ export default function App() {
           chartInstance.current._selectedOverlayIds = [];
           setSelectedOverlayIds([]);
           
-          syncAllDrawings();
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
         }
       }
     };
@@ -4035,8 +4205,25 @@ export default function App() {
           const c = (chartInstance.current as any)?._debugDrawProbeContainer;
           if (p && c) { c.removeEventListener('click', p); }
           console.log(`[DEBUG] simpleAnnotation - Completed and restored scroll/zoom.`);
-          syncAllDrawings();
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
           return true;
+        },
+        onRemoved: (event: any) => {
+          console.log(`[DEBUG] simpleAnnotation - onRemoved callback fired for id: ${event.overlay.id}`);
+          const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+          if (syncMatch) {
+            const originalId = syncMatch[1];
+            const sourceIndex = parseInt(syncMatch[2]);
+            const sourceChart = chartInstancesRef.current[sourceIndex];
+            if (sourceChart) {
+              (sourceChart as any).removeOverlay({ id: originalId });
+            }
+          }
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
         },
         onPressedMoveStart: (event: any) => {
           if (event.chart._initMultiMove) {
@@ -4224,7 +4411,9 @@ export default function App() {
           const c = (chartInstance.current as any)?._debugDrawProbeContainer;
           if (p && c) { c.removeEventListener('click', p); }
           console.log(`[DEBUG] overlay '${overlayName}' - Restored scroll/zoom.`);
-          syncAllDrawings();
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
           return true;
         }
       };
@@ -4237,6 +4426,22 @@ export default function App() {
             color: '#2196f3',
             size: 1.5
           }
+        };
+
+        overlayOptions.onRemoved = (event: any) => {
+          console.log(`[DEBUG] overlay '${overlayName}' - onRemoved callback fired for id: ${event.overlay.id}`);
+          const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+          if (syncMatch) {
+            const originalId = syncMatch[1];
+            const sourceIndex = parseInt(syncMatch[2]);
+            const sourceChart = chartInstancesRef.current[sourceIndex];
+            if (sourceChart) {
+              (sourceChart as any).removeOverlay({ id: originalId });
+            }
+          }
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
         };
 
         overlayOptions.onPressedMoveStart = (event: any) => {
@@ -4253,9 +4458,14 @@ export default function App() {
             }
           });
           const isHandle = minDistance < 12;
+          const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
           event.chart.overrideOverlay({
             id: event.overlay.id,
-            extendData: { draggedIndex: isHandle ? closestIndex : null }
+            extendData: { 
+              draggedIndex: isHandle ? closestIndex : null,
+              startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
+              startMousePt
+            }
           });
 
           if (event.chart._initMultiMove) {
@@ -4268,8 +4478,35 @@ export default function App() {
           if (draggedIndex === undefined) return;
 
           if (draggedIndex === null) {
+            const startPoints = event.overlay.extendData?.startPoints;
+            const startMousePt = event.overlay.extendData?.startMousePt;
+            const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+
+            if (startPoints && startMousePt && currentMousePt) {
+              const deltaTimestamp = currentMousePt.timestamp - startMousePt.timestamp;
+              const deltaValue = currentMousePt.value - startMousePt.value;
+              const deltaDataIndex = (currentMousePt.dataIndex !== undefined && startMousePt.dataIndex !== undefined)
+                ? currentMousePt.dataIndex - startMousePt.dataIndex
+                : 0;
+
+              const newPoints = startPoints.map((pt: any) => ({
+                ...pt,
+                timestamp: pt.timestamp + deltaTimestamp,
+                value: pt.value + deltaValue,
+                dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+              }));
+
+              event.chart.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+
             if (event.chart._handleMultiMove) {
               event.chart._handleMultiMove(event);
+            }
+            if (event.chart._onDrawingSync) {
+              event.chart._onDrawingSync();
             }
             return;
           }

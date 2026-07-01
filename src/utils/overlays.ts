@@ -1,6 +1,6 @@
 import { registerOverlay } from 'klinecharts';
 
-function snapPointToCandle(event: any, rawX: number, rawY: number) {
+export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   // Always read mode from the live chart-level flag so drag events on
   // pre-existing overlays still respect the current magnet state.
   const mode: string = event.chart._magnetMode ?? event.overlay.mode ?? 'normal';
@@ -114,11 +114,13 @@ export function registerCustomOverlays() {
         }
       });
       const isHandle = minDistance < 12;
+      const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
       event.chart.overrideOverlay({
         id: event.overlay.id,
         extendData: { 
           draggedIndex: isHandle ? closestIndex : null,
-          startPoints: JSON.parse(JSON.stringify(event.overlay.points))
+          startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
+          startMousePt
         }
       });
 
@@ -131,6 +133,30 @@ export function registerCustomOverlays() {
       if (draggedIndex === undefined) return;
 
       if (draggedIndex === null) {
+        const startPoints = event.overlay.extendData?.startPoints;
+        const startMousePt = event.overlay.extendData?.startMousePt;
+        const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+
+        if (startPoints && startMousePt && currentMousePt) {
+          const deltaTimestamp = currentMousePt.timestamp - startMousePt.timestamp;
+          const deltaValue = currentMousePt.value - startMousePt.value;
+          const deltaDataIndex = (currentMousePt.dataIndex !== undefined && startMousePt.dataIndex !== undefined)
+            ? currentMousePt.dataIndex - startMousePt.dataIndex
+            : 0;
+
+          const newPoints = startPoints.map((pt: any) => ({
+            ...pt,
+            timestamp: pt.timestamp + deltaTimestamp,
+            value: pt.value + deltaValue,
+            dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+          }));
+
+          event.chart.overrideOverlay({
+            id: event.overlay.id,
+            points: newPoints
+          });
+        }
+
         if (event.chart._handleMultiMove) {
           event.chart._handleMultiMove(event);
         }
@@ -227,6 +253,22 @@ export function registerCustomOverlays() {
     onDrawing: (event: any) => {
       if (event.chart._onDrawingSync) {
         event.chart._onDrawingSync();
+      }
+    },
+    onRemoved: (event: any) => {
+      const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+      if (syncMatch) {
+        const originalId = syncMatch[1];
+        const sourceIndex = parseInt(syncMatch[2]);
+        const sourceChart = event.chart._chartInstancesRef?.current?.[sourceIndex];
+        if (sourceChart) {
+          (sourceChart as any).removeOverlay({ id: originalId });
+        }
+      }
+      if (event.chart._onDrawingSync) {
+        setTimeout(() => {
+          event.chart._onDrawingSync();
+        }, 50);
       }
     },
     onClick: (event: any) => {
@@ -648,11 +690,13 @@ export function registerCustomOverlays() {
         }
       });
       const isHandle = minDistance < 12;
+      const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
       event.chart.overrideOverlay({
         id: event.overlay.id,
         extendData: { 
           draggedIndex: isHandle ? closestIndex : null,
-          startPoints: JSON.parse(JSON.stringify(event.overlay.points))
+          startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
+          startMousePt
         }
       });
 
@@ -665,6 +709,30 @@ export function registerCustomOverlays() {
       if (draggedIndex === undefined) return;
 
       if (draggedIndex === null) {
+        const startPoints = event.overlay.extendData?.startPoints;
+        const startMousePt = event.overlay.extendData?.startMousePt;
+        const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+
+        if (startPoints && startMousePt && currentMousePt) {
+          const deltaTimestamp = currentMousePt.timestamp - startMousePt.timestamp;
+          const deltaValue = currentMousePt.value - startMousePt.value;
+          const deltaDataIndex = (currentMousePt.dataIndex !== undefined && startMousePt.dataIndex !== undefined)
+            ? currentMousePt.dataIndex - startMousePt.dataIndex
+            : 0;
+
+          const newPoints = startPoints.map((pt: any) => ({
+            ...pt,
+            timestamp: pt.timestamp + deltaTimestamp,
+            value: pt.value + deltaValue,
+            dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+          }));
+
+          event.chart.overrideOverlay({
+            id: event.overlay.id,
+            points: newPoints
+          });
+        }
+
         if (event.chart._handleMultiMove) {
           event.chart._handleMultiMove(event);
         }
@@ -826,6 +894,22 @@ export function registerCustomOverlays() {
     onDrawing: (event: any) => {
       if (event.chart._onDrawingSync) {
         event.chart._onDrawingSync();
+      }
+    },
+    onRemoved: (event: any) => {
+      const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+      if (syncMatch) {
+        const originalId = syncMatch[1];
+        const sourceIndex = parseInt(syncMatch[2]);
+        const sourceChart = event.chart._chartInstancesRef?.current?.[sourceIndex];
+        if (sourceChart) {
+          (sourceChart as any).removeOverlay({ id: originalId });
+        }
+      }
+      if (event.chart._onDrawingSync) {
+        setTimeout(() => {
+          event.chart._onDrawingSync();
+        }, 50);
       }
     },
     onClick: (event: any) => {
