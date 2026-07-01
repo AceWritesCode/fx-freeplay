@@ -224,6 +224,11 @@ export function registerCustomOverlays() {
         event.chart._onDrawingSync();
       }
     },
+    onDrawing: (event: any) => {
+      if (event.chart._onDrawingSync) {
+        event.chart._onDrawingSync();
+      }
+    },
     onClick: (event: any) => {
       const id = event.overlay.id;
       if (event.chart._justFinishedDrawingId === id) {
@@ -814,6 +819,11 @@ export function registerCustomOverlays() {
         id: event.overlay.id,
         points: newPoints
       });
+      if (event.chart._onDrawingSync) {
+        event.chart._onDrawingSync();
+      }
+    },
+    onDrawing: (event: any) => {
       if (event.chart._onDrawingSync) {
         event.chart._onDrawingSync();
       }

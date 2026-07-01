@@ -796,16 +796,19 @@ export default function App() {
 
       const overlays = (chart as any).getOverlays();
       overlays.forEach((ov: any) => {
-        if (ov.isSyncedCopy) {
-          const sourceChart = chartInstancesRef.current[ov.sourceChartIndex];
+        const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+        if (syncMatch) {
+          const originalId = syncMatch[1];
+          const sourceIndex = parseInt(syncMatch[2]);
+          const sourceChart = chartInstancesRef.current[sourceIndex];
           if (sourceChart) {
-            const originalOverlay = (sourceChart as any).getOverlays().find((o: any) => o.id === ov.originalId);
+            const originalOverlay = (sourceChart as any).getOverlays().find((o: any) => o.id === originalId);
             if (originalOverlay) {
               const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
               const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
               if (pointsChanged || extendDataChanged) {
                 (sourceChart as any).overrideOverlay({
-                  id: ov.originalId,
+                  id: originalId,
                   points: JSON.parse(JSON.stringify(ov.points)),
                   extendData: ov.extendData
                 });
@@ -829,7 +832,7 @@ export default function App() {
       const overlays = (chart as any).getOverlays();
       const originals = overlays.filter(
         (ov: any) =>
-          !ov.isSyncedCopy &&
+          !ov.id?.startsWith('sync_') &&
           ov.id !== 'custom_price_line_overlay' &&
           ov.name !== 'customPriceLine' &&
           ov.id !== 'session_breaks_overlay' &&
@@ -854,7 +857,7 @@ export default function App() {
         // Clear all synced copies if no symbol
         const targetOverlays = (targetChart as any).getOverlays();
         targetOverlays.forEach((ov: any) => {
-          if (ov.isSyncedCopy) {
+          if (ov.id?.startsWith('sync_')) {
             (targetChart as any).removeOverlay({ id: ov.id });
           }
         });
@@ -865,7 +868,7 @@ export default function App() {
       const targetOverlays = (targetChart as any).getOverlays();
 
       // Find synced copies currently on this target chart
-      const existingSyncedCopies = targetOverlays.filter((ov: any) => ov.isSyncedCopy);
+      const existingSyncedCopies = targetOverlays.filter((ov: any) => ov.id?.startsWith('sync_'));
 
       // Determine which synced copies should exist on this target chart
       const desiredCopies = activeOriginals.filter(item => item.chartIndex !== i);
@@ -2608,11 +2611,15 @@ export default function App() {
             const ov = (chartInstance.current as any).getOverlays().find((o: any) => o.id === id);
             if (id === 'custom_price_line_overlay' || ov?.name === 'customPriceLine' || id === 'session_breaks_overlay' || ov?.name === 'sessionBreaks') return; // Skip persistent overlays
             
-            if (ov?.isSyncedCopy) {
-              const sourceChart = chartInstancesRef.current[ov.sourceChartIndex];
+            const syncMatch = ov?.id?.match(/^sync_(.+)_from_(\d+)$/);
+            if (syncMatch) {
+              const originalId = syncMatch[1];
+              const sourceIndex = parseInt(syncMatch[2]);
+              const sourceChart = chartInstancesRef.current[sourceIndex];
               if (sourceChart) {
-                (sourceChart as any).removeOverlay({ id: ov.originalId });
+                (sourceChart as any).removeOverlay({ id: originalId });
               }
+              (chartInstance.current as any).removeOverlay({ id });
             } else {
               (chartInstance.current as any).removeOverlay({ id });
             }
@@ -4002,6 +4009,7 @@ export default function App() {
         },
         onDrawing: (event: any) => {
           console.log(`[DEBUG] simpleAnnotation - onDrawing fired, step: ${event?.overlay?.currentStep}, points:`, event?.overlay?.points);
+          syncAllDrawings();
         },
         onDrawEnd: (event: any) => {
           const text = prompt('Enter annotation text:') || 'Annotation';
@@ -4128,6 +4136,7 @@ export default function App() {
               }
             }
           }
+          syncAllDrawings();
         },
         onDrawEnd: (event: any) => {
           console.log(`[DEBUG] overlay '${overlayName}' - Completed drawing. Overlay details:`, event);
