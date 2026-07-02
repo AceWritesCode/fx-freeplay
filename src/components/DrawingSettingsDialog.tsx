@@ -13,6 +13,63 @@ interface DrawingSettingsDialogProps {
 
 type TabType = 'style' | 'text' | 'coordinates' | 'visibility';
 
+// Persistent position across open/close actions
+let savedDialogPosition: { x: number; y: number } | null = null;
+
+// Reusable Dual Range Slider Component
+const DualRangeSlider: React.FC<{
+  min: number;
+  max: number;
+  maxLimit: number;
+  disabled: boolean;
+  onChange: (min: number, max: number) => void;
+}> = ({ min, max, maxLimit, disabled, onChange }) => {
+  const minPercent = (min / maxLimit) * 100;
+  const maxPercent = (max / maxLimit) * 100;
+
+  return (
+    <div className={`relative w-[70px] h-5 flex items-center ${disabled ? 'opacity-30 pointer-events-none' : ''}`}>
+      {/* Slider Track */}
+      <div className="w-full h-1 bg-[#121420] border border-[#2a2e45] rounded-full relative">
+        {/* Indigo highlighted range */}
+        <div 
+          className="absolute h-full bg-indigo-500 rounded-full"
+          style={{ 
+            left: `${minPercent}%`, 
+            width: `${maxPercent - minPercent}%` 
+          }}
+        />
+      </div>
+      
+      {/* Super-imposed range inputs */}
+      <input
+        type="range"
+        min={1}
+        max={maxLimit}
+        value={min}
+        disabled={disabled}
+        onChange={(e) => {
+          const val = Math.min(parseInt(e.target.value) || 1, max);
+          onChange(val, max);
+        }}
+        className="custom-range-slider z-20"
+      />
+      <input
+        type="range"
+        min={1}
+        max={maxLimit}
+        value={max}
+        disabled={disabled}
+        onChange={(e) => {
+          const val = Math.max(parseInt(e.target.value) || 1, min);
+          onChange(min, val);
+        }}
+        className="custom-range-slider z-20"
+      />
+    </div>
+  );
+};
+
 export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   isOpen,
   onClose,
@@ -28,7 +85,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   // Draggable window state
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0, initialX: 0, initialY: 0 });
+  const dragStartRef = useRef<{ x: number; y: number; initialX: number; initialY: number; lastX?: number; lastY?: number }>({ x: 0, y: 0, initialX: 0, initialY: 0 });
+  
+  const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
 
   // Style Tab States
@@ -72,14 +131,17 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   // Custom dropdowns for style selectors
   const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'stats' | 'statsPos' | 'fontSize' | 'valign' | 'halign' | null>(null);
 
-  // Initial Center Position + Load Settings
+  // Initial Position + Load Settings
   useEffect(() => {
     if (!isOpen || !overlay) return;
 
-    // Center the dialog window
-    const x = Math.max(50, window.innerWidth / 2 - 205); // width is 410px
-    const y = Math.max(50, window.innerHeight / 2 - 220);
-    setPosition({ x, y });
+    if (savedDialogPosition) {
+      setPosition(savedDialogPosition);
+    } else {
+      const x = Math.max(50, window.innerWidth / 2 - 210); // width is 420px
+      const y = Math.max(50, window.innerHeight / 2 - 200);
+      setPosition({ x, y });
+    }
 
     const customSettings = overlay.extendData?.customSettings || {};
     
@@ -140,7 +202,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setIsTemplateDropdownOpen(false);
   }, [isOpen, overlay, allCandles]);
 
-  // Dragging event handlers
+  // Dragging event handlers - Direct DOM style mutation for 60fps drag performance
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Left click only
     setIsDragging(true);
@@ -148,7 +210,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       x: e.clientX,
       y: e.clientY,
       initialX: position.x,
-      initialY: position.y
+      initialY: position.y,
+      lastX: position.x,
+      lastY: position.y
     };
     e.preventDefault();
   };
@@ -159,14 +223,25 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       
-      const newX = Math.max(10, Math.min(window.innerWidth - 420, dragStartRef.current.initialX + dx));
-      const newY = Math.max(10, Math.min(window.innerHeight - 250, dragStartRef.current.initialY + dy));
+      const newX = Math.max(10, Math.min(window.innerWidth - 430, dragStartRef.current.initialX + dx));
+      const newY = Math.max(10, Math.min(window.innerHeight - 300, dragStartRef.current.initialY + dy));
       
-      setPosition({ x: newX, y: newY });
+      if (containerRef.current) {
+        containerRef.current.style.left = `${newX}px`;
+        containerRef.current.style.top = `${newY}px`;
+      }
+      
+      dragStartRef.current.lastX = newX;
+      dragStartRef.current.lastY = newY;
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      if (dragStartRef.current.lastX !== undefined && dragStartRef.current.lastY !== undefined) {
+        const finalPos = { x: dragStartRef.current.lastX, y: dragStartRef.current.lastY };
+        setPosition(finalPos);
+        savedDialogPosition = finalPos;
+      }
     };
 
     if (isDragging) {
@@ -177,7 +252,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, position]);
 
   if (!isOpen || !overlay) return null;
 
@@ -350,7 +425,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setIsTemplateDropdownOpen(false);
   };
 
-  // Custom UI elements
   const PremiumCheckbox = ({ checked, onChange, label }: { checked: boolean; onChange: (val: boolean) => void; label: string }) => (
     <label className="flex items-center gap-3 cursor-pointer group text-gray-300 hover:text-white select-none py-1.5 w-full">
       <div 
@@ -367,13 +441,47 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
   return (
     <div 
-      className="fixed bg-[#1b1e2c] border border-[#2a2e45] rounded-xl shadow-2xl w-[410px] flex flex-col z-50 text-gray-200 select-none overflow-visible animate-in fade-in zoom-in-95 duration-150"
+      ref={containerRef}
+      className="fixed bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[420px] flex flex-col z-50 text-gray-200 select-none overflow-visible animate-in fade-in zoom-in-95 duration-150"
       style={{ 
         left: `${position.x}px`, 
         top: `${position.y}px`,
         boxShadow: '0 20px 30px -5px rgba(0, 0, 0, 0.6), 0 10px 15px -5px rgba(0, 0, 0, 0.4)'
       }}
     >
+      {/* Super-imposed Range Sliders Styling */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-range-slider {
+          -webkit-appearance: none;
+          width: 100%;
+          background: transparent;
+          position: absolute;
+          left: 0;
+          pointer-events: none;
+          outline: none;
+          height: 6px;
+        }
+        .custom-range-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          pointer-events: auto;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: 2px solid #6366f1;
+          cursor: pointer;
+          transition: transform 0.1s ease;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+        .custom-range-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
+        }
+        .custom-range-slider::-webkit-slider-thumb:active {
+          transform: scale(1.3);
+          background: #6366f1;
+        }
+      `}} />
+
       {/* Draggable Header */}
       <div 
         ref={headerRef}
@@ -405,7 +513,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         ))}
       </div>
 
-      {/* Content Area - adjusts height from bottom natively */}
+      {/* Content Area - dynamic height adjust */}
       <div className="p-5 text-[12.5px] space-y-4 overflow-visible max-h-[460px] overflow-y-auto">
         
         {/* STYLE TAB */}
@@ -814,48 +922,70 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             />
 
             {/* Timeframes Rows */}
-            {['seconds', 'minutes', 'hours', 'days', 'weeks', 'months'].map(unit => (
-              <div key={unit} className="flex items-center justify-between min-h-[36px]">
-                
-                {/* Left Label + Checkbox */}
-                <div className="w-24">
-                  <PremiumCheckbox 
-                    checked={!!visibility[unit]?.show}
-                    onChange={(val) => handleVisibilityChange(unit, 'show', val)}
-                    label={unit} 
-                  />
-                </div>
+            {['seconds', 'minutes', 'hours', 'days', 'weeks', 'months'].map(unit => {
+              const maxLimit = 
+                unit === 'seconds' || unit === 'minutes' ? 59 :
+                unit === 'hours' ? 24 :
+                unit === 'days' ? 365 :
+                unit === 'weeks' ? 52 :
+                12; // months
 
-                {/* Min / Max Range Controls */}
-                <div className="flex gap-3 items-center flex-1 justify-end">
-                  <input 
-                    type="number" 
-                    disabled={!visibility[unit]?.show}
-                    value={visibility[unit]?.min} 
-                    onChange={(e) => handleVisibilityChange(unit, 'min', e.target.value)}
-                    className="bg-[#121420] disabled:opacity-20 border border-[#2a2e45] rounded-lg px-2 py-1 w-14 text-center text-[12px] text-gray-200 outline-none focus:border-indigo-500/50 font-mono transition-colors"
-                    min={1}
-                  />
+              return (
+                <div key={unit} className="flex items-center justify-between min-h-[36px]">
                   
-                  {/* Slider visual */}
-                  <div className="w-16 h-1 bg-gray-800 rounded relative flex-shrink-0 opacity-40">
-                    <div className="absolute left-1/4 right-1/4 h-full bg-indigo-500 rounded" />
-                    <div className="absolute left-1/4 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full border border-indigo-500" />
-                    <div className="absolute right-1/4 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full border border-indigo-500" />
+                  {/* Left Label + Checkbox */}
+                  <div className="w-24">
+                    <PremiumCheckbox 
+                      checked={!!visibility[unit]?.show}
+                      onChange={(val) => handleVisibilityChange(unit, 'show', val)}
+                      label={unit} 
+                    />
                   </div>
 
-                  <input 
-                    type="number" 
-                    disabled={!visibility[unit]?.show}
-                    value={visibility[unit]?.max} 
-                    onChange={(e) => handleVisibilityChange(unit, 'max', e.target.value)}
-                    className="bg-[#121420] disabled:opacity-20 border border-[#2a2e45] rounded-lg px-2 py-1 w-14 text-center text-[12px] text-gray-200 outline-none focus:border-indigo-500/50 font-mono transition-colors"
-                    min={1}
-                  />
-                </div>
+                  {/* Min / Max Range Controls */}
+                  <div className="flex gap-2.5 items-center flex-1 justify-end">
+                    <input 
+                      type="number" 
+                      disabled={!visibility[unit]?.show}
+                      value={visibility[unit]?.min} 
+                      onChange={(e) => {
+                        const val = Math.min(parseInt(e.target.value) || 1, visibility[unit]?.max || 1);
+                        handleVisibilityChange(unit, 'min', val);
+                      }}
+                      className="bg-[#121420] disabled:opacity-20 border border-[#2a2e45] rounded-lg px-1.5 py-1 w-14 text-center text-[12px] text-gray-200 outline-none focus:border-indigo-500/50 font-mono transition-colors"
+                      min={1}
+                      max={visibility[unit]?.max}
+                    />
+                    
+                    {/* Functional Dual Range Slider */}
+                    <DualRangeSlider
+                      min={visibility[unit]?.min || 1}
+                      max={visibility[unit]?.max || 1}
+                      maxLimit={maxLimit}
+                      disabled={!visibility[unit]?.show}
+                      onChange={(newMin, newMax) => {
+                        handleVisibilityChange(unit, 'min', newMin);
+                        handleVisibilityChange(unit, 'max', newMax);
+                      }}
+                    />
 
-              </div>
-            ))}
+                    <input 
+                      type="number" 
+                      disabled={!visibility[unit]?.show}
+                      value={visibility[unit]?.max} 
+                      onChange={(e) => {
+                        const val = Math.max(parseInt(e.target.value) || 1, visibility[unit]?.min || 1);
+                        handleVisibilityChange(unit, 'max', val);
+                      }}
+                      className="bg-[#121420] disabled:opacity-20 border border-[#2a2e45] rounded-lg px-1.5 py-1 w-14 text-center text-[12px] text-gray-200 outline-none focus:border-indigo-500/50 font-mono transition-colors"
+                      min={visibility[unit]?.min || 1}
+                      max={maxLimit}
+                    />
+                  </div>
+
+                </div>
+              );
+            })}
 
             {/* Ranges Checkbox */}
             <PremiumCheckbox 
@@ -869,7 +999,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
       </div>
 
-      {/* Footer - fixed padding/layout */}
+      {/* Footer */}
       <div className="flex justify-between items-center px-5 py-4 border-t border-[#242838] text-[12px] bg-[#171a26] rounded-b-xl">
         
         {/* Templates Dropdown Button */}
