@@ -35,6 +35,7 @@ import { ThemeSettingsModal, PRESET_SETTINGS, TIMEZONE_OPTIONS, getLabelOffset }
 import type { ChartSettings } from './components/ThemeSettingsModal';
 import { ToolRegistry } from './framework/tools';
 import { DrawingFloatingToolbar } from './components/DrawingFloatingToolbar';
+import { DrawingSettingsDialog } from './components/DrawingSettingsDialog';
 
 type Timeframe = string;
 
@@ -1560,6 +1561,21 @@ export default function App() {
   const [selectedOverlayIds, setSelectedOverlayIds] = useState<string[]>([]);
   const [drawingTrigger, setDrawingTrigger] = useState<number>(0);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
+  const [isDrawingSettingsOpen, setIsDrawingSettingsOpen] = useState<boolean>(false);
+  const [drawingSettingsOverlayId, setDrawingSettingsOverlayId] = useState<string | null>(null);
+  
+  const getSelectedSettingsOverlay = () => {
+    if (!drawingSettingsOverlayId) return null;
+    for (let i = 0; i < chartInstancesRef.current.length; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        const overlay = chart.getOverlays().find((o: any) => o.id === drawingSettingsOverlayId);
+        if (overlay) return overlay;
+      }
+    }
+    return null;
+  };
+
   const isCtrlPressedRef = useRef<boolean>(false);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -5153,6 +5169,12 @@ export default function App() {
                 setDrawingTrigger(prev => prev + 1);
               }
             }}
+            onSettingsClick={() => {
+              if (selectedOverlayIds.length > 0) {
+                setDrawingSettingsOverlayId(selectedOverlayIds[0]);
+                setIsDrawingSettingsOpen(true);
+              }
+            }}
           />
 
           {/* KLineChart mount element(s) based on layout configuration */}
@@ -6228,6 +6250,42 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Drawing Settings Option Dialog */}
+      <DrawingSettingsDialog
+        isOpen={isDrawingSettingsOpen}
+        onClose={() => setIsDrawingSettingsOpen(false)}
+        overlay={getSelectedSettingsOverlay()}
+        allCandles={allTimeframesData[activeTimeframe] || []}
+        timeframe={activeTimeframe}
+        onSave={(updatedSettings, updatedPoints) => {
+          chartInstancesRef.current.forEach(chart => {
+            if (!chart) return;
+            selectedOverlayIds.forEach(id => {
+              const overlay = chart.getOverlays().find((o: any) => o.id === id);
+              if (overlay) {
+                const overrideOptions: any = {
+                  id,
+                  extendData: {
+                    ...overlay.extendData,
+                    customSettings: {
+                      ...(overlay.extendData?.customSettings || {}),
+                      ...updatedSettings
+                    }
+                  }
+                };
+                if (updatedPoints && updatedPoints.length > 0) {
+                  overrideOptions.points = updatedPoints;
+                }
+                chart.overrideOverlay(overrideOptions);
+              }
+            });
+            chart.resize();
+          });
+          syncAllDrawings();
+          setDrawingTrigger(prev => prev + 1);
+        }}
+      />
 
     </div>
   );

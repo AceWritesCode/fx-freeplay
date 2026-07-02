@@ -9,10 +9,11 @@ interface DrawingFloatingToolbarProps {
   getOverlay?: (id: string) => any;
   onLock?: () => void;
   onDelete?: () => void;
+  onSettingsClick?: () => void;
 }
 
 export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (props) => {
-  const { selectedOverlayIds, onUpdateSettings, getOverlay, onLock, onDelete } = props;
+  const { selectedOverlayIds, onUpdateSettings, getOverlay, onLock, onDelete, onSettingsClick } = props;
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<'color' | 'width' | 'style' | null>(null);
@@ -219,7 +220,11 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
 
         {/* Settings */}
-        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group" title="Settings">
+        <button 
+          onClick={onSettingsClick}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group cursor-pointer" 
+          title="Settings"
+        >
           <Settings className="w-4 h-4 group-hover:text-indigo-500" />
         </button>
 
