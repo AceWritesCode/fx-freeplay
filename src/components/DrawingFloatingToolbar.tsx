@@ -190,6 +190,19 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
     };
   }, [isDragging]);
 
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(event.target as Node)) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     // Only drag on left click (button 0) or touch
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -241,9 +254,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </button>
           
           {isTemplateDropdownOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsTemplateDropdownOpen(false)} />
-              <div className="absolute left-0 top-full mt-2 bg-white dark:bg-[#1c2030] border border-gray-200 dark:border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold flex flex-col text-gray-700 dark:text-gray-200">
+            <div className="absolute left-0 top-full mt-2 bg-white dark:bg-[#1c2030] border border-gray-200 dark:border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold flex flex-col text-gray-700 dark:text-gray-200">
                 
                 {/* Mode Tabs */}
                 <div className="flex border-b border-gray-200 dark:border-[#242838]">
@@ -383,7 +394,6 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 </div>
 
               </div>
-            </>
           )}
         </div>
         
