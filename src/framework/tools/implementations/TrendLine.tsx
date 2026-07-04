@@ -212,7 +212,7 @@ export const TrendLineTool: ToolDefinition = {
                 });
               }
             } else if (textHalign === 'left') {
-              const trimLen = textWidth + 6;
+              const trimLen = textWidth + 3;
               if (len > trimLen) {
                 drawSegments.push({
                   x1: pLeft.x + trimLen * ux,
@@ -222,7 +222,7 @@ export const TrendLineTool: ToolDefinition = {
                 });
               }
             } else if (textHalign === 'right') {
-              const trimLen = textWidth + 6;
+              const trimLen = textWidth + 3;
               if (len > trimLen) {
                 drawSegments.push({
                   x1: pLeft.x,
@@ -265,14 +265,14 @@ export const TrendLineTool: ToolDefinition = {
           let tx = (coordinates[0].x + coordinates[1].x) / 2;
           let ty = (coordinates[0].y + coordinates[1].y) / 2;
           
-          if (textHalign === 'left') tx = cLeft.x + 6;
-          else if (textHalign === 'right') tx = cRight.x - 6;
+          if (textHalign === 'left') tx = cLeft.x + 3;
+          else if (textHalign === 'right') tx = cRight.x - 3;
           
           const yMin = Math.min(coordinates[0].y, coordinates[1].y);
           const yMax = Math.max(coordinates[0].y, coordinates[1].y);
 
-          if (textValign === 'top') ty = yMin - 5;
-          else if (textValign === 'bottom') ty = yMax + 5;
+          if (textValign === 'top') ty = yMin - 3;
+          else if (textValign === 'bottom') ty = yMax + 3;
 
           figures.push({
             type: 'text',

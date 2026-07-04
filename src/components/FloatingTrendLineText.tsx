@@ -48,14 +48,14 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           let tx = (pixelPts[0].x + pixelPts[1].x) / 2;
           let ty = (pixelPts[0].y + pixelPts[1].y) / 2;
 
-          if (textHalign === 'left') tx = pLeft.x + 6;
-          else if (textHalign === 'right') tx = pRight.x - 6;
+          if (textHalign === 'left') tx = pLeft.x + 3;
+          else if (textHalign === 'right') tx = pRight.x - 3;
 
           const yMin = Math.min(pixelPts[0].y, pixelPts[1].y);
           const yMax = Math.max(pixelPts[0].y, pixelPts[1].y);
 
-          if (textValign === 'top') ty = yMin - 5;
-          else if (textValign === 'bottom') ty = yMax + 5;
+          if (textValign === 'top') ty = yMin - 3;
+          else if (textValign === 'bottom') ty = yMax + 3;
 
           let translateX = '-50%';
           if (textHalign === 'left') translateX = '0%';
@@ -125,16 +125,16 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           placeholder="Add text..."
-          className="bg-[#121420]/90 border border-indigo-500 rounded px-1.5 py-0.5 outline-none text-white focus:ring-1 focus:ring-indigo-500/50 shadow-lg cursor-text"
+          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 text-white cursor-text font-inherit select-text"
           style={{
             fontSize: `${fontSize}px`,
             color: textColor,
-            width: `${Math.max(80, inputText.length * (fontSize * 0.6) + 20)}px`
+            width: `${Math.max(80, inputText.length * (fontSize * 0.6) + 10)}px`
           }}
         />
       ) : (
         <div
-          onClick={handleStartEdit}
+          onDoubleClick={handleStartEdit}
           className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center gap-1 select-none font-semibold ${
             text === '' 
               ? 'text-[#2196F3] hover:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 border border-dashed border-[#2196F3]/30 hover:border-indigo-400/50'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Settings, Bell, Lock, Unlock, Trash2, MoreHorizontal, Baseline } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Settings, Bell, Lock, Unlock, Trash2, MoreHorizontal, Baseline, Bold } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 interface DrawingFloatingToolbarProps {
@@ -16,7 +16,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const { selectedOverlayIds, onUpdateSettings, getOverlay, onLock, onDelete, onSettingsClick } = props;
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<'color' | 'width' | 'style' | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<'color' | 'textColor' | 'width' | 'style' | null>(null);
   
   const dragStartRef = useRef({ x: 0, y: 0, initialX: 0, initialY: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -26,9 +26,11 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const customSettings = firstOverlay?.extendData?.customSettings || {};
   
   const lineColor = customSettings.lineColor || '#2196F3';
+  const textColor = customSettings.textColor || '#2196F3';
   const lineWidth = customSettings.lineWidth || 1;
   const lineStyle = customSettings.lineStyle || 'solid';
   const isLocked = firstOverlay?.lock || false;
+  const isBold = !!customSettings.bold;
 
   const handleUpdate = (update: any, closeDropdown = true) => {
     if (onUpdateSettings) onUpdateSettings(update);
@@ -146,9 +148,33 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         </div>
 
         {/* Text Color */}
-        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group relative mx-1" title="Text color">
-          <Baseline className="w-4 h-4" />
-          <div className="absolute bottom-1 left-2 right-2 h-0.5 bg-gray-400 rounded-full" />
+        <div className="relative">
+          <button 
+            onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
+            className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'textColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            title="Text color"
+          >
+            <Baseline className="w-4 h-4" />
+            <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
+          </button>
+          
+          {activeDropdown === 'textColor' && (
+            <div className="absolute top-full mt-2 left-0 z-50">
+              <ColorPicker 
+                color={textColor} 
+                onChange={(c) => handleUpdate({ textColor: c }, false)} 
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Text Bold */}
+        <button 
+          onClick={() => handleUpdate({ bold: !isBold })}
+          className={`p-2 rounded transition-colors group mx-1 font-bold ${isBold ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+          title="Bold text"
+        >
+          <Bold className="w-4 h-4" />
         </button>
 
         {/* Line Width */}
