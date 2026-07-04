@@ -1380,6 +1380,64 @@ export default function App() {
     return [];
   };
 
+  const getRaw1mDataForSupplement = async (
+    symbolName: string,
+    currentFilesMap: Record<string, Record<string, File>>
+  ): Promise<KLineData[]> => {
+    const rawInMemory = getRawDataForSymbol(symbolName);
+    if (rawInMemory && rawInMemory.length > 0) {
+      return rawInMemory;
+    }
+    const files = currentFilesMap[symbolName];
+    if (files && files['1m']) {
+      try {
+        const text = await files['1m'].text();
+        const parsed = parseCSV(text);
+        if (parsed.parsedCount > 0) {
+          return parsed.data;
+        }
+      } catch (err) {
+        console.error(`[DEBUG] getRaw1mDataForSupplement - failed to parse 1m file for ${symbolName}:`, err);
+      }
+    }
+    return [];
+  };
+
+  const supplementTimeframeData = (
+    tfData: KLineData[],
+    rawData1m: KLineData[],
+    tf: string,
+    timezoneAdjustmentEnabled: boolean,
+    userTimezoneOffset: number,
+    brokerTimezoneOffset: number
+  ): KLineData[] => {
+    if (rawData1m.length === 0 || tfData.length === 0) return tfData;
+    const minutes = getTimeframeMinutes(tf);
+    if (minutes === 1) return tfData;
+
+    const lastTfTimestamp = tfData[tfData.length - 1].timestamp;
+
+    let adjusted1m = rawData1m;
+    if (timezoneAdjustmentEnabled) {
+      const offsetDiffMs = (userTimezoneOffset - brokerTimezoneOffset) * 60 * 1000;
+      adjusted1m = rawData1m.map(c => ({
+        ...c,
+        timestamp: c.timestamp + offsetDiffMs
+      }));
+    }
+
+    const resampled1m = resample1mToTimeframe(adjusted1m, minutes);
+    if (resampled1m.length === 0) return tfData;
+
+    const mergeStartIndex = resampled1m.findIndex(c => c.timestamp >= lastTfTimestamp);
+    if (mergeStartIndex !== -1) {
+      const newCandles = resampled1m.slice(mergeStartIndex);
+      const baseTfData = tfData.filter(c => c.timestamp < lastTfTimestamp);
+      return [...baseTfData, ...newCandles];
+    }
+    return tfData;
+  };
+
   const loadDataForSlot = async (index: number, chart: any) => {
     if (!chart) return;
     const slot = slots[index];
@@ -1414,6 +1472,20 @@ export default function App() {
         } catch (err) {
           console.error(`[DEBUG] loadDataForSlot - Error parsing folder file for slot ${index}:`, err);
         }
+      }
+    }
+
+    if (tfData.length > 0) {
+      const raw1m = await getRaw1mDataForSupplement(slot.symbol, symbolFilesMap);
+      if (raw1m.length > 0) {
+        tfData = supplementTimeframeData(
+          tfData,
+          raw1m,
+          tf,
+          settings.timezoneAdjustmentEnabled,
+          settings.userTimezoneOffset,
+          settings.brokerTimezoneOffset
+        );
       }
     }
 
@@ -4064,6 +4136,20 @@ export default function App() {
             } else if (baseData.length > 0) {
               tfData = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
             }
+          }
+        }
+
+        if (tfData.length > 0) {
+          const raw1m = await getRaw1mDataForSupplement(currentSymbol, currentFilesMap);
+          if (raw1m.length > 0) {
+            tfData = supplementTimeframeData(
+              tfData,
+              raw1m,
+              tf,
+              settings.timezoneAdjustmentEnabled,
+              settings.userTimezoneOffset,
+              settings.brokerTimezoneOffset
+            );
           }
         }
 
