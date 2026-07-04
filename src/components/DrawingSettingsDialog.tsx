@@ -1155,15 +1155,16 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       {/* Footer */}
       <div className="flex justify-between items-center px-5 py-4 border-t border-[#242838] text-[12px] bg-[#171a26] rounded-b-xl">
         
-        {/* Templates Dropdown Button */}
-        <div className="relative">
-          <button
-            onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
-            className="flex items-center gap-2 bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-3 py-1.5 font-semibold text-gray-300 hover:text-white cursor-pointer select-none transition-all active:scale-95"
-          >
-            <span>Template</span>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-          </button>
+        {/* Templates Dropdown Button & Save Button */}
+        <div className="flex gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
+              className="flex items-center gap-2 bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-3 py-1.5 font-semibold text-gray-300 hover:text-white cursor-pointer select-none transition-all active:scale-95"
+            >
+              <span>Template</span>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+            </button>
           {isTemplateDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsTemplateDropdownOpen(false)} />
@@ -1284,6 +1285,20 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               </div>
             </>
           )}
+          </div>
+
+          {/* Save Template Button */}
+          <button
+            onClick={() => {
+              setSaveName('');
+              setSaveGroup(selectedGroup || 'Default');
+              setSaveMode(activeTemplateMode);
+              setIsSaveModalOpen(true);
+            }}
+            className="flex items-center bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-3 py-1.5 font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer select-none transition-all active:scale-95"
+          >
+            Save template
+          </button>
         </div>
 
         {/* Action buttons (Cancel / Ok) */}
