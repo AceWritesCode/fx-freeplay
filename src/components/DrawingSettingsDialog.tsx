@@ -308,18 +308,23 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       const saved = localStorage.getItem(`fx_templates_${overlay.name || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        const upgraded = parsed.map((t: any) => ({
-          id: t.id || Date.now().toString() + Math.random().toString(),
-          name: t.name || 'Unnamed',
-          group: t.group || 'Default',
-          mode: t.mode || 'light',
-          settings: t.settings
-        }));
-        setTemplates(upgraded);
+        if (Array.isArray(parsed)) {
+          const upgraded = parsed.map((t: any) => ({
+            id: t.id || Date.now().toString() + Math.random().toString(),
+            name: t.name || 'Unnamed',
+            group: t.group || 'Default',
+            mode: t.mode || 'light',
+            settings: t.settings
+          }));
+          setTemplates(upgraded);
+        } else {
+          setTemplates([]);
+        }
       } else {
         setTemplates([]);
       }
     } catch (e) {
+      console.error('[DEBUG] Failed to load templates:', e);
       setTemplates([]);
     }
 
@@ -574,12 +579,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   );
 
   // Derived template states
-  const activeTemplates = templates.filter(t => t.mode === activeTemplateMode);
+  const activeTemplates = (templates || []).filter(t => t && t.mode === activeTemplateMode);
   const uniqueGroups = Array.from(new Set(activeTemplates.map(t => t.group || 'Default')));
   const visibleTemplates = activeTemplates.filter(t => (t.group || 'Default') === selectedGroup);
 
-  const allUniqueNames = Array.from(new Set(templates.map(t => t.name)));
-  const allUniqueGroups = Array.from(new Set(templates.map(t => t.group || 'Default')));
+  const allUniqueNames = Array.from(new Set((templates || []).filter(t => t && t.name).map(t => t.name)));
+  const allUniqueGroups = Array.from(new Set((templates || []).filter(t => t && t.group).map(t => t.group)));
 
   return (
     <div 
@@ -1107,7 +1112,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           {isTemplateDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsTemplateDropdownOpen(false)} />
-              <div className="absolute left-0 bottom-full mb-2 bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-100 overflow-visible flex flex-col">
+              <div className="absolute left-0 top-full mt-2 bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold animate-in fade-in slide-in-from-top-2 duration-100 overflow-visible flex flex-col">
                 
                 {/* Mode Tabs */}
                 <div className="flex border-b border-[#242838]">
