@@ -2834,7 +2834,8 @@ export default function App() {
         const overlays = chart.getOverlays();
         overlays.forEach((ov: any) => {
           if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return; // Skip persistent overlays
-          const isSelected = selectedOverlayIds.includes(ov.id);
+          const normalizeId = (id: string) => id.replace(/^sync_(.+)_from_\d+$/, '$1');
+          const isSelected = selectedOverlayIds.some(selId => normalizeId(selId) === normalizeId(ov.id));
 
           // Set isSelected in extendData so tools can render their own selection handles
           const currentExtendData = typeof ov.extendData === 'object' && ov.extendData !== null ? ov.extendData : {};
@@ -2846,6 +2847,7 @@ export default function App() {
             }
           });
         });
+        chart.resize(); // Force canvas redraw to reflect active/locked selection points in real-time
       }
     }
   }, [selectedOverlayIds, layoutType]);
