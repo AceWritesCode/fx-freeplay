@@ -130,9 +130,16 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
   const prec = pricePrecision !== undefined ? pricePrecision : 4;
 
+  // Real-time Backup References
+  const backupSettingsRef = useRef<any>(null);
+  const backupPointsRef = useRef<any[]>(null);
+  const isFirstLoadRef = useRef(true);
+
   // Initial Position + Load Settings
   useEffect(() => {
     if (!isOpen || !overlay) return;
+
+    isFirstLoadRef.current = true;
 
     if (savedDialogPosition) {
       setPosition(savedDialogPosition);
@@ -144,6 +151,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const customSettings = overlay.extendData?.customSettings || {};
     
+    // Save backups for Cancel restoration
+    backupSettingsRef.current = JSON.parse(JSON.stringify(customSettings));
+    if (overlay.points) {
+      backupPointsRef.current = JSON.parse(JSON.stringify(overlay.points));
+    }
+
     // Style settings
     setLineColor(customSettings.lineColor || '#2196F3');
     setLineWidth(customSettings.lineWidth || 1);
@@ -164,13 +177,30 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       setVisibility(customSettings.visibility);
     }
 
-    // Points coordinates
+    // Points coordinates (Opposite mapping: 0 = latest candle, increasing towards first candle, negative in future)
     if (overlay.points) {
       const mappedPoints = overlay.points.map((pt: any) => {
-        let barIndex = -1;
+        let barIndex = 0; // Default index relative to latest candle
         if (allCandles.length > 0) {
           const idx = allCandles.findIndex(c => c.timestamp === pt.timestamp);
-          if (idx !== -1) barIndex = idx;
+          if (idx !== -1) {
+            // Map idx array index to User Coordinate: C = (L - 1) - idx
+            barIndex = (allCandles.length - 1) - idx;
+          } else {
+            // Approximate relative to last candle if timestamp is not exact
+            const lastCandle = allCandles[allCandles.length - 1];
+            if (lastCandle) {
+              const timeDiff = pt.timestamp - lastCandle.timestamp;
+              let timeframeMinutes = 1;
+              const tf = timeframe.toLowerCase();
+              if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
+              else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
+              else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
+              
+              const indexDiff = Math.round(timeDiff / (timeframeMinutes * 60 * 1000));
+              barIndex = -indexDiff;
+            }
+          }
         }
         return {
           price: parseFloat(pt.value).toFixed(prec),
@@ -248,9 +278,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     };
   }, [isDragging, position]);
 
-  if (!isOpen || !overlay) return null;
+  // Real-Time Sync hook
+  useEffect(() => {
+    if (!isOpen || !overlay) return;
 
-  const handleSave = () => {
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      return;
+    }
+
     const updatedSettings = {
       lineColor,
       lineWidth,
@@ -270,14 +306,17 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const updatedPoints = points.map(pt => {
       let finalTimestamp = pt.timestamp;
-      if (allCandles.length > 0 && pt.bar !== -1) {
-        const candle = allCandles[pt.bar];
+      if (allCandles.length > 0 && pt.bar !== undefined) {
+        // Map from User Coordinate C to array index idx: idx = (L - 1) - C
+        const idx = (allCandles.length - 1) - pt.bar;
+        const candle = allCandles[idx];
         if (candle) {
           finalTimestamp = candle.timestamp;
         } else {
           const lastCandle = allCandles[allCandles.length - 1];
           if (lastCandle) {
-            const indexDiff = pt.bar - (allCandles.length - 1);
+            // pt.bar is negative in future. Diff index = -pt.bar
+            const indexDiff = -pt.bar;
             let timeframeMinutes = 1;
             const tf = timeframe.toLowerCase();
             if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
@@ -295,6 +334,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     });
 
     onSave(updatedSettings, updatedPoints);
+  }, [lineColor, lineWidth, lineStyle, extendType, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility]);
+
+  if (!isOpen || !overlay) return null;
+
+  const handleCancel = () => {
+    if (backupSettingsRef.current && backupPointsRef.current) {
+      onSave(backupSettingsRef.current, backupPointsRef.current);
+    }
     onClose();
   };
 
@@ -465,7 +512,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         <span className="font-semibold text-[13.5px] tracking-wide text-gray-100 capitalize">
           {overlay.name === 'trendLine' ? 'Trendline' : overlay.name} Settings
         </span>
-        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
+        <button onClick={handleCancel} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -806,11 +853,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         type="button"
                         onClick={() => {
                           const currentVal = parseInt(pt.bar) || 0;
-                          const newVal = Math.max(-1, currentVal - 1);
+                          const newVal = currentVal - 1; // Decreasing coordinate (moves to future)
                           handlePointChange(i, 'bar', String(newVal));
                         }}
                         className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
-                        title="Decrease Bar Index"
+                        title="Decrease Bar Value"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -824,11 +871,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         type="button"
                         onClick={() => {
                           const currentVal = parseInt(pt.bar) || 0;
-                          const newVal = currentVal + 1;
+                          const newVal = currentVal + 1; // Increasing coordinate (moves to past)
                           handlePointChange(i, 'bar', String(newVal));
                         }}
                         className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
-                        title="Increase Bar Index"
+                        title="Increase Bar Value"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -977,13 +1024,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         {/* Action buttons (Cancel / Ok) */}
         <div className="flex gap-2.5">
           <button
-            onClick={onClose}
+            onClick={handleCancel}
             className="px-4 py-1.5 border border-[#2a2e45] hover:bg-gray-800 text-gray-300 rounded-lg font-semibold cursor-pointer transition-colors"
           >
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            onClick={onClose}
             className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer transition-colors shadow-lg shadow-indigo-600/20"
           >
             Ok
