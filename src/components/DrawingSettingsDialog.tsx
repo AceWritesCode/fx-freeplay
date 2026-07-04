@@ -309,13 +309,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const upgraded = parsed.map((t: any) => ({
-            id: t.id || Date.now().toString() + Math.random().toString(),
-            name: t.name || 'Unnamed',
-            group: t.group || 'Default',
-            mode: t.mode || 'light',
-            settings: t.settings
-          }));
+          const upgraded = parsed
+            .filter((t: any) => t !== null && typeof t === 'object')
+            .map((t: any) => ({
+              id: t.id || Date.now().toString() + Math.random().toString(),
+              name: t.name || 'Unnamed',
+              group: t.group || 'Default',
+              mode: t.mode || 'light',
+              settings: t.settings
+            }));
           setTemplates(upgraded);
         } else {
           setTemplates([]);
@@ -481,8 +483,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
   // Helper to ensure selectedGroup updates if mode changes or templates are deleted
   useEffect(() => {
-    const activeTpls = templates.filter(t => t.mode === activeTemplateMode);
-    const groups = Array.from(new Set(activeTpls.map(t => t.group || 'Default')));
+    const activeTpls = (templates || []).filter(t => t && t.mode === activeTemplateMode);
+    const groups = Array.from(new Set(activeTpls.map(t => t && (t.group || 'Default'))));
     if (groups.length > 0) {
       if (!groups.includes(selectedGroup)) {
         setSelectedGroup(groups[0]);
