@@ -19,10 +19,17 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const { selectedOverlayIds, onUpdateSettings, getOverlay, onLock, onDelete, onSettingsClick, onApplyTemplate } = props;
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<'color' | 'textColor' | 'width' | 'style' | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<'color' | 'textColor' | 'width' | 'style' | 'template' | null>(null);
   
   // Advanced template states
-  const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
+  const isTemplateDropdownOpen = activeDropdown === 'template';
+  const setIsTemplateDropdownOpen = (open: boolean | ((prev: boolean) => boolean)) => {
+    if (typeof open === 'function') {
+      setActiveDropdown(prev => (prev === 'template' ? null : 'template'));
+    } else {
+      setActiveDropdown(open ? 'template' : null);
+    }
+  };
   const [templates, setTemplates] = useState<any[]>([]);
   const [activeTemplateMode, setActiveTemplateMode] = useState<'light' | 'dark'>('light');
   const [selectedGroup, setSelectedGroup] = useState('Default');
