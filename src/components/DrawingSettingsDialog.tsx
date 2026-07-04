@@ -1014,7 +1014,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           {isTemplateDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsTemplateDropdownOpen(false)} />
-              <div className="absolute left-0 bottom-full mb-2 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-44 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-100 overflow-hidden">
+              <div className="absolute left-0 top-full mt-2 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-44 font-semibold animate-in fade-in slide-in-from-top-2 duration-100 overflow-hidden">
                 <button 
                   onClick={saveTemplate}
                   className="w-full text-left px-4 py-2 hover:bg-gray-800 text-indigo-400 hover:text-indigo-300 text-[12px] border-b border-[#242838]"
