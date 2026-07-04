@@ -236,6 +236,12 @@ export function getInteractiveOverlayOptions(
         chartInstanceRef.current.setZoomEnabled(true);
       }
       setActiveTool(null);
+      
+      // Auto-select the newly created drawing so the floating toolbar appears immediately
+      if (event.chart && event.chart._setSelectedOverlayIds) {
+        event.chart._setSelectedOverlayIds([event.overlay.id]);
+      }
+
       setTimeout(() => syncAllDrawings(), 50);
       return true;
     },
