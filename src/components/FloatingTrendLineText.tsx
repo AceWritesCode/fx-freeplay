@@ -42,14 +42,20 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       if (pts && pts.length === 2 && chart && elRef.current) {
         const pixelPts = chart.convertToPixel(pts, { paneId: 'candle_pane' });
         if (pixelPts && pixelPts[0] && pixelPts[1]) {
+          const pLeft = pixelPts[0].x < pixelPts[1].x ? pixelPts[0] : pixelPts[1];
+          const pRight = pixelPts[0].x < pixelPts[1].x ? pixelPts[1] : pixelPts[0];
+
           let tx = (pixelPts[0].x + pixelPts[1].x) / 2;
           let ty = (pixelPts[0].y + pixelPts[1].y) / 2;
 
-          if (textHalign === 'left') tx = Math.min(pixelPts[0].x, pixelPts[1].x) - 10;
-          else if (textHalign === 'right') tx = Math.max(pixelPts[0].x, pixelPts[1].x) + 10;
+          if (textHalign === 'left') tx = pLeft.x + 6;
+          else if (textHalign === 'right') tx = pRight.x - 6;
 
-          if (textValign === 'top') ty = Math.min(pixelPts[0].y, pixelPts[1].y) - 15;
-          else if (textValign === 'bottom') ty = Math.max(pixelPts[0].y, pixelPts[1].y) + 15;
+          const yMin = Math.min(pixelPts[0].y, pixelPts[1].y);
+          const yMax = Math.max(pixelPts[0].y, pixelPts[1].y);
+
+          if (textValign === 'top') ty = yMin - 5;
+          else if (textValign === 'bottom') ty = yMax + 5;
 
           let translateX = '-50%';
           if (textHalign === 'left') translateX = '0%';

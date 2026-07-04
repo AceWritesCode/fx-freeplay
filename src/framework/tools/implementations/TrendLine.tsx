@@ -174,36 +174,64 @@ export const TrendLineTool: ToolDefinition = {
 
         const isSelected = (overlay?.extendData as any)?.isSelected || false;
         const textToShow = text || (isSelected ? '+ Add text' : '');
-        const hasTextGap = textToShow && textValign === 'middle' && textHalign === 'center';
+        const hasTextGap = textToShow && textValign === 'middle';
 
         const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
 
+        // Always define pLeft and pRight
+        const pLeft = p1.x < p2.x ? p1 : p2;
+        const pRight = p1.x < p2.x ? p2 : p1;
+
         if (hasTextGap) {
-          const dx = p2.x - p1.x;
-          const dy = p2.y - p1.y;
+          const dx = pRight.x - pLeft.x;
+          const dy = pRight.y - pLeft.y;
           const len = Math.sqrt(dx * dx + dy * dy);
           const textWidth = textToShow.length * fontSize * 0.55 + 16;
 
-          if (len > textWidth) {
+          if (len > 0.0001) {
             const ux = dx / len;
             const uy = dy / len;
-            const midX = (p1.x + p2.x) / 2;
-            const midY = (p1.y + p2.y) / 2;
-            const gapHalf = textWidth / 2;
 
-            drawSegments.push({
-              x1: p1.x,
-              y1: p1.y,
-              x2: midX - gapHalf * ux,
-              y2: midY - gapHalf * uy
-            });
+            if (textHalign === 'center') {
+              const midX = (pLeft.x + pRight.x) / 2;
+              const midY = (pLeft.y + pRight.y) / 2;
+              const gapHalf = textWidth / 2;
 
-            drawSegments.push({
-              x1: midX + gapHalf * ux,
-              y1: midY + gapHalf * uy,
-              x2: p2.x,
-              y2: p2.y
-            });
+              if (len > textWidth) {
+                drawSegments.push({
+                  x1: pLeft.x,
+                  y1: pLeft.y,
+                  x2: midX - gapHalf * ux,
+                  y2: midY - gapHalf * uy
+                });
+                drawSegments.push({
+                  x1: midX + gapHalf * ux,
+                  y1: midY + gapHalf * uy,
+                  x2: pRight.x,
+                  y2: pRight.y
+                });
+              }
+            } else if (textHalign === 'left') {
+              const trimLen = textWidth + 6;
+              if (len > trimLen) {
+                drawSegments.push({
+                  x1: pLeft.x + trimLen * ux,
+                  y1: pLeft.y + trimLen * uy,
+                  x2: pRight.x,
+                  y2: pRight.y
+                });
+              }
+            } else if (textHalign === 'right') {
+              const trimLen = textWidth + 6;
+              if (len > trimLen) {
+                drawSegments.push({
+                  x1: pLeft.x,
+                  y1: pLeft.y,
+                  x2: pRight.x - trimLen * ux,
+                  y2: pRight.y - trimLen * uy
+                });
+              }
+            }
           }
         } else {
           drawSegments.push({
@@ -231,14 +259,20 @@ export const TrendLineTool: ToolDefinition = {
 
         // Custom Text Annotation (Only draw on canvas if NOT selected)
         if (text && !isSelected) {
+          const cLeft = coordinates[0].x < coordinates[1].x ? coordinates[0] : coordinates[1];
+          const cRight = coordinates[0].x < coordinates[1].x ? coordinates[1] : coordinates[0];
+
           let tx = (coordinates[0].x + coordinates[1].x) / 2;
           let ty = (coordinates[0].y + coordinates[1].y) / 2;
           
-          if (textHalign === 'left') tx = Math.min(coordinates[0].x, coordinates[1].x) - 10;
-          else if (textHalign === 'right') tx = Math.max(coordinates[0].x, coordinates[1].x) + 10;
+          if (textHalign === 'left') tx = cLeft.x + 6;
+          else if (textHalign === 'right') tx = cRight.x - 6;
           
-          if (textValign === 'top') ty = Math.min(coordinates[0].y, coordinates[1].y) - 15;
-          else if (textValign === 'bottom') ty = Math.max(coordinates[0].y, coordinates[1].y) + 15;
+          const yMin = Math.min(coordinates[0].y, coordinates[1].y);
+          const yMax = Math.max(coordinates[0].y, coordinates[1].y);
+
+          if (textValign === 'top') ty = yMin - 5;
+          else if (textValign === 'bottom') ty = yMax + 5;
 
           figures.push({
             type: 'text',
