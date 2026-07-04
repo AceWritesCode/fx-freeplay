@@ -146,15 +146,18 @@ export function registerCustomOverlays() {
   // 2. Customizable Session Breaks overlay (draws vertical lines at day transitions)
   registerOverlay({
     name: 'sessionBreaks',
-    totalStep: 0,
+    totalStep: 2,           // needs at least 1 point so createPointFigures gets called
+    needDefaultPointFigure: false,
+    needDefaultXAxisFigure: false,
+    needDefaultYAxisFigure: false,
     createPointFigures: ({ chart, bounding }: any) => {
       if (!chart._showSessionBreaks) {
         return [];
       }
 
-      // Check period and hide session breaks on Daily, Weekly, and Monthly charts to avoid clutter
-      const period = chart.getPeriod?.();
-      if (period && (period.type === 'day' || period.type === 'week' || period.type === 'month')) {
+      // Hide session breaks on Daily, Weekly, and Monthly charts to avoid clutter
+      const tf: string = chart._loadedTimeframe || '1m';
+      if (tf === 'D' || tf === 'W' || tf === 'M') {
         return [];
       }
 
@@ -177,7 +180,6 @@ export function registerCustomOverlays() {
         const prevDate = new Date(prevCandle.timestamp);
         const currDate = new Date(currCandle.timestamp);
         
-        // Date transition check using local functions to match chart's X-axis date formatting
         const isNewDay = prevDate.getDate() !== currDate.getDate() ||
                          prevDate.getMonth() !== currDate.getMonth() ||
                          prevDate.getFullYear() !== currDate.getFullYear();

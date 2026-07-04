@@ -2639,6 +2639,7 @@ export default function App() {
             chart.createOverlay({
               name: 'sessionBreaks',
               id: 'session_breaks_overlay',
+              points: [{ timestamp: 0, value: 0 }],
               lock: true
             });
 
@@ -4299,6 +4300,7 @@ export default function App() {
       chartInstance.current.createOverlay({
         name: 'sessionBreaks',
         id: 'session_breaks_overlay',
+        points: [{ timestamp: 0, value: 0 }],
         lock: true
       });
       setActiveTool(null);
