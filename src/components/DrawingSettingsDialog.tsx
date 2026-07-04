@@ -446,6 +446,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     onSave(updatedSettings, updatedPoints);
   }, [lineColor, lineWidth, lineStyle, extendType, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility]);
 
+  // Helper to ensure selectedGroup updates if mode changes or templates are deleted
+  useEffect(() => {
+    const activeTpls = (templates || []).filter(t => t && t.mode === activeTemplateMode);
+    const groups = Array.from(new Set(activeTpls.map(t => t && (t.group || 'Default'))));
+    if (groups.length > 0) {
+      if (!groups.includes(selectedGroup)) {
+        setSelectedGroup(groups[0]);
+      }
+    } else {
+      setSelectedGroup('Default');
+    }
+  }, [activeTemplateMode, templates]);
+
   if (!isOpen || !overlay) return null;
 
   const handleCancel = () => {
@@ -480,19 +493,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       return { ...prev, [unit]: updatedUnit };
     });
   };
-
-  // Helper to ensure selectedGroup updates if mode changes or templates are deleted
-  useEffect(() => {
-    const activeTpls = (templates || []).filter(t => t && t.mode === activeTemplateMode);
-    const groups = Array.from(new Set(activeTpls.map(t => t && (t.group || 'Default'))));
-    if (groups.length > 0) {
-      if (!groups.includes(selectedGroup)) {
-        setSelectedGroup(groups[0]);
-      }
-    } else {
-      setSelectedGroup('Default');
-    }
-  }, [activeTemplateMode, templates]);
 
   const deleteTemplate = (id: string) => {
     setTemplates(prev => {
