@@ -24,19 +24,14 @@ import {
   ChevronRight,
   Loader2,
   RefreshCw,
-  LayoutGrid,
-  Layers
+  LayoutGrid
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, clearChartDataInIndexedDB, saveDirectoryHandle, loadDirectoryHandle, clearDirectoryHandle, detectPricePrecision, saveDirectoryHandles, loadDirectoryHandles } from './utils/dataUtils';
 import type { KLineData } from './utils/dataUtils';
-import { registerCustomOverlays, snapPointToCandle, getInteractiveOverlayOptions } from './utils/overlays';
+import { registerCustomOverlays, snapPointToCandle } from './utils/overlays';
 import { ThemeSettingsModal, PRESET_SETTINGS, TIMEZONE_OPTIONS, getLabelOffset } from './components/ThemeSettingsModal';
 import type { ChartSettings } from './components/ThemeSettingsModal';
-import { ToolRegistry } from './framework/tools';
-import { DrawingFloatingToolbar } from './components/DrawingFloatingToolbar';
-import { DrawingSettingsDialog } from './components/DrawingSettingsDialog';
-import { FloatingTrendLineText } from './components/FloatingTrendLineText';
 
 type Timeframe = string;
 
@@ -833,34 +828,11 @@ export default function App() {
             if (originalOverlay) {
               const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
               const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
-              const lockChanged = originalOverlay.lock !== ov.lock;
-              if (pointsChanged || extendDataChanged || lockChanged) {
+              if (pointsChanged || extendDataChanged) {
                 (sourceChart as any).overrideOverlay({
                   id: originalId,
                   points: JSON.parse(JSON.stringify(ov.points)),
-                  extendData: ov.extendData,
-                  lock: ov.lock,
-                  styles: {
-                    point: ov.lock ? {
-                      radius: 0,
-                      activeRadius: 0,
-                      color: 'transparent',
-                      borderColor: 'transparent',
-                      borderSize: 0,
-                      activeColor: 'transparent',
-                      activeBorderColor: 'transparent',
-                      activeBorderSize: 0
-                    } : {
-                      radius: 4.5,
-                      activeRadius: 5.5,
-                      color: '#ffffff',
-                      borderColor: '#2196F3',
-                      borderSize: 1.5,
-                      activeColor: '#ffffff',
-                      activeBorderColor: '#2196F3',
-                      activeBorderSize: 2
-                    }
-                  }
+                  extendData: ov.extendData
                 });
               }
             }
@@ -938,46 +910,14 @@ export default function App() {
         const syncId = `sync_${orig.id}_from_${sourceIndex}`;
         const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
 
-        const interactiveOptions = getInteractiveOverlayOptions(
-          orig.name,
-          { current: targetChart },
-          chartInstancesRef,
-          isShiftPressedRef,
-          syncAllDrawings,
-          setActiveTool
-        );
-
         const overlayOptions: any = {
-          ...interactiveOptions,
           name: orig.name,
           id: syncId,
           paneId: orig.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(orig.points)),
-          extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
-          lock: orig.lock,
-          styles: orig.lock ? {
-            point: {
-              radius: 0,
-              activeRadius: 0,
-              color: 'transparent',
-              borderColor: 'transparent',
-              borderSize: 0,
-              activeColor: 'transparent',
-              activeBorderColor: 'transparent',
-              activeBorderSize: 0
-            }
-          } : {
-            point: {
-              radius: 4.5,
-              activeRadius: 5.5,
-              color: '#ffffff',
-              borderColor: '#2196F3',
-              borderSize: 1.5,
-              activeColor: '#ffffff',
-              activeBorderColor: '#2196F3',
-              activeBorderSize: 2
-            }
-          },
+          extendData: orig.extendData,
+          lock: false, // Unlocked!
+          styles: orig.styles,
           onRemoved: (event: any) => {
             console.log(`[DEBUG] synced copy - onRemoved callback fired for id: ${event.overlay.id}`);
             const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
@@ -1380,64 +1320,6 @@ export default function App() {
     return [];
   };
 
-  const getRaw1mDataForSupplement = async (
-    symbolName: string,
-    currentFilesMap: Record<string, Record<string, File>>
-  ): Promise<KLineData[]> => {
-    const rawInMemory = getRawDataForSymbol(symbolName);
-    if (rawInMemory && rawInMemory.length > 0) {
-      return rawInMemory;
-    }
-    const files = currentFilesMap[symbolName];
-    if (files && files['1m']) {
-      try {
-        const text = await files['1m'].text();
-        const parsed = parseCSV(text);
-        if (parsed.parsedCount > 0) {
-          return parsed.data;
-        }
-      } catch (err) {
-        console.error(`[DEBUG] getRaw1mDataForSupplement - failed to parse 1m file for ${symbolName}:`, err);
-      }
-    }
-    return [];
-  };
-
-  const supplementTimeframeData = (
-    tfData: KLineData[],
-    rawData1m: KLineData[],
-    tf: string,
-    timezoneAdjustmentEnabled: boolean,
-    userTimezoneOffset: number,
-    brokerTimezoneOffset: number
-  ): KLineData[] => {
-    if (rawData1m.length === 0 || tfData.length === 0) return tfData;
-    const minutes = getTimeframeMinutes(tf);
-    if (minutes === 1) return tfData;
-
-    const lastTfTimestamp = tfData[tfData.length - 1].timestamp;
-
-    let adjusted1m = rawData1m;
-    if (timezoneAdjustmentEnabled) {
-      const offsetDiffMs = (userTimezoneOffset - brokerTimezoneOffset) * 60 * 1000;
-      adjusted1m = rawData1m.map(c => ({
-        ...c,
-        timestamp: c.timestamp + offsetDiffMs
-      }));
-    }
-
-    const resampled1m = resample1mToTimeframe(adjusted1m, minutes);
-    if (resampled1m.length === 0) return tfData;
-
-    const mergeStartIndex = resampled1m.findIndex(c => c.timestamp >= lastTfTimestamp);
-    if (mergeStartIndex !== -1) {
-      const newCandles = resampled1m.slice(mergeStartIndex);
-      const baseTfData = tfData.filter(c => c.timestamp < lastTfTimestamp);
-      return [...baseTfData, ...newCandles];
-    }
-    return tfData;
-  };
-
   const loadDataForSlot = async (index: number, chart: any) => {
     if (!chart) return;
     const slot = slots[index];
@@ -1472,20 +1354,6 @@ export default function App() {
         } catch (err) {
           console.error(`[DEBUG] loadDataForSlot - Error parsing folder file for slot ${index}:`, err);
         }
-      }
-    }
-
-    if (tfData.length > 0) {
-      const raw1m = await getRaw1mDataForSupplement(slot.symbol, symbolFilesMap);
-      if (raw1m.length > 0) {
-        tfData = supplementTimeframeData(
-          tfData,
-          raw1m,
-          tf,
-          settings.timezoneAdjustmentEnabled,
-          settings.userTimezoneOffset,
-          settings.brokerTimezoneOffset
-        );
       }
     }
 
@@ -1622,41 +1490,8 @@ export default function App() {
   const [savedFolderHandles, setSavedFolderHandles] = useState<any[]>([]);
   const [isVerifyingFolder, setIsVerifyingFolder] = useState<boolean>(false);
 
-  // Right panel state (Watchlist / Object Tree)
-  const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | null>(null);
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(260);
-  const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
-  const isResizingRightPanelRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isResizingRightPanelRef.current) {
-        // Calculate new width: viewport width - mouse X - right icon bar width (48px)
-        const newWidth = window.innerWidth - e.clientX - 48;
-        if (newWidth >= 200 && newWidth <= 600) {
-          setRightPanelWidth(newWidth);
-        }
-      }
-    };
-    const handleMouseUp = () => {
-      if (isResizingRightPanelRef.current) {
-        isResizingRightPanelRef.current = false;
-        setIsResizingRightPanel(false);
-        document.body.style.cursor = 'default';
-        // Resize charts after panel resizes
-        setTimeout(() => {
-          chartInstancesRef.current.forEach(chart => chart?.resize());
-        }, 50);
-      }
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
+  // Watchlist panel state
+  const [isWatchlistOpen, setIsWatchlistOpen] = useState<boolean>(false);
   const [watchlistSymbols, setWatchlistSymbols] = useState<{ name: string; raw1m: KLineData[]; settings: any }[]>([]);
   const [activeWatchlistSymbol, setActiveWatchlistSymbol] = useState<string | null>(null);
   const watchlistAddInputRef = useRef<HTMLInputElement>(null);
@@ -1685,23 +1520,6 @@ export default function App() {
 
   // Drawing selection states
   const [selectedOverlayIds, setSelectedOverlayIds] = useState<string[]>([]);
-  const [drawingTrigger, setDrawingTrigger] = useState<number>(0);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
-  const [isDrawingSettingsOpen, setIsDrawingSettingsOpen] = useState<boolean>(false);
-  const [drawingSettingsOverlayId, setDrawingSettingsOverlayId] = useState<string | null>(null);
-  
-  const getSelectedSettingsOverlay = () => {
-    if (!drawingSettingsOverlayId) return null;
-    for (let i = 0; i < chartInstancesRef.current.length; i++) {
-      const chart = chartInstancesRef.current[i];
-      if (chart) {
-        const overlay = chart.getOverlays().find((o: any) => o.id === drawingSettingsOverlayId);
-        if (overlay) return overlay;
-      }
-    }
-    return null;
-  };
-
   const isCtrlPressedRef = useRef<boolean>(false);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -2549,13 +2367,9 @@ export default function App() {
 
   // Click-to-cut point selector hook using DOM click + coordinate convertFromPixel
   useEffect(() => {
-    const container = chartContainersRef.current[activeChartIndex];
-    console.log('[DEBUG] selector hook - checking refs:', {
-      hasChartInstance: !!chartInstance.current,
-      hasChartContainer: !!container,
-      isSelectingCutPoint
-    });
-    if (!chartInstance.current || !container) return;
+    if (!chartInstance.current || !chartContainerRef.current) return;
+
+    const container = chartContainerRef.current;
 
     const handleContainerClick = (event: MouseEvent) => {
       if (!isSelectingCutPoint || !chartInstance.current) return;
@@ -2629,16 +2443,16 @@ export default function App() {
     if (isSelectingCutPoint) {
       console.log('[DEBUG] cutpoint click hook - Active. Binding capturing-phase click and cursor tracking listeners.');
       container.addEventListener('click', handleContainerClick, true);
-      container.addEventListener('mousemove', handleMouseMove, true);
-      container.addEventListener('mouseleave', handleMouseLeave, true);
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('mouseleave', handleMouseLeave);
     }
 
     return () => {
       container.removeEventListener('click', handleContainerClick, true);
-      container.removeEventListener('mousemove', handleMouseMove, true);
-      container.removeEventListener('mouseleave', handleMouseLeave, true);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData, activeChartIndex, chartContainersRef.current[activeChartIndex]]);
+  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData, activeChartIndex]);
 
   // 1a. Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
@@ -2715,14 +2529,10 @@ export default function App() {
             chart.createOverlay({
               name: 'sessionBreaks',
               id: 'session_breaks_overlay',
-              points: [{ timestamp: 0, value: 0 }],
               lock: true
             });
 
             (chart as any)._onDrawingSync = syncAllDrawings;
-            (chart as any)._onHoverChange = () => {
-              setDrawingTrigger(prev => prev + 1);
-            };
             loadDataForSlot(i, chart);
             chart.resize();
           }
@@ -2755,9 +2565,6 @@ export default function App() {
         if (chart) {
           chart.resize();
           (chart as any)._onDrawingSync = syncAllDrawings;
-          (chart as any)._onHoverChange = () => {
-            setDrawingTrigger(prev => prev + 1);
-          };
         }
       }
       if (hasData) {
@@ -2971,20 +2778,34 @@ export default function App() {
         const overlays = chart.getOverlays();
         overlays.forEach((ov: any) => {
           if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine' || ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return; // Skip persistent overlays
-          const normalizeId = (id: string) => id.replace(/^sync_(.+)_from_\d+$/, '$1');
-          const isSelected = selectedOverlayIds.some(selId => normalizeId(selId) === normalizeId(ov.id));
+          const isSelected = selectedOverlayIds.includes(ov.id);
 
-          // Set isSelected in extendData so tools can render their own selection handles
-          const currentExtendData = typeof ov.extendData === 'object' && ov.extendData !== null ? ov.extendData : {};
-          chart.overrideOverlay({
-            id: ov.id,
-            extendData: {
-              ...currentExtendData,
-              isSelected
-            }
-          });
+          if (ov.name === 'segment' || ov.name === 'horizontalStraightLine') {
+            chart.overrideOverlay({
+              id: ov.id,
+              styles: {
+                line: {
+                  color: isSelected ? '#ff9800' : '#2196f3',
+                  size: isSelected ? 2.5 : 1.5
+                }
+              }
+            });
+          } else if (ov.name === 'simpleAnnotation') {
+            chart.overrideOverlay({
+              id: ov.id,
+              styles: {
+                text: {
+                  color: isSelected ? '#ff9800' : '#2196f3'
+                }
+              }
+            });
+          } else {
+            // Custom overlays (rect, priceChannel) check chart._selectedOverlayIds internally
+            chart.overrideOverlay({
+              id: ov.id
+            });
+          }
         });
-        chart.resize(); // Force canvas redraw to reflect active/locked selection points in real-time
       }
     }
   }, [selectedOverlayIds, layoutType]);
@@ -3510,7 +3331,7 @@ export default function App() {
       }
 
       // Auto-open the watchlist panel when a new dataset is imported for the first time
-      setActiveRightTab('watchlist');
+      setIsWatchlistOpen(true);
     };
     reader.readAsText(file);
   };
@@ -3671,7 +3492,7 @@ export default function App() {
         setFolderSymbol('');
         setFolderFilesList([]);
         if (!autoImport) {
-          setActiveRightTab('watchlist');
+          setIsWatchlistOpen(true);
         }
       }
     } catch (err: any) {
@@ -3819,7 +3640,7 @@ export default function App() {
     setFolderFilesList([]);
 
     // Auto-open the watchlist panel
-    setActiveRightTab('watchlist');
+    setIsWatchlistOpen(true);
   };
 
   const handleWatchlistAddFolder = async () => {
@@ -4143,20 +3964,6 @@ export default function App() {
           }
         }
 
-        if (tfData.length > 0) {
-          const raw1m = await getRaw1mDataForSupplement(currentSymbol, currentFilesMap);
-          if (raw1m.length > 0) {
-            tfData = supplementTimeframeData(
-              tfData,
-              raw1m,
-              tf,
-              settings.timezoneAdjustmentEnabled,
-              settings.userTimezoneOffset,
-              settings.brokerTimezoneOffset
-            );
-          }
-        }
-
         if (tfData.length === 0 && currentRaw1m.length > 0) {
           console.log(`[DEBUG] handleTimeframeSwitch - Resampling from raw base data for target tf ${tf}`);
           let baseData = currentRaw1m;
@@ -4342,15 +4149,26 @@ export default function App() {
     }, 50);
   };
 
-  // Left Toolbar
+  // Left Toolbar Drawing Tools
   const handleSelectTool = (toolName: string) => {
     if (!chartInstance.current || !hasData) {
       console.warn('[DEBUG] handleSelectTool - Chart is not ready or data is missing.');
       return;
     }
 
-    // Toggle off if already selected
+    console.log(`[DEBUG] handleSelectTool - Selection requested for: '${toolName}' (Current Active Tool: '${activeTool}')`);
+    console.log(`[DEBUG] handleSelectTool - Chart scroll enabled: ${(chartInstance.current as any)?._chartStore?.getTimeScaleStore?.()?.scrollEnabled ?? 'unknown'}`);
+
+    // Check and remove any half-completed drawings
+    if (activeOverlayIdRef.current) {
+      console.log(`[DEBUG] handleSelectTool - Discarding incomplete overlay ID:`, activeOverlayIdRef.current);
+      chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
+      activeOverlayIdRef.current = null;
+    }
+
     if (activeTool === toolName) {
+      // Toggle off if already selected
+      console.log(`[DEBUG] handleSelectTool - Deactivating tool '${toolName}'. Restoring scroll/zoom.`);
       setActiveTool(null);
       chartInstance.current.setScrollEnabled(true);
       chartInstance.current.setZoomEnabled(true);
@@ -4360,36 +4178,490 @@ export default function App() {
     setActiveTool(toolName);
     chartInstance.current.setScrollEnabled(false);
     chartInstance.current.setZoomEnabled(false);
-    
-    // Create the overlay using the robust interactive framework options
-    const overlayOptions = getInteractiveOverlayOptions(
-      toolName,
-      chartInstance,
-      chartInstancesRef,
-      isShiftPressedRef,
-      syncAllDrawings,
-      setActiveTool
-    );
-    chartInstance.current.createOverlay(overlayOptions);
-  };
-  (window as any).handleSelectTool = handleSelectTool;
+    console.log(`[DEBUG] handleSelectTool - Scroll/zoom disabled. Preparing overlay: '${toolName}'`);
 
-  const updateDefaultSettings = (toolName: string, settingsUpdate: any) => {
-    if (!toolName) return;
-    try {
-      const key = `fx_default_settings_${toolName}`;
-      const saved = localStorage.getItem(key);
-      let current = saved ? JSON.parse(saved) : {};
-      
-      const merged = {
-        ...current,
-        ...settingsUpdate
-      };
-      delete merged.text;
-      localStorage.setItem(key, JSON.stringify(merged));
-    } catch (e) {
-      console.error('[DEBUG] Failed to update default settings:', e);
+    // Map UI tool name to KLineCharts internal names
+    let overlayName = toolName;
+    if (toolName === 'trendLine') {
+      overlayName = 'segment';
+    } else if (toolName === 'horizontalLine') {
+      overlayName = 'horizontalStraightLine';
     }
+
+    // Install a one-time click probe on the chart container to log coordinate conversion on the next click
+    const probe = (e: MouseEvent) => {
+      const rect = chartContainerRef.current?.getBoundingClientRect();
+      if (!rect || !chartInstance.current) return;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const pixel = chartInstance.current.convertFromPixel({ x, y });
+      const chartSize = chartInstance.current.getSize?.();
+      const scrollEnabled = chartInstance.current.getScrollEnabled?.() ?? 'N/A';
+      console.log(`[DEBUG DRAWING PROBE] Click at canvas (${x.toFixed(1)}, ${y.toFixed(1)})`);
+      console.log(`[DEBUG DRAWING PROBE] Chart size: ${JSON.stringify(chartSize)}, Scroll enabled: ${scrollEnabled}`);
+      console.log(`[DEBUG DRAWING PROBE] convertFromPixel result:`, pixel);
+      console.log(`[DEBUG DRAWING PROBE] Overlay count after click: ${chartInstance.current.getOverlays().length}`);
+      chartInstance.current.getOverlays().forEach((ov: any, i: number) => {
+        console.log(`[DEBUG DRAWING PROBE] Overlay[${i}]: name=${ov.name}, step=${ov.currentStep}/${ov.totalStep}, points=${JSON.stringify(ov.points)}`);
+      });
+    };
+    chartContainerRef.current?.addEventListener('click', probe, { capture: false, once: false });
+    // We store the probe on the ref so we can remove it when tool is deactivated
+    (chartInstance.current as any)._debugDrawProbe = probe;
+    (chartInstance.current as any)._debugDrawProbeContainer = chartContainerRef.current;
+    console.log(`[DEBUG] handleSelectTool - Click probe installed on chart container`);
+
+    // Text Annotation needs custom input data
+    if (overlayName === 'simpleAnnotation') {
+      console.log(`[DEBUG] handleSelectTool - Creating simpleAnnotation overlay`);
+      const id = chartInstance.current.createOverlay({
+        name: 'simpleAnnotation',
+        paneId: 'candle_pane',
+        zLevel: 100,
+        mode: magnetMode === 'normal_magnet' ? 'weak_magnet' : magnetMode,
+        modeSensitivity: getMagnetSensitivity(magnetMode, settings),
+        styles: {
+          text: {
+            color: '#2196f3'
+          }
+        },
+        onDrawStart: () => {
+          console.log(`[DEBUG] simpleAnnotation - onDrawStart fired`);
+        },
+        onDrawing: (event: any) => {
+          console.log(`[DEBUG] simpleAnnotation - onDrawing fired, step: ${event?.overlay?.currentStep}, points:`, event?.overlay?.points);
+          syncAllDrawings();
+        },
+        onDrawEnd: (event: any) => {
+          const text = prompt('Enter annotation text:') || 'Annotation';
+          console.log(`[DEBUG] simpleAnnotation - Custom text supplied: '${text}'. Binding to overlay.`);
+          chartInstance.current?.overrideOverlay({
+            id: event.overlay.id,
+            extendData: text,
+          });
+          if (chartInstance.current) {
+            (chartInstance.current as any)._justFinishedDrawingId = event.overlay.id;
+          }
+          activeOverlayIdRef.current = null;
+          setActiveTool(null);
+          chartInstance.current?.setScrollEnabled(true);
+          chartInstance.current?.setZoomEnabled(true);
+          // Remove probe
+          const p = (chartInstance.current as any)?._debugDrawProbe;
+          const c = (chartInstance.current as any)?._debugDrawProbeContainer;
+          if (p && c) { c.removeEventListener('click', p); }
+          console.log(`[DEBUG] simpleAnnotation - Completed and restored scroll/zoom.`);
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
+          return true;
+        },
+        onRemoved: (event: any) => {
+          console.log(`[DEBUG] simpleAnnotation - onRemoved callback fired for id: ${event.overlay.id}`);
+          const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+          if (syncMatch) {
+            const originalId = syncMatch[1];
+            const sourceIndex = parseInt(syncMatch[2]);
+            const sourceChart = chartInstancesRef.current[sourceIndex];
+            if (sourceChart) {
+              (sourceChart as any).removeOverlay({ id: originalId });
+            }
+          }
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
+        },
+        onPressedMoveStart: (event: any) => {
+          if (event.chart._initMultiMove) {
+            event.chart._initMultiMove(event);
+          }
+        },
+        onPressedMoving: (event: any) => {
+          const currentPoints = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' });
+          if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
+            event.chart.overrideOverlay({
+              id: event.overlay.id,
+              points: currentPoints
+            });
+            if (event.chart._handleMultiMove) {
+              event.chart._handleMultiMove(event);
+            }
+            if (event.chart._onDrawingSync) {
+              event.chart._onDrawingSync();
+            }
+          }
+        },
+        onClick: (event: any) => {
+          const id = event.overlay.id;
+          if (event.chart._justFinishedDrawingId === id) {
+            event.chart._justFinishedDrawingId = null;
+            return true;
+          }
+          event.chart._clickedOnOverlay = true;
+          if (event.chart._setSelectedOverlayIds) {
+            const isCtrl = event.chart._isCtrlPressedRef?.current || false;
+            const currentSelected = event.chart._selectedOverlayIds || [];
+            if (isCtrl) {
+              if (currentSelected.includes(id)) {
+                event.chart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
+              } else {
+                event.chart._setSelectedOverlayIds([...currentSelected, id]);
+              }
+            } else {
+              event.chart._setSelectedOverlayIds([id]);
+            }
+          }
+          return true;
+        }
+      });
+      activeOverlayIdRef.current = (typeof id === 'string' ? id : (id as any)?.id) || null;
+    } else {
+      // Normal drawings
+      console.log(`[DEBUG] handleSelectTool - Creating native overlay '${overlayName}'`);
+      
+      const overlayOptions: any = {
+        name: overlayName,
+        paneId: 'candle_pane',
+        zLevel: 100,
+        mode: magnetMode === 'normal_magnet' ? 'weak_magnet' : magnetMode,
+        modeSensitivity: getMagnetSensitivity(magnetMode, settings),
+        onDrawStart: () => {
+          console.log(`[DEBUG] overlay '${overlayName}' - onDrawStart fired`);
+        },
+        onDrawing: (event: any) => {
+          console.log(`[DEBUG] overlay '${overlayName}' - onDrawing fired, step: ${event?.overlay?.currentStep}/${event?.overlay?.totalStep}, points:`, event?.overlay?.points);
+          
+          if (isShiftPressedRef.current && chartInstance.current) {
+            const points = event.overlay.points;
+            if (points && points.length >= 2) {
+              const movingIndex = points.length - 1;
+              const baseIndex = points.length - 2;
+              const pBase = points[baseIndex];
+              const pMoving = points[movingIndex];
+
+              if (pBase && pMoving) {
+                const pixels = chartInstance.current.convertToPixel([pBase, pMoving], { paneId: 'candle_pane' });
+                if (pixels && pixels.length === 2 && pixels[0] && pixels[1]) {
+                  const x1 = pixels[0].x;
+                  const y1 = pixels[0].y;
+                  const x2 = pixels[1].x;
+                  const y2 = pixels[1].y;
+
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const r = Math.sqrt(dx * dx + dy * dy);
+                  if (r > 0) {
+                    const angle = Math.atan2(dy, dx);
+
+                    // Snap to nearest 45 degrees
+                    const angleSteps = Math.PI / 4;
+                    const nearestStep = Math.round(angle / angleSteps);
+                    const snappedAngle = nearestStep * angleSteps;
+
+                    // Perpendicular projection of mouse pointer onto snapped line
+                    const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
+
+                    const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
+                    const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
+
+                    const snappedPoints = chartInstance.current.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
+                    if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
+                      // Modify the point in-place to preserve KLineCharts' internal reference tracking
+                      event.overlay.points[movingIndex] = snappedPoints[0];
+                    }
+                  }
+                }
+              }
+            }
+          }
+          syncAllDrawings();
+        },
+        onDrawEnd: (event: any) => {
+          console.log(`[DEBUG] overlay '${overlayName}' - Completed drawing. Overlay details:`, event);
+          
+          if (overlayName === 'rect') {
+            const points = event.overlay.points;
+            if (points && points.length >= 2) {
+              const p0 = points[0];
+              const p1 = points[points.length - 1]; // opposite corner
+              
+              const xMin = p0.timestamp;
+              const xMax = p1.timestamp;
+              const yMin = p0.value;
+              const yMax = p1.value;
+              const diMin = p0.dataIndex;
+              const diMax = p1.dataIndex;
+              
+              const xMid = (xMin + xMax) / 2;
+              const yMid = (yMin + yMax) / 2;
+              const diMid = (diMin !== undefined && diMax !== undefined) ? Math.round((diMin + diMax) / 2) : undefined;
+              
+              const newPoints = [
+                { timestamp: xMin, value: yMin, dataIndex: diMin }, // 0: top-left
+                { timestamp: xMax, value: yMin, dataIndex: diMax }, // 1: top-right
+                { timestamp: xMax, value: yMax, dataIndex: diMax }, // 2: bottom-right
+                { timestamp: xMin, value: yMax, dataIndex: diMin }, // 3: bottom-left
+                { timestamp: xMid, value: yMin, dataIndex: diMid }, // 4: top-center
+                { timestamp: xMid, value: yMax, dataIndex: diMid }, // 5: bottom-center
+                { timestamp: xMin, value: yMid, dataIndex: diMin }, // 6: left-center
+                { timestamp: xMax, value: yMid, dataIndex: diMax }  // 7: right-center
+              ];
+              
+              chartInstance.current?.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+          } else if (overlayName === 'priceChannel') {
+            const points = event.overlay.points;
+            if (points && points.length >= 3) {
+              const entryTs = points[0].timestamp;
+              const entryVal = points[0].value;
+              const endTs = points[1].timestamp;
+              const tpVal = points[1].value;
+              const slVal = points[2].value;
+
+              const xMin = Math.min(entryTs, endTs);
+              const xMax = Math.max(entryTs, endTs);
+
+              const diMin = entryTs < endTs ? points[0].dataIndex : points[1].dataIndex;
+              const diMax = entryTs < endTs ? points[1].dataIndex : points[0].dataIndex;
+
+              // 6 points: 4 corners (TP-left, TP-right, SL-right, SL-left) + 2 entry midpoints
+              const newPoints = [
+                { timestamp: xMin, value: tpVal, dataIndex: diMin },   // 0: TP-left (top-left corner)
+                { timestamp: xMax, value: tpVal, dataIndex: diMax },   // 1: TP-right (top-right corner)
+                { timestamp: xMax, value: slVal, dataIndex: diMax },   // 2: SL-right (bottom-right corner)
+                { timestamp: xMin, value: slVal, dataIndex: diMin },   // 3: SL-left (bottom-left corner)
+                { timestamp: xMin, value: entryVal, dataIndex: diMin }, // 4: Entry-left (left-center)
+                { timestamp: xMax, value: entryVal, dataIndex: diMax }  // 5: Entry-right (right-center)
+              ];
+
+              chartInstance.current?.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+          }
+
+          if (chartInstance.current) {
+            (chartInstance.current as any)._justFinishedDrawingId = event.overlay.id;
+          }
+
+          activeOverlayIdRef.current = null;
+          setActiveTool(null);
+          chartInstance.current?.setScrollEnabled(true);
+          chartInstance.current?.setZoomEnabled(true);
+          // Remove probe
+          const p = (chartInstance.current as any)?._debugDrawProbe;
+          const c = (chartInstance.current as any)?._debugDrawProbeContainer;
+          if (p && c) { c.removeEventListener('click', p); }
+          console.log(`[DEBUG] overlay '${overlayName}' - Restored scroll/zoom.`);
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
+          return true;
+        }
+      };
+
+      // Only attach generic style and event handlers if we are drawing native overlays (segment, horizontalStraightLine)
+      // Custom overlays (rect, priceChannel) define their own handlers in overlays.ts to avoid overwriting template callbacks
+      if (overlayName !== 'rect' && overlayName !== 'priceChannel') {
+        overlayOptions.styles = {
+          line: {
+            color: '#2196f3',
+            size: 1.5
+          }
+        };
+
+        overlayOptions.onRemoved = (event: any) => {
+          console.log(`[DEBUG] overlay '${overlayName}' - onRemoved callback fired for id: ${event.overlay.id}`);
+          const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+          if (syncMatch) {
+            const originalId = syncMatch[1];
+            const sourceIndex = parseInt(syncMatch[2]);
+            const sourceChart = chartInstancesRef.current[sourceIndex];
+            if (sourceChart) {
+              (sourceChart as any).removeOverlay({ id: originalId });
+            }
+          }
+          setTimeout(() => {
+            syncAllDrawings();
+          }, 50);
+        };
+
+        overlayOptions.onPressedMoveStart = (event: any) => {
+          const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
+          let closestIndex = 0;
+          let minDistance = Infinity;
+          pts.forEach((pt: any, idx: number) => {
+            if (pt) {
+              const dist = Math.sqrt((pt.x - event.x) ** 2 + (pt.y - event.y) ** 2);
+              if (dist < minDistance) {
+                minDistance = dist;
+                closestIndex = idx;
+              }
+            }
+          });
+          const isHandle = minDistance < 12;
+          const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+          event.chart.overrideOverlay({
+            id: event.overlay.id,
+            extendData: { 
+              draggedIndex: isHandle ? closestIndex : null,
+              startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
+              startMousePt
+            }
+          });
+
+          if (event.chart._initMultiMove) {
+            event.chart._initMultiMove(event);
+          }
+        };
+
+        overlayOptions.onPressedMoving = (event: any) => {
+          const draggedIndex = event.overlay.extendData?.draggedIndex;
+          if (draggedIndex === undefined) return;
+
+          if (draggedIndex === null) {
+            const startPoints = event.overlay.extendData?.startPoints;
+            const startMousePt = event.overlay.extendData?.startMousePt;
+            const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+
+            if (startPoints && startMousePt && currentMousePt) {
+              const deltaTimestamp = currentMousePt.timestamp - startMousePt.timestamp;
+              const deltaValue = currentMousePt.value - startMousePt.value;
+              const deltaDataIndex = (currentMousePt.dataIndex !== undefined && startMousePt.dataIndex !== undefined)
+                ? currentMousePt.dataIndex - startMousePt.dataIndex
+                : 0;
+
+              const newPoints = startPoints.map((pt: any) => ({
+                ...pt,
+                timestamp: pt.timestamp + deltaTimestamp,
+                value: pt.value + deltaValue,
+                dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+              }));
+
+              event.chart.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+
+            if (event.chart._handleMultiMove) {
+              event.chart._handleMultiMove(event);
+            }
+            if (event.chart._onDrawingSync) {
+              event.chart._onDrawingSync();
+            }
+            return;
+          }
+
+          if (overlayName === 'segment') {
+            const points = event.overlay.points;
+            if (points && points.length === 2) {
+              const movingIndex = draggedIndex;
+              const baseIndex = draggedIndex === 0 ? 1 : 0;
+              const pBase = points[baseIndex];
+              const isShift = event.chart._isShiftPressedRef?.current || false;
+              
+              if (isShift && pBase) {
+                const pixels = event.chart.convertToPixel([pBase], { paneId: 'candle_pane' });
+                if (pixels && pixels.length > 0 && pixels[0]) {
+                  const x1 = pixels[0].x;
+                  const y1 = pixels[0].y;
+                  const x2 = event.x;
+                  const y2 = event.y;
+
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const r = Math.sqrt(dx * dx + dy * dy);
+                  if (r > 0) {
+                    const angle = Math.atan2(dy, dx);
+                    const angleSteps = Math.PI / 4;
+                    const nearestStep = Math.round(angle / angleSteps);
+                    const snappedAngle = nearestStep * angleSteps;
+
+                    const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
+                    const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
+                    const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
+
+                    const snappedPoints = event.chart.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
+                    if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
+                      const newPoints = [...points];
+                      newPoints[movingIndex] = snappedPoints[0];
+                      event.chart.overrideOverlay({
+                        id: event.overlay.id,
+                        points: newPoints
+                      });
+                      if (event.chart._onDrawingSync) {
+                        event.chart._onDrawingSync();
+                      }
+                      return;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Default free movement for any handle — apply magnet snap if active
+          const points = event.overlay.points;
+          if (points && draggedIndex !== null) {
+            const rawX = event.x;
+            const rawY = event.y;
+            const mode: string = event.chart._magnetMode ?? 'normal';
+            let snappedPt = null;
+
+            if (mode !== 'normal') {
+              snappedPt = snapPointToCandle(event, rawX, rawY);
+            }
+
+            const currentPoints = snappedPt
+              ? [snappedPt]
+              : event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' });
+            if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
+              const newPoints = [...points];
+              newPoints[draggedIndex] = currentPoints[0];
+              event.chart.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+            }
+          }
+          if (event.chart._onDrawingSync) {
+            event.chart._onDrawingSync();
+          }
+        };
+
+        overlayOptions.onClick = (event: any) => {
+          const id = event.overlay.id;
+          if (event.chart._justFinishedDrawingId === id) {
+            event.chart._justFinishedDrawingId = null;
+            return true;
+          }
+          event.chart._clickedOnOverlay = true;
+          if (event.chart._setSelectedOverlayIds) {
+            const isCtrl = event.chart._isCtrlPressedRef?.current || false;
+            const currentSelected = event.chart._selectedOverlayIds || [];
+            if (isCtrl) {
+              if (currentSelected.includes(id)) {
+                event.chart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
+              } else {
+                event.chart._setSelectedOverlayIds([...currentSelected, id]);
+              }
+            } else {
+              event.chart._setSelectedOverlayIds([id]);
+            }
+          }
+          return true;
+        };
+      }
+
+      const id = chartInstance.current.createOverlay(overlayOptions);
+      activeOverlayIdRef.current = (typeof id === 'string' ? id : (id as any)?.id) || null;
+    }
+    console.log(`[DEBUG] handleSelectTool - Overlay '${overlayName}' created. Current overlays:`, chartInstance.current.getOverlays());
   };
 
   // Clear all drawings
@@ -4408,7 +4680,6 @@ export default function App() {
       chartInstance.current.createOverlay({
         name: 'sessionBreaks',
         id: 'session_breaks_overlay',
-        points: [{ timestamp: 0, value: 0 }],
         lock: true
       });
       setActiveTool(null);
@@ -4679,14 +4950,6 @@ export default function App() {
           }}
         />
         
-        {/* Vertical Cut Selection Line */}
-        {isSelectingCutPoint && isActive && cutPointHoverX !== null && (
-          <div
-            className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500 pointer-events-none z-30"
-            style={{ left: `${cutPointHoverX}px` }}
-          />
-        )}
-        
         {/* Slot Info Badge (Top Left of each chart) */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#1e222d]/85 backdrop-blur-sm border border-gray-800 pointer-events-none select-none text-[10px] font-bold text-gray-300">
           <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
@@ -4694,49 +4957,6 @@ export default function App() {
           <span className="text-gray-500">•</span>
           <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
-        
-        {/* Floating text inputs for all TrendLines */}
-        {(() => {
-          const chart = chartInstancesRef.current[i];
-          const allTrendLines = chart 
-            ? chart.getOverlays().filter((o: any) => o.name === 'trendLine')
-            : [];
-          return allTrendLines.map((ov: any) => (
-            <FloatingTrendLineText
-              key={ov.id}
-              chart={chart}
-              overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
-              onTextChange={(newText) => {
-                const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-                const originalId = syncMatch ? syncMatch[1] : ov.id;
-
-                chartInstancesRef.current.forEach(c => {
-                  if (!c) return;
-                  const targetOverlay = c.getOverlays().find((o: any) => 
-                    o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-                  );
-                  if (targetOverlay) {
-                    c.overrideOverlay({
-                      id: targetOverlay.id,
-                      extendData: {
-                        ...(targetOverlay.extendData || {}),
-                        customSettings: {
-                          ...(targetOverlay.extendData?.customSettings || {}),
-                          text: newText
-                        }
-                      }
-                    });
-                  }
-                  c.resize();
-                });
-                syncAllDrawings();
-                setDrawingTrigger(prev => prev + 1);
-              }}
-              syncAllDrawings={syncAllDrawings}
-            />
-          ));
-        })()}
       </div>
     );
   };
@@ -5195,26 +5415,115 @@ export default function App() {
         
         {/* Left Toolbar */}
         <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
-          
-          {ToolRegistry.getAll().map((tool) => {
-            const Icon = tool.icon;
-            const isActive = activeTool === tool.id;
-            return (
-              <button
-                key={tool.id}
-                title={tool.name}
-                disabled={!hasData}
-                onClick={() => handleSelectTool(tool.id)}
-                className={`p-2 rounded-lg border transition-all ${
-                  isActive
-                    ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                    : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-                }`}
-              >
-                <Icon />
-              </button>
-            );
-          })}
+          <button
+            title="Trend Line"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('trendLine')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'trendLine'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M7.354 21.354l14-14-.707-.707-14 14z" />
+                <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Horizontal Line"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('horizontalLine')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'horizontalLine'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M4 15h8.5v-1h-8.5zM16.5 15h8.5v-1h-8.5z" />
+                <path d="M14.5 16c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Rectangle"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('rect')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'rect'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M7.5 6h13v-1h-13z" id="Line" />
+                <path d="M7.5 23h13v-1h-13z" />
+                <path d="M5 7.5v13h1v-13z" />
+                <path d="M22 7.5v13h1v-13z" />
+                <path d="M5.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Fibonacci Retracement"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('fibonacciLine')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'fibonacciLine'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <g fillRule="nonzero">
+                <path d="M3 5h22v-1h-22z" />
+                <path d="M3 17h22v-1h-22z" />
+                <path d="M3 11h19.5v-1h-19.5z" />
+                <path d="M5.5 23h19.5v-1h-19.5z" />
+                <path d="M3.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM24.5 12c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
+              </g>
+            </svg>
+          </button>
+
+          <button
+            title="Risk/Reward Long Position"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('priceChannel')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'priceChannel'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <path d="M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M25 18H5v-1h20zm-11-4h3v1h-4V9h1zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3" />
+            </svg>
+          </button>
+
+          <button
+            title="Text Annotation"
+            disabled={!hasData}
+            onClick={() => handleSelectTool('simpleAnnotation')}
+            className={`p-2 rounded-lg border transition-all ${
+              activeTool === 'simpleAnnotation'
+                ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4.5 h-4.5" fill="currentColor">
+              <path d="M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z" />
+            </svg>
+          </button>
+
+          <div className="w-6 h-[1px] bg-gray-800/80 my-0.5" />
 
           <button
             title="Clear Drawings"
@@ -5309,188 +5618,9 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="flex-1 h-full min-w-0 relative bg-[#131722] overflow-hidden">
-          <DrawingFloatingToolbar 
-            selectedOverlayIds={selectedOverlayIds} 
-              drawingTrigger={drawingTrigger}
-              onApplyTemplate={(tplSettings) => {
-                if (selectedOverlayIds.length > 0) {
-                  const firstId = selectedOverlayIds[0];
-                  const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
-                  const originalId = syncMatch ? syncMatch[1] : firstId;
-                  let toolName = '';
-                  for (let i = 0; i < chartInstancesRef.current.length; i++) {
-                    const chart = chartInstancesRef.current[i];
-                    if (chart) {
-                      const ov = chart.getOverlays().find((o: any) => o.id === originalId);
-                      if (ov) {
-                        toolName = ov.name;
-                        break;
-                      }
-                    }
-                  }
-                  if (toolName) {
-                    updateDefaultSettings(toolName, tplSettings);
-                  }
-                }
-                chartInstancesRef.current.forEach(chart => {
-                  if (!chart) return;
-                  selectedOverlayIds.forEach(id => {
-                    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-                    const originalId = syncMatch ? syncMatch[1] : id;
-                    const overlay = chart.getOverlays().find((o: any) => 
-                      o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-                    );
-                    if (overlay) {
-                      chart.overrideOverlay({
-                        id: overlay.id,
-                        extendData: {
-                          ...overlay.extendData,
-                          customSettings: {
-                            ...(overlay.extendData?.customSettings || {}),
-                            ...tplSettings
-                          }
-                        }
-                      });
-                    }
-                  });
-                });
-                syncAllDrawings();
-                setSelectedOverlayIds([]);
-                setDrawingTrigger(prev => prev + 1);
-              }}
-              onUpdateSettings={(settingsUpdate) => {
-                if (selectedOverlayIds.length > 0) {
-                  const firstId = selectedOverlayIds[0];
-                  const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
-                  const originalId = syncMatch ? syncMatch[1] : firstId;
-                  let toolName = '';
-                  for (let i = 0; i < chartInstancesRef.current.length; i++) {
-                    const chart = chartInstancesRef.current[i];
-                    if (chart) {
-                      const ov = chart.getOverlays().find((o: any) => o.id === originalId);
-                      if (ov) {
-                        toolName = ov.name;
-                        break;
-                      }
-                    }
-                  }
-                  if (toolName) {
-                    updateDefaultSettings(toolName, settingsUpdate);
-                  }
-                }
-                chartInstancesRef.current.forEach(chart => {
-                  if (!chart) return;
-                  selectedOverlayIds.forEach(id => {
-                    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-                    const originalId = syncMatch ? syncMatch[1] : id;
-
-                    const overlay = chart.getOverlays().find((o: any) => 
-                      o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-                    );
-                    if (overlay) {
-                      chart.overrideOverlay({
-                        id: overlay.id,
-                        extendData: {
-                          ...overlay.extendData,
-                          customSettings: {
-                            ...(overlay.extendData?.customSettings || {}),
-                            ...settingsUpdate
-                          }
-                        }
-                      });
-                    }
-                  });
-                });
-                syncAllDrawings();
-                setDrawingTrigger(prev => prev + 1);
-              }}
-              getOverlay={(id) => {
-               for (let i = 0; i < chartInstancesRef.current.length; i++) {
-                 const chart = chartInstancesRef.current[i];
-                 if (chart) {
-                   const overlay = chart.getOverlays().find((o: any) => o.id === id);
-                   if (overlay) return overlay;
-                 }
-               }
-               return null;
-            }}
-            onLock={() => {
-              chartInstancesRef.current.forEach(chart => {
-                if (!chart) return;
-                selectedOverlayIds.forEach(id => {
-                  const overlay = chart.getOverlays().find((o: any) => o.id === id);
-                  if (overlay) {
-                    const nextLock = !overlay.lock;
-                    chart.overrideOverlay({
-                      id,
-                      lock: nextLock,
-                      styles: {
-                        point: nextLock ? {
-                          radius: 0,
-                          activeRadius: 0,
-                          color: 'transparent',
-                          borderColor: 'transparent',
-                          borderSize: 0,
-                          activeColor: 'transparent',
-                          activeBorderColor: 'transparent',
-                          activeBorderSize: 0
-                        } : {
-                          radius: 4.5,
-                          activeRadius: 5.5,
-                          color: '#ffffff',
-                          borderColor: '#2196F3',
-                          borderSize: 1.5,
-                          activeColor: '#ffffff',
-                          activeBorderColor: '#2196F3',
-                          activeBorderSize: 2
-                        }
-                      }
-                    });
-                  }
-                });
-                chart.resize(); // Force redraw of canvas to reflect new selection point sizes
-              });
-              syncAllDrawings();
-              setDrawingTrigger(prev => prev + 1);
-            }}
-            onDelete={() => {
-              let hasLocked = false;
-              selectedOverlayIds.forEach(id => {
-                for (let i = 0; i < chartInstancesRef.current.length; i++) {
-                  const chart = chartInstancesRef.current[i];
-                  if (chart) {
-                    const overlay = chart.getOverlays().find((o: any) => o.id === id);
-                    if (overlay && overlay.lock) {
-                      hasLocked = true;
-                    }
-                  }
-                }
-              });
-
-              if (hasLocked) {
-                setDeleteConfirmOpen(true);
-              } else {
-                // Delete immediately if none are locked
-                chartInstancesRef.current.forEach(chart => {
-                  if (!chart) return;
-                  selectedOverlayIds.forEach(id => {
-                    chart.removeOverlay({ id });
-                  });
-                });
-                setSelectedOverlayIds([]);
-                syncAllDrawings();
-                setDrawingTrigger(prev => prev + 1);
-              }
-            }}
-            onSettingsClick={() => {
-              if (selectedOverlayIds.length > 0) {
-                setDrawingSettingsOverlayId(selectedOverlayIds[0]);
-                setIsDrawingSettingsOpen(true);
-              }
-            }}
-          />
-
+        {/* Charting Canvas container */}
+        <main className="flex-1 h-full min-w-0 relative bg-[#131722]">
+          
           {/* KLineChart mount element(s) based on layout configuration */}
           {hasData && renderLayout()}
 
@@ -5533,9 +5663,20 @@ export default function App() {
             </div>
           )}
 
+          {/* Floating Crosshair Indicator */}
+          {activeTool && (
+            <div className="absolute top-3 left-3 px-3 py-1 bg-indigo-600 text-white rounded-md text-[10px] font-bold tracking-wider uppercase shadow-lg border border-indigo-500 animate-pulse pointer-events-none z-10">
+              Drawing Mode: {activeTool}
+            </div>
+          )}
 
-
-
+          {/* Vertical Cut Selection Line */}
+          {isSelectingCutPoint && cutPointHoverX !== null && (
+            <div
+              className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500 pointer-events-none z-10"
+              style={{ left: `${cutPointHoverX}px` }}
+            />
+          )}
 
           {/* Cutpoint Selection Banner */}
           {isReplayActive && isSelectingCutPoint && (
@@ -5992,203 +6133,163 @@ export default function App() {
           )}
         </main>
 
-        {/* ── Right Panel (Watchlist or Object Tree) ── */}
+        {/* ── Watchlist sliding panel — opens between chart and right icon bar ── */}
         <aside
-          style={{ width: activeRightTab ? `${rightPanelWidth}px` : '0px' }}
           className={`
             flex-shrink-0 h-full
             bg-[#1a1e2e] border-r border-gray-900
-            flex flex-col relative overflow-hidden
-            ${!isResizingRightPanel ? 'transition-[width] duration-300 ease-in-out' : ''}
+            flex flex-col
+            transition-all duration-300 ease-in-out overflow-hidden
+            ${isWatchlistOpen ? 'w-64' : 'w-0'}
           `}
         >
-          {/* Resize handle (left edge of panel, acts when panel is open) */}
-          <div 
-            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-indigo-500/50 z-10 transition-colors"
-            onMouseDown={() => {
-              isResizingRightPanelRef.current = true;
-              setIsResizingRightPanel(true);
-              document.body.style.cursor = 'col-resize';
-            }}
-          />
-
           {/* Panel inner — fixed width prevents content bleed during slide */}
-          <div 
-            style={{ width: `${rightPanelWidth}px` }} 
-            className={`h-full flex flex-col transition-opacity duration-200 ${activeRightTab ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-          >
+          <div className={`w-64 h-full flex flex-col transition-opacity duration-200 ${isWatchlistOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
 
-            {activeRightTab === 'watchlist' && (
-              <>
-                {/* Watchlist Panel header */}
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
-                  <div className="flex items-center gap-2">
-                    <List className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
-                    {watchlistSymbols.length > 0 && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">
-                        {watchlistSymbols.length}
-                      </span>
-                    )}
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
+              <div className="flex items-center gap-2">
+                <List className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
+                {watchlistSymbols.length > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">
+                    {watchlistSymbols.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Refresh folder button (visible in folder mode when savedFolderHandle is present) */}
+                {importMode === 'folder' && savedFolderHandle && (
+                  <button
+                    onClick={handleRestoreSavedFolder}
+                    disabled={isVerifyingFolder}
+                    title="Refresh folder data"
+                    className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+                {/* + Add symbol icon button */}
+                <button
+                  onClick={() => {
+                    if (importMode === 'folder') {
+                      handleWatchlistAddFolder();
+                    } else {
+                      watchlistAddInputRef.current?.click();
+                    }
+                  }}
+                  title={importMode === 'folder' ? "Add symbol folder" : "Add symbol from CSV"}
+                  className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  ref={watchlistAddInputRef}
+                  type="file"
+                  accept=".csv"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      Array.from(e.target.files).forEach(file => {
+                        handleWatchlistAddFile(file);
+                      });
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Symbol list */}
+            <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-gray-800">
+
+              {/* Inline toast banner */}
+              {watchlistToast && (
+                <div className={`mx-2 mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+                  watchlistToast.type === 'error'
+                    ? 'bg-red-500/10 border border-red-500/25 text-red-400'
+                    : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-300'
+                }`}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{watchlistToast.msg}</span>
+                </div>
+              )}
+
+              {watchlistSymbols.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+                    <List className="w-5 h-5 text-indigo-400/60" />
                   </div>
-                  <div className="flex items-center gap-1">
-                    {/* Refresh folder button (visible in folder mode when savedFolderHandle is present) */}
-                    {importMode === 'folder' && savedFolderHandle && (
-                      <button
-                        onClick={handleRestoreSavedFolder}
-                        disabled={isVerifyingFolder}
-                        title="Refresh folder data"
-                        className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors disabled:opacity-50"
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Load a CSV file to add symbols here. Use the <span className="text-indigo-400 font-semibold">+</span> button to add more.
+                  </p>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-0.5 px-2">
+                  {watchlistSymbols.map((sym, idx) => {
+                    const isActive = sym.name === activeWatchlistSymbol;
+                    return (
+                      <li
+                        key={sym.name}
+                        draggable={true}
+                        onDragStart={(e) => handleDragStartWatchlist(e, idx)}
+                        onDragOver={(e) => handleDragOverWatchlist(e, idx)}
+                        onDragEnd={handleDragEndWatchlist}
+                        className="list-none"
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
-                      </button>
-                    )}
-                    {/* + Add symbol icon button */}
-                    <button
-                      onClick={() => {
-                        if (importMode === 'folder') {
-                          handleWatchlistAddFolder();
-                        } else {
-                          watchlistAddInputRef.current?.click();
-                        }
-                      }}
-                      title={importMode === 'folder' ? "Add symbol folder" : "Add symbol from CSV"}
-                      className="p-1 rounded-md text-gray-500 hover:text-indigo-300 hover:bg-indigo-600/20 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                    <input
-                      ref={watchlistAddInputRef}
-                      type="file"
-                      accept=".csv"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          Array.from(e.target.files).forEach(file => {
-                            handleWatchlistAddFile(file);
-                          });
-                          e.target.value = '';
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Symbol list */}
-                <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-gray-800">
-
-                  {/* Inline toast banner */}
-                  {watchlistToast && (
-                    <div className={`mx-2 mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
-                      watchlistToast.type === 'error'
-                        ? 'bg-red-500/10 border border-red-500/25 text-red-400'
-                        : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-300'
-                    }`}>
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{watchlistToast.msg}</span>
-                    </div>
-                  )}
-
-                  {watchlistSymbols.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
-                        <List className="w-5 h-5 text-indigo-400/60" />
-                      </div>
-                      <p className="text-[11px] text-gray-500 leading-relaxed">
-                        Load a CSV file to add symbols here. Use the <span className="text-indigo-400 font-semibold">+</span> button to add more.
-                      </p>
-                    </div>
-                  ) : (
-                    <ul className="flex flex-col gap-0.5 px-2">
-                      {watchlistSymbols.map((sym, idx) => {
-                        const isActive = sym.name === activeWatchlistSymbol;
-                        return (
-                          <li
-                            key={sym.name}
-                            draggable={true}
-                            onDragStart={(e) => handleDragStartWatchlist(e, idx)}
-                            onDragOver={(e) => handleDragOverWatchlist(e, idx)}
-                            onDragEnd={handleDragEndWatchlist}
-                            className="list-none"
-                          >
-                            <div
-                              onClick={() => handleWatchlistSymbolSwitch(sym.name)}
-                              className={`
-                                w-full flex items-center justify-between gap-2
-                                px-3 py-2.5 rounded-xl text-left cursor-pointer
-                                transition-all duration-150 group
-                                ${isActive
-                                  ? 'bg-indigo-600/20 border border-indigo-500/30 text-white'
-                                  : 'border border-transparent text-gray-400 hover:bg-gray-800/60 hover:text-white'
-                                }
-                              `}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                {/* Grip drag handle icon */}
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0 cursor-grab active:cursor-grabbing">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-500 hover:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="9" cy="12" r="1"/>
-                                    <circle cx="9" cy="5" r="1"/>
-                                    <circle cx="9" cy="19" r="1"/>
-                                    <circle cx="15" cy="12" r="1"/>
-                                    <circle cx="15" cy="5" r="1"/>
-                                    <circle cx="15" cy="19" r="1"/>
-                                  </svg>
-                                </div>
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
-                                  isActive ? 'bg-indigo-400' : 'bg-gray-700 group-hover:bg-gray-500'
-                                }`} />
-                                <span className="text-xs font-semibold tracking-wide truncate">{sym.name}</span>
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <span className="text-[9px] text-gray-600 group-hover:text-gray-400 transition-colors">
-                                  {sym.raw1m.length > 0 ? `${sym.raw1m.length.toLocaleString()}b` : 'Folder'}
-                                </span>
-                                {isActive && <ChevronRight className="w-3 h-3 text-indigo-400" />}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPendingRemoveSymbol(sym.name);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-600 hover:text-red-400 transition-all"
-                                  title="Remove from watchlist"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
+                        <div
+                          onClick={() => handleWatchlistSymbolSwitch(sym.name)}
+                          className={`
+                            w-full flex items-center justify-between gap-2
+                            px-3 py-2.5 rounded-xl text-left cursor-pointer
+                            transition-all duration-150 group
+                            ${isActive
+                              ? 'bg-indigo-600/20 border border-indigo-500/30 text-white'
+                              : 'border border-transparent text-gray-400 hover:bg-gray-800/60 hover:text-white'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {/* Grip drag handle icon */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-500 hover:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="9" cy="12" r="1"/>
+                                <circle cx="9" cy="5" r="1"/>
+                                <circle cx="9" cy="19" r="1"/>
+                                <circle cx="15" cy="12" r="1"/>
+                                <circle cx="15" cy="5" r="1"/>
+                                <circle cx="15" cy="19" r="1"/>
+                              </svg>
                             </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              </>
-            )}
-
-            {activeRightTab === 'objectTree' && (
-              <>
-                {/* Object Tree Panel header */}
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-white">Object Tree</span>
-                  </div>
-                </div>
-                {/* Object Tree content */}
-                <div className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-gray-800">
-                  <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-indigo-400/60" />
-                    </div>
-                    <p className="text-[11px] text-gray-500 leading-relaxed">
-                      Drawings and objects will appear here in the future.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
+                              isActive ? 'bg-indigo-400' : 'bg-gray-700 group-hover:bg-gray-500'
+                            }`} />
+                            <span className="text-xs font-semibold tracking-wide truncate">{sym.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-[9px] text-gray-600 group-hover:text-gray-400 transition-colors">
+                              {sym.raw1m.length > 0 ? `${sym.raw1m.length.toLocaleString()}b` : 'Folder'}
+                            </span>
+                            {isActive && <ChevronRight className="w-3 h-3 text-indigo-400" />}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingRemoveSymbol(sym.name);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-600 hover:text-red-400 transition-all"
+                              title="Remove from watchlist"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
 
           </div>
         </aside>
@@ -6196,33 +6297,18 @@ export default function App() {
         {/* ── Right icon bar — always pinned to right edge of screen ── */}
         <aside className="w-12 flex-shrink-0 bg-[#1e222d] border-l border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
 
-          {/* Watchlist toggle */}
+          {/* Watchlist / Playlist toggle */}
           <div className="relative">
             <button
-              onClick={() => setActiveRightTab(v => v === 'watchlist' ? null : 'watchlist')}
-              title={activeRightTab === 'watchlist' ? 'Close Watchlist' : 'Open Watchlist'}
+              onClick={() => setIsWatchlistOpen(v => !v)}
+              title={isWatchlistOpen ? 'Close Watchlist' : 'Open Watchlist'}
               className={`p-2 rounded-lg border transition-all ${
-                activeRightTab === 'watchlist'
+                isWatchlistOpen
                   ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60'
               }`}
             >
               <List className="w-4.5 h-4.5" />
-            </button>
-          </div>
-
-          {/* Object Tree toggle */}
-          <div className="relative">
-            <button
-              onClick={() => setActiveRightTab(v => v === 'objectTree' ? null : 'objectTree')}
-              title={activeRightTab === 'objectTree' ? 'Close Object Tree' : 'Open Object Tree'}
-              className={`p-2 rounded-lg border transition-all ${
-                activeRightTab === 'objectTree'
-                  ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60'
-              }`}
-            >
-              <Layers className="w-4.5 h-4.5" />
             </button>
           </div>
 
@@ -6509,94 +6595,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* Custom Delete Drawings Confirmation Dialog */}
-      {deleteConfirmOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#1e222d] border border-red-500/20 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col gap-4 animate-in zoom-in-95 duration-150">
-            <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold tracking-wider uppercase text-white mb-1">Delete Drawings?</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                One or more selected drawings are locked. Are you sure you want to delete them?
-              </p>
-            </div>
-            <div className="flex items-center gap-3 justify-center mt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(false)}
-                className="px-4 py-2 border border-gray-800 hover:bg-gray-800 hover:text-white rounded-xl text-xs font-semibold text-gray-400 transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteConfirmOpen(false);
-                  chartInstancesRef.current.forEach(chart => {
-                    if (!chart) return;
-                    selectedOverlayIds.forEach(id => {
-                      chart.removeOverlay({ id });
-                    });
-                  });
-                  setSelectedOverlayIds([]);
-                  syncAllDrawings();
-                  setDrawingTrigger(prev => prev + 1);
-                }}
-                className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/25 transition-all cursor-pointer"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Drawing Settings Option Dialog */}
-      <DrawingSettingsDialog
-        isOpen={isDrawingSettingsOpen}
-        onClose={() => setIsDrawingSettingsOpen(false)}
-        overlay={getSelectedSettingsOverlay()}
-        allCandles={allTimeframesData[activeTimeframe] || []}
-        timeframe={activeTimeframe}
-        pricePrecision={settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(allTimeframesData[activeTimeframe] || [])}
-        onDeselectOverlay={() => setSelectedOverlayIds([])}
-        onSave={(updatedSettings, updatedPoints) => {
-          chartInstancesRef.current.forEach(chart => {
-            if (!chart) return;
-            selectedOverlayIds.forEach(id => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-
-              const overlay = chart.getOverlays().find((o: any) => 
-                o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-              );
-              if (overlay) {
-                updateDefaultSettings(overlay.name, updatedSettings);
-                const overrideOptions: any = {
-                  id: overlay.id,
-                  extendData: {
-                    ...overlay.extendData,
-                    customSettings: {
-                      ...(overlay.extendData?.customSettings || {}),
-                      ...updatedSettings
-                    }
-                  }
-                };
-                if (updatedPoints && updatedPoints.length > 0) {
-                  overrideOptions.points = updatedPoints;
-                }
-                chart.overrideOverlay(overrideOptions);
-              }
-            });
-            chart.resize();
-          });
-          syncAllDrawings();
-          setDrawingTrigger(prev => prev + 1);
-        }}
-      />
 
     </div>
   );
