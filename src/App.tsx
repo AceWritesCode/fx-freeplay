@@ -5297,6 +5297,33 @@ export default function App() {
           <DrawingFloatingToolbar 
             selectedOverlayIds={selectedOverlayIds} 
             drawingTrigger={drawingTrigger}
+            onApplyTemplate={(tplSettings) => {
+              chartInstancesRef.current.forEach(chart => {
+                if (!chart) return;
+                selectedOverlayIds.forEach(id => {
+                  const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+                  const originalId = syncMatch ? syncMatch[1] : id;
+                  const overlay = chart.getOverlays().find((o: any) => 
+                    o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+                  );
+                  if (overlay) {
+                    chart.overrideOverlay({
+                      id: overlay.id,
+                      extendData: {
+                        ...overlay.extendData,
+                        customSettings: {
+                          ...(overlay.extendData?.customSettings || {}),
+                          ...tplSettings
+                        }
+                      }
+                    });
+                  }
+                });
+              });
+              syncAllDrawings();
+              setSelectedOverlayIds([]);
+              setDrawingTrigger(prev => prev + 1);
+            }}
             onUpdateSettings={(settingsUpdate) => {
               chartInstancesRef.current.forEach(chart => {
                 if (!chart) return;
