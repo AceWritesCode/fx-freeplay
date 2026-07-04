@@ -5222,6 +5222,7 @@ export default function App() {
                 });
               });
               syncAllDrawings();
+              setDrawingTrigger(prev => prev + 1);
             }}
             getOverlay={(id) => {
                for (let i = 0; i < chartInstancesRef.current.length; i++) {

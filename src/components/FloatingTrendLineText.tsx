@@ -1,5 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+// Mirrors the same logic used in TrendLine.tsx canvas
+const parseTimeframe = (tf: string) => {
+  const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
+  if (!match) return { value: 1, unit: 'minutes' };
+  const val = parseInt(match[1]);
+  const unitChar = match[2];
+  let unit = 'minutes';
+  if (unitChar === 's') unit = 'seconds';
+  else if (unitChar === 'm') unit = 'minutes';
+  else if (unitChar === 'h' || unitChar === 'H') unit = 'hours';
+  else if (unitChar === 'd' || unitChar === 'D') unit = 'days';
+  else if (unitChar === 'w' || unitChar === 'W') unit = 'weeks';
+  else if (unitChar === 'M') unit = 'months';
+  return { value: val, unit };
+};
+
+const checkOverlayVisible = (overlay: any, chart: any): boolean => {
+  const customSettings = overlay?.extendData?.customSettings || {};
+  const visibility = customSettings.visibility;
+  if (!visibility) return true;
+  const tf = chart?._loadedTimeframe || '1m';
+  const { value, unit } = parseTimeframe(tf);
+  const rule = visibility[unit];
+  if (!rule) return true;
+  if (!rule.show) return false;
+  if (rule.min !== undefined && value < rule.min) return false;
+  if (rule.max !== undefined && value > rule.max) return false;
+  return true;
+};
+
 interface FloatingTrendLineTextProps {
   chart: any;
   overlay: any;
@@ -35,8 +65,12 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   // Check if overlay is hovered inside klinecharts
   const isOverlayHovered = !!overlay?.extendData?.isHovered;
 
+  // Respect the timeframe visibility setting — hide text when line is hidden
+  const isLineVisible = checkOverlayVisible(overlay, chart);
+
   // We show the label if it's not empty, or if we are editing, or if hovered while selected
-  const shouldShow = text !== '' || isEditing || (isSelected && (isOverlayHovered || isDomHovered));
+  // But never show if the line itself is invisible on this timeframe
+  const shouldShow = isLineVisible && (text !== '' || isEditing || (isSelected && (isOverlayHovered || isDomHovered)));
 
   useEffect(() => {
     let active = true;

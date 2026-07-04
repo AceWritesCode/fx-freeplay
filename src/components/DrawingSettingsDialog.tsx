@@ -966,13 +966,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               );
             })}
 
-            {/* Ranges Checkbox */}
-            <PremiumCheckbox 
-              checked={!!visibility.ranges?.show}
-              onChange={(val) => handleVisibilityChange('ranges', 'show', val)}
-              label="Ranges" 
-            />
-
           </div>
         )}
 
