@@ -71,6 +71,87 @@ const DualRangeSlider: React.FC<{
   );
 };
 
+const SearchableDropdown: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  onDeleteOption: (opt: string) => void;
+  placeholder?: string;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+}> = ({ value, onChange, options, onDeleteOption, placeholder, isOpen, setIsOpen }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const filtered = options.filter(opt => 
+    opt.toLowerCase().includes(value.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, setIsOpen]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onFocus={() => setIsOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setIsOpen(true);
+        }}
+        className="w-full bg-[#121420] border border-[#2a2e45] hover:border-[#323652] focus:border-indigo-500/50 rounded-lg px-3 py-1.5 text-xs text-white outline-none transition-colors pr-8 h-8"
+      />
+      
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-white p-1"
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-[60] max-h-40 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-gray-850">
+          {filtered.map(opt => (
+            <div
+              key={opt}
+              onClick={() => {
+                onChange(opt);
+                setIsOpen(false);
+              }}
+              className="group flex justify-between items-center px-3 py-1.5 hover:bg-gray-800 text-gray-300 hover:text-white text-xs cursor-pointer"
+            >
+              <span className="truncate">{opt}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteOption(opt);
+                }}
+                className="opacity-0 group-hover:opacity-100 hover:bg-red-500/25 p-1 rounded transition-all text-red-400 hover:text-red-300"
+                title="Delete option"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   isOpen,
   onClose,
@@ -82,7 +163,18 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('style');
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
-  const [templates, setTemplates] = useState<{ id: string; name: string; settings: any }[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+
+  // Advanced template feature states
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [activeTemplateMode, setActiveTemplateMode] = useState<'light' | 'dark'>('light');
+  const [saveName, setSaveName] = useState('');
+  const [saveGroup, setSaveGroup] = useState('Default');
+  const [saveMode, setSaveMode] = useState<'light' | 'dark'>('light');
+  const [isNameDropdownOpen, setIsNameDropdownOpen] = useState(false);
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState('Default');
+  const [isSelectGroupDropdownOpen, setIsSelectGroupDropdownOpen] = useState(false);
   
   // Draggable window state
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -214,8 +306,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     // Load templates
     try {
       const saved = localStorage.getItem(`fx_templates_${overlay.name || 'default'}`);
-      if (saved) setTemplates(JSON.parse(saved));
-      else setTemplates([]);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const upgraded = parsed.map((t: any) => ({
+          id: t.id || Date.now().toString() + Math.random().toString(),
+          name: t.name || 'Unnamed',
+          group: t.group || 'Default',
+          mode: t.mode || 'light',
+          settings: t.settings
+        }));
+        setTemplates(upgraded);
+      } else {
+        setTemplates([]);
+      }
     } catch (e) {
       setTemplates([]);
     }
@@ -371,37 +474,47 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     });
   };
 
-  const saveTemplate = () => {
-    const name = window.prompt("Enter template name:");
-    if (!name) return;
-
-    const newTemplate = {
-      id: Date.now().toString(),
-      name,
-      settings: {
-        lineColor,
-        lineWidth,
-        lineStyle,
-        extendType,
-        text,
-        textColor,
-        fontSize,
-        bold: isBold,
-        italic: isItalic,
-        textPosition: {
-          vertical: textValign,
-          horizontal: textHalign
-        },
-        visibility
+  // Helper to ensure selectedGroup updates if mode changes or templates are deleted
+  useEffect(() => {
+    const activeTpls = templates.filter(t => t.mode === activeTemplateMode);
+    const groups = Array.from(new Set(activeTpls.map(t => t.group || 'Default')));
+    if (groups.length > 0) {
+      if (!groups.includes(selectedGroup)) {
+        setSelectedGroup(groups[0]);
       }
-    };
+    } else {
+      setSelectedGroup('Default');
+    }
+  }, [activeTemplateMode, templates]);
 
+  const deleteTemplate = (id: string) => {
     setTemplates(prev => {
-      const updated = [...prev, newTemplate];
+      const updated = prev.filter(t => t.id !== id);
       localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
       return updated;
     });
-    setIsTemplateDropdownOpen(false);
+  };
+
+  const deleteNameOption = (name: string) => {
+    setTemplates(prev => {
+      const updated = prev.filter(t => t.name !== name);
+      localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
+      return updated;
+    });
+    if (saveName === name) {
+      setSaveName('');
+    }
+  };
+
+  const deleteGroupOption = (groupName: string) => {
+    setTemplates(prev => {
+      const updated = prev.filter(t => t.group !== groupName);
+      localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
+      return updated;
+    });
+    if (saveGroup === groupName) {
+      setSaveGroup('Default');
+    }
   };
 
   const applyTemplate = (settings: any) => {
@@ -459,6 +572,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       <span className="text-[12.5px] font-medium tracking-wide">{label}</span>
     </label>
   );
+
+  // Derived template states
+  const activeTemplates = templates.filter(t => t.mode === activeTemplateMode);
+  const uniqueGroups = Array.from(new Set(activeTemplates.map(t => t.group || 'Default')));
+  const visibleTemplates = activeTemplates.filter(t => (t.group || 'Default') === selectedGroup);
+
+  const allUniqueNames = Array.from(new Set(templates.map(t => t.name)));
+  const allUniqueGroups = Array.from(new Set(templates.map(t => t.group || 'Default')));
 
   return (
     <div 
@@ -986,29 +1107,120 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           {isTemplateDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsTemplateDropdownOpen(false)} />
-              <div className="absolute left-0 top-full mt-2 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-44 font-semibold animate-in fade-in slide-in-from-top-2 duration-100 overflow-hidden">
-                <button 
-                  onClick={saveTemplate}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-800 text-indigo-400 hover:text-indigo-300 text-[12px] border-b border-[#242838]"
-                >
-                  Save As...
-                </button>
-                {templates.map(tpl => (
-                  <button 
-                    key={tpl.id}
-                    onClick={() => applyTemplate(tpl.settings)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-800 text-gray-300 text-[12px] truncate"
-                    title={tpl.name}
+              <div className="absolute left-0 bottom-full mb-2 bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-100 overflow-visible flex flex-col">
+                
+                {/* Mode Tabs */}
+                <div className="flex border-b border-[#242838]">
+                  <button
+                    onClick={() => setActiveTemplateMode('light')}
+                    className={`flex-1 text-center py-2 text-xs font-semibold border-r border-[#242838] transition-colors ${
+                      activeTemplateMode === 'light'
+                        ? 'bg-indigo-600/15 text-indigo-400 font-bold border-b border-indigo-500'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
                   >
-                    {tpl.name}
+                    Light
                   </button>
-                ))}
-                <button 
-                  onClick={resetToDefault}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-800 text-gray-400 hover:text-gray-300 text-[12px] border-t border-[#242838]"
-                >
-                  Reset Defaults
-                </button>
+                  <button
+                    onClick={() => setActiveTemplateMode('dark')}
+                    className={`flex-1 text-center py-2 text-xs font-semibold transition-colors ${
+                      activeTemplateMode === 'dark'
+                        ? 'bg-indigo-600/15 text-indigo-400 font-bold border-b border-indigo-500'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    Dark
+                  </button>
+                </div>
+
+                {/* Actions Row */}
+                <div className="flex border-b border-[#242838] text-[11px]">
+                  <button
+                    onClick={() => {
+                      setSaveName('');
+                      setSaveGroup(selectedGroup || 'Default');
+                      setSaveMode(activeTemplateMode);
+                      setIsSaveModalOpen(true);
+                      setIsTemplateDropdownOpen(false);
+                    }}
+                    className="flex-1 text-center py-2 hover:bg-gray-800 text-indigo-400 hover:text-indigo-300 font-semibold border-r border-[#242838]"
+                  >
+                    Save templet
+                  </button>
+                  <button
+                    onClick={() => {
+                      resetToDefault();
+                      setIsTemplateDropdownOpen(false);
+                    }}
+                    className="flex-1 text-center py-2 hover:bg-gray-800 text-gray-400 hover:text-gray-300 font-semibold"
+                  >
+                    Restore to default
+                  </button>
+                </div>
+
+                {/* Group Selector Dropdown */}
+                {uniqueGroups.length > 0 && (
+                  <div className="relative px-3 py-2 border-b border-[#242838] bg-[#171a26]">
+                    <button
+                      onClick={() => setIsSelectGroupDropdownOpen(!isSelectGroupDropdownOpen)}
+                      className="w-full flex items-center justify-between bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 hover:text-white transition-all active:scale-98"
+                    >
+                      <span>{selectedGroup}</span>
+                      <ChevronDown className="w-3 h-3 text-gray-400" />
+                    </button>
+                    {isSelectGroupDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-[60]" onClick={() => setIsSelectGroupDropdownOpen(false)} />
+                        <div className="absolute left-3 right-3 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-[70] py-1 max-h-32 overflow-y-auto">
+                          {uniqueGroups.map(grp => (
+                            <button
+                              key={grp}
+                              onClick={() => {
+                                setSelectedGroup(grp);
+                                setIsSelectGroupDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-1.5 hover:bg-gray-800 text-gray-300 text-xs truncate"
+                            >
+                              {grp}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Templates List */}
+                <div className="max-h-40 overflow-y-auto py-1 bg-[#1c2030]">
+                  {visibleTemplates.length === 0 ? (
+                    <div className="px-4 py-3 text-xs text-gray-500 text-center italic">No templates</div>
+                  ) : (
+                    visibleTemplates.map(tpl => (
+                      <div
+                        key={tpl.id}
+                        className="group flex justify-between items-center px-4 py-1.5 hover:bg-gray-800 text-gray-300 hover:text-white text-xs cursor-pointer"
+                        onClick={() => {
+                          applyTemplate(tpl.settings);
+                          setIsTemplateDropdownOpen(false);
+                        }}
+                      >
+                        <span className="truncate pr-2">{tpl.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTemplate(tpl.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 hover:bg-red-500/25 p-1 rounded transition-all text-red-400 hover:text-red-300"
+                          title="Delete template"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
               </div>
             </>
           )}
@@ -1031,6 +1243,143 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         </div>
 
       </div>
+
+      {/* Save Template Custom Dialog (Popup) */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in duration-150">
+          <div className="bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-xs tracking-wider uppercase text-white">Save drawing template</span>
+              <button 
+                onClick={() => setIsSaveModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="flex flex-col gap-3">
+              {/* Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-gray-400">Name</label>
+                <SearchableDropdown
+                  value={saveName}
+                  onChange={setSaveName}
+                  options={allUniqueNames}
+                  onDeleteOption={deleteNameOption}
+                  placeholder="CHoCH"
+                  isOpen={isNameDropdownOpen}
+                  setIsOpen={setIsNameDropdownOpen}
+                />
+              </div>
+
+              {/* Group */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-gray-400">Group</label>
+                <SearchableDropdown
+                  value={saveGroup}
+                  onChange={setSaveGroup}
+                  options={allUniqueGroups}
+                  onDeleteOption={deleteGroupOption}
+                  placeholder="SMC"
+                  isOpen={isGroupDropdownOpen}
+                  setIsOpen={setIsGroupDropdownOpen}
+                />
+              </div>
+
+              {/* Mode Select Buttons */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold text-gray-400">Mode</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaveMode('light')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      saveMode === 'light'
+                        ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-md shadow-indigo-500/10'
+                        : 'border-[#2a2e45] bg-[#121420] text-gray-400 hover:text-white hover:border-[#3a3f5e]'
+                    }`}
+                  >
+                    Light
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaveMode('dark')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      saveMode === 'dark'
+                        ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-md shadow-indigo-500/10'
+                        : 'border-[#2a2e45] bg-[#121420] text-gray-400 hover:text-white hover:border-[#3a3f5e]'
+                    }`}
+                  >
+                    Dark
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex gap-2 justify-end mt-2">
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="px-4 py-1.5 border border-[#2a2e45] hover:bg-gray-800 text-gray-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!saveName.trim()}
+                onClick={() => {
+                  const nameToSave = saveName.trim();
+                  const groupToSave = saveGroup.trim() || 'Default';
+                  
+                  setTemplates(prev => {
+                    const filtered = prev.filter(t => 
+                      !(t.name.toLowerCase() === nameToSave.toLowerCase() && 
+                        t.group.toLowerCase() === groupToSave.toLowerCase() && 
+                        t.mode === saveMode)
+                    );
+                    const newTemplate = {
+                      id: Date.now().toString(),
+                      name: nameToSave,
+                      group: groupToSave,
+                      mode: saveMode,
+                      settings: {
+                        lineColor,
+                        lineWidth,
+                        lineStyle,
+                        extendType,
+                        text,
+                        textColor,
+                        fontSize,
+                        bold: isBold,
+                        italic: isItalic,
+                        textPosition: {
+                          vertical: textValign,
+                          horizontal: textHalign
+                        },
+                        visibility
+                      }
+                    };
+                    const updated = [...filtered, newTemplate];
+                    localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
+                    return updated;
+                  });
+                  
+                  setSelectedGroup(groupToSave);
+                  setActiveTemplateMode(saveMode);
+                  setIsSaveModalOpen(false);
+                }}
+                className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none text-white rounded-lg text-xs font-semibold transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
