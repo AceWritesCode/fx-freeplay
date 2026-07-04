@@ -102,7 +102,7 @@ export const TrendLineTool: ToolDefinition = {
   createOverlayDef: () => ({
     name: 'trendLine',
     totalStep: 3,
-    needDefaultPointFigure: true,
+    needDefaultPointFigure: false,
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
     createPointFigures: ({ overlay, coordinates, chart }) => {
@@ -292,26 +292,54 @@ export const TrendLineTool: ToolDefinition = {
           });
         }
 
-        // Selection point grab handles
+        // Selection point grab handles / fake lock circles
         if ((overlay?.extendData as any)?.isSelected) {
           const isLocked = overlay?.lock || false;
-          const pointRadius = isLocked ? 2.5 : 4;
-          const borderSize = isLocked ? 1.5 : 2;
-          
-          coordinates.forEach((coord: any) => {
-            figures.push({
-              type: 'circle',
-              attrs: { x: coord.x, y: coord.y, r: pointRadius },
-              styles: {
-                style: 'fill',
-                color: '#ffffff',
-                borderColor: '#2196f3',
-                borderSize: borderSize
-              },
-              ignoreEvent: true
+          if (isLocked) {
+            coordinates.forEach((coord: any) => {
+              figures.push({
+                type: 'circle',
+                attrs: { x: coord.x, y: coord.y, r: 2.5 },
+                styles: {
+                  style: 'fill',
+                  color: '#474a59',
+                  borderColor: '#6a6d7c',
+                  borderSize: 1.5
+                },
+                ignoreEvent: true
+              });
             });
-          });
+          } else {
+            coordinates.forEach((coord: any) => {
+              figures.push({
+                type: 'circle',
+                attrs: { x: coord.x, y: coord.y, r: 4 },
+                styles: {
+                  style: 'fill',
+                  color: '#ffffff',
+                  borderColor: '#2196f3',
+                  borderSize: 2
+                },
+                ignoreEvent: true
+              });
+            });
+          }
         }
+      } else {
+        // Draw points during placement
+        coordinates.forEach((coord: any) => {
+          figures.push({
+            type: 'circle',
+            attrs: { x: coord.x, y: coord.y, r: 4 },
+            styles: {
+              style: 'fill',
+              color: '#ffffff',
+              borderColor: '#2196f3',
+              borderSize: 2
+            },
+            ignoreEvent: true
+          });
+        });
       }
       return figures;
     }
