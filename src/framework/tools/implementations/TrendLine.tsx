@@ -170,7 +170,14 @@ export const TrendLineTool: ToolDefinition = {
         }
 
         const isSelected = (overlay?.extendData as any)?.isSelected || false;
-        const textToShow = text || (isSelected ? '+ Add text' : '');
+        const isHovered = (overlay?.extendData as any)?.isHovered || false;
+        const isEditingText = (overlay?.extendData as any)?.isEditingText || false;
+        
+        let textToShow = text;
+        if (!text && isSelected && (isHovered || isEditingText)) {
+          textToShow = '+ Add text';
+        }
+        
         const hasTextGap = textToShow && textValign === 'middle';
 
         const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];

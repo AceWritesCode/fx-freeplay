@@ -79,15 +79,25 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           }
 
           let translateX = '-50%';
-          if (textHalign === 'left') translateX = '0%';
-          else if (textHalign === 'right') translateX = '-100%';
+          let transformOrigin = '50% 50%';
+          if (textHalign === 'left') {
+            translateX = '0%';
+            transformOrigin = '0% 50%';
+          } else if (textHalign === 'right') {
+            translateX = '-100%';
+            transformOrigin = '100% 50%';
+          }
 
           let translateY = '-50%';
-          if (textValign === 'top') translateY = 'calc(-100% - 3px)';
-          else if (textValign === 'bottom') translateY = '3px';
+          if (textValign === 'top') translateY = '-100%';
+          else if (textValign === 'bottom') translateY = '0%';
 
-          // Rotate local coordinate system first, then translate along rotated coordinates!
-          elRef.current.style.transform = `translate(${tx}px, ${ty}px) rotate(${angle}rad) translate(${translateX}, ${translateY})`;
+          let spacing = 0;
+          if (textValign === 'top') spacing = -3;
+          else if (textValign === 'bottom') spacing = 3;
+
+          elRef.current.style.transformOrigin = transformOrigin;
+          elRef.current.style.transform = `translate(${tx}px, ${ty}px) translate(${translateX}, ${translateY}) rotate(${angle}rad) translate(0px, ${spacing}px)`;
         }
       }
       requestAnimationFrame(updatePosition);
@@ -105,6 +115,16 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
     backupTextRef.current = text;
     setIsEditing(true);
     setInputText(text);
+
+    // Tell overlays we are editing so the split gap persists
+    chart.overrideOverlay({
+      id: overlay.id,
+      extendData: {
+        ...(overlay.extendData || {}),
+        isEditingText: true
+      }
+    });
+
     setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
@@ -113,15 +133,36 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
 
   const handleSave = () => {
     setIsEditing(false);
+    chart.overrideOverlay({
+      id: overlay.id,
+      extendData: {
+        ...(overlay.extendData || {}),
+        isEditingText: false
+      }
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
+      chart.overrideOverlay({
+        id: overlay.id,
+        extendData: {
+          ...(overlay.extendData || {}),
+          isEditingText: false
+        }
+      });
     } else if (e.key === 'Escape') {
       setIsEditing(false);
       setInputText(backupTextRef.current);
       onTextChange(backupTextRef.current);
+      chart.overrideOverlay({
+        id: overlay.id,
+        extendData: {
+          ...(overlay.extendData || {}),
+          isEditingText: false
+        }
+      });
     }
   };
 
