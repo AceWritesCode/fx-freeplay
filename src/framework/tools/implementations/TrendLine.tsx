@@ -184,8 +184,9 @@ export const TrendLineTool: ToolDefinition = {
           ignoreEvent: false,
         });
 
-        // Custom Text Annotation
-        if (text) {
+        // Custom Text Annotation (Only draw on canvas if NOT selected)
+        const isSelected = (overlay?.extendData as any)?.isSelected || false;
+        if (text && !isSelected) {
           let tx = (coordinates[0].x + coordinates[1].x) / 2;
           let ty = (coordinates[0].y + coordinates[1].y) / 2;
           

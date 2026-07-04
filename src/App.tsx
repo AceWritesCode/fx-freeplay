@@ -36,6 +36,7 @@ import type { ChartSettings } from './components/ThemeSettingsModal';
 import { ToolRegistry } from './framework/tools';
 import { DrawingFloatingToolbar } from './components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from './components/DrawingSettingsDialog';
+import { FloatingTrendLineText } from './components/FloatingTrendLineText';
 
 type Timeframe = string;
 
@@ -4558,6 +4559,44 @@ export default function App() {
           <span className="text-gray-500">•</span>
           <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
+        
+        {/* Floating text inputs for selected TrendLines */}
+        {(() => {
+          const chart = chartInstancesRef.current[i];
+          const selectedTrendLines = chart 
+            ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' && selectedOverlayIds.includes(o.id))
+            : [];
+          return selectedTrendLines.map((ov: any) => (
+            <FloatingTrendLineText
+              key={ov.id}
+              chart={chart}
+              overlay={ov}
+              onTextChange={(newText) => {
+                chartInstancesRef.current.forEach(c => {
+                  if (!c) return;
+                  selectedOverlayIds.forEach(id => {
+                    const targetOverlay = c.getOverlays().find((o: any) => o.id === id);
+                    if (targetOverlay) {
+                      c.overrideOverlay({
+                        id,
+                        extendData: {
+                          ...(targetOverlay.extendData || {}),
+                          customSettings: {
+                            ...(targetOverlay.extendData?.customSettings || {}),
+                            text: newText
+                          }
+                        }
+                      });
+                    }
+                  });
+                  c.resize();
+                });
+                syncAllDrawings();
+                setDrawingTrigger(prev => prev + 1);
+              }}
+            />
+          ));
+        })()}
       </div>
     );
   };

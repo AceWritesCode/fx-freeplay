@@ -257,6 +257,28 @@ export function getInteractiveOverlayOptions(
       }
       setTimeout(() => syncAllDrawings(), 50);
     },
+    onMouseEnter: (event: any) => {
+      event.chart.overrideOverlay({
+        id: event.overlay.id,
+        extendData: {
+          ...(event.overlay.extendData || {}),
+          isHovered: true
+        }
+      });
+      event.chart.resize();
+      return true;
+    },
+    onMouseLeave: (event: any) => {
+      event.chart.overrideOverlay({
+        id: event.overlay.id,
+        extendData: {
+          ...(event.overlay.extendData || {}),
+          isHovered: false
+        }
+      });
+      event.chart.resize();
+      return true;
+    },
     onPressedMoveStart: (event: any) => {
       const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
       let closestIndex = 0;
