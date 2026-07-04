@@ -4590,12 +4590,17 @@ export default function App() {
               overlay={ov}
               isSelected={selectedOverlayIds.includes(ov.id)}
               onTextChange={(newText) => {
+                const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+                const originalId = syncMatch ? syncMatch[1] : ov.id;
+
                 chartInstancesRef.current.forEach(c => {
                   if (!c) return;
-                  const targetOverlay = c.getOverlays().find((o: any) => o.id === ov.id);
+                  const targetOverlay = c.getOverlays().find((o: any) => 
+                    o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+                  );
                   if (targetOverlay) {
                     c.overrideOverlay({
-                      id: ov.id,
+                      id: targetOverlay.id,
                       extendData: {
                         ...(targetOverlay.extendData || {}),
                         customSettings: {
@@ -5195,10 +5200,15 @@ export default function App() {
               chartInstancesRef.current.forEach(chart => {
                 if (!chart) return;
                 selectedOverlayIds.forEach(id => {
-                  const overlay = chart.getOverlays().find((o: any) => o.id === id);
+                  const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+                  const originalId = syncMatch ? syncMatch[1] : id;
+
+                  const overlay = chart.getOverlays().find((o: any) => 
+                    o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+                  );
                   if (overlay) {
                     chart.overrideOverlay({
-                      id,
+                      id: overlay.id,
                       extendData: {
                         ...overlay.extendData,
                         customSettings: {
@@ -6384,10 +6394,15 @@ export default function App() {
           chartInstancesRef.current.forEach(chart => {
             if (!chart) return;
             selectedOverlayIds.forEach(id => {
-              const overlay = chart.getOverlays().find((o: any) => o.id === id);
+              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : id;
+
+              const overlay = chart.getOverlays().find((o: any) => 
+                o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+              );
               if (overlay) {
                 const overrideOptions: any = {
-                  id,
+                  id: overlay.id,
                   extendData: {
                     ...overlay.extendData,
                     customSettings: {
