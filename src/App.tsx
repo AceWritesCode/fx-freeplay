@@ -2549,9 +2549,13 @@ export default function App() {
 
   // Click-to-cut point selector hook using DOM click + coordinate convertFromPixel
   useEffect(() => {
-    if (!chartInstance.current || !chartContainerRef.current) return;
-
-    const container = chartContainerRef.current;
+    const container = chartContainersRef.current[activeChartIndex];
+    console.log('[DEBUG] selector hook - checking refs:', {
+      hasChartInstance: !!chartInstance.current,
+      hasChartContainer: !!container,
+      isSelectingCutPoint
+    });
+    if (!chartInstance.current || !container) return;
 
     const handleContainerClick = (event: MouseEvent) => {
       if (!isSelectingCutPoint || !chartInstance.current) return;
@@ -2625,16 +2629,16 @@ export default function App() {
     if (isSelectingCutPoint) {
       console.log('[DEBUG] cutpoint click hook - Active. Binding capturing-phase click and cursor tracking listeners.');
       container.addEventListener('click', handleContainerClick, true);
-      container.addEventListener('mousemove', handleMouseMove);
-      container.addEventListener('mouseleave', handleMouseLeave);
+      container.addEventListener('mousemove', handleMouseMove, true);
+      container.addEventListener('mouseleave', handleMouseLeave, true);
     }
 
     return () => {
       container.removeEventListener('click', handleContainerClick, true);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseleave', handleMouseLeave);
+      container.removeEventListener('mousemove', handleMouseMove, true);
+      container.removeEventListener('mouseleave', handleMouseLeave, true);
     };
-  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData, activeChartIndex]);
+  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData, activeChartIndex, chartContainersRef.current[activeChartIndex]]);
 
   // 1a. Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
@@ -4657,6 +4661,14 @@ export default function App() {
           }}
         />
         
+        {/* Vertical Cut Selection Line */}
+        {isSelectingCutPoint && isActive && cutPointHoverX !== null && (
+          <div
+            className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500 pointer-events-none z-30"
+            style={{ left: `${cutPointHoverX}px` }}
+          />
+        )}
+        
         {/* Slot Info Badge (Top Left of each chart) */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#1e222d]/85 backdrop-blur-sm border border-gray-800 pointer-events-none select-none text-[10px] font-bold text-gray-300">
           <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
@@ -5447,13 +5459,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Vertical Cut Selection Line */}
-          {isSelectingCutPoint && cutPointHoverX !== null && (
-            <div
-              className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500 pointer-events-none z-10"
-              style={{ left: `${cutPointHoverX}px` }}
-            />
-          )}
+
 
           {/* Cutpoint Selection Banner */}
           {isReplayActive && isSelectingCutPoint && (
