@@ -102,7 +102,7 @@ export const TrendLineTool: ToolDefinition = {
   createOverlayDef: () => ({
     name: 'trendLine',
     totalStep: 3,
-    needDefaultPointFigure: false,
+    needDefaultPointFigure: true,
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
     createPointFigures: ({ overlay, coordinates, chart }) => {
@@ -309,37 +309,8 @@ export const TrendLineTool: ToolDefinition = {
                 ignoreEvent: true
               });
             });
-          } else {
-            coordinates.forEach((coord: any) => {
-              figures.push({
-                type: 'circle',
-                attrs: { x: coord.x, y: coord.y, r: 4 },
-                styles: {
-                  style: 'fill',
-                  color: '#ffffff',
-                  borderColor: '#2196f3',
-                  borderSize: 2
-                },
-                ignoreEvent: true
-              });
-            });
           }
         }
-      } else {
-        // Draw points during placement
-        coordinates.forEach((coord: any) => {
-          figures.push({
-            type: 'circle',
-            attrs: { x: coord.x, y: coord.y, r: 4 },
-            styles: {
-              style: 'fill',
-              color: '#ffffff',
-              borderColor: '#2196f3',
-              borderSize: 2
-            },
-            ignoreEvent: true
-          });
-        });
       }
       return figures;
     }

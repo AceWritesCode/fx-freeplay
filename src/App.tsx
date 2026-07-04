@@ -838,7 +838,28 @@ export default function App() {
                   id: originalId,
                   points: JSON.parse(JSON.stringify(ov.points)),
                   extendData: ov.extendData,
-                  lock: ov.lock
+                  lock: ov.lock,
+                  styles: {
+                    point: ov.lock ? {
+                      radius: 0,
+                      activeRadius: 0,
+                      color: 'transparent',
+                      borderColor: 'transparent',
+                      borderSize: 0,
+                      activeColor: 'transparent',
+                      activeBorderColor: 'transparent',
+                      activeBorderSize: 0
+                    } : {
+                      radius: 4.5,
+                      activeRadius: 5.5,
+                      color: '#ffffff',
+                      borderColor: '#2196F3',
+                      borderSize: 1.5,
+                      activeColor: '#ffffff',
+                      activeBorderColor: '#2196F3',
+                      activeBorderSize: 2
+                    }
+                  }
                 });
               }
             }
@@ -921,9 +942,30 @@ export default function App() {
           id: syncId,
           paneId: orig.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(orig.points)),
-          extendData: orig.extendData,
-          lock: orig.lock,
-          styles: orig.styles,
+           lock: orig.lock,
+          styles: orig.lock ? {
+            point: {
+              radius: 0,
+              activeRadius: 0,
+              color: 'transparent',
+              borderColor: 'transparent',
+              borderSize: 0,
+              activeColor: 'transparent',
+              activeBorderColor: 'transparent',
+              activeBorderSize: 0
+            }
+          } : {
+            point: {
+              radius: 4.5,
+              activeRadius: 5.5,
+              color: '#ffffff',
+              borderColor: '#2196F3',
+              borderSize: 1.5,
+              activeColor: '#ffffff',
+              activeBorderColor: '#2196F3',
+              activeBorderSize: 2
+            }
+          },
           onRemoved: (event: any) => {
             console.log(`[DEBUG] synced copy - onRemoved callback fired for id: ${event.overlay.id}`);
             const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
@@ -5131,9 +5173,31 @@ export default function App() {
                 selectedOverlayIds.forEach(id => {
                   const overlay = chart.getOverlays().find((o: any) => o.id === id);
                   if (overlay) {
+                    const nextLock = !overlay.lock;
                     chart.overrideOverlay({
                       id,
-                      lock: !overlay.lock
+                      lock: nextLock,
+                      styles: {
+                        point: nextLock ? {
+                          radius: 0,
+                          activeRadius: 0,
+                          color: 'transparent',
+                          borderColor: 'transparent',
+                          borderSize: 0,
+                          activeColor: 'transparent',
+                          activeBorderColor: 'transparent',
+                          activeBorderSize: 0
+                        } : {
+                          radius: 4.5,
+                          activeRadius: 5.5,
+                          color: '#ffffff',
+                          borderColor: '#2196F3',
+                          borderSize: 1.5,
+                          activeColor: '#ffffff',
+                          activeBorderColor: '#2196F3',
+                          activeBorderSize: 2
+                        }
+                      }
                     });
                   }
                 });
