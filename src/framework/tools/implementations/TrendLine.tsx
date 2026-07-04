@@ -163,29 +163,73 @@ export const TrendLineTool: ToolDefinition = {
         const height = bounding?.height ?? 500;
 
         // Compute line endpoints (extrapolate for extend type)
-        let lineCoords = [...coordinates];
+        let p1 = { ...coordinates[0] };
+        let p2 = { ...coordinates[1] };
         if (extendType === 'left' || extendType === 'both') {
-          lineCoords[0] = extrapolateLine(coordinates[0], coordinates[1], 'left', width, height);
+          p1 = extrapolateLine(coordinates[0], coordinates[1], 'left', width, height);
         }
         if (extendType === 'right' || extendType === 'both') {
-          lineCoords[1] = extrapolateLine(coordinates[0], coordinates[1], 'right', width, height);
+          p2 = extrapolateLine(coordinates[0], coordinates[1], 'right', width, height);
         }
 
-        // Main line
-        figures.push({
-          type: 'line',
-          attrs: { coordinates: lineCoords },
-          styles: {
-            style,
-            color: lineColor,
-            size: lineWidth,
-            dashedValue
-          },
-          ignoreEvent: false,
+        const isSelected = (overlay?.extendData as any)?.isSelected || false;
+        const textToShow = text || (isSelected ? '+ Add text' : '');
+        const hasTextGap = textToShow && textValign === 'middle' && textHalign === 'center';
+
+        const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+
+        if (hasTextGap) {
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const textWidth = textToShow.length * fontSize * 0.55 + 16;
+
+          if (len > textWidth) {
+            const ux = dx / len;
+            const uy = dy / len;
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            const gapHalf = textWidth / 2;
+
+            drawSegments.push({
+              x1: p1.x,
+              y1: p1.y,
+              x2: midX - gapHalf * ux,
+              y2: midY - gapHalf * uy
+            });
+
+            drawSegments.push({
+              x1: midX + gapHalf * ux,
+              y1: midY + gapHalf * uy,
+              x2: p2.x,
+              y2: p2.y
+            });
+          }
+        } else {
+          drawSegments.push({
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y
+          });
+        }
+
+        // Draw line segments
+        drawSegments.forEach(seg => {
+          figures.push({
+            type: 'line',
+            attrs: { coordinates: [{ x: seg.x1, y: seg.y1 }, { x: seg.x2, y: seg.y2 }] },
+            styles: {
+              style,
+              color: lineColor,
+              size: lineWidth,
+              dashedValue
+            },
+            ignoreEvent: false,
+          });
         });
 
         // Custom Text Annotation (Only draw on canvas if NOT selected)
-        const isSelected = (overlay?.extendData as any)?.isSelected || false;
         if (text && !isSelected) {
           let tx = (coordinates[0].x + coordinates[1].x) / 2;
           let ty = (coordinates[0].y + coordinates[1].y) / 2;
