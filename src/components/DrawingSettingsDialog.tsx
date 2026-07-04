@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ChevronDown, Check } from 'lucide-react';
+import { X, ChevronDown, Check, Minus, Plus } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 interface DrawingSettingsDialogProps {
@@ -9,6 +9,7 @@ interface DrawingSettingsDialogProps {
   onSave: (settings: any, points?: any[]) => void;
   timeframe?: string;
   allCandles?: any[]; // To map bar index <-> timestamp
+  pricePrecision?: number; // Active symbol precision
 }
 
 type TabType = 'style' | 'text' | 'coordinates' | 'visibility';
@@ -76,7 +77,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   overlay,
   onSave,
   timeframe = '1m',
-  allCandles = []
+  allCandles = [],
+  pricePrecision
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('style');
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
@@ -95,11 +97,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [lineWidth, setLineWidth] = useState(1);
   const [lineStyle, setLineStyle] = useState('solid');
   const [extendType, setExtendType] = useState('none');
-  const [showMiddlePoint, setShowMiddlePoint] = useState(false);
-  const [showPriceLabels, setShowPriceLabels] = useState(false);
-  const [statsType, setStatsType] = useState('hidden');
-  const [statsPosition, setStatsPosition] = useState('right');
-  const [alwaysShowStats, setAlwaysShowStats] = useState(false);
 
   // Text Tab States
   const [text, setText] = useState('');
@@ -129,7 +126,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [activeColorPicker, setActiveColorPicker] = useState<'line' | 'text' | null>(null);
   
   // Custom dropdowns for style selectors
-  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'stats' | 'statsPos' | 'fontSize' | 'valign' | 'halign' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | null>(null);
+
+  const prec = pricePrecision !== undefined ? pricePrecision : 4;
 
   // Initial Position + Load Settings
   useEffect(() => {
@@ -150,11 +149,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(customSettings.lineWidth || 1);
     setLineStyle(customSettings.lineStyle || 'solid');
     setExtendType(customSettings.extendType || 'none');
-    setShowMiddlePoint(!!customSettings.showMiddlePoint);
-    setShowPriceLabels(!!customSettings.showPriceLabels);
-    setStatsType(customSettings.statsType || 'hidden');
-    setStatsPosition(customSettings.statsPosition || 'right');
-    setAlwaysShowStats(!!customSettings.alwaysShowStats);
 
     // Text settings
     setText(customSettings.text || '');
@@ -173,13 +167,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     // Points coordinates
     if (overlay.points) {
       const mappedPoints = overlay.points.map((pt: any) => {
-        let barIndex = 0;
+        let barIndex = -1;
         if (allCandles.length > 0) {
           const idx = allCandles.findIndex(c => c.timestamp === pt.timestamp);
           if (idx !== -1) barIndex = idx;
         }
         return {
-          price: pt.value,
+          price: parseFloat(pt.value).toFixed(prec),
           bar: barIndex,
           timestamp: pt.timestamp
         };
@@ -200,9 +194,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setActiveColorPicker(null);
     setActiveSelect(null);
     setIsTemplateDropdownOpen(false);
-  }, [isOpen, overlay, allCandles]);
+  }, [isOpen, overlay, allCandles, prec]);
 
-  // Dragging event handlers - Direct DOM style mutation for 60fps drag performance
+  // Dragging event handlers - Direct DOM style mutation for 65fps drag performance
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Left click only
     setIsDragging(true);
@@ -262,11 +256,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineWidth,
       lineStyle,
       extendType,
-      showMiddlePoint,
-      showPriceLabels,
-      statsType,
-      statsPosition,
-      alwaysShowStats,
       text,
       textColor,
       fontSize,
@@ -281,7 +270,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const updatedPoints = points.map(pt => {
       let finalTimestamp = pt.timestamp;
-      if (allCandles.length > 0) {
+      if (allCandles.length > 0 && pt.bar !== -1) {
         const candle = allCandles[pt.bar];
         if (candle) {
           finalTimestamp = candle.timestamp;
@@ -347,11 +336,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         lineWidth,
         lineStyle,
         extendType,
-        showMiddlePoint,
-        showPriceLabels,
-        statsType,
-        statsPosition,
-        alwaysShowStats,
         text,
         textColor,
         fontSize,
@@ -379,11 +363,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(settings.lineWidth || 1);
     setLineStyle(settings.lineStyle || 'solid');
     setExtendType(settings.extendType || 'none');
-    setShowMiddlePoint(!!settings.showMiddlePoint);
-    setShowPriceLabels(!!settings.showPriceLabels);
-    setStatsType(settings.statsType || 'hidden');
-    setStatsPosition(settings.statsPosition || 'right');
-    setAlwaysShowStats(!!settings.alwaysShowStats);
     setText(settings.text || '');
     setTextColor(settings.textColor || '#2196F3');
     setFontSize(settings.fontSize || 14);
@@ -400,11 +379,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(1);
     setLineStyle('solid');
     setExtendType('none');
-    setShowMiddlePoint(false);
-    setShowPriceLabels(false);
-    setStatsType('hidden');
-    setStatsPosition('right');
-    setAlwaysShowStats(false);
     setText('');
     setTextColor('#2196F3');
     setFontSize(14);
@@ -633,101 +607,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               </div>
             </div>
 
-            {/* Checkboxes Group */}
-            <div className="flex flex-col gap-2.5 pt-1">
-              <PremiumCheckbox 
-                checked={showMiddlePoint} 
-                onChange={setShowMiddlePoint} 
-                label="Middle point" 
-              />
-              <PremiumCheckbox 
-                checked={showPriceLabels} 
-                onChange={setShowPriceLabels} 
-                label="Price labels" 
-              />
-            </div>
-
-            {/* Info Section Header */}
-            <div className="pt-3 border-t border-[#242838] space-y-3.5">
-              <span className="text-[10.5px] font-bold text-gray-500 uppercase tracking-widest block">Info</span>
-              
-              {/* Stats Row */}
-              <div className="flex items-center justify-between min-h-[36px]">
-                <span className="text-gray-400 font-medium">Stats</span>
-                <div className="relative">
-                  <button
-                    onClick={() => { setActiveSelect(activeSelect === 'stats' ? null : 'stats'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95"
-                  >
-                    <span className="capitalize">{statsType === 'hidden' ? 'Hidden' : 'Show stats'}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </button>
-                  {activeSelect === 'stats' && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
-                        {[
-                          { val: 'hidden', label: 'Hidden' },
-                          { val: 'show', label: 'Show stats' }
-                        ].map(item => (
-                          <button
-                            key={item.val}
-                            onClick={() => { setStatsType(item.val); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] ${statsType === item.val ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Stats Position Row */}
-              {statsType !== 'hidden' && (
-                <div className="flex items-center justify-between min-h-[36px] animate-in fade-in slide-in-from-top-1 duration-150">
-                  <span className="text-gray-400 font-medium">Stats position</span>
-                  <div className="relative">
-                    <button
-                      onClick={() => { setActiveSelect(activeSelect === 'statsPos' ? null : 'statsPos'); setActiveColorPicker(null); }}
-                      className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95"
-                    >
-                      <span className="capitalize">{statsPosition}</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </button>
-                    {activeSelect === 'statsPos' && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                        <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
-                          {['left', 'right'].map(pos => (
-                            <button
-                              key={pos}
-                              onClick={() => { setStatsPosition(pos); setActiveSelect(null); }}
-                              className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] capitalize ${statsPosition === pos ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
-                            >
-                              {pos}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Always Show Stats Checkbox */}
-              {statsType !== 'hidden' && (
-                <div className="animate-in fade-in slide-in-from-top-1 duration-150">
-                  <PremiumCheckbox 
-                    checked={alwaysShowStats} 
-                    onChange={setAlwaysShowStats} 
-                    label="Always show stats" 
-                  />
-                </div>
-              )}
-            </div>
-
           </div>
         )}
 
@@ -884,23 +763,76 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                   <span className="text-gray-400 font-medium">#{i+1} (price, bar)</span>
                   <div className="flex gap-2.5 items-center">
                     
-                    {/* Price input */}
-                    <input 
-                      type="text" 
-                      data-color-input="true"
-                      value={pt.price} 
-                      onChange={(e) => handlePointChange(i, 'price', e.target.value)}
-                      className="bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-3 py-1.5 w-28 outline-none text-right text-[12px] text-gray-200 focus:border-indigo-500/50 font-mono transition-colors"
-                    />
+                    {/* Price Input with Plus/Minus buttons */}
+                    <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[140px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const step = 1 / Math.pow(10, prec);
+                          const currentVal = parseFloat(pt.price) || 0;
+                          const newVal = Math.max(0, currentVal - step);
+                          handlePointChange(i, 'price', newVal.toFixed(prec));
+                        }}
+                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                        title="Decrease Price"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        step={1 / Math.pow(10, prec)}
+                        value={pt.price}
+                        onChange={(e) => handlePointChange(i, 'price', e.target.value)}
+                        className="w-[86px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const step = 1 / Math.pow(10, prec);
+                          const currentVal = parseFloat(pt.price) || 0;
+                          const newVal = currentVal + step;
+                          handlePointChange(i, 'price', newVal.toFixed(prec));
+                        }}
+                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                        title="Increase Price"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                    {/* Bar index input */}
-                    <input 
-                      type="number" 
-                      data-color-input="true"
-                      value={pt.bar} 
-                      onChange={(e) => handlePointChange(i, 'bar', e.target.value)}
-                      className="bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-3 py-1.5 w-24 outline-none text-right text-[12px] text-gray-200 focus:border-indigo-500/50 font-mono transition-colors"
-                    />
+                    {/* Bar Input with Plus/Minus buttons */}
+                    <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[100px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = parseInt(pt.bar) || 0;
+                          const newVal = Math.max(-1, currentVal - 1);
+                          handlePointChange(i, 'bar', String(newVal));
+                        }}
+                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                        title="Decrease Bar Index"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        value={pt.bar}
+                        onChange={(e) => handlePointChange(i, 'bar', e.target.value)}
+                        className="w-[46px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = parseInt(pt.bar) || 0;
+                          const newVal = currentVal + 1;
+                          handlePointChange(i, 'bar', String(newVal));
+                        }}
+                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                        title="Increase Bar Index"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
                   </div>
                 </div>

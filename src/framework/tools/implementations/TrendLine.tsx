@@ -9,13 +9,39 @@ const TrendLineIcon = () => (
   </svg>
 );
 
-const extrapolateLine = (p1: { x: number; y: number }, p2: { x: number; y: number }, targetX: number) => {
-  if (p2.x === p1.x) {
-    return { x: p1.x, y: targetX < p1.x ? -10000 : 10000 };
+// Robust extrapolation calculation
+const extrapolateLine = (
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  targetSide: 'left' | 'right',
+  width: number,
+  height: number
+) => {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+
+  if (Math.abs(dx) < 0.0001) {
+    // Near vertical line
+    if (targetSide === 'left') {
+      return { x: p1.x, y: p1.y < p2.y ? -100 : height + 100 };
+    } else {
+      return { x: p1.x, y: p1.y < p2.y ? height + 100 : -100 };
+    }
   }
-  const slope = (p2.y - p1.y) / (p2.x - p1.x);
-  const y = p1.y + slope * (targetX - p1.x);
-  return { x: targetX, y };
+
+  const slope = dy / dx;
+
+  if (targetSide === 'left') {
+    // Extrapolate in the direction of left side (past p1)
+    const targetX = dx > 0 ? -100 : width + 100;
+    const targetY = p1.y + slope * (targetX - p1.x);
+    return { x: targetX, y: targetY };
+  } else {
+    // Extrapolate in the direction of right side (past p2)
+    const targetX = dx > 0 ? width + 100 : -100;
+    const targetY = p2.y + slope * (targetX - p2.x);
+    return { x: targetX, y: targetY };
+  }
 };
 
 const parseTimeframe = (tf: string) => {
@@ -88,10 +114,6 @@ export const TrendLineTool: ToolDefinition = {
     {
       id: 'default',
       name: 'Default',
-      themeColors: {
-        light: { lineColor: '#000000' },
-        dark: { lineColor: '#FFFFFF' }
-      },
       commonSettings: {
         lineWidth: 1,
         lineStyle: 'solid'
@@ -105,7 +127,7 @@ export const TrendLineTool: ToolDefinition = {
     needDefaultPointFigure: true,
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
-    createPointFigures: ({ overlay, coordinates, chart }) => {
+    createPointFigures: ({ overlay, coordinates, chart, bounding }) => {
       // 1. Timeframe Visibility Filter
       if (chart && !isOverlayVisible(overlay, chart)) {
         return [];
@@ -116,10 +138,6 @@ export const TrendLineTool: ToolDefinition = {
       const lineWidth = customSettings.lineWidth || 1;
       const lineStyle = customSettings.lineStyle || 'solid';
       const extendType = customSettings.extendType || 'none';
-      const showMiddlePoint = !!customSettings.showMiddlePoint;
-      const showPriceLabels = !!customSettings.showPriceLabels;
-      const statsType = customSettings.statsType || 'hidden';
-      const statsPosition = customSettings.statsPosition || 'right';
       
       // Text configurations
       const text = customSettings.text || '';
@@ -141,13 +159,16 @@ export const TrendLineTool: ToolDefinition = {
 
       const figures: any[] = [];
       if (coordinates.length === 2) {
+        const width = bounding?.width ?? 1000;
+        const height = bounding?.height ?? 500;
+
         // Compute line endpoints (extrapolate for extend type)
         let lineCoords = [...coordinates];
         if (extendType === 'left' || extendType === 'both') {
-          lineCoords[0] = extrapolateLine(coordinates[0], coordinates[1], -10000);
+          lineCoords[0] = extrapolateLine(coordinates[0], coordinates[1], 'left', width, height);
         }
         if (extendType === 'right' || extendType === 'both') {
-          lineCoords[1] = extrapolateLine(coordinates[0], coordinates[1], 10000);
+          lineCoords[1] = extrapolateLine(coordinates[0], coordinates[1], 'right', width, height);
         }
 
         // Main line
@@ -162,53 +183,6 @@ export const TrendLineTool: ToolDefinition = {
           },
           ignoreEvent: false,
         });
-
-        // Midpoint circle
-        if (showMiddlePoint) {
-          const midX = (coordinates[0].x + coordinates[1].x) / 2;
-          const midY = (coordinates[0].y + coordinates[1].y) / 2;
-          figures.push({
-            type: 'circle',
-            attrs: { x: midX, y: midY, r: 3 },
-            styles: {
-              style: 'fill',
-              color: lineColor,
-              borderColor: '#ffffff',
-              borderSize: 1
-            },
-            ignoreEvent: true
-          });
-        }
-
-        // Price labels next to endpoints
-        if (showPriceLabels) {
-          figures.push({
-            type: 'text',
-            attrs: { 
-              x: coordinates[0].x + 10, 
-              y: coordinates[0].y - 5, 
-              text: (overlay.points[0]?.value || 0).toFixed(5) 
-            },
-            styles: {
-              color: lineColor,
-              size: 10
-            },
-            ignoreEvent: true
-          });
-          figures.push({
-            type: 'text',
-            attrs: { 
-              x: coordinates[1].x + 10, 
-              y: coordinates[1].y - 5, 
-              text: (overlay.points[1]?.value || 0).toFixed(5) 
-            },
-            styles: {
-              color: lineColor,
-              size: 10
-            },
-            ignoreEvent: true
-          });
-        }
 
         // Custom Text Annotation
         if (text) {
@@ -235,58 +209,6 @@ export const TrendLineTool: ToolDefinition = {
               size: fontSize,
               weight: isBold ? 'bold' : 'normal',
               style: isItalic ? 'italic' : 'normal'
-            },
-            ignoreEvent: true
-          });
-        }
-
-        // Stats card info box
-        if (statsType !== 'hidden') {
-          const p1Val = overlay.points[0]?.value || 0;
-          const p2Val = overlay.points[1]?.value || 0;
-          const priceDiff = p2Val - p1Val;
-          const percentDiff = p1Val !== 0 ? (priceDiff / p1Val) * 100 : 0;
-          const sign = priceDiff >= 0 ? '+' : '';
-          
-          const statsText = `${sign}${priceDiff.toFixed(5)} (${sign}${percentDiff.toFixed(2)}%)`;
-          
-          let sx = (coordinates[0].x + coordinates[1].x) / 2;
-          let sy = (coordinates[0].y + coordinates[1].y) / 2;
-          if (statsPosition === 'left') {
-            sx = Math.min(coordinates[0].x, coordinates[1].x);
-          } else if (statsPosition === 'right') {
-            sx = Math.max(coordinates[0].x, coordinates[1].x);
-          }
-
-          figures.push({
-            type: 'rect',
-            attrs: {
-              x: sx - 60,
-              y: sy - 25,
-              width: 120,
-              height: 20
-            },
-            styles: {
-              style: 'fill',
-              color: 'rgba(30, 34, 45, 0.85)',
-              borderColor: '#363c4e',
-              borderSize: 1,
-              borderRadius: 4
-            },
-            ignoreEvent: true
-          });
-
-          figures.push({
-            type: 'text',
-            attrs: {
-              x: sx,
-              y: sy - 15,
-              text: statsText,
-              align: 'center'
-            },
-            styles: {
-              color: '#ffffff',
-              size: 10
             },
             ignoreEvent: true
           });

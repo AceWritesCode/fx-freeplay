@@ -6324,6 +6324,7 @@ export default function App() {
         overlay={getSelectedSettingsOverlay()}
         allCandles={allTimeframesData[activeTimeframe] || []}
         timeframe={activeTimeframe}
+        pricePrecision={settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(allTimeframesData[activeTimeframe] || [])}
         onSave={(updatedSettings, updatedPoints) => {
           chartInstancesRef.current.forEach(chart => {
             if (!chart) return;
