@@ -212,11 +212,11 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           placeholder="Add text..."
-          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 text-white cursor-text font-inherit select-text whitespace-nowrap"
+          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 px-1.5 py-0.5 text-white cursor-text font-inherit select-text whitespace-nowrap"
           style={{
             fontSize: `${fontSize}px`,
             color: textColor,
-            width: `${Math.max(80, inputText.length * (fontSize * 0.6) + 10)}px`
+            width: `${Math.max(80, inputText.length * (fontSize * 0.6) + 16)}px`
           }}
         />
       ) : (
