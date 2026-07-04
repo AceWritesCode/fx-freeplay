@@ -4,12 +4,14 @@ interface FloatingTrendLineTextProps {
   chart: any;
   overlay: any;
   onTextChange: (newText: string) => void;
+  isSelected: boolean;
 }
 
 export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   chart,
   overlay,
   onTextChange,
+  isSelected
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,8 +32,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   // Check if overlay is hovered inside klinecharts
   const isOverlayHovered = !!overlay?.extendData?.isHovered;
 
-  // We show the label if it's not empty, or if we are editing, or if hovered
-  const shouldShow = text !== '' || isEditing || isOverlayHovered || isDomHovered;
+  // We show the label if it's not empty, or if we are editing, or if hovered while selected
+  const shouldShow = text !== '' || isEditing || (isSelected && (isOverlayHovered || isDomHovered));
 
   useEffect(() => {
     let active = true;
@@ -57,6 +59,18 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           if (textValign === 'top') ty = yMin - 3;
           else if (textValign === 'bottom') ty = yMax + 3;
 
+          // Compute rotation angle (along the line slope)
+          const dx = pixelPts[1].x - pixelPts[0].x;
+          const dy = pixelPts[1].y - pixelPts[0].y;
+          let angle = Math.atan2(dy, dx);
+
+          // Keep text upright so it's not upside down (between -90 and 90 deg)
+          if (angle > Math.PI / 2) {
+            angle -= Math.PI;
+          } else if (angle < -Math.PI / 2) {
+            angle += Math.PI;
+          }
+
           let translateX = '-50%';
           if (textHalign === 'left') translateX = '0%';
           else if (textHalign === 'right') translateX = '-100%';
@@ -65,7 +79,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           if (textValign === 'top') translateY = '-100%';
           else if (textValign === 'bottom') translateY = '0%';
 
-          elRef.current.style.transform = `translate(${tx}px, ${ty}px) translate(${translateX}, ${translateY})`;
+          // Rotate local coordinate system first, then translate along rotated coordinates!
+          elRef.current.style.transform = `translate(${tx}px, ${ty}px) rotate(${angle}rad) translate(${translateX}, ${translateY})`;
         }
       }
       requestAnimationFrame(updatePosition);
@@ -108,7 +123,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       ref={elRef}
       onMouseEnter={() => setIsDomHovered(true)}
       onMouseLeave={() => setIsDomHovered(false)}
-      className="absolute top-0 left-0 z-30 select-none pointer-events-auto"
+      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center"
       style={{
         fontSize: `${fontSize}px`,
         color: textColor,

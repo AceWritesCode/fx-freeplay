@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Settings, Bell, Lock, Unlock, Trash2, MoreHorizontal, Baseline, Bold } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Settings, Bell, Lock, Unlock, Trash2, MoreHorizontal, Baseline } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 interface DrawingFloatingToolbarProps {
@@ -30,7 +30,6 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const lineWidth = customSettings.lineWidth || 1;
   const lineStyle = customSettings.lineStyle || 'solid';
   const isLocked = firstOverlay?.lock || false;
-  const isBold = !!customSettings.bold;
 
   const handleUpdate = (update: any, closeDropdown = true) => {
     if (onUpdateSettings) onUpdateSettings(update);
@@ -168,14 +167,6 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           )}
         </div>
 
-        {/* Text Bold */}
-        <button 
-          onClick={() => handleUpdate({ bold: !isBold })}
-          className={`p-2 rounded transition-colors group mx-1 font-bold ${isBold ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-          title="Bold text"
-        >
-          <Bold className="w-4 h-4" />
-        </button>
 
         {/* Line Width */}
         <div className="relative mx-1">

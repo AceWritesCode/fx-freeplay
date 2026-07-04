@@ -4560,35 +4560,34 @@ export default function App() {
           <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
         
-        {/* Floating text inputs for selected TrendLines */}
+        {/* Floating text inputs for all TrendLines */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const selectedTrendLines = chart 
-            ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' && selectedOverlayIds.includes(o.id))
+          const allTrendLines = chart 
+            ? chart.getOverlays().filter((o: any) => o.name === 'trendLine')
             : [];
-          return selectedTrendLines.map((ov: any) => (
+          return allTrendLines.map((ov: any) => (
             <FloatingTrendLineText
               key={ov.id}
               chart={chart}
               overlay={ov}
+              isSelected={selectedOverlayIds.includes(ov.id)}
               onTextChange={(newText) => {
                 chartInstancesRef.current.forEach(c => {
                   if (!c) return;
-                  selectedOverlayIds.forEach(id => {
-                    const targetOverlay = c.getOverlays().find((o: any) => o.id === id);
-                    if (targetOverlay) {
-                      c.overrideOverlay({
-                        id,
-                        extendData: {
-                          ...(targetOverlay.extendData || {}),
-                          customSettings: {
-                            ...(targetOverlay.extendData?.customSettings || {}),
-                            text: newText
-                          }
+                  const targetOverlay = c.getOverlays().find((o: any) => o.id === ov.id);
+                  if (targetOverlay) {
+                    c.overrideOverlay({
+                      id: ov.id,
+                      extendData: {
+                        ...(targetOverlay.extendData || {}),
+                        customSettings: {
+                          ...(targetOverlay.extendData?.customSettings || {}),
+                          text: newText
                         }
-                      });
-                    }
-                  });
+                      }
+                    });
+                  }
                   c.resize();
                 });
                 syncAllDrawings();
