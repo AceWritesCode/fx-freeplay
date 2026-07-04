@@ -141,10 +141,7 @@ export const TrendLineTool: ToolDefinition = {
       
       // Text configurations
       const text = customSettings.text || '';
-      const textColor = customSettings.textColor || '#2196F3';
       const fontSize = customSettings.fontSize || 14;
-      const isBold = !!customSettings.bold;
-      const isItalic = !!customSettings.italic;
       const textValign = customSettings.textPosition?.vertical || 'middle';
       const textHalign = customSettings.textPosition?.horizontal || 'right';
       
@@ -257,41 +254,6 @@ export const TrendLineTool: ToolDefinition = {
           });
         });
 
-        // Custom Text Annotation (Only draw on canvas if NOT selected)
-        if (text && !isSelected) {
-          const cLeft = coordinates[0].x < coordinates[1].x ? coordinates[0] : coordinates[1];
-          const cRight = coordinates[0].x < coordinates[1].x ? coordinates[1] : coordinates[0];
-
-          let tx = (coordinates[0].x + coordinates[1].x) / 2;
-          let ty = (coordinates[0].y + coordinates[1].y) / 2;
-          
-          if (textHalign === 'left') tx = cLeft.x + 3;
-          else if (textHalign === 'right') tx = cRight.x - 3;
-          
-          const yMin = Math.min(coordinates[0].y, coordinates[1].y);
-          const yMax = Math.max(coordinates[0].y, coordinates[1].y);
-
-          if (textValign === 'top') ty = yMin - 3;
-          else if (textValign === 'bottom') ty = yMax + 3;
-
-          figures.push({
-            type: 'text',
-            attrs: {
-              x: tx,
-              y: ty,
-              text: text,
-              align: textHalign,
-              baseline: textValign === 'top' ? 'bottom' : (textValign === 'bottom' ? 'top' : 'middle')
-            },
-            styles: {
-              color: textColor,
-              size: fontSize,
-              weight: isBold ? 'bold' : 'normal',
-              style: isItalic ? 'italic' : 'normal'
-            },
-            ignoreEvent: true
-          });
-        }
 
         // Selection point grab handles / fake lock circles
         if ((overlay?.extendData as any)?.isSelected) {

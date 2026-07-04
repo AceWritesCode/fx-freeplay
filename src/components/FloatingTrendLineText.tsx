@@ -47,21 +47,27 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           const pLeft = pixelPts[0].x < pixelPts[1].x ? pixelPts[0] : pixelPts[1];
           const pRight = pixelPts[0].x < pixelPts[1].x ? pixelPts[1] : pixelPts[0];
 
+          const dx = pRight.x - pLeft.x;
+          const dy = pRight.y - pLeft.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+
           let tx = (pixelPts[0].x + pixelPts[1].x) / 2;
           let ty = (pixelPts[0].y + pixelPts[1].y) / 2;
 
-          if (textHalign === 'left') tx = pLeft.x + 3;
-          else if (textHalign === 'right') tx = pRight.x - 3;
+          if (len > 0.0001) {
+            const ux = dx / len;
+            const uy = dy / len;
 
-          const yMin = Math.min(pixelPts[0].y, pixelPts[1].y);
-          const yMax = Math.max(pixelPts[0].y, pixelPts[1].y);
-
-          if (textValign === 'top') ty = yMin - 3;
-          else if (textValign === 'bottom') ty = yMax + 3;
+            if (textHalign === 'left') {
+              tx = pLeft.x + 3 * ux;
+              ty = pLeft.y + 3 * uy;
+            } else if (textHalign === 'right') {
+              tx = pRight.x - 3 * ux;
+              ty = pRight.y - 3 * uy;
+            }
+          }
 
           // Compute rotation angle (along the line slope)
-          const dx = pixelPts[1].x - pixelPts[0].x;
-          const dy = pixelPts[1].y - pixelPts[0].y;
           let angle = Math.atan2(dy, dx);
 
           // Keep text upright so it's not upside down (between -90 and 90 deg)
@@ -76,8 +82,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           else if (textHalign === 'right') translateX = '-100%';
 
           let translateY = '-50%';
-          if (textValign === 'top') translateY = '-100%';
-          else if (textValign === 'bottom') translateY = '0%';
+          if (textValign === 'top') translateY = 'calc(-100% - 3px)';
+          else if (textValign === 'bottom') translateY = '3px';
 
           // Rotate local coordinate system first, then translate along rotated coordinates!
           elRef.current.style.transform = `translate(${tx}px, ${ty}px) rotate(${angle}rad) translate(${translateX}, ${translateY})`;
