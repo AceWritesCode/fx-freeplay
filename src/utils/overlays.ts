@@ -229,8 +229,21 @@ export function getInteractiveOverlayOptions(
   syncAllDrawings: () => void,
   setActiveTool: (tool: string | null) => void
 ) {
+  let defaultSettings = {};
+  try {
+    const saved = localStorage.getItem(`fx_default_settings_${toolName}`);
+    if (saved) {
+      defaultSettings = JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
   const overlayOptions: any = {
     name: toolName,
+    extendData: {
+      customSettings: defaultSettings
+    },
     onDrawEnd: (event: any) => {
       if (chartInstanceRef.current) {
         chartInstanceRef.current._justFinishedDrawingId = event.overlay.id;

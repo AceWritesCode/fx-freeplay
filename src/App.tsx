@@ -4374,6 +4374,24 @@ export default function App() {
   };
   (window as any).handleSelectTool = handleSelectTool;
 
+  const updateDefaultSettings = (toolName: string, settingsUpdate: any) => {
+    if (!toolName) return;
+    try {
+      const key = `fx_default_settings_${toolName}`;
+      const saved = localStorage.getItem(key);
+      let current = saved ? JSON.parse(saved) : {};
+      
+      const merged = {
+        ...current,
+        ...settingsUpdate
+      };
+      delete merged.text;
+      localStorage.setItem(key, JSON.stringify(merged));
+    } catch (e) {
+      console.error('[DEBUG] Failed to update default settings:', e);
+    }
+  };
+
   // Clear all drawings
   const handleClearDrawings = () => {
     console.log('[DEBUG] handleClearDrawings - Removing all overlays and resetting tools.');
@@ -5291,67 +5309,103 @@ export default function App() {
           </div>
         </aside>
 
-        {/* Charting Canvas container */}
         <main className="flex-1 h-full min-w-0 relative bg-[#131722] overflow-hidden">
-          
           <DrawingFloatingToolbar 
             selectedOverlayIds={selectedOverlayIds} 
-            drawingTrigger={drawingTrigger}
-            onApplyTemplate={(tplSettings) => {
-              chartInstancesRef.current.forEach(chart => {
-                if (!chart) return;
-                selectedOverlayIds.forEach(id => {
-                  const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-                  const originalId = syncMatch ? syncMatch[1] : id;
-                  const overlay = chart.getOverlays().find((o: any) => 
-                    o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-                  );
-                  if (overlay) {
-                    chart.overrideOverlay({
-                      id: overlay.id,
-                      extendData: {
-                        ...overlay.extendData,
-                        customSettings: {
-                          ...(overlay.extendData?.customSettings || {}),
-                          ...tplSettings
-                        }
+              drawingTrigger={drawingTrigger}
+              onApplyTemplate={(tplSettings) => {
+                if (selectedOverlayIds.length > 0) {
+                  const firstId = selectedOverlayIds[0];
+                  const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
+                  const originalId = syncMatch ? syncMatch[1] : firstId;
+                  let toolName = '';
+                  for (let i = 0; i < chartInstancesRef.current.length; i++) {
+                    const chart = chartInstancesRef.current[i];
+                    if (chart) {
+                      const ov = chart.getOverlays().find((o: any) => o.id === originalId);
+                      if (ov) {
+                        toolName = ov.name;
+                        break;
                       }
-                    });
+                    }
                   }
+                  if (toolName) {
+                    updateDefaultSettings(toolName, tplSettings);
+                  }
+                }
+                chartInstancesRef.current.forEach(chart => {
+                  if (!chart) return;
+                  selectedOverlayIds.forEach(id => {
+                    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+                    const originalId = syncMatch ? syncMatch[1] : id;
+                    const overlay = chart.getOverlays().find((o: any) => 
+                      o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+                    );
+                    if (overlay) {
+                      chart.overrideOverlay({
+                        id: overlay.id,
+                        extendData: {
+                          ...overlay.extendData,
+                          customSettings: {
+                            ...(overlay.extendData?.customSettings || {}),
+                            ...tplSettings
+                          }
+                        }
+                      });
+                    }
+                  });
                 });
-              });
-              syncAllDrawings();
-              setSelectedOverlayIds([]);
-              setDrawingTrigger(prev => prev + 1);
-            }}
-            onUpdateSettings={(settingsUpdate) => {
-              chartInstancesRef.current.forEach(chart => {
-                if (!chart) return;
-                selectedOverlayIds.forEach(id => {
-                  const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-                  const originalId = syncMatch ? syncMatch[1] : id;
+                syncAllDrawings();
+                setSelectedOverlayIds([]);
+                setDrawingTrigger(prev => prev + 1);
+              }}
+              onUpdateSettings={(settingsUpdate) => {
+                if (selectedOverlayIds.length > 0) {
+                  const firstId = selectedOverlayIds[0];
+                  const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
+                  const originalId = syncMatch ? syncMatch[1] : firstId;
+                  let toolName = '';
+                  for (let i = 0; i < chartInstancesRef.current.length; i++) {
+                    const chart = chartInstancesRef.current[i];
+                    if (chart) {
+                      const ov = chart.getOverlays().find((o: any) => o.id === originalId);
+                      if (ov) {
+                        toolName = ov.name;
+                        break;
+                      }
+                    }
+                  }
+                  if (toolName) {
+                    updateDefaultSettings(toolName, settingsUpdate);
+                  }
+                }
+                chartInstancesRef.current.forEach(chart => {
+                  if (!chart) return;
+                  selectedOverlayIds.forEach(id => {
+                    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+                    const originalId = syncMatch ? syncMatch[1] : id;
 
-                  const overlay = chart.getOverlays().find((o: any) => 
-                    o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-                  );
-                  if (overlay) {
-                    chart.overrideOverlay({
-                      id: overlay.id,
-                      extendData: {
-                        ...overlay.extendData,
-                        customSettings: {
-                          ...(overlay.extendData?.customSettings || {}),
-                          ...settingsUpdate
+                    const overlay = chart.getOverlays().find((o: any) => 
+                      o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+                    );
+                    if (overlay) {
+                      chart.overrideOverlay({
+                        id: overlay.id,
+                        extendData: {
+                          ...overlay.extendData,
+                          customSettings: {
+                            ...(overlay.extendData?.customSettings || {}),
+                            ...settingsUpdate
+                          }
                         }
-                      }
-                    });
-                  }
+                      });
+                    }
+                  });
                 });
-              });
-              syncAllDrawings();
-              setDrawingTrigger(prev => prev + 1);
-            }}
-            getOverlay={(id) => {
+                syncAllDrawings();
+                setDrawingTrigger(prev => prev + 1);
+              }}
+              getOverlay={(id) => {
                for (let i = 0; i < chartInstancesRef.current.length; i++) {
                  const chart = chartInstancesRef.current[i];
                  if (chart) {
@@ -5479,12 +5533,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Floating Crosshair Indicator */}
-          {activeTool && (
-            <div className="absolute top-3 left-3 px-3 py-1 bg-indigo-600 text-white rounded-md text-[10px] font-bold tracking-wider uppercase shadow-lg border border-indigo-500 animate-pulse pointer-events-none z-10">
-              Drawing Mode: {activeTool}
-            </div>
-          )}
+
 
 
 
@@ -6525,6 +6574,7 @@ export default function App() {
                 o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
               );
               if (overlay) {
+                updateDefaultSettings(overlay.name, updatedSettings);
                 const overrideOptions: any = {
                   id: overlay.id,
                   extendData: {
