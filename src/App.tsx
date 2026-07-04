@@ -938,12 +938,23 @@ export default function App() {
         const syncId = `sync_${orig.id}_from_${sourceIndex}`;
         const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
 
+        const interactiveOptions = getInteractiveOverlayOptions(
+          orig.name,
+          { current: targetChart },
+          chartInstancesRef,
+          isShiftPressedRef,
+          syncAllDrawings,
+          setActiveTool
+        );
+
         const overlayOptions: any = {
+          ...interactiveOptions,
           name: orig.name,
           id: syncId,
           paneId: orig.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(orig.points)),
-           lock: orig.lock,
+          extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
+          lock: orig.lock,
           styles: orig.lock ? {
             point: {
               radius: 0,
@@ -2632,6 +2643,9 @@ export default function App() {
             });
 
             (chart as any)._onDrawingSync = syncAllDrawings;
+            (chart as any)._onHoverChange = () => {
+              setDrawingTrigger(prev => prev + 1);
+            };
             loadDataForSlot(i, chart);
             chart.resize();
           }
@@ -2664,6 +2678,9 @@ export default function App() {
         if (chart) {
           chart.resize();
           (chart as any)._onDrawingSync = syncAllDrawings;
+          (chart as any)._onHoverChange = () => {
+            setDrawingTrigger(prev => prev + 1);
+          };
         }
       }
       if (hasData) {

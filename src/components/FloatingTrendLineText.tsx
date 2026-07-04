@@ -15,6 +15,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const backupTextRef = useRef('');
   
   const [isEditing, setIsEditing] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -100,6 +101,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
+    backupTextRef.current = text;
     setIsEditing(true);
     setInputText(text);
     setTimeout(() => {
@@ -110,15 +113,15 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
 
   const handleSave = () => {
     setIsEditing(false);
-    onTextChange(inputText);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleSave();
+      setIsEditing(false);
     } else if (e.key === 'Escape') {
       setIsEditing(false);
-      setInputText(text);
+      setInputText(backupTextRef.current);
+      onTextChange(backupTextRef.current);
     }
   };
 
@@ -129,7 +132,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       ref={elRef}
       onMouseEnter={() => setIsDomHovered(true)}
       onMouseLeave={() => setIsDomHovered(false)}
-      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center"
+      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap"
       style={{
         fontSize: `${fontSize}px`,
         color: textColor,
@@ -142,11 +145,14 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           ref={inputRef}
           type="text"
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={(e) => {
+            setInputText(e.target.value);
+            onTextChange(e.target.value);
+          }}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           placeholder="Add text..."
-          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 text-white cursor-text font-inherit select-text"
+          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 text-white cursor-text font-inherit select-text whitespace-nowrap"
           style={{
             fontSize: `${fontSize}px`,
             color: textColor,
@@ -155,8 +161,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
         />
       ) : (
         <div
-          onDoubleClick={handleStartEdit}
-          className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center gap-1 select-none font-semibold ${
+          onClick={handleStartEdit}
+          className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center gap-1 select-none font-semibold whitespace-nowrap ${
             text === '' 
               ? 'text-[#2196F3] hover:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 border border-dashed border-[#2196F3]/30 hover:border-indigo-400/50'
               : 'hover:bg-gray-800/20'

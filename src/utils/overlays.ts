@@ -266,6 +266,9 @@ export function getInteractiveOverlayOptions(
         }
       });
       event.chart.resize();
+      if (event.chart._onHoverChange) {
+        event.chart._onHoverChange();
+      }
       return true;
     },
     onMouseLeave: (event: any) => {
@@ -277,6 +280,9 @@ export function getInteractiveOverlayOptions(
         }
       });
       event.chart.resize();
+      if (event.chart._onHoverChange) {
+        event.chart._onHoverChange();
+      }
       return true;
     },
     onPressedMoveStart: (event: any) => {
