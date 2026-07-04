@@ -172,6 +172,7 @@ export const TrendLineTool: ToolDefinition = {
         const isSelected = (overlay?.extendData as any)?.isSelected || false;
         const isHovered = (overlay?.extendData as any)?.isHovered || false;
         const isEditingText = (overlay?.extendData as any)?.isEditingText || false;
+        const measuredTextWidth = (overlay?.extendData as any)?.textWidth || 0;
         
         let textToShow = text;
         if (!text && isSelected && (isHovered || isEditingText)) {
@@ -190,7 +191,7 @@ export const TrendLineTool: ToolDefinition = {
           const dx = pRight.x - pLeft.x;
           const dy = pRight.y - pLeft.y;
           const len = Math.sqrt(dx * dx + dy * dy);
-          const textWidth = textToShow.length * fontSize * 0.55 + 16;
+          const textWidth = measuredTextWidth || (textToShow.length * fontSize * 0.55 + 16);
 
           if (len > 0.0001) {
             const ux = dx / len;

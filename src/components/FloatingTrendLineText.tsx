@@ -5,13 +5,15 @@ interface FloatingTrendLineTextProps {
   overlay: any;
   onTextChange: (newText: string) => void;
   isSelected: boolean;
+  syncAllDrawings: () => void;
 }
 
 export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   chart,
   overlay,
   onTextChange,
-  isSelected
+  isSelected,
+  syncAllDrawings
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -108,6 +110,23 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       active = false;
     };
   }, [overlay, chart, textHalign, textValign]);
+
+  // Measure DOM width and update overlay extendData in real-time
+  useEffect(() => {
+    if (elRef.current) {
+      const width = elRef.current.offsetWidth;
+      if (width && width !== overlay.extendData?.textWidth) {
+        chart.overrideOverlay({
+          id: overlay.id,
+          extendData: {
+            ...(overlay.extendData || {}),
+            textWidth: width
+          }
+        });
+        setTimeout(() => syncAllDrawings(), 50);
+      }
+    }
+  }, [text, inputText, isEditing, fontSize, isBold, isItalic]);
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();

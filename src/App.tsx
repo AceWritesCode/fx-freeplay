@@ -4615,6 +4615,7 @@ export default function App() {
                 syncAllDrawings();
                 setDrawingTrigger(prev => prev + 1);
               }}
+              syncAllDrawings={syncAllDrawings}
             />
           ));
         })()}
