@@ -10,6 +10,7 @@ interface DrawingSettingsDialogProps {
   timeframe?: string;
   allCandles?: any[]; // To map bar index <-> timestamp
   pricePrecision?: number; // Active symbol precision
+  onDeselectOverlay?: () => void;
 }
 
 type TabType = 'style' | 'text' | 'coordinates' | 'visibility';
@@ -159,7 +160,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   onSave,
   timeframe = '1m',
   allCandles = [],
-  pricePrecision
+  pricePrecision,
+  onDeselectOverlay
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('style');
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
@@ -539,6 +541,57 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setTextHalign(settings.textPosition?.horizontal || 'right');
     if (settings.visibility) setVisibility(settings.visibility);
     setIsTemplateDropdownOpen(false);
+
+    // Sync template settings and coordinates immediately to prevent state sync race conditions
+    const updatedSettings = {
+      lineColor: settings.lineColor || '#2196F3',
+      lineWidth: settings.lineWidth || 1,
+      lineStyle: settings.lineStyle || 'solid',
+      extendType: settings.extendType || 'none',
+      text: settings.text || '',
+      textColor: settings.textColor || '#2196F3',
+      fontSize: settings.fontSize || 14,
+      bold: !!settings.bold,
+      italic: !!settings.italic,
+      textPosition: {
+        vertical: settings.textPosition?.vertical || 'middle',
+        horizontal: settings.textPosition?.horizontal || 'right'
+      },
+      visibility: settings.visibility || visibility
+    };
+
+    const updatedPoints = points.map(pt => {
+      let finalTimestamp = pt.timestamp;
+      if (allCandles.length > 0 && pt.bar !== undefined) {
+        const idx = (allCandles.length - 1) - pt.bar;
+        const candle = allCandles[idx];
+        if (candle) {
+          finalTimestamp = candle.timestamp;
+        } else {
+          const lastCandle = allCandles[allCandles.length - 1];
+          if (lastCandle) {
+            const indexDiff = -pt.bar;
+            let timeframeMinutes = 1;
+            const tf = timeframe.toLowerCase();
+            if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
+            else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
+            else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
+            
+            finalTimestamp = lastCandle.timestamp + indexDiff * timeframeMinutes * 60 * 1000;
+          }
+        }
+      }
+      return {
+        timestamp: finalTimestamp,
+        value: parseFloat(pt.price)
+      };
+    });
+
+    onSave(updatedSettings, updatedPoints);
+    onClose();
+    if (onDeselectOverlay) {
+      onDeselectOverlay();
+    }
   };
 
   const resetToDefault = () => {

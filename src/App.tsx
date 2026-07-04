@@ -6486,6 +6486,7 @@ export default function App() {
         allCandles={allTimeframesData[activeTimeframe] || []}
         timeframe={activeTimeframe}
         pricePrecision={settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(allTimeframesData[activeTimeframe] || [])}
+        onDeselectOverlay={() => setSelectedOverlayIds([])}
         onSave={(updatedSettings, updatedPoints) => {
           chartInstancesRef.current.forEach(chart => {
             if (!chart) return;

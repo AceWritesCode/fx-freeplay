@@ -240,8 +240,8 @@ export function getInteractiveOverlayOptions(
       setActiveTool(null);
       
       // Auto-select the newly created drawing so the floating toolbar appears immediately
-      if (event.chart && event.chart._setSelectedOverlayIds) {
-        event.chart._setSelectedOverlayIds([event.overlay.id]);
+      if (chartInstanceRef.current && chartInstanceRef.current._setSelectedOverlayIds) {
+        chartInstanceRef.current._setSelectedOverlayIds([event.overlay.id]);
       }
 
       setTimeout(() => syncAllDrawings(), 50);
