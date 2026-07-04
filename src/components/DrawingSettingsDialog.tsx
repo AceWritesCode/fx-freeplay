@@ -514,7 +514,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       </div>
 
       {/* Content Area - dynamic height adjust */}
-      <div className="p-5 text-[12.5px] space-y-4 overflow-visible max-h-[460px] overflow-y-auto">
+      <div className="p-5 text-[12.5px] space-y-4 overflow-visible">
         
         {/* STYLE TAB */}
         {activeTab === 'style' && (
