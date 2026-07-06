@@ -69,8 +69,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         ov.id !== 'session_breaks_overlay' &&
         ov.name !== 'sessionBreaks'
     );
-    // Sort by id descending so newest is at the top, ensuring stable layout order
+    // Sort by order descending if available, else fall back to id descending
     filtered.sort((a: any, b: any) => {
+      const orderA = a.extendData?.order ?? 0;
+      const orderB = b.extendData?.order ?? 0;
+      if (orderA !== orderB) {
+        return orderB - orderA;
+      }
       return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
     });
     setDrawings(filtered);
@@ -281,6 +286,72 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               folderId: null,
             },
           });
+          syncAllDrawings();
+          setDrawingTrigger(prev => prev + 1);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDropOnItem = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.type === 'drawing' && data.id !== targetId && activeChart) {
+        const overlays = activeChart.getOverlays();
+        const filtered = overlays.filter(
+          (ov: any) =>
+            !ov.id?.startsWith('sync_') &&
+            ov.id !== 'custom_price_line_overlay' &&
+            ov.name !== 'customPriceLine' &&
+            ov.id !== 'session_breaks_overlay' &&
+            ov.name !== 'sessionBreaks'
+        );
+
+        // Sort in current render order (descending by order property, fallback to ID)
+        filtered.sort((a: any, b: any) => {
+          const orderA = a.extendData?.order ?? 0;
+          const orderB = b.extendData?.order ?? 0;
+          if (orderA !== orderB) {
+            return orderB - orderA;
+          }
+          return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        const draggedIndex = filtered.findIndex((ov: any) => ov.id === data.id);
+        const targetIndex = filtered.findIndex((ov: any) => ov.id === targetId);
+
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          const reordered = [...filtered];
+          const [draggedItem] = reordered.splice(draggedIndex, 1);
+          reordered.splice(targetIndex, 0, draggedItem);
+
+          // Assign new stable order values based on the new positions
+          reordered.forEach((ov: any, idx: number) => {
+            const nextOrder = reordered.length - idx;
+            activeChart.overrideOverlay({
+              id: ov.id,
+              extendData: {
+                ...ov.extendData,
+                order: nextOrder
+              }
+            });
+          });
+
+          // Also inherit folder from the target item
+          const targetOverlay = filtered[targetIndex];
+          const targetFolderId = targetOverlay.extendData?.folderId || null;
+          activeChart.overrideOverlay({
+            id: data.id,
+            extendData: {
+              ...activeChart.getOverlays().find((o: any) => o.id === data.id)?.extendData,
+              folderId: targetFolderId
+            }
+          });
+
           syncAllDrawings();
           setDrawingTrigger(prev => prev + 1);
         }
@@ -811,8 +882,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           return (
                             <div
                               key={d.id}
-                              draggable
+                              draggable={true}
                               onDragStart={(e) => handleDragStart(e, d.id, 'drawing')}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => handleDropOnItem(e, d.id)}
                               onClick={(e) => handleItemSelect(e, d.id)}
                               className={`group flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
                                 isSelected
@@ -929,8 +1002,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               return (
                 <div
                   key={d.id}
-                  draggable
+                  draggable={true}
                   onDragStart={(e) => handleDragStart(e, d.id, 'drawing')}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDropOnItem(e, d.id)}
                   onClick={(e) => handleItemSelect(e, d.id)}
                   className={`group flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
                     isSelected
