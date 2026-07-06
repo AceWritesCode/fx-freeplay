@@ -916,6 +916,17 @@ export default function App() {
       }
 
       const activeOriginals = originalDrawingsBySymbol[symbol] || [];
+      
+      // Sort activeOriginals ascending by order (so drawings with higher order are created last and drawn on top)
+      activeOriginals.sort((a, b) => {
+        const orderA = a.overlay.extendData?.order ?? 0;
+        const orderB = b.overlay.extendData?.order ?? 0;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return (a.overlay.id || '').localeCompare(b.overlay.id || '', undefined, { numeric: true, sensitivity: 'base' });
+      });
+
       const targetOverlays = (targetChart as any).getOverlays();
 
       // Find synced copies currently on this target chart
@@ -923,21 +934,17 @@ export default function App() {
 
       // Determine which synced copies should exist on this target chart
       const desiredCopies = activeOriginals.filter(item => item.chartIndex !== i);
-      const desiredCopyIds = new Set(desiredCopies.map(item => `sync_${item.overlay.id}_from_${item.chartIndex}`));
 
-      // Remove any synced copies that are no longer needed
+      // Always remove all existing synced copies from this target chart so we can recreate them in the correct z-order
       existingSyncedCopies.forEach((copy: any) => {
-        if (!desiredCopyIds.has(copy.id)) {
-          (targetChart as any).removeOverlay({ id: copy.id });
-        }
+        (targetChart as any).removeOverlay({ id: copy.id });
       });
 
-      // Create or update desired synced copies
+      // Create all desired synced copies in the correct order
       desiredCopies.forEach(item => {
         const orig = item.overlay;
         const sourceIndex = item.chartIndex;
         const syncId = `sync_${orig.id}_from_${sourceIndex}`;
-        const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
 
         const interactiveOptions = getInteractiveOverlayOptions(
           orig.name,
@@ -1152,20 +1159,7 @@ export default function App() {
           };
         }
 
-        if (existingCopy) {
-          const pointsChanged = JSON.stringify(existingCopy.points) !== JSON.stringify(overlayOptions.points);
-          const extendDataChanged = JSON.stringify(existingCopy.extendData) !== JSON.stringify(overlayOptions.extendData);
-          if (pointsChanged || extendDataChanged) {
-            (targetChart as any).overrideOverlay({
-              id: syncId,
-              points: overlayOptions.points,
-              extendData: overlayOptions.extendData,
-              styles: overlayOptions.styles
-            });
-          }
-        } else {
-          (targetChart as any).createOverlay(overlayOptions);
-        }
+        (targetChart as any).createOverlay(overlayOptions);
       });
     }
   };

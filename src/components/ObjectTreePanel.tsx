@@ -46,6 +46,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag visual feedback states
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<'above' | 'below' | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
   const activeChart = chartInstancesRef.current[activeChartIndex];
   const [drawings, setDrawings] = useState<any[]>([]);
 
@@ -213,58 +218,98 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
   };
 
+  const handleDragEnd = () => {
+    setDragOverItemId(null);
+    setDragOverPosition(null);
+    setDragOverFolderId(null);
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
+  const handleDragOverFolder = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    setDragOverFolderId(folderId);
+  };
+
+  const handleDragLeaveFolder = () => {
+    setDragOverFolderId(null);
+  };
+
   const handleDropOnFolder = (e: React.DragEvent, targetFolderId: string) => {
     e.preventDefault();
+    setDragOverFolderId(null);
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
       if (data.type === 'drawing' && activeChart) {
-        const overlay = activeChart.getOverlays().find((o: any) => o.id === data.id);
-        if (overlay) {
-          activeChart.overrideOverlay({
-            id: data.id,
-            extendData: {
-              ...overlay.extendData,
-              folderId: targetFolderId,
-            },
-          });
+        const overlays = activeChart.getOverlays();
+        const filtered = overlays.filter(
+          (ov: any) =>
+            !ov.id?.startsWith('sync_') &&
+            ov.id !== 'custom_price_line_overlay' &&
+            ov.name !== 'customPriceLine' &&
+            ov.id !== 'session_breaks_overlay' &&
+            ov.name !== 'sessionBreaks'
+        );
 
-          // Match visibility/lock of the folder if folder is locked or hidden
-          const folder = folders.find(f => f.id === targetFolderId);
-          if (folder) {
-            activeChart.overrideOverlay({
-              id: data.id,
-              visible: folder.isVisible,
-              lock: folder.isLocked,
-              styles: {
-                point: folder.isLocked ? {
-                  radius: 0,
-                  activeRadius: 0,
-                  color: 'transparent',
-                  borderColor: 'transparent',
-                  borderSize: 0,
-                  activeColor: 'transparent',
-                  activeBorderColor: 'transparent',
-                  activeBorderSize: 0
-                } : {
-                  radius: 4.5,
-                  activeRadius: 5.5,
-                  color: '#ffffff',
-                  borderColor: '#2196F3',
-                  borderSize: 1.5,
-                  activeColor: '#ffffff',
-                  activeBorderColor: '#2196F3',
-                  activeBorderSize: 2
-                }
-              }
-            });
+        // Sort in current order
+        filtered.sort((a: any, b: any) => {
+          const orderA = a.extendData?.order ?? 0;
+          const orderB = b.extendData?.order ?? 0;
+          if (orderA !== orderB) {
+            return orderB - orderA;
           }
+          return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+        });
 
-          syncAllDrawings();
-          setDrawingTrigger(prev => prev + 1);
+        // Update target folder ID on the dragged drawing
+        const folder = folders.find(f => f.id === targetFolderId);
+        const updatedOverlays = filtered.map((ov: any) => {
+          if (ov.id === data.id) {
+            return {
+              ...ov,
+              visible: folder ? folder.isVisible : ov.visible !== false,
+              lock: folder ? folder.isLocked : ov.lock,
+              extendData: {
+                ...ov.extendData,
+                folderId: targetFolderId,
+              },
+            };
+          }
+          return ov;
+        });
+
+        // Remove and recreate all drawing overlays in order to apply folder assignment and maintain visual Z-order
+        filtered.forEach((ov: any) => {
+          activeChart.removeOverlay({ id: ov.id });
+        });
+
+        const reverseList = [...updatedOverlays].reverse();
+        reverseList.forEach((ov: any) => {
+          activeChart.createOverlay({
+            name: ov.name,
+            id: ov.id,
+            paneId: ov.paneId || 'candle_pane',
+            points: ov.points,
+            extendData: ov.extendData,
+            lock: ov.lock,
+            visible: ov.visible !== false,
+            styles: ov.styles
+          });
+        });
+
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
+      } else if (data.type === 'folder' && data.id !== targetFolderId) {
+        // Reorder folder items in folders state array
+        const draggedIndex = folders.findIndex(f => f.id === data.id);
+        const targetIndex = folders.findIndex(f => f.id === targetFolderId);
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          const reordered = [...folders];
+          const [draggedFolder] = reordered.splice(draggedIndex, 1);
+          reordered.splice(targetIndex, 0, draggedFolder);
+          setFolders(reordered);
         }
       }
     } catch (err) {
@@ -277,27 +322,87 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
       if (data.type === 'drawing' && activeChart) {
-        const overlay = activeChart.getOverlays().find((o: any) => o.id === data.id);
-        if (overlay && overlay.extendData?.folderId) {
-          activeChart.overrideOverlay({
-            id: data.id,
-            extendData: {
-              ...overlay.extendData,
-              folderId: null,
-            },
+        const overlays = activeChart.getOverlays();
+        const filtered = overlays.filter(
+          (ov: any) =>
+            !ov.id?.startsWith('sync_') &&
+            ov.id !== 'custom_price_line_overlay' &&
+            ov.name !== 'customPriceLine' &&
+            ov.id !== 'session_breaks_overlay' &&
+            ov.name !== 'sessionBreaks'
+        );
+
+        // Sort in current order
+        filtered.sort((a: any, b: any) => {
+          const orderA = a.extendData?.order ?? 0;
+          const orderB = b.extendData?.order ?? 0;
+          if (orderA !== orderB) {
+            return orderB - orderA;
+          }
+          return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        // Clear folderId on the dragged drawing
+        const updatedOverlays = filtered.map((ov: any) => {
+          if (ov.id === data.id) {
+            return {
+              ...ov,
+              extendData: {
+                ...ov.extendData,
+                folderId: null,
+              },
+            };
+          }
+          return ov;
+        });
+
+        // Remove and recreate all drawing overlays in order to apply root assignment and maintain visual Z-order
+        filtered.forEach((ov: any) => {
+          activeChart.removeOverlay({ id: ov.id });
+        });
+
+        const reverseList = [...updatedOverlays].reverse();
+        reverseList.forEach((ov: any) => {
+          activeChart.createOverlay({
+            name: ov.name,
+            id: ov.id,
+            paneId: ov.paneId || 'candle_pane',
+            points: ov.points,
+            extendData: ov.extendData,
+            lock: ov.lock,
+            visible: ov.visible !== false,
+            styles: ov.styles
           });
-          syncAllDrawings();
-          setDrawingTrigger(prev => prev + 1);
-        }
+        });
+
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
       }
     } catch (err) {
       console.error(err);
     }
   };
 
+  const handleDragOverItem = (e: React.DragEvent, itemId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const isAbove = relativeY < rect.height / 2;
+    setDragOverItemId(itemId);
+    setDragOverPosition(isAbove ? 'above' : 'below');
+  };
+
+  const handleDragLeaveItem = () => {
+    setDragOverItemId(null);
+    setDragOverPosition(null);
+  };
+
   const handleDropOnItem = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     e.stopPropagation();
+    setDragOverItemId(null);
+    setDragOverPosition(null);
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
       if (data.type === 'drawing' && data.id !== targetId && activeChart) {
@@ -322,39 +427,63 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         });
 
         const draggedIndex = filtered.findIndex((ov: any) => ov.id === data.id);
-        const targetIndex = filtered.findIndex((ov: any) => ov.id === targetId);
+        if (draggedIndex === -1) return;
 
-        if (draggedIndex !== -1 && targetIndex !== -1) {
-          const reordered = [...filtered];
-          const [draggedItem] = reordered.splice(draggedIndex, 1);
-          reordered.splice(targetIndex, 0, draggedItem);
+        const reordered = [...filtered];
+        const [draggedItem] = reordered.splice(draggedIndex, 1);
 
-          // Assign new stable order values based on the new positions
-          reordered.forEach((ov: any, idx: number) => {
-            const nextOrder = reordered.length - idx;
-            activeChart.overrideOverlay({
-              id: ov.id,
-              extendData: {
-                ...ov.extendData,
-                order: nextOrder
-              }
-            });
-          });
+        // Find new insert index
+        const targetIndex = reordered.findIndex((ov: any) => ov.id === targetId);
+        if (targetIndex === -1) return;
 
-          // Also inherit folder from the target item
-          const targetOverlay = filtered[targetIndex];
-          const targetFolderId = targetOverlay.extendData?.folderId || null;
-          activeChart.overrideOverlay({
-            id: data.id,
-            extendData: {
-              ...activeChart.getOverlays().find((o: any) => o.id === data.id)?.extendData,
-              folderId: targetFolderId
-            }
-          });
-
-          syncAllDrawings();
-          setDrawingTrigger(prev => prev + 1);
+        let newTargetIndex = targetIndex;
+        if (dragOverPosition === 'below') {
+          newTargetIndex += 1;
         }
+
+        reordered.splice(newTargetIndex, 0, draggedItem);
+
+        // Determine folder inheritance from the target overlay
+        const targetOverlay = filtered.find((ov: any) => ov.id === targetId);
+        const targetFolderId = targetOverlay?.extendData?.folderId || null;
+
+        // Map and update order + folder parameters in a single configuration step
+        const updatedOverlays = reordered.map((ov: any, idx: number) => {
+          const nextOrder = reordered.length - idx;
+          const isDraggedItem = (ov.id === data.id);
+          
+          return {
+            ...ov,
+            extendData: {
+              ...ov.extendData,
+              order: nextOrder,
+              ...(isDraggedItem ? { folderId: targetFolderId } : {})
+            }
+          };
+        });
+
+        // Remove all overlays
+        filtered.forEach((ov: any) => {
+          activeChart.removeOverlay({ id: ov.id });
+        });
+
+        // Recreate them in the reverse of display order (bottom of list first, top of list last)
+        const reverseList = [...updatedOverlays].reverse();
+        reverseList.forEach((ov: any) => {
+          activeChart.createOverlay({
+            name: ov.name,
+            id: ov.id,
+            paneId: ov.paneId || 'candle_pane',
+            points: ov.points,
+            extendData: ov.extendData,
+            lock: ov.lock,
+            visible: ov.visible !== false,
+            styles: ov.styles
+          });
+        });
+
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
       }
     } catch (err) {
       console.error(err);
@@ -715,13 +844,15 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 <div
                   key={folder.id}
                   className="flex flex-col border border-transparent rounded-lg"
-                  onDragOver={handleDragOver}
+                  onDragOver={(e) => handleDragOverFolder(e, folder.id)}
+                  onDragLeave={handleDragLeaveFolder}
                   onDrop={(e) => handleDropOnFolder(e, folder.id)}
                 >
                   {/* Folder Item Header */}
                   <div
-                    draggable
+                    draggable={true}
                     onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
+                    onDragEnd={handleDragEnd}
                     onClick={() => {
                       if (activeChart) {
                         activeChart._activeFolderId = activeChart._activeFolderId === folder.id ? null : folder.id;
@@ -743,6 +874,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                         : activeChart?._activeFolderId === folder.id
                         ? 'bg-green-600/5 border-green-500/30 text-white'
+                        : dragOverFolderId === folder.id
+                        ? 'bg-indigo-600/20 border-indigo-500/50 text-white'
                         : 'border-transparent hover:bg-[#1f2334] text-gray-300'
                     }`}
                   >
@@ -878,17 +1011,30 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           const isLocked = d.lock || false;
                           const isVisible = d.visible !== false;
                           const isHovered = d.extendData?.isHovered || false;
+                          let borderClass = 'border-transparent';
+                          const isDragOverThis = dragOverItemId === d.id;
+                          if (isDragOverThis) {
+                            if (dragOverPosition === 'above') {
+                              borderClass = 'border-t-2 border-indigo-500';
+                            } else if (dragOverPosition === 'below') {
+                              borderClass = 'border-b-2 border-indigo-500';
+                            }
+                          }
 
                           return (
                             <div
                               key={d.id}
                               draggable={true}
                               onDragStart={(e) => handleDragStart(e, d.id, 'drawing')}
-                              onDragOver={handleDragOver}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={(e) => handleDragOverItem(e, d.id)}
+                              onDragLeave={handleDragLeaveItem}
                               onDrop={(e) => handleDropOnItem(e, d.id)}
                               onClick={(e) => handleItemSelect(e, d.id)}
                               className={`group flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
-                                isSelected
+                                isDragOverThis
+                                  ? `bg-[#1f2334]/50 ${borderClass} text-white`
+                                  : isSelected
                                   ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                                   : isHovered
                                   ? 'bg-[#1f2334] border-transparent text-white'
@@ -999,16 +1145,30 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               const isVisible = d.visible !== false;
               const isHovered = d.extendData?.isHovered || false;
 
+              let borderClass = 'border-transparent';
+              const isDragOverThis = dragOverItemId === d.id;
+              if (isDragOverThis) {
+                if (dragOverPosition === 'above') {
+                  borderClass = 'border-t-2 border-indigo-500';
+                } else if (dragOverPosition === 'below') {
+                  borderClass = 'border-b-2 border-indigo-500';
+                }
+              }
+
               return (
                 <div
                   key={d.id}
                   draggable={true}
                   onDragStart={(e) => handleDragStart(e, d.id, 'drawing')}
-                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleDragOverItem(e, d.id)}
+                  onDragLeave={handleDragLeaveItem}
                   onDrop={(e) => handleDropOnItem(e, d.id)}
                   onClick={(e) => handleItemSelect(e, d.id)}
                   className={`group flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
-                    isSelected
+                    isDragOverThis
+                      ? `bg-[#1f2334]/50 ${borderClass} text-white`
+                      : isSelected
                       ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                       : isHovered
                       ? 'bg-[#1f2334] border-transparent text-white'
