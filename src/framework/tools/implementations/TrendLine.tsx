@@ -266,8 +266,8 @@ export const TrendLineTool: ToolDefinition = {
         // Selection point grab handles / fake lock circles
         if ((overlay?.extendData as any)?.isSelected) {
           const isLocked = overlay?.lock || false;
-          if (isLocked) {
-            coordinates.forEach((coord: any) => {
+          coordinates.forEach((coord: any) => {
+            if (isLocked) {
               figures.push({
                 type: 'circle',
                 attrs: { x: coord.x, y: coord.y, r: 2.5 },
@@ -279,8 +279,20 @@ export const TrendLineTool: ToolDefinition = {
                 },
                 ignoreEvent: true
               });
-            });
-          }
+            } else {
+              figures.push({
+                type: 'circle',
+                attrs: { x: coord.x, y: coord.y, r: 4.5 },
+                styles: {
+                  style: 'fill',
+                  color: '#ffffff',
+                  borderColor: '#2196F3',
+                  borderSize: 1.5
+                },
+                ignoreEvent: true
+              });
+            }
+          });
         }
       }
       return figures;
