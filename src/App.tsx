@@ -37,6 +37,7 @@ import { ToolRegistry } from './framework/tools';
 import { DrawingFloatingToolbar } from './components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from './components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from './components/FloatingTrendLineText';
+import { ObjectTreePanel } from './components/ObjectTreePanel';
 
 type Timeframe = string;
 
@@ -955,6 +956,7 @@ export default function App() {
           points: JSON.parse(JSON.stringify(orig.points)),
           extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
           lock: orig.lock,
+          visible: orig.visible !== false,
           styles: orig.lock ? {
             point: {
               radius: 0,
@@ -6168,26 +6170,17 @@ export default function App() {
             )}
 
             {activeRightTab === 'objectTree' && (
-              <>
-                {/* Object Tree Panel header */}
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800/70">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-white">Object Tree</span>
-                  </div>
-                </div>
-                {/* Object Tree content */}
-                <div className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-gray-800">
-                  <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-indigo-400/60" />
-                    </div>
-                    <p className="text-[11px] text-gray-500 leading-relaxed">
-                      Drawings and objects will appear here in the future.
-                    </p>
-                  </div>
-                </div>
-              </>
+              <ObjectTreePanel
+                chartInstancesRef={chartInstancesRef}
+                activeChartIndex={activeChartIndex}
+                selectedOverlayIds={selectedOverlayIds}
+                setSelectedOverlayIds={setSelectedOverlayIds}
+                syncAllDrawings={syncAllDrawings}
+                drawingTrigger={drawingTrigger}
+                setDrawingTrigger={setDrawingTrigger}
+                activeSymbol={slots[activeChartIndex]?.symbol || assetName}
+                activeTimeframe={slots[activeChartIndex]?.timeframe || activeTimeframe}
+              />
             )}
 
           </div>

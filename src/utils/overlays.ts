@@ -249,6 +249,17 @@ export function getInteractiveOverlayOptions(
         chartInstanceRef.current._justFinishedDrawingId = event.overlay.id;
         chartInstanceRef.current.setScrollEnabled(true);
         chartInstanceRef.current.setZoomEnabled(true);
+
+        // Assign active folder if any
+        if (chartInstanceRef.current._activeFolderId) {
+          chartInstanceRef.current.overrideOverlay({
+            id: event.overlay.id,
+            extendData: {
+              ...event.overlay.extendData,
+              folderId: chartInstanceRef.current._activeFolderId
+            }
+          });
+        }
       }
       setActiveTool(null);
       
