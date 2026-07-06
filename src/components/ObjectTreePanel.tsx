@@ -69,6 +69,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         ov.id !== 'session_breaks_overlay' &&
         ov.name !== 'sessionBreaks'
     );
+    // Sort by id descending so newest is at the top, ensuring stable layout order
+    filtered.sort((a: any, b: any) => {
+      return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
     setDrawings(filtered);
   }, [activeChart, drawingTrigger]);
 
@@ -802,6 +806,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           const isSelected = selectedOverlayIds.includes(d.id);
                           const isLocked = d.lock || false;
                           const isVisible = d.visible !== false;
+                          const isHovered = d.extendData?.isHovered || false;
 
                           return (
                             <div
@@ -812,6 +817,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                               className={`group flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
                                 isSelected
                                   ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
+                                  : isHovered
+                                  ? 'bg-[#1f2334] border-transparent text-white'
                                   : 'border-transparent hover:bg-[#1f2334] text-gray-300'
                               }`}
                             >
@@ -917,6 +924,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               const isSelected = selectedOverlayIds.includes(d.id);
               const isLocked = d.lock || false;
               const isVisible = d.visible !== false;
+              const isHovered = d.extendData?.isHovered || false;
 
               return (
                 <div
@@ -927,6 +935,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                   className={`group flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
                     isSelected
                       ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
+                      : isHovered
+                      ? 'bg-[#1f2334] border-transparent text-white'
                       : 'border-transparent hover:bg-[#1f2334] text-gray-300'
                   }`}
                 >
