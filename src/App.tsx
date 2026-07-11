@@ -1620,7 +1620,7 @@ export default function App() {
 
   // Right panel state (Watchlist / Object Tree)
   const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | null>(null);
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(260);
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(250);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const isResizingRightPanelRef = useRef<boolean>(false);
 

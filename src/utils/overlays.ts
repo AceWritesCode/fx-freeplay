@@ -291,6 +291,27 @@ export function getInteractiveOverlayOptions(
           isHovered: true
         }
       });
+      const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+      if (syncMatch) {
+        const originalId = syncMatch[1];
+        const sourceIndex = parseInt(syncMatch[2]);
+        const sourceChart = chartInstancesRef.current[sourceIndex];
+        if (sourceChart) {
+          const originalOverlay = sourceChart.getOverlays().find((o: any) => o.id === originalId);
+          if (originalOverlay) {
+            sourceChart.overrideOverlay({
+              id: originalId,
+              extendData: {
+                ...(originalOverlay.extendData || {}),
+                isHovered: true
+              }
+            });
+            if (sourceChart._onHoverChange) {
+              sourceChart._onHoverChange();
+            }
+          }
+        }
+      }
       event.chart.resize();
       if (event.chart._onHoverChange) {
         event.chart._onHoverChange();
@@ -305,6 +326,27 @@ export function getInteractiveOverlayOptions(
           isHovered: false
         }
       });
+      const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+      if (syncMatch) {
+        const originalId = syncMatch[1];
+        const sourceIndex = parseInt(syncMatch[2]);
+        const sourceChart = chartInstancesRef.current[sourceIndex];
+        if (sourceChart) {
+          const originalOverlay = sourceChart.getOverlays().find((o: any) => o.id === originalId);
+          if (originalOverlay) {
+            sourceChart.overrideOverlay({
+              id: originalId,
+              extendData: {
+                ...(originalOverlay.extendData || {}),
+                isHovered: false
+              }
+            });
+            if (sourceChart._onHoverChange) {
+              sourceChart._onHoverChange();
+            }
+          }
+        }
+      }
       event.chart.resize();
       if (event.chart._onHoverChange) {
         event.chart._onHoverChange();

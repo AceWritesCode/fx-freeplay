@@ -213,6 +213,38 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     }
   };
 
+  const handleMouseEnterItem = (id: string) => {
+    if (activeChart) {
+      const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
+      if (overlay) {
+        activeChart.overrideOverlay({
+          id,
+          extendData: {
+            ...overlay.extendData,
+            isHovered: true
+          }
+        });
+        setDrawingTrigger(prev => prev + 1);
+      }
+    }
+  };
+
+  const handleMouseLeaveItem = (id: string) => {
+    if (activeChart) {
+      const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
+      if (overlay) {
+        activeChart.overrideOverlay({
+          id,
+          extendData: {
+            ...overlay.extendData,
+            isHovered: false
+          }
+        });
+        setDrawingTrigger(prev => prev + 1);
+      }
+    }
+  };
+
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, id: string, type: 'drawing' | 'folder') => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
@@ -1041,12 +1073,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                               onDragLeave={handleDragLeaveItem}
                               onDrop={(e) => handleDropOnItem(e, d.id)}
                               onClick={(e) => handleItemSelect(e, d.id)}
+                              onMouseEnter={() => handleMouseEnterItem(d.id)}
+                              onMouseLeave={() => handleMouseLeaveItem(d.id)}
                               className={`group relative flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
                                 isSelected
                                   ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                                   : isHovered
-                                  ? 'bg-[#1f2334] border-transparent text-white'
-                                  : 'border-transparent hover:bg-[#1f2334] text-gray-300'
+                                  ? 'bg-[#2a2e39] border-gray-700/30 text-white'
+                                  : 'border-transparent hover:bg-[#2a2e39]/50 text-gray-300'
                               }`}
                             >
                               {/* Colored divider line representing the drop position */}
@@ -1174,12 +1208,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                   onDragLeave={handleDragLeaveItem}
                   onDrop={(e) => handleDropOnItem(e, d.id)}
                   onClick={(e) => handleItemSelect(e, d.id)}
+                  onMouseEnter={() => handleMouseEnterItem(d.id)}
+                  onMouseLeave={() => handleMouseLeaveItem(d.id)}
                   className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
                     isSelected
                       ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                       : isHovered
-                      ? 'bg-[#1f2334] border-transparent text-white'
-                      : 'border-transparent hover:bg-[#1f2334] text-gray-300'
+                      ? 'bg-[#2a2e39] border-gray-700/30 text-white'
+                      : 'border-transparent hover:bg-[#2a2e39]/50 text-gray-300'
                   }`}
                 >
                   {/* Colored divider line representing the drop position */}
