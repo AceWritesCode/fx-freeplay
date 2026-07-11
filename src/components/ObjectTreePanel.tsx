@@ -342,41 +342,54 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
         });
 
-        // Clear folderId on the dragged drawing
-        const updatedOverlays = filtered.map((ov: any) => {
-          if (ov.id === data.id) {
+        const draggedIndex = filtered.findIndex((ov: any) => ov.id === data.id);
+        if (draggedIndex !== -1) {
+          const reordered = [...filtered];
+          const [draggedItem] = reordered.splice(draggedIndex, 1);
+
+          // Clear folderId on the dragged drawing
+          draggedItem.extendData = {
+            ...draggedItem.extendData,
+            folderId: null,
+          };
+
+          // Append to the end of the list (bottom of the Object Tree)
+          reordered.push(draggedItem);
+
+          // Assign new stable order values based on the new positions
+          const updatedOverlays = reordered.map((ov: any, idx: number) => {
+            const nextOrder = reordered.length - idx;
             return {
               ...ov,
               extendData: {
                 ...ov.extendData,
-                folderId: null,
-              },
+                order: nextOrder
+              }
             };
-          }
-          return ov;
-        });
-
-        // Remove and recreate all drawing overlays in order to apply root assignment and maintain visual Z-order
-        filtered.forEach((ov: any) => {
-          activeChart.removeOverlay({ id: ov.id });
-        });
-
-        const reverseList = [...updatedOverlays].reverse();
-        reverseList.forEach((ov: any) => {
-          activeChart.createOverlay({
-            name: ov.name,
-            id: ov.id,
-            paneId: ov.paneId || 'candle_pane',
-            points: ov.points,
-            extendData: ov.extendData,
-            lock: ov.lock,
-            visible: ov.visible !== false,
-            styles: ov.styles
           });
-        });
 
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
+          // Remove and recreate all drawing overlays in order to apply root assignment and maintain visual Z-order
+          filtered.forEach((ov: any) => {
+            activeChart.removeOverlay({ id: ov.id });
+          });
+
+          const reverseList = [...updatedOverlays].reverse();
+          reverseList.forEach((ov: any) => {
+            activeChart.createOverlay({
+              name: ov.name,
+              id: ov.id,
+              paneId: ov.paneId || 'candle_pane',
+              points: ov.points,
+              extendData: ov.extendData,
+              lock: ov.lock,
+              visible: ov.visible !== false,
+              styles: ov.styles
+            });
+          });
+
+          syncAllDrawings();
+          setDrawingTrigger(prev => prev + 1);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -844,15 +857,15 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 <div
                   key={folder.id}
                   className="flex flex-col border border-transparent rounded-lg"
-                  onDragOver={(e) => handleDragOverFolder(e, folder.id)}
-                  onDragLeave={handleDragLeaveFolder}
-                  onDrop={(e) => handleDropOnFolder(e, folder.id)}
                 >
                   {/* Folder Item Header */}
                   <div
                     draggable={true}
                     onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
                     onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOverFolder(e, folder.id)}
+                    onDragLeave={handleDragLeaveFolder}
+                    onDrop={(e) => handleDropOnFolder(e, folder.id)}
                     onClick={() => {
                       if (activeChart) {
                         activeChart._activeFolderId = activeChart._activeFolderId === folder.id ? null : folder.id;
@@ -1002,7 +1015,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
                   {/* Child Drawings List */}
                   {!folder.isCollapsed && (
-                    <div className="pl-6 pr-1 py-0.5 space-y-0.5 border-l border-gray-800/40 ml-4 mt-0.5">
+                    <div
+                      className="pl-6 pr-1 py-0.5 space-y-0.5 border-l border-gray-800/40 ml-4 mt-0.5"
+                      onDragOver={(e) => handleDragOverFolder(e, folder.id)}
+                      onDragLeave={handleDragLeaveFolder}
+                      onDrop={(e) => handleDropOnFolder(e, folder.id)}
+                    >
                       {childDrawings.length === 0 ? (
                         <div className="text-[10px] text-gray-500 italic py-1 pl-2">Empty folder</div>
                       ) : (
@@ -1011,15 +1029,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           const isLocked = d.lock || false;
                           const isVisible = d.visible !== false;
                           const isHovered = d.extendData?.isHovered || false;
-                          let borderClass = 'border-transparent';
                           const isDragOverThis = dragOverItemId === d.id;
-                          if (isDragOverThis) {
-                            if (dragOverPosition === 'above') {
-                              borderClass = 'border-t-2 border-indigo-500';
-                            } else if (dragOverPosition === 'below') {
-                              borderClass = 'border-b-2 border-indigo-500';
-                            }
-                          }
 
                           return (
                             <div
@@ -1031,16 +1041,23 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                               onDragLeave={handleDragLeaveItem}
                               onDrop={(e) => handleDropOnItem(e, d.id)}
                               onClick={(e) => handleItemSelect(e, d.id)}
-                              className={`group flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
-                                isDragOverThis
-                                  ? `bg-[#1f2334]/50 ${borderClass} text-white`
-                                  : isSelected
+                              className={`group relative flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
+                                isSelected
                                   ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                                   : isHovered
                                   ? 'bg-[#1f2334] border-transparent text-white'
                                   : 'border-transparent hover:bg-[#1f2334] text-gray-300'
                               }`}
                             >
+                              {/* Colored divider line representing the drop position */}
+                              {isDragOverThis && (
+                                <div
+                                  className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                                    dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
+                                  }`}
+                                />
+                              )}
+                              
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className="flex-shrink-0">
                                   {getDrawingIcon(d.name)}
@@ -1145,15 +1162,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               const isVisible = d.visible !== false;
               const isHovered = d.extendData?.isHovered || false;
 
-              let borderClass = 'border-transparent';
               const isDragOverThis = dragOverItemId === d.id;
-              if (isDragOverThis) {
-                if (dragOverPosition === 'above') {
-                  borderClass = 'border-t-2 border-indigo-500';
-                } else if (dragOverPosition === 'below') {
-                  borderClass = 'border-b-2 border-indigo-500';
-                }
-              }
 
               return (
                 <div
@@ -1165,16 +1174,22 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                   onDragLeave={handleDragLeaveItem}
                   onDrop={(e) => handleDropOnItem(e, d.id)}
                   onClick={(e) => handleItemSelect(e, d.id)}
-                  className={`group flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
-                    isDragOverThis
-                      ? `bg-[#1f2334]/50 ${borderClass} text-white`
-                      : isSelected
+                  className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
+                    isSelected
                       ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
                       : isHovered
                       ? 'bg-[#1f2334] border-transparent text-white'
                       : 'border-transparent hover:bg-[#1f2334] text-gray-300'
                   }`}
                 >
+                  {/* Colored divider line representing the drop position */}
+                  {isDragOverThis && (
+                    <div
+                      className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                        dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
+                      }`}
+                    />
+                  )}
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="flex-shrink-0">
                       {getDrawingIcon(d.name)}
