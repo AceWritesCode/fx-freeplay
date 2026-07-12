@@ -367,6 +367,12 @@ export default function App() {
   const [lineMenuPos, setLineMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const lineMenuRef = useRef<HTMLDivElement>(null);
 
+  // Shapes & Brushes Drawing Tools flyout state
+  const [selectedShapeToolId, setSelectedShapeToolId] = useState<string>('brush');
+  const [isShapeMenuOpen, setIsShapeMenuOpen] = useState<boolean>(false);
+  const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const shapeMenuRef = useRef<HTMLDivElement>(null);
+
   // Shift Key tracking for angle snapping
   const isShiftPressedRef = useRef<boolean>(false);
 
@@ -413,6 +419,9 @@ export default function App() {
       }
       if (lineMenuRef.current && !lineMenuRef.current.contains(event.target as Node)) {
         setIsLineMenuOpen(false);
+      }
+      if (shapeMenuRef.current && !shapeMenuRef.current.contains(event.target as Node)) {
+        setIsShapeMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -5335,7 +5344,133 @@ export default function App() {
             );
           })()}
 
-          {/* Any other tools not in 'lines' group */}
+          {/* Grouped Drawing Tools: Shapes & Brushes */}
+          {(() => {
+            const activeShapeTool = ToolRegistry.get(selectedShapeToolId) || ToolRegistry.get('brush');
+            if (!activeShapeTool) return null;
+            const Icon = activeShapeTool.icon;
+            const isGroupActive = activeTool && ToolRegistry.get(activeTool)?.group === 'shapes';
+            return (
+              <div className="relative flex items-center bg-transparent rounded-lg">
+                <button
+                  title={activeShapeTool.name}
+                  disabled={!hasData}
+                  onClick={() => handleSelectTool(activeShapeTool.id)}
+                  className={`p-1.5 rounded-l-md border border-r-0 transition-all flex items-center justify-center ${
+                    isGroupActive
+                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '30px', height: '30px' }}
+                >
+                  <Icon className="w-5 h-5 text-current" />
+                </button>
+                <button
+                  title="More shapes & brushes"
+                  disabled={!hasData}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setShapeMenuPos({ x: rect.right, y: rect.top });
+                    setIsShapeMenuOpen(!isShapeMenuOpen);
+                  }}
+                  className={`border border-l-0 rounded-r-md text-[7px] transition-all flex items-center justify-center ${
+                    isShapeMenuOpen
+                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '12px', height: '30px' }}
+                >
+                  ▶
+                </button>
+
+                {isShapeMenuOpen && (
+                  <div
+                    ref={shapeMenuRef}
+                    className="fixed z-50 bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                    style={{
+                      left: `${shapeMenuPos.x + 6}px`,
+                      top: `${shapeMenuPos.y - 10}px`,
+                    }}
+                  >
+                    {[
+                      {
+                        title: 'Brushes',
+                        toolIds: ['brush', 'highlighter']
+                      },
+                      {
+                        title: 'Arrows',
+                        toolIds: ['arrow']
+                      },
+                      {
+                        title: 'Shapes',
+                        toolIds: ['rectangle', 'path', 'circle', 'curve']
+                      }
+                    ].map((section, idx, arr) => (
+                      <div key={section.title} className="flex flex-col">
+                        {/* Section Header */}
+                        <div className="px-3.5 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                          {section.title}
+                        </div>
+
+                        {/* Section Tools */}
+                        <div className="flex flex-col">
+                          {section.toolIds.map(toolId => {
+                            const tool = ToolRegistry.get(toolId);
+                            if (!tool) return null;
+                            const ToolIcon = tool.icon;
+                            const isSelected = selectedShapeToolId === tool.id;
+                            return (
+                              <button
+                                key={tool.id}
+                                onClick={() => {
+                                  setSelectedShapeToolId(tool.id);
+                                  handleSelectTool(tool.id);
+                                  setIsShapeMenuOpen(false);
+                                }}
+                                className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
+                                  isSelected
+                                    ? 'bg-[#2a2e39] text-white font-medium'
+                                    : 'hover:bg-gray-800/60 text-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
+                                    <ToolIcon className="w-5 h-5 text-current" />
+                                  </span>
+                                  <span className="text-xs">{tool.name}</span>
+                                </div>
+                                
+                                <div className="flex items-center gap-3.5">
+                                  {tool.hotkey && (
+                                    <span className="text-[10px] text-gray-500 font-mono pr-1">
+                                      {tool.hotkey}
+                                    </span>
+                                  )}
+                                  <span className="text-gray-600 hover:text-yellow-500 transition-colors">
+                                    <svg className="w-4 h-4 fill-current text-yellow-500" viewBox="0 0 18 18">
+                                      <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
+                                    </svg>
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Divider Line */}
+                        {idx < arr.length - 1 && (
+                          <div className="border-t border-gray-800 my-1"></div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Any other tools not in 'lines' or 'shapes' groups */}
           {ToolRegistry.getAll()
             .filter(tool => !tool.group)
             .map((tool) => {
