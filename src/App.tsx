@@ -5302,14 +5302,16 @@ export default function App() {
                     setLineMenuPos({ x: rect.right, y: rect.top });
                     setIsLineMenuOpen(!isLineMenuOpen);
                   }}
-                  className={`border border-l-0 rounded-r-md text-[7px] transition-all flex items-center justify-center ${
+                  className={`border border-l-0 rounded-r-md transition-all flex items-center justify-center ${
                     isLineMenuOpen
                       ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
                   style={{ width: '12px', height: '30px' }}
                 >
-                  ▶
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+                    <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
 
                 {isLineMenuOpen && (
@@ -5406,14 +5408,16 @@ export default function App() {
                     setShapeMenuPos({ x: rect.right, y: rect.top });
                     setIsShapeMenuOpen(!isShapeMenuOpen);
                   }}
-                  className={`border border-l-0 rounded-r-md text-[7px] transition-all flex items-center justify-center ${
+                  className={`border border-l-0 rounded-r-md transition-all flex items-center justify-center ${
                     isShapeMenuOpen
                       ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
                   style={{ width: '12px', height: '30px' }}
                 >
-                  ▶
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+                    <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
 
                 {isShapeMenuOpen && (
