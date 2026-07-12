@@ -5240,6 +5240,38 @@ export default function App() {
         {/* Left Toolbar */}
         <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
           
+          {/* Cross (Select/Crosshair Cursor) */}
+          <button
+            title="Cross"
+            aria-label="Cross"
+            data-tooltip="Cross"
+            disabled={!hasData}
+            onClick={() => {
+              if (chartInstance.current) {
+                if (activeOverlayIdRef.current) {
+                  chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
+                  activeOverlayIdRef.current = null;
+                }
+                chartInstance.current.setScrollEnabled(true);
+                chartInstance.current.setZoomEnabled(true);
+              }
+              setActiveTool(null);
+            }}
+            className={`p-1.5 rounded-lg border transition-all flex items-center justify-center ${
+              !activeTool
+                ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+            }`}
+            style={{ width: '42px', height: '30px' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-5 h-5 text-current">
+              <g fill="currentColor">
+                <path d="M18 15h8v-1h-8z"></path>
+                <path d="M14 18v8h1v-8zM14 3v8h1v-8zM3 15h8v-1h-8z"></path>
+              </g>
+            </svg>
+          </button>
+
           {/* Grouped Drawing Tools: Lines */}
           {(() => {
             const activeLineTool = ToolRegistry.get(selectedLineToolId) || ToolRegistry.get('trendLine');
