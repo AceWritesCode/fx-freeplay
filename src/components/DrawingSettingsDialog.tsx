@@ -13,7 +13,7 @@ interface DrawingSettingsDialogProps {
   onDeselectOverlay?: () => void;
 }
 
-type TabType = 'style' | 'text' | 'coordinates' | 'visibility';
+type TabType = 'style' | 'inputs' | 'text' | 'coordinates' | 'visibility';
 
 // Persistent position across open/close actions
 let savedDialogPosition: { x: number; y: number } | null = null;
@@ -191,6 +191,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [lineWidth, setLineWidth] = useState(1);
   const [lineStyle, setLineStyle] = useState('solid');
   const [extendType, setExtendType] = useState('none');
+  const [fillColor, setFillColor] = useState('rgba(33, 150, 243, 0.1)');
+  const [fillBackground, setFillBackground] = useState(true);
+  const [profitColor, setProfitColor] = useState('rgba(76, 175, 80, 0.12)');
+  const [lossColor, setLossColor] = useState('rgba(244, 67, 54, 0.12)');
+  const [alwaysShowStats, setAlwaysShowStats] = useState(true);
+  const [showLines, setShowLines] = useState(false);
 
   // Text Tab States
   const [text, setText] = useState('');
@@ -217,7 +223,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   });
 
   // Color Pickers active dropdowns
-  const [activeColorPicker, setActiveColorPicker] = useState<'line' | 'text' | null>(null);
+  const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
   
   // Custom dropdowns for style selectors
   const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | null>(null);
@@ -256,10 +262,16 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(customSettings.lineWidth || 1);
     setLineStyle(customSettings.lineStyle || 'solid');
     setExtendType(customSettings.extendType || 'none');
+    setFillColor(customSettings.fillColor || 'rgba(33, 150, 243, 0.1)');
+    setFillBackground(customSettings.fillBackground !== false);
+    setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
+    setLossColor(customSettings.lossColor || 'rgba(244, 67, 54, 0.12)');
+    setAlwaysShowStats(customSettings.alwaysShowStats !== false);
+    setShowLines(customSettings.showLines === true);
 
     // Text settings
     setText(customSettings.text || '');
-    setTextColor(customSettings.textColor || '#2196F3');
+    setTextColor(customSettings.textColor || (overlay.name === 'longPosition' || overlay.name === 'shortPosition' ? '#ffffff' : '#2196F3'));
     setFontSize(customSettings.fontSize || 14);
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
@@ -404,6 +416,10 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineWidth,
       lineStyle,
       extendType,
+      fillColor,
+      fillBackground,
+      profitColor,
+      lossColor,
       text,
       textColor,
       fontSize,
@@ -413,7 +429,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         vertical: textValign,
         horizontal: textHalign
       },
-      visibility
+      visibility,
+      alwaysShowStats,
+      showLines
     };
 
     const updatedPoints = points.map(pt => {
@@ -446,7 +464,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     });
 
     onSave(updatedSettings, updatedPoints);
-  }, [lineColor, lineWidth, lineStyle, extendType, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility]);
+  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility, alwaysShowStats, showLines]);
 
   // Helper to ensure selectedGroup updates if mode changes or templates are deleted
   useEffect(() => {
@@ -479,6 +497,101 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         const parsed = parseInt(val) || 0;
         updated[index] = { ...updated[index], bar: parsed };
       }
+      return updated;
+    });
+  };
+
+  const getRRPointsIndices = (len: number) => {
+    if (len >= 6) {
+      return {
+        entryIndices: [4, 5],
+        profitIndices: [0, 1],
+        stopIndices: [2, 3]
+      };
+    }
+    return {
+      entryIndices: [0],
+      profitIndices: [1],
+      stopIndices: [2]
+    };
+  };
+
+  const handleEntryPriceChange = (val: string) => {
+    setPoints(prev => {
+      if (prev.length < 3) return prev;
+      const updated = [...prev];
+      const { entryIndices } = getRRPointsIndices(prev.length);
+      entryIndices.forEach(idx => {
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], price: val };
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleProfitPriceChange = (val: string) => {
+    setPoints(prev => {
+      if (prev.length < 3) return prev;
+      const updated = [...prev];
+      const { profitIndices } = getRRPointsIndices(prev.length);
+      profitIndices.forEach(idx => {
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], price: val };
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleProfitTicksChange = (ticks: number) => {
+    setPoints(prev => {
+      if (prev.length < 3) return prev;
+      const updated = [...prev];
+      const { entryIndices, profitIndices } = getRRPointsIndices(prev.length);
+      const entryPrice = parseFloat(updated[entryIndices[0]].price) || 0;
+      const tickSize = 1 / Math.pow(10, prec);
+      const isLong = overlay.name === 'longPosition';
+      const newPrice = isLong ? entryPrice + (ticks * tickSize) : entryPrice - (ticks * tickSize);
+      const valStr = newPrice.toFixed(prec);
+      profitIndices.forEach(idx => {
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], price: valStr };
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleStopPriceChange = (val: string) => {
+    setPoints(prev => {
+      if (prev.length < 3) return prev;
+      const updated = [...prev];
+      const { stopIndices } = getRRPointsIndices(prev.length);
+      stopIndices.forEach(idx => {
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], price: val };
+        }
+      });
+      return updated;
+    });
+  };
+
+  const handleStopTicksChange = (ticks: number) => {
+    setPoints(prev => {
+      if (prev.length < 3) return prev;
+      const updated = [...prev];
+      const { entryIndices, stopIndices } = getRRPointsIndices(prev.length);
+      const entryPrice = parseFloat(updated[entryIndices[0]].price) || 0;
+      const tickSize = 1 / Math.pow(10, prec);
+      const isLong = overlay.name === 'longPosition';
+      const newPrice = isLong ? entryPrice - (ticks * tickSize) : entryPrice + (ticks * tickSize);
+      const valStr = newPrice.toFixed(prec);
+      stopIndices.forEach(idx => {
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], price: valStr };
+        }
+      });
       return updated;
     });
   };
@@ -532,6 +645,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(settings.lineWidth || 1);
     setLineStyle(settings.lineStyle || 'solid');
     setExtendType(settings.extendType || 'none');
+    setFillColor(settings.fillColor || 'rgba(33, 150, 243, 0.1)');
+    setFillBackground(settings.fillBackground !== false);
+    setProfitColor(settings.profitColor || 'rgba(76, 175, 80, 0.12)');
+    setLossColor(settings.lossColor || 'rgba(244, 67, 54, 0.12)');
+    setAlwaysShowStats(settings.alwaysShowStats !== false);
+    setShowLines(settings.showLines === true);
     setText(settings.text || '');
     setTextColor(settings.textColor || '#2196F3');
     setFontSize(settings.fontSize || 14);
@@ -548,6 +667,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineWidth: settings.lineWidth || 1,
       lineStyle: settings.lineStyle || 'solid',
       extendType: settings.extendType || 'none',
+      fillColor: settings.fillColor || 'rgba(33, 150, 243, 0.1)',
+      fillBackground: settings.fillBackground !== false,
+      profitColor: settings.profitColor || 'rgba(76, 175, 80, 0.12)',
+      lossColor: settings.lossColor || 'rgba(244, 67, 54, 0.12)',
+      alwaysShowStats: settings.alwaysShowStats !== false,
+      showLines: settings.showLines === true,
       text: settings.text || '',
       textColor: settings.textColor || '#2196F3',
       fontSize: settings.fontSize || 14,
@@ -599,6 +724,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(1);
     setLineStyle('solid');
     setExtendType('none');
+    setFillColor('rgba(33, 150, 243, 0.1)');
+    setFillBackground(true);
+    setProfitColor('rgba(76, 175, 80, 0.12)');
+    setLossColor('rgba(244, 67, 54, 0.12)');
+    setAlwaysShowStats(true);
     setText('');
     setTextColor('#2196F3');
     setFontSize(14);
@@ -700,7 +830,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
       {/* Tabs navigation */}
       <div className="flex px-5 border-b border-[#242838] text-[12px] font-semibold gap-5 overflow-x-auto select-none bg-[#171a26]">
-        {(['style', 'text', 'coordinates', 'visibility'] as const).map(tab => (
+        {(
+          overlay.name === 'longPosition' || overlay.name === 'shortPosition'
+            ? ['style', 'inputs', 'visibility'] as const
+            : ['style', 'text', 'coordinates', 'visibility'] as const
+        ).map(tab => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setActiveColorPicker(null); setActiveSelect(null); }}
@@ -801,39 +935,138 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             </div>
 
             {/* Extend Row */}
-            <div className="flex items-center justify-between min-h-[36px]">
-              <span className="text-gray-400 font-medium">Extend</span>
-              <div className="relative">
-                <button
-                  onClick={() => { setActiveSelect(activeSelect === 'extend' ? null : 'extend'); setActiveColorPicker(null); }}
-                  className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95"
-                >
-                  <span className="capitalize">{extendType === 'none' ? "Don't extend" : `Extend ${extendType}`}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                </button>
-                {activeSelect === 'extend' && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                    <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
-                      {[
-                        { val: 'none', label: "Don't extend" },
-                        { val: 'left', label: 'Extend left' },
-                        { val: 'right', label: 'Extend right' },
-                        { val: 'both', label: 'Extend both' }
-                      ].map(item => (
-                        <button
-                          key={item.val}
-                          onClick={() => { setExtendType(item.val); setActiveSelect(null); }}
-                          className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] ${extendType === item.val ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
+            {overlay.name === 'trendLine' && (
+              <div className="flex items-center justify-between min-h-[36px]">
+                <span className="text-gray-400 font-medium">Extend</span>
+                <div className="relative">
+                  <button
+                    onClick={() => { setActiveSelect(activeSelect === 'extend' ? null : 'extend'); setActiveColorPicker(null); }}
+                    className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95"
+                  >
+                    <span className="capitalize">{extendType === 'none' ? "Don't extend" : `Extend ${extendType}`}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                  {activeSelect === 'extend' && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
+                        {[
+                          { val: 'none', label: "Don't extend" },
+                          { val: 'left', label: 'Extend left' },
+                          { val: 'right', label: 'Extend right' },
+                          { val: 'both', label: 'Extend both' }
+                        ].map(item => (
+                          <button
+                            key={item.val}
+                            onClick={() => { setExtendType(item.val); setActiveSelect(null); }}
+                            className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] ${extendType === item.val ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Background Fill (Rectangle/Circle) */}
+            {(overlay.name === 'rectangle' || overlay.name === 'circle') && (
+              <div className="flex items-center justify-between min-h-[36px]">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="fillBackground"
+                    checked={fillBackground}
+                    onChange={(e) => setFillBackground(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <label htmlFor="fillBackground" className="text-gray-400 font-medium cursor-pointer">Background</label>
+                </div>
+                {fillBackground && (
+                  <div className="relative">
+                    <button 
+                      onClick={() => { setActiveColorPicker(activeColorPicker === 'fill' ? null : 'fill'); setActiveSelect(null); }}
+                      className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                      style={{ backgroundColor: fillColor }}
+                    />
+                    {activeColorPicker === 'fill' && (
+                      <div className="absolute right-0 top-full mt-2 z-50">
+                        <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                        <div className="relative">
+                          <ColorPicker color={fillColor} onChange={(c) => setFillColor(c)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
+            )}
+
+            {/* Profit/Loss Colors (Long/Short Positions) */}
+            {(overlay.name === 'longPosition' || overlay.name === 'shortPosition') && (
+              <>
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-400 font-medium">Profit Zone</span>
+                  <div className="relative">
+                    <button 
+                      onClick={() => { setActiveColorPicker(activeColorPicker === 'profit' ? null : 'profit'); setActiveSelect(null); }}
+                      className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                      style={{ backgroundColor: profitColor }}
+                    />
+                    {activeColorPicker === 'profit' && (
+                      <div className="absolute right-0 top-full mt-2 z-50">
+                        <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                        <div className="relative">
+                          <ColorPicker color={profitColor} onChange={(c) => setProfitColor(c)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-400 font-medium">Loss Zone</span>
+                  <div className="relative">
+                    <button 
+                      onClick={() => { setActiveColorPicker(activeColorPicker === 'loss' ? null : 'loss'); setActiveSelect(null); }}
+                      className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                      style={{ backgroundColor: lossColor }}
+                    />
+                    {activeColorPicker === 'loss' && (
+                      <div className="absolute right-0 top-full mt-2 z-50">
+                        <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                        <div className="relative">
+                          <ColorPicker color={lossColor} onChange={(c) => setLossColor(c)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 min-h-[36px]">
+                  <input
+                    type="checkbox"
+                    id="alwaysShowStats"
+                    checked={alwaysShowStats}
+                    onChange={(e) => setAlwaysShowStats(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <label htmlFor="alwaysShowStats" className="text-gray-400 font-medium cursor-pointer">Always Show Stats</label>
+                </div>
+                <div className="flex items-center gap-2 min-h-[36px]">
+                  <input
+                    type="checkbox"
+                    id="showLines"
+                    checked={showLines}
+                    onChange={(e) => setShowLines(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <label htmlFor="showLines" className="text-gray-400 font-medium cursor-pointer">Show Lines</label>
+                </div>
+              </>
+            )}
 
           </div>
         )}
@@ -980,6 +1213,217 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
           </div>
         )}
+
+        {/* INPUTS TAB (Risk/Reward Specific) */}
+        {activeTab === 'inputs' && points.length >= 3 && (() => {
+          const len = points.length;
+          const entryIdx = len >= 6 ? 4 : 0;
+          const profitIdx = len >= 6 ? 0 : 1;
+          const stopIdx = len >= 6 ? 2 : 2;
+
+          const entryPrice = parseFloat(points[entryIdx].price) || 0;
+          const profitPrice = parseFloat(points[profitIdx].price) || 0;
+          const stopPrice = parseFloat(points[stopIdx].price) || 0;
+          const tickSize = 1 / Math.pow(10, prec);
+          
+          const profitTicks = Math.round(Math.abs(profitPrice - entryPrice) / tickSize);
+          const stopTicks = Math.round(Math.abs(entryPrice - stopPrice) / tickSize);
+          
+          return (
+            <div className="space-y-4">
+              {/* Entry Price Section */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Entry Price</span>
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-300 font-medium">Price</span>
+                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.max(0, entryPrice - tickSize);
+                        handleEntryPriceChange(newVal.toFixed(prec));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      step={tickSize}
+                      value={points[entryIdx].price}
+                      onChange={(e) => handleEntryPriceChange(e.target.value)}
+                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = entryPrice + tickSize;
+                        handleEntryPriceChange(newVal.toFixed(prec));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-[#242838] my-3" />
+
+              {/* Profit Level Section */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Profit Level (Take Profit)</span>
+                
+                {/* Profit Price Input */}
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-300 font-medium">Price</span>
+                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.max(0, profitPrice - tickSize);
+                        handleProfitPriceChange(newVal.toFixed(prec));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      step={tickSize}
+                      value={points[profitIdx].price}
+                      onChange={(e) => handleProfitPriceChange(e.target.value)}
+                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = profitPrice + tickSize;
+                        handleProfitPriceChange(newVal.toFixed(prec));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Profit Ticks Input */}
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-300 font-medium">Ticks / Points</span>
+                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.max(0, profitTicks - 1);
+                        handleProfitTicksChange(newVal);
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      value={profitTicks}
+                      onChange={(e) => {
+                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                        handleProfitTicksChange(val);
+                      }}
+                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = profitTicks + 1;
+                        handleProfitTicksChange(newVal);
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-[#242838] my-3" />
+
+              {/* Stop Level Section */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">Stop Level (Stop Loss)</span>
+                
+                {/* Stop Price Input */}
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-300 font-medium">Price</span>
+                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.max(0, stopPrice - tickSize);
+                        handleStopPriceChange(newVal.toFixed(prec));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      step={tickSize}
+                      value={points[stopIdx].price}
+                      onChange={(e) => handleStopPriceChange(e.target.value)}
+                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = stopPrice + tickSize;
+                        handleStopPriceChange(newVal.toFixed(prec));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stop Ticks Input */}
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-300 font-medium">Ticks / Points</span>
+                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.max(0, stopTicks - 1);
+                        handleStopTicksChange(newVal);
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      value={stopTicks}
+                      onChange={(e) => {
+                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                        handleStopTicksChange(val);
+                      }}
+                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = stopTicks + 1;
+                        handleStopTicksChange(newVal);
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* COORDINATES TAB */}
         {activeTab === 'coordinates' && (
@@ -1411,6 +1855,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         lineWidth,
                         lineStyle,
                         extendType,
+                        fillColor,
+                        fillBackground,
+                        profitColor,
+                        lossColor,
+                        alwaysShowStats,
+                        showLines,
                         text,
                         textColor,
                         fontSize,

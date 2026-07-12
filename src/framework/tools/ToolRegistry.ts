@@ -41,6 +41,10 @@ export interface ToolDefinition {
   // Optional categorization fields for sidebar groups and shortcuts
   group?: string;      // e.g., 'lines'
   hotkey?: string;     // e.g., 'Alt + T'
+
+  // Custom event hooks for complex interactive drag resizing/completion
+  onPressedMoving?: (event: any, draggedIndex: number) => boolean;
+  onDrawEnd?: (event: any) => void;
 }
 
 class ToolRegistryImpl {

@@ -36,6 +36,17 @@ The first fully-implemented drawing tool. Serves as the reference implementation
 - **Statistics Panel** — Shows bars count, percentage change, pips, and angle between the two anchor points, rendered directly on the canvas near the line.
 - **Real-time Sync** — All drawings sync across multi-chart split layouts automatically.
 
+#### Long / Short Position (Risk/Reward) Tools
+Interactive position sizing tools to plan and calculate R:R ratios directly on the chart.
+
+- **One-Click Drop** — Click to instantly place a default 1:1 Risk/Reward box on the chart.
+- **Grab Handles** — 6 interactive handle points to resize targets (TP), stop loss (SL), and entry values horizontally or vertically.
+- **Dynamic Stats & Badges** — Computes and renders TP (pips), SL (pips), and the Risk-to-Reward ratio in real-time.
+- **Opaque Color Syncing** — Automatically synchronizes the line borders and text badge backgrounds with the base solid color of your Profit/Loss zone backgrounds.
+- **Custom Line & Border Visibility** — Option to show or hide the TP/SL boundary and entry lines. When enabled, they follow your custom thickness (lineWidth) and type (lineStyle) preferences.
+- **Y-Axis Tag Integration** — Adds color-coordinated tags for TP, Entry, and SL values directly onto the right Y-axis price scale.
+- **Real-time Sync** — Position boxes, settings, and templates sync seamlessly across multi-chart split layouts.
+
 #### Drawing Floating Toolbar
 A draggable, context-sensitive toolbar that appears whenever a drawing is selected.
 

@@ -79,7 +79,7 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   return null;
 }
 
-import { initializeToolFramework } from '../framework/tools';
+import { initializeToolFramework, ToolRegistry } from '../framework/tools';
 
 export function registerCustomOverlays() {
   // Initialize new tool framework
@@ -245,8 +245,14 @@ export function getInteractiveOverlayOptions(
       customSettings: defaultSettings
     },
     onDrawEnd: (event: any) => {
+      // Call custom tool onDrawEnd hook if defined in registry
+      const registeredTool = ToolRegistry.get(toolName);
+      if (registeredTool && registeredTool.onDrawEnd) {
+        registeredTool.onDrawEnd(event);
+      }
+
       if (chartInstanceRef.current) {
-        chartInstanceRef.current._justFinishedDrawingId = event.overlay.id;
+        chartInstanceRef.current._clickedOnOverlay = true;
         chartInstanceRef.current.setScrollEnabled(true);
         chartInstanceRef.current.setZoomEnabled(true);
 
@@ -419,6 +425,18 @@ export function getInteractiveOverlayOptions(
         return;
       }
 
+      // Call custom tool onPressedMoving hook if defined in registry
+      const registeredTool = ToolRegistry.get(toolName);
+      if (registeredTool && registeredTool.onPressedMoving) {
+        const handled = registeredTool.onPressedMoving(event, draggedIndex);
+        if (handled) {
+          if (event.chart._onDrawingSync) {
+            event.chart._onDrawingSync();
+          }
+          return;
+        }
+      }
+
       if (toolName === 'trendLine') {
         const points = event.overlay.points;
         if (points && points.length === 2) {
@@ -513,10 +531,6 @@ export function getInteractiveOverlayOptions(
             event.chart._onDrawingSync();
           }
         }, 50);
-        return true;
-      }
-      if (event.chart._justFinishedDrawingId === id) {
-        event.chart._justFinishedDrawingId = null;
         return true;
       }
       event.chart._clickedOnOverlay = true;

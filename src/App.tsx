@@ -172,9 +172,10 @@ const matchFileToTimeframe = (filename: string): string | null => {
   return null;
 };
 
-const WeakMagnetIcon = ({ className = "w-4.5 h-4.5" }: { className?: string }) => (
+const WeakMagnetIcon = ({ className = "w-4.5 h-4.5", style }: { className?: string; style?: React.CSSProperties }) => (
   <svg
     className={className}
+    style={style}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -191,9 +192,10 @@ const WeakMagnetIcon = ({ className = "w-4.5 h-4.5" }: { className?: string }) =
   </svg>
 );
 
-const StrongMagnetIcon = ({ className = "w-4.5 h-4.5" }: { className?: string }) => (
+const StrongMagnetIcon = ({ className = "w-4.5 h-4.5", style }: { className?: string; style?: React.CSSProperties }) => (
   <svg
     className={className}
+    style={style}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -5338,7 +5340,9 @@ export default function App() {
                   }`}
                   style={{ width: '34px', height: '34px' }}
                 >
-                  <Icon style={{ width: '28px', height: '28px' }} />
+                  <span style={{ width: '22px', height: '22px' }} className="flex items-center justify-center text-current">
+                    <Icon />
+                  </span>
                 </button>
                 <button
                   title="More cursor tools"
@@ -5459,7 +5463,9 @@ export default function App() {
                   }`}
                   style={{ width: '34px', height: '34px' }}
                 >
-                  <Icon style={{ width: '28px', height: '28px' }} className="text-current" />
+                  <span style={{ width: '22px', height: '22px' }} className="flex items-center justify-center text-current">
+                    <Icon className="w-full h-full text-current" />
+                  </span>
                 </button>
                 <button
                   title="More line tools"
@@ -5565,7 +5571,9 @@ export default function App() {
                   }`}
                   style={{ width: '34px', height: '34px' }}
                 >
-                  <Icon style={{ width: '28px', height: '28px' }} className="text-current" />
+                  <span style={{ width: '22px', height: '22px' }} className="flex items-center justify-center text-current">
+                    <Icon className="w-full h-full text-current" />
+                  </span>
                 </button>
                 <button
                   title="More shapes & brushes"
@@ -6064,6 +6072,19 @@ export default function App() {
                 setDrawingSettingsOverlayId(selectedOverlayIds[0]);
                 setIsDrawingSettingsOpen(true);
               }
+            }}
+            onCreateLimitOrder={(overlay) => {
+              const points = overlay.points || [];
+              if (points.length < 3) return;
+              const entryPrice = points[0].value.toFixed(5);
+              const targetPrice = points[1].value.toFixed(5);
+              const stopPrice = points[2].value.toFixed(5);
+              const direction = overlay.name === 'longPosition' ? 'BUY LIMIT' : 'SELL LIMIT';
+              
+              setCustomAlert({
+                title: 'Create Limit Order',
+                message: `${direction} Order Setup:\n\nEntry Price: ${entryPrice}\nTake Profit: ${targetPrice}\nStop Loss: ${stopPrice}\n\nLimit order has been configured based on your Risk/Reward drawing levels.`
+              });
             }}
           />
 
