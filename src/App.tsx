@@ -317,6 +317,51 @@ const layoutsList = [
   )}
 ];
 
+const CURSOR_TOOLS = [
+  {
+    id: 'cross',
+    name: 'Cross',
+    icon: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-6 h-6 text-current">
+        <g fill="currentColor">
+          <path d="M18 15h8v-1h-8z"></path>
+          <path d="M14 18v8h1v-8zM14 3v8h1v-8zM3 15h8v-1h-8z"></path>
+        </g>
+      </svg>
+    )
+  },
+  {
+    id: 'dot',
+    name: 'Dot',
+    icon: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-6 h-6 text-current">
+        <circle fill="currentColor" cx="14" cy="14" r="3"></circle>
+      </svg>
+    )
+  },
+  {
+    id: 'arrow',
+    name: 'Arrow',
+    icon: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-6 h-6 text-current">
+        <path fill="currentColor" d="M11.682 16.09l3.504 6.068 1.732-1-3.497-6.057 3.595-2.1L8 7.74v10.512l3.682-2.163zm-.362 1.372L7 20V6l12 7-4.216 2.462 3.5 6.062-3.464 2-3.5-6.062z"></path>
+      </svg>
+    )
+  },
+  {
+    id: 'eraser',
+    name: 'Eraser',
+    icon: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 31" className="w-6 h-6 text-current">
+        <g fill="currentColor" fillRule="nonzero">
+          <path d="M15.3 22l8.187-8.187c.394-.394.395-1.028.004-1.418l-4.243-4.243c-.394-.394-1.019-.395-1.407-.006l-11.325 11.325c-.383.383-.383 1.018.007 1.407l1.121 1.121h7.656zm-9.484-.414c-.781-.781-.779-2.049-.007-2.821l11.325-11.325c.777-.777 2.035-.78 2.821.006l4.243 4.243c.781.781.78 2.048-.004 2.832l-8.48 8.48h-8.484l-1.414-1.414z"></path>
+          <path d="M13.011 22.999h7.999v-1h-7.999zM13.501 11.294l6.717 6.717.707-.707-6.717-6.717z"></path>
+        </g>
+      </svg>
+    )
+  }
+];
+
 export default function App() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
@@ -373,6 +418,18 @@ export default function App() {
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const shapeMenuRef = useRef<HTMLDivElement>(null);
 
+  // Cursor Tools flyout state
+  const [selectedCursorId, setSelectedCursorId] = useState<string>('cross');
+  const [isCursorMenuOpen, setIsCursorMenuOpen] = useState<boolean>(false);
+  const [cursorMenuPos, setCursorMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const cursorMenuRef = useRef<HTMLDivElement>(null);
+
+  // Forecasting Tools flyout state
+  const [selectedForecastToolId, setSelectedForecastToolId] = useState<string>('longPosition');
+  const [isForecastMenuOpen, setIsForecastMenuOpen] = useState<boolean>(false);
+  const [forecastMenuPos, setForecastMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const forecastMenuRef = useRef<HTMLDivElement>(null);
+
   // Shift Key tracking for angle snapping
   const isShiftPressedRef = useRef<boolean>(false);
 
@@ -422,6 +479,12 @@ export default function App() {
       }
       if (shapeMenuRef.current && !shapeMenuRef.current.contains(event.target as Node)) {
         setIsShapeMenuOpen(false);
+      }
+      if (cursorMenuRef.current && !cursorMenuRef.current.contains(event.target as Node)) {
+        setIsCursorMenuOpen(false);
+      }
+      if (forecastMenuRef.current && !forecastMenuRef.current.contains(event.target as Node)) {
+        setIsForecastMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -2962,6 +3025,7 @@ export default function App() {
         (chart as any)._isCtrlPressedRef = isCtrlPressedRef;
         (chart as any)._isShiftPressedRef = isShiftPressedRef;
         (chart as any)._chartInstancesRef = chartInstancesRef;
+        (chart as any)._activeTool = activeTool;
 
         (chart as any)._initMultiMove = (event: any) => {
           const c = event.chart as any;
@@ -5238,39 +5302,143 @@ export default function App() {
       <div className="flex flex-1 w-full h-[calc(100vh-6rem)] overflow-hidden relative">
         
         {/* Left Toolbar */}
-        <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
+        <aside className="w-[52px] bg-[#1e222d] border-r border-gray-950 flex flex-col items-start pl-[4px] py-3 gap-3.5 z-40">
           
-          {/* Cross (Select/Crosshair Cursor) */}
-          <button
-            title="Cross"
-            aria-label="Cross"
-            data-tooltip="Cross"
-            disabled={!hasData}
-            onClick={() => {
-              if (chartInstance.current) {
-                if (activeOverlayIdRef.current) {
-                  chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
-                  activeOverlayIdRef.current = null;
-                }
-                chartInstance.current.setScrollEnabled(true);
-                chartInstance.current.setZoomEnabled(true);
-              }
-              setActiveTool(null);
-            }}
-            className={`p-1.5 rounded-lg border transition-all flex items-center justify-center ${
-              !activeTool
-                ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-            }`}
-            style={{ width: '42px', height: '30px' }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-5 h-5 text-current">
-              <g fill="currentColor">
-                <path d="M18 15h8v-1h-8z"></path>
-                <path d="M14 18v8h1v-8zM14 3v8h1v-8zM3 15h8v-1h-8z"></path>
-              </g>
-            </svg>
-          </button>
+          {/* Grouped Cursor Tools: Select / Crosshair */}
+          {(() => {
+            const activeCursorTool = CURSOR_TOOLS.find(t => t.id === selectedCursorId) || CURSOR_TOOLS[0];
+            const Icon = activeCursorTool.icon;
+            const isGroupActive = !activeTool || activeTool === 'eraser';
+            return (
+              <div className="relative flex items-center bg-transparent rounded-lg">
+                <button
+                  title={activeCursorTool.name}
+                  aria-label={activeCursorTool.name}
+                  data-tooltip={activeCursorTool.name}
+                  disabled={!hasData}
+                  onClick={() => {
+                    if (chartInstance.current) {
+                      if (activeOverlayIdRef.current) {
+                        chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
+                        activeOverlayIdRef.current = null;
+                      }
+                      chartInstance.current.setScrollEnabled(true);
+                      chartInstance.current.setZoomEnabled(true);
+                    }
+                    if (activeCursorTool.id === 'eraser') {
+                      setActiveTool('eraser');
+                    } else {
+                      setActiveTool(null);
+                    }
+                  }}
+                  className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+                    isGroupActive
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '34px', height: '34px' }}
+                >
+                  <Icon style={{ width: '28px', height: '28px' }} />
+                </button>
+                <button
+                  title="More cursor tools"
+                  disabled={!hasData}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCursorMenuPos({ x: rect.right, y: rect.top });
+                    setIsCursorMenuOpen(!isCursorMenuOpen);
+                  }}
+                  className={`border rounded-md transition-all flex items-center justify-center ${
+                    isCursorMenuOpen
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '12px', height: '34px' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+                    <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {isCursorMenuOpen && (
+                  <div
+                    ref={cursorMenuRef}
+                    className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                    style={{
+                      left: `${cursorMenuPos.x + 6}px`,
+                      top: `${cursorMenuPos.y}px`,
+                    }}
+                  >
+                    {[
+                      {
+                        toolIds: ['cross', 'dot', 'arrow']
+                      },
+                      {
+                        toolIds: ['eraser']
+                      }
+                    ].map((section, idx, arr) => (
+                      <div key={idx} className="flex flex-col">
+                        <div className="flex flex-col">
+                          {section.toolIds.map(toolId => {
+                            const tool = CURSOR_TOOLS.find(t => t.id === toolId);
+                            if (!tool) return null;
+                            const ToolIcon = tool.icon;
+                            const isSelected = selectedCursorId === tool.id && (!activeTool || activeTool === 'eraser');
+                            return (
+                              <button
+                                key={tool.id}
+                                onClick={() => {
+                                  setSelectedCursorId(tool.id);
+                                  if (chartInstance.current) {
+                                    if (activeOverlayIdRef.current) {
+                                      chartInstance.current.removeOverlay({ id: activeOverlayIdRef.current });
+                                      activeOverlayIdRef.current = null;
+                                    }
+                                    chartInstance.current.setScrollEnabled(true);
+                                    chartInstance.current.setZoomEnabled(true);
+                                  }
+                                  if (tool.id === 'eraser') {
+                                    setActiveTool('eraser');
+                                  } else {
+                                    setActiveTool(null);
+                                  }
+                                  setIsCursorMenuOpen(false);
+                                }}
+                                className={`group flex items-center justify-between px-3.5 py-2 w-full text-left transition-colors ${
+                                  isSelected
+                                    ? 'bg-[#2a2e39] text-white font-medium'
+                                    : 'hover:bg-gray-800/60 text-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
+                                    <ToolIcon />
+                                  </span>
+                                  <span className="text-xs">{tool.name}</span>
+                                </div>
+                                
+                                <div className="flex items-center gap-3.5">
+                                  <span className="text-gray-600 hover:text-yellow-500 transition-colors">
+                                    <svg className="w-4 h-4 fill-current text-yellow-500" viewBox="0 0 18 18">
+                                      <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
+                                    </svg>
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {idx < arr.length - 1 && (
+                          <div className="border-t border-gray-800 my-1"></div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Grouped Drawing Tools: Lines */}
           {(() => {
@@ -5284,14 +5452,14 @@ export default function App() {
                   title={activeLineTool.name}
                   disabled={!hasData}
                   onClick={() => handleSelectTool(activeLineTool.id)}
-                  className={`p-1.5 rounded-l-md border border-r-0 transition-all flex items-center justify-center ${
+                  className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                     isGroupActive
-                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
-                  style={{ width: '30px', height: '30px' }}
+                  style={{ width: '34px', height: '34px' }}
                 >
-                  <Icon className="w-5 h-5 text-current" />
+                  <Icon style={{ width: '28px', height: '28px' }} className="text-current" />
                 </button>
                 <button
                   title="More line tools"
@@ -5302,12 +5470,12 @@ export default function App() {
                     setLineMenuPos({ x: rect.right, y: rect.top });
                     setIsLineMenuOpen(!isLineMenuOpen);
                   }}
-                  className={`border border-l-0 rounded-r-md transition-all flex items-center justify-center ${
+                  className={`border rounded-md transition-all flex items-center justify-center ${
                     isLineMenuOpen
-                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
-                  style={{ width: '12px', height: '30px' }}
+                  style={{ width: '12px', height: '34px' }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
                     <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -5317,10 +5485,10 @@ export default function App() {
                 {isLineMenuOpen && (
                   <div
                     ref={lineMenuRef}
-                    className="fixed z-50 bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                    className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
                     style={{
                       left: `${lineMenuPos.x + 6}px`,
-                      top: `${lineMenuPos.y - 10}px`,
+                      top: `${lineMenuPos.y}px`,
                     }}
                   >
                     {/* Header */}
@@ -5351,7 +5519,7 @@ export default function App() {
                             >
                               <div className="flex items-center gap-3">
                                 <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
-                                  <ToolIcon className="w-5 h-5 text-current" />
+                                  <ToolIcon className="w-6 h-6 text-current" />
                                 </span>
                                 <span className="text-xs">{tool.name}</span>
                               </div>
@@ -5390,14 +5558,14 @@ export default function App() {
                   title={activeShapeTool.name}
                   disabled={!hasData}
                   onClick={() => handleSelectTool(activeShapeTool.id)}
-                  className={`p-1.5 rounded-l-md border border-r-0 transition-all flex items-center justify-center ${
+                  className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                     isGroupActive
-                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
-                  style={{ width: '30px', height: '30px' }}
+                  style={{ width: '34px', height: '34px' }}
                 >
-                  <Icon className="w-5 h-5 text-current" />
+                  <Icon style={{ width: '28px', height: '28px' }} className="text-current" />
                 </button>
                 <button
                   title="More shapes & brushes"
@@ -5408,12 +5576,12 @@ export default function App() {
                     setShapeMenuPos({ x: rect.right, y: rect.top });
                     setIsShapeMenuOpen(!isShapeMenuOpen);
                   }}
-                  className={`border border-l-0 rounded-r-md transition-all flex items-center justify-center ${
+                  className={`border rounded-md transition-all flex items-center justify-center ${
                     isShapeMenuOpen
-                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
-                  style={{ width: '12px', height: '30px' }}
+                  style={{ width: '12px', height: '34px' }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
                     <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -5423,10 +5591,10 @@ export default function App() {
                 {isShapeMenuOpen && (
                   <div
                     ref={shapeMenuRef}
-                    className="fixed z-50 bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                    className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
                     style={{
                       left: `${shapeMenuPos.x + 6}px`,
-                      top: `${shapeMenuPos.y - 10}px`,
+                      top: `${shapeMenuPos.y}px`,
                     }}
                   >
                     {[
@@ -5472,7 +5640,7 @@ export default function App() {
                               >
                                 <div className="flex items-center gap-3">
                                   <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
-                                    <ToolIcon className="w-5 h-5 text-current" />
+                                    <ToolIcon className="w-6 h-6 text-current" />
                                   </span>
                                   <span className="text-xs">{tool.name}</span>
                                 </div>
@@ -5506,7 +5674,98 @@ export default function App() {
             );
           })()}
 
-          {/* Any other tools not in 'lines' or 'shapes' groups */}
+          {/* Grouped Drawing Tools: Forecast (Long / Short position) */}
+          {(() => {
+            const activeForecastTool = ToolRegistry.get(selectedForecastToolId) || ToolRegistry.get('longPosition');
+            if (!activeForecastTool) return null;
+            const Icon = activeForecastTool.icon;
+            const isGroupActive = activeTool && ToolRegistry.get(activeTool)?.group === 'forecast';
+            return (
+              <div className="relative flex items-center bg-transparent rounded-lg">
+                <button
+                  title={activeForecastTool.name}
+                  disabled={!hasData}
+                  onClick={() => handleSelectTool(activeForecastTool.id)}
+                  className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+                    isGroupActive
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '34px', height: '34px' }}
+                >
+                  <Icon style={{ width: '28px', height: '28px' }} className="text-current" />
+                </button>
+                <button
+                  title="More forecasting tools"
+                  disabled={!hasData}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setForecastMenuPos({ x: rect.right, y: rect.top });
+                    setIsForecastMenuOpen(!isForecastMenuOpen);
+                  }}
+                  className={`border rounded-md transition-all flex items-center justify-center ${
+                    isForecastMenuOpen
+                      ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '12px', height: '34px' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+                    <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {isForecastMenuOpen && (
+                  <div
+                    ref={forecastMenuRef}
+                    className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[200px] text-gray-300 select-none"
+                    style={{
+                      left: `${forecastMenuPos.x + 6}px`,
+                      top: `${forecastMenuPos.y}px`,
+                    }}
+                  >
+                    {/* Section header */}
+                    <div className="px-3.5 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      Forecasting
+                    </div>
+                    {(['longPosition', 'shortPosition'] as const).map(toolId => {
+                      const tool = ToolRegistry.get(toolId);
+                      if (!tool) return null;
+                      const ToolIcon = tool.icon;
+                      const isSelected = selectedForecastToolId === tool.id;
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={() => {
+                            setSelectedForecastToolId(tool.id);
+                            handleSelectTool(tool.id);
+                            setIsForecastMenuOpen(false);
+                          }}
+                          className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
+                            isSelected
+                              ? 'bg-[#2a2e39] text-white font-medium'
+                              : 'hover:bg-gray-800/60 text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`w-7 h-7 flex items-center justify-center rounded ${
+                              isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'
+                            }`}>
+                              <ToolIcon className="w-6 h-6 text-current" />
+                            </span>
+                            <span className="text-xs">{tool.name}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Any other tools not in 'lines', 'shapes', or 'forecast' groups */}
           {ToolRegistry.getAll()
             .filter(tool => !tool.group)
             .map((tool) => {
@@ -5518,13 +5777,14 @@ export default function App() {
                   title={tool.name}
                   disabled={!hasData}
                   onClick={() => handleSelectTool(tool.id)}
-                  className={`p-2 rounded-lg border transition-all ${
+                  className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
                     isActive
-                      ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                      ? 'bg-indigo-600/25 text-indigo-400'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
                   }`}
+                  style={{ width: '34px', height: '34px' }}
                 >
-                  <Icon />
+                  <Icon style={{ width: '28px', height: '28px' }} className="text-current" />
                 </button>
               );
             })}
@@ -5533,46 +5793,49 @@ export default function App() {
             title="Clear Drawings"
             disabled={!hasData}
             onClick={handleClearDrawings}
-            className="p-2 rounded-lg border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            className="p-1.5 rounded-md border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center"
+            style={{ width: '34px', height: '34px' }}
           >
-            <Trash2 className="w-4.5 h-4.5" />
+            <Trash2 style={{ width: '22px', height: '22px' }} className="text-current" />
           </button>
 
           <div className="relative">
             <button
-              title="Magnet Mode (Snap to OHLC)"
+              title="Magnet Mode (Snap to OHLC) — right-click for options"
               disabled={!hasData}
               onClick={handleToggleMagnet}
               onContextMenu={(e) => {
                 e.preventDefault();
                 if (!hasData) return;
-                setMagnetMenuPos({ x: e.clientX, y: e.clientY });
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMagnetMenuPos({ x: rect.right, y: rect.top });
                 setIsMagnetMenuOpen(true);
               }}
-              className={`p-2 rounded-lg border transition-all ${
+              className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
                 magnetMode !== 'normal'
-                  ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  ? 'bg-indigo-600/25 text-indigo-400'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
+              style={{ width: '34px', height: '34px' }}
             >
               {magnetMode === 'strong_magnet' && (
-                <StrongMagnetIcon className="w-4.5 h-4.5" />
+                <StrongMagnetIcon style={{ width: '22px', height: '22px' }} className="text-current" />
               )}
               {magnetMode === 'weak_magnet' && (
-                <WeakMagnetIcon className="w-4.5 h-4.5" />
+                <WeakMagnetIcon style={{ width: '22px', height: '22px' }} className="text-current" />
               )}
               {(magnetMode === 'normal_magnet' || magnetMode === 'normal') && (
-                <Magnet className="w-4.5 h-4.5" />
+                <Magnet style={{ width: '22px', height: '22px' }} className="text-current" />
               )}
             </button>
 
             {isMagnetMenuOpen && (
               <div
                 ref={magnetMenuRef}
-                className="fixed z-50 bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1.5 text-sm min-w-[170px]"
+                className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1.5 text-sm min-w-[170px]"
                 style={{
-                  left: `${magnetMenuPos.x + 10}px`,
-                  top: `${magnetMenuPos.y - 40}px`,
+                  left: `${magnetMenuPos.x + 6}px`,
+                  top: `${magnetMenuPos.y}px`,
                 }}
               >
                 <button
@@ -5586,7 +5849,7 @@ export default function App() {
                       : 'text-gray-200 hover:bg-gray-800/60'
                   }`}
                 >
-                  <WeakMagnetIcon className={`w-4.5 h-4.5 ${magnetMode === 'weak_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
+                  <WeakMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'weak_magnet' ? 'text-gray-900' : 'text-gray-400'} />
                   <span>Weak magnet</span>
                 </button>
                 <button
@@ -5600,7 +5863,7 @@ export default function App() {
                       : 'text-gray-200 hover:bg-gray-800/60'
                   }`}
                 >
-                  <Magnet className={`w-4.5 h-4.5 ${magnetMode === 'normal_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
+                  <Magnet style={{ width: '20px', height: '20px' }} className={magnetMode === 'normal_magnet' ? 'text-gray-900' : 'text-gray-400'} />
                   <span>Normal magnet</span>
                 </button>
                 <button
@@ -5614,7 +5877,7 @@ export default function App() {
                       : 'text-gray-200 hover:bg-gray-800/60'
                   }`}
                 >
-                  <StrongMagnetIcon className={`w-4.5 h-4.5 ${magnetMode === 'strong_magnet' ? 'text-gray-900' : 'text-gray-400'}`} />
+                  <StrongMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'strong_magnet' ? 'text-gray-900' : 'text-gray-400'} />
                   <span>Strong magnet</span>
                 </button>
               </div>

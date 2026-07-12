@@ -497,6 +497,24 @@ export function getInteractiveOverlayOptions(
     },
     onClick: (event: any) => {
       const id = event.overlay.id;
+      if (event.chart._activeTool === 'eraser') {
+        const syncMatch = id?.match(/^sync_(.+)_from_(\d+)$/);
+        if (syncMatch) {
+          const originalId = syncMatch[1];
+          const sourceIndex = parseInt(syncMatch[2]);
+          const sourceChart = event.chart._chartInstancesRef?.current?.[sourceIndex];
+          if (sourceChart) {
+            sourceChart.removeOverlay({ id: originalId });
+          }
+        }
+        event.chart.removeOverlay({ id });
+        setTimeout(() => {
+          if (event.chart._onDrawingSync) {
+            event.chart._onDrawingSync();
+          }
+        }, 50);
+        return true;
+      }
       if (event.chart._justFinishedDrawingId === id) {
         event.chart._justFinishedDrawingId = null;
         return true;

@@ -13,6 +13,7 @@ import {
   CircleTool, 
   CurveTool 
 } from './implementations/ShapesAndBrushes';
+import { LongPositionTool, ShortPositionTool } from './implementations/ForecastingTools';
 import { initializeToolFramework } from './klinechartsAdapter';
 
 // Register all tools
@@ -28,6 +29,8 @@ ToolRegistry.register(RectangleTool);
 ToolRegistry.register(PathTool);
 ToolRegistry.register(CircleTool);
 ToolRegistry.register(CurveTool);
+ToolRegistry.register(LongPositionTool);
+ToolRegistry.register(ShortPositionTool);
 
 // Export registry and initialization function
 export { ToolRegistry, initializeToolFramework };
