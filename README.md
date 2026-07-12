@@ -185,6 +185,50 @@ Date formats like `YYYY.MM.DD`, `YYYY-MM-DD`, `MM/DD/YYYY` and time formats like
 
 ---
 
+## How to Get Data? (MT5 Candlestick Exporter)
+
+We have provided a custom MetaTrader 5 script file in the repository named `Candlesticks_Data_Export.ex5` to help you extract historical candlestick data from MetaTrader 5 and save it into clean, compatible CSV files. 
+
+*Note: This script only exports fully closed candles (it ignores the current live, fluctuating candle) so your replay datasets remain highly accurate.*
+
+### 1. How to Install
+1. Open your MetaTrader 5 terminal.
+2. Go to the top menu and select **File** -> **Open Data Folder**.
+3. Open the **MQL5** folder, then open the **Scripts** folder.
+4. Copy the `Candlesticks_Data_Export.ex5` file from this project repository and paste it into that scripts folder.
+5. Go back to MT5. In the **Navigator** panel (usually on the left side), right-click on **Scripts** and hit **Refresh** (or simply restart MT5). You will now see `Candlesticks_Data_Export` in the scripts list.
+
+### 2. How to Run & CRITICAL SETUP
+1. To run the script, click and drag it from the **Navigator** panel directly onto any open chart. A settings window will immediately pop up.
+2. ⚠️ **CRITICAL STEP:** Before changing any settings, go to the **Dependencies** tab in that settings pop-up window and check the box that says **"Allow DLL imports"**.
+   * *Why? MT5 operates in a strict "sandbox" that prevents scripts from interacting with your computer's files. The script needs this permission to use Windows features, like copying the files to your Desktop or opening the folder automatically at the end.*
+
+### 3. The Settings Explained (Inputs Tab)
+Switch to the **Inputs** tab. Here is what every setting does:
+
+* **Symbol Mode:**
+  * `Current Chart Symbol Only`: Exports data only for the chart you dragged the script onto (e.g., EURUSD).
+  * `Top 5 Symbols from Market Watch`: Automatically cycles through the top 5 assets listed in your "Market Watch" panel and exports all of them in one go.
+* **Export Mode:**
+  * `Single File`: Exports only the 1-Minute (M1) timeframe and saves it as a single file (e.g., `EURUSD.csv`).
+  * `Multi File`: Exports all 21 timeframes (M1 up to Monthly). It will automatically create a subfolder for the symbol (e.g., `\EURUSD\m1.csv`, `\EURUSD\h1.csv`, etc.).
+* **File Write Mode:**
+  * `Append (Recommended)`: Smart mode. It checks your existing CSV files, finds the last recorded date, and only downloads the new candles that have formed since you last ran it. It's incredibly fast and saves processing power.
+  * `Overwrite`: Deletes your existing CSV files entirely and downloads the entire history from scratch.
+* **Local Base Folder:**
+  * This is the name of the folder created inside MT5's mandatory safe zone (`MQL5\Files`). Default is `MyExports`.
+* **External Export Path (The Magic Feature):**
+  * If you leave this blank, the files stay inside MT5's hidden system folders.
+  * If you paste a Windows path here (like `C:\Users\YourName\Desktop\TradingData`), the script will automatically bypass the MT5 sandbox and copy the freshly generated CSV files directly to that folder for easy access.
+* **Ask to open folder on finish?:**
+  * If set to `true`, a Windows pop-up will ask if you want to open the destination folder as soon as the export finishes.
+
+### Where to find your files (if you leave External Path blank)
+If you don't use the External Export Path, MT5 saves the files locally. To find them:
+Go to **File** -> **Open Data Folder** -> **MQL5** -> **Files** -> **MyExports**.
+
+---
+
 ## Tech Stack
 
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
