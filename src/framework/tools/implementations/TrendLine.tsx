@@ -79,8 +79,10 @@ const isOverlayVisible = (overlay: any, chart: any) => {
 
 export const TrendLineTool: ToolDefinition = {
   id: 'trendLine',
-  name: 'Trend Line',
+  name: 'Trendline',
   icon: TrendLineIcon,
+  group: 'lines',
+  hotkey: 'Alt + T',
   
   settingsSchema: [
     {

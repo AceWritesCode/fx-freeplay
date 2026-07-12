@@ -37,6 +37,10 @@ export interface ToolDefinition {
 
   // klinecharts overlay definition
   createOverlayDef: () => OverlayTemplate;
+
+  // Optional categorization fields for sidebar groups and shortcuts
+  group?: string;      // e.g., 'lines'
+  hotkey?: string;     // e.g., 'Alt + T'
 }
 
 class ToolRegistryImpl {

@@ -361,6 +361,12 @@ export default function App() {
   const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const magnetMenuRef = useRef<HTMLDivElement>(null);
 
+  // Line Drawing Tools flyout state
+  const [selectedLineToolId, setSelectedLineToolId] = useState<string>('trendLine');
+  const [isLineMenuOpen, setIsLineMenuOpen] = useState<boolean>(false);
+  const [lineMenuPos, setLineMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lineMenuRef = useRef<HTMLDivElement>(null);
+
   // Shift Key tracking for angle snapping
   const isShiftPressedRef = useRef<boolean>(false);
 
@@ -404,6 +410,9 @@ export default function App() {
       }
       if (magnetMenuRef.current && !magnetMenuRef.current.contains(event.target as Node)) {
         setIsMagnetMenuOpen(false);
+      }
+      if (lineMenuRef.current && !lineMenuRef.current.contains(event.target as Node)) {
+        setIsLineMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -5222,25 +5231,132 @@ export default function App() {
         {/* Left Toolbar */}
         <aside className="w-12 bg-[#1e222d] border-r border-gray-950 flex flex-col items-center py-3 gap-3.5 z-20">
           
-          {ToolRegistry.getAll().map((tool) => {
-            const Icon = tool.icon;
-            const isActive = activeTool === tool.id;
+          {/* Grouped Drawing Tools: Lines */}
+          {(() => {
+            const activeLineTool = ToolRegistry.get(selectedLineToolId) || ToolRegistry.get('trendLine');
+            if (!activeLineTool) return null;
+            const Icon = activeLineTool.icon;
+            const isGroupActive = activeTool && ToolRegistry.get(activeTool)?.group === 'lines';
             return (
-              <button
-                key={tool.id}
-                title={tool.name}
-                disabled={!hasData}
-                onClick={() => handleSelectTool(tool.id)}
-                className={`p-2 rounded-lg border transition-all ${
-                  isActive
-                    ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
-                    : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
-                }`}
-              >
-                <Icon />
-              </button>
+              <div className="relative flex items-center bg-transparent rounded-lg">
+                <button
+                  title={activeLineTool.name}
+                  disabled={!hasData}
+                  onClick={() => handleSelectTool(activeLineTool.id)}
+                  className={`p-1.5 rounded-l-md border border-r-0 transition-all flex items-center justify-center ${
+                    isGroupActive
+                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '30px', height: '30px' }}
+                >
+                  <Icon className="w-5 h-5 text-current" />
+                </button>
+                <button
+                  title="More line tools"
+                  disabled={!hasData}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setLineMenuPos({ x: rect.right, y: rect.top });
+                    setIsLineMenuOpen(!isLineMenuOpen);
+                  }}
+                  className={`border border-l-0 rounded-r-md text-[7px] transition-all flex items-center justify-center ${
+                    isLineMenuOpen
+                      ? 'border-indigo-500 bg-indigo-600/25 text-indigo-400 z-10'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                  style={{ width: '12px', height: '30px' }}
+                >
+                  ▶
+                </button>
+
+                {isLineMenuOpen && (
+                  <div
+                    ref={lineMenuRef}
+                    className="fixed z-50 bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                    style={{
+                      left: `${lineMenuPos.x + 6}px`,
+                      top: `${lineMenuPos.y - 10}px`,
+                    }}
+                  >
+                    {/* Header */}
+                    <div className="px-3.5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      Lines
+                    </div>
+
+                    {/* Items */}
+                    <div className="flex flex-col">
+                      {ToolRegistry.getAll()
+                        .filter(tool => tool.group === 'lines')
+                        .map(tool => {
+                          const ToolIcon = tool.icon;
+                          const isSelected = selectedLineToolId === tool.id;
+                          return (
+                            <button
+                              key={tool.id}
+                              onClick={() => {
+                                setSelectedLineToolId(tool.id);
+                                handleSelectTool(tool.id);
+                                setIsLineMenuOpen(false);
+                              }}
+                              className={`group flex items-center justify-between px-3.5 py-2 w-full text-left transition-colors ${
+                                isSelected
+                                  ? 'bg-[#2a2e39] text-white font-medium'
+                                  : 'hover:bg-gray-800/60 text-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
+                                  <ToolIcon className="w-5 h-5 text-current" />
+                                </span>
+                                <span className="text-xs">{tool.name}</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-3.5">
+                                {tool.hotkey && (
+                                  <span className="text-[10px] text-gray-500 font-mono pr-1">
+                                    {tool.hotkey}
+                                  </span>
+                                )}
+                                <span className="text-gray-600 hover:text-yellow-500 transition-colors">
+                                  <svg className="w-4 h-4 fill-current text-yellow-500" viewBox="0 0 18 18">
+                                    <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
+                                  </svg>
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
-          })}
+          })()}
+
+          {/* Any other tools not in 'lines' group */}
+          {ToolRegistry.getAll()
+            .filter(tool => !tool.group)
+            .map((tool) => {
+              const Icon = tool.icon;
+              const isActive = activeTool === tool.id;
+              return (
+                <button
+                  key={tool.id}
+                  title={tool.name}
+                  disabled={!hasData}
+                  onClick={() => handleSelectTool(tool.id)}
+                  className={`p-2 rounded-lg border transition-all ${
+                    isActive
+                      ? 'border-indigo-500 bg-indigo-600/20 text-indigo-400'
+                      : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  }`}
+                >
+                  <Icon />
+                </button>
+              );
+            })}
 
           <button
             title="Clear Drawings"
