@@ -111,30 +111,64 @@ src/
 
 ---
 
-## Getting Started
+## Getting Started: Beginner's Installation Guide
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) v18+
+If you have never coded before or have no experience with developer tools, don't worry! This step-by-step guide will walk you through exactly how to set up and run FX Freeplay on your local computer.
 
-### Install & Run
+### Step 1: Install Node.js
+Node.js is a runtime helper required to launch the local application server.
+1. Go to the official website: [https://nodejs.org/](https://nodejs.org/)
+2. Click the green button labeled **LTS** (Long Term Support). This is the stable version recommended for most users.
+3. Open the downloaded installer file (e.g., `.msi` for Windows or `.pkg` for Mac) and double-click to run it.
+4. Follow the installer prompts: click **Next**, accept the license terms, and keep all default settings checked. Click **Finish** once installed.
 
+### Step 2: Download FX Freeplay
+1. Scroll to the top of this GitHub repository page.
+2. Click the green **Code** button on the right side.
+3. Select **Download ZIP** from the dropdown menu.
+4. Locate the downloaded file (`fx-freeplay-main.zip`) on your computer and extract (unzip) it.
+5. Move the extracted folder to a convenient place like your **Documents** folder or your **Desktop**.
+
+### Step 3: Open the Terminal or Command Prompt
+The terminal is a text-based window where you can run commands.
+* **On Windows:** Press the `Windows Key` on your keyboard, type **Command Prompt** (or `cmd`), and press `Enter`.
+* **On Mac:** Press `Command + Spacebar` to open Spotlight, type **Terminal**, and press `Enter`.
+
+### Step 4: Navigate to the FX Freeplay Folder
+You need to tell the terminal to go inside the folder you just extracted.
+1. In the terminal window, type `cd ` (type the letters `c` and `d`, followed by a single space. **Do not press Enter yet**).
+2. Drag and drop the extracted `fx-freeplay-main` folder from your desktop/finder directly into the terminal window. The terminal will automatically type out the full folder path for you.
+3. Press `Enter`. You are now inside the project directory!
+
+### Step 5: Install Dependencies
+In the terminal window, type the following command and press `Enter`:
 ```bash
-# Install dependencies
 npm install
+```
+*Note: A bunch of text will scroll past as it downloads the charting libraries and styling utilities. This can take 30 to 60 seconds. Once it's finished, you'll see your normal terminal line waiting for another command.*
 
-# Start the development server
+### Step 6: Start the Replay Tool!
+To launch the tool, type the following command and press `Enter`:
+```bash
 npm run dev
 ```
+You should see a message saying the local server is running. 
+1. Open your web browser (Chrome, Safari, Edge, etc.).
+2. In the address bar, type: **`http://localhost:5173`** and press `Enter`.
+3. The FX Freeplay charting interface will load! You can now load your CSV files and start replaying.
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+To stop the server at any point, go back to your terminal window and press `Ctrl + C` (on both Windows and Mac).
 
-### Build for Production
+---
 
-```bash
-npm run build
-```
-
-The output is placed in `dist/`. You can open `dist/index.html` directly in a browser (no server needed).
+### Running Offline (Without a Server)
+If you want to compile the entire project into a single offline file that doesn't require a terminal or server to run:
+1. In the terminal window, run:
+   ```bash
+   npm run build
+   ```
+2. Once complete, a folder named `dist` will be created inside your project folder.
+3. Simply go inside `dist` using your normal file explorer and double-click `index.html`. It will open and run completely offline directly in your browser.
 
 ---
 
