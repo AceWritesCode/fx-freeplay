@@ -111,53 +111,53 @@ src/
 
 ---
 
-## Getting Started: Beginner's Installation Guide
+---
 
-If you have never coded before or have no experience with developer tools, don't worry! This step-by-step guide will walk you through exactly how to set up and run FX Freeplay on your local computer.
+## Getting Started: Installation Guide
 
-### Step 1: Install Node.js
-Node.js is a runtime helper required to launch the local application server.
-1. Go to the official website: [https://nodejs.org/](https://nodejs.org/)
-2. Click the green button labeled **LTS** (Long Term Support). This is the stable version recommended for most users.
-3. Open the downloaded installer file (e.g., `.msi` for Windows or `.pkg` for Mac) and double-click to run it.
-4. Follow the installer prompts: click **Next**, accept the license terms, and keep all default settings checked. Click **Finish** once installed.
+We have two ways to run the tool. Choose the one that fits your comfort level:
 
-### Step 2: Download FX Freeplay
-1. Scroll to the top of this GitHub repository page.
-2. Click the green **Code** button on the right side.
-3. Select **Download ZIP** from the dropdown menu.
-4. Locate the downloaded file (`fx-freeplay-main.zip`) on your computer and extract (unzip) it.
-5. Move the extracted folder to a convenient place like your **Documents** folder or your **Desktop**.
+### Option A: Windows One-Click Quick Start (Easiest)
+If you are on Windows, you can use the pre-packaged `.bat` shortcut files to handle the terminal commands for you:
 
-### Step 3: Open the Terminal or Command Prompt
-The terminal is a text-based window where you can run commands.
-* **On Windows:** Press the `Windows Key` on your keyboard, type **Command Prompt** (or `cmd`), and press `Enter`.
-* **On Mac:** Press `Command + Spacebar` to open Spotlight, type **Terminal**, and press `Enter`.
+1. **Install Node.js:** 
+   Go to [https://nodejs.org/](https://nodejs.org/), download the **LTS** version, and run the installer. Click **Next** on all prompts and accept defaults.
+2. **Download & Extract Code:** 
+   Click the green **Code** button at the top of this GitHub page, select **Download ZIP**, and unzip the folder to your Desktop or Documents folder.
+3. **Run build.bat (First Time Only):**
+   Go inside the extracted folder, right-click **`build.bat`**, and select **Run as administrator** (or double-click it). This will automatically install all dependencies and compile the workspace. Wait for it to finish and press any key to close the window.
+4. **Launch with fx-replay.bat:**
+   Double-click **`fx-replay.bat`**. This will launch the local replay server and automatically open the application in your default web browser at `http://localhost:5173`.
+5. **Enjoy:** Load your CSV file or folder and start trading!
 
-### Step 4: Navigate to the FX Freeplay Folder
-You need to tell the terminal to go inside the folder you just extracted.
-1. In the terminal window, type `cd ` (type the letters `c` and `d`, followed by a single space. **Do not press Enter yet**).
-2. Drag and drop the extracted `fx-freeplay-main` folder from your desktop/finder directly into the terminal window. The terminal will automatically type out the full folder path for you.
-3. Press `Enter`. You are now inside the project directory!
+---
 
-### Step 5: Install Dependencies
-In the terminal window, type the following command and press `Enter`:
-```bash
-npm install
-```
-*Note: A bunch of text will scroll past as it downloads the charting libraries and styling utilities. This can take 30 to 60 seconds. Once it's finished, you'll see your normal terminal line waiting for another command.*
+### Option B: Manual Terminal Guide (For Mac / Linux / Advanced Users)
 
-### Step 6: Start the Replay Tool!
-To launch the tool, type the following command and press `Enter`:
-```bash
-npm run dev
-```
-You should see a message saying the local server is running. 
-1. Open your web browser (Chrome, Safari, Edge, etc.).
-2. In the address bar, type: **`http://localhost:5173`** and press `Enter`.
-3. The FX Freeplay charting interface will load! You can now load your CSV files and start replaying.
+If you prefer to run commands manually or are on Mac/Linux, follow these steps:
 
-To stop the server at any point, go back to your terminal window and press `Ctrl + C` (on both Windows and Mac).
+1. **Install Node.js:** 
+   Go to [https://nodejs.org/](https://nodejs.org/) and install the **LTS** version.
+2. **Download & Extract Code:** 
+   Download the ZIP of this project and extract it.
+3. **Open Terminal / Command Prompt:**
+   * **Windows:** Press Windows Key, type `cmd`, press Enter.
+   * **Mac:** Press `Cmd + Space`, type `Terminal`, press Enter.
+4. **Navigate to the Folder:**
+   Type `cd ` followed by a space, then drag and drop the extracted project folder into the terminal window and press `Enter`.
+5. **Install Dependencies:**
+   Run the following command:
+   ```bash
+   npm install
+   ```
+6. **Start the Replay Tool:**
+   Run the following command:
+   ```bash
+   npm run dev
+   ```
+   Open your browser and navigate to `http://localhost:5173`.
+
+---
 
 ---
 

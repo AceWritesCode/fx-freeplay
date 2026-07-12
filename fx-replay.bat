@@ -1,5 +1,5 @@
 @echo off
-echo Starting CourseSpace Server...
+echo Starting FX Freeplay...
 start http://localhost:5173
 npm run dev
 pause
