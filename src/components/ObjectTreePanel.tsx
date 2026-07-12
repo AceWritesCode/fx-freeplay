@@ -11,6 +11,8 @@ interface ObjectTreePanelProps {
   setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
   activeSymbol: string;
   activeTimeframe: string;
+  /** Creates an overlay with the full set of interactive event handlers (onClick, onDrawEnd, etc.) */
+  createOverlayWithHandlers: (chart: any, overlayData: any) => void;
 }
 
 interface FolderItem {
@@ -32,6 +34,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   setDrawingTrigger,
   activeSymbol,
   activeTimeframe,
+  createOverlayWithHandlers,
 }) => {
   const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('objectTree');
   const [folders, setFolders] = useState<FolderItem[]>(() => {
@@ -40,7 +43,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       const parsed = saved ? JSON.parse(saved) : [];
       return parsed.map((f: any, idx: number) => ({
         ...f,
-        order: f.order ?? (100000 - idx * 10)
+        order: f.order ?? (parsed.length - idx) * 100
       }));
     } catch {
       return [];
@@ -49,7 +52,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [draggedItemType, setDraggedItemType] = useState<'drawing' | 'folder' | null>(null);
+  const [draggedItemType, setDraggedItemType] = useState<'drawing' | 'folder' | 'candles' | null>(null);
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -85,6 +88,215 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     }
   }, [drawings, folders]);
 
+  // Helper to recalculate unified order and recreate all overlays on activeChart.
+  // Visual canvas stacking order = creation order: created first = underneath, created last = on top.
+  // Items with order < candlesOrder are created before candles (draw behind), items > candlesOrder after (draw on top).
+  const recalculateAndRecreateOverlays = (
+    updatedFolders: FolderItem[],
+    sortedRootItems: { type: 'folder' | 'drawing' | 'candles', id: string, order: number, data: any }[]
+  ) => {
+    if (!activeChart) return;
+
+    // 1. Get all current overlays
+    const overlays = activeChart.getOverlays();
+    const filtered = overlays.filter(
+      (ov: any) =>
+        !ov.id?.startsWith('sync_') &&
+        ov.id !== 'custom_price_line_overlay' &&
+        ov.name !== 'customPriceLine' &&
+        ov.id !== 'session_breaks_overlay' &&
+        ov.name !== 'sessionBreaks'
+    );
+
+    // 2. Flatten the tree: each item gets a sequential index (highest = top of tree = drawn last = on top)
+    const flatTreeList: { type: 'folder' | 'drawing' | 'candles', id: string, data: any }[] = [];
+    // sortedRootItems is ordered from top of tree (highest order) to bottom.
+    // We need to iterate in reverse so that items at the TOP get a HIGHER sequential order.
+    const reversedRootItems = [...sortedRootItems].reverse();
+    reversedRootItems.forEach(item => {
+      if (item.type === 'folder') {
+        // Children first (underneath folder), then folder header
+        const children = filtered.filter((d: any) => d.extendData?.folderId === item.id);
+        // Sort children ascending by order so lowest order child goes first (underneath)
+        children.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
+        children.forEach((child: any) => {
+          flatTreeList.push({ type: 'drawing', id: child.id, data: child });
+        });
+        flatTreeList.push(item);
+      } else {
+        flatTreeList.push(item);
+      }
+    });
+
+    // 3. Assign sequential orders: first item in flatTreeList gets order 100, last gets highest
+    const nextFolders = [...updatedFolders];
+    const updatedOverlaysMap = new Map<string, { order: number, folderId: string | null }>();
+    let candlesOrder = 500;
+
+    flatTreeList.forEach((item, idx) => {
+      const nextOrder = (idx + 1) * 100;
+      if (item.type === 'folder') {
+        const fIdx = nextFolders.findIndex(f => f.id === item.id);
+        if (fIdx !== -1) {
+          nextFolders[fIdx] = { ...nextFolders[fIdx], order: nextOrder };
+        }
+      } else if (item.type === 'candles') {
+        candlesOrder = nextOrder;
+      } else {
+        const originalDrawing = filtered.find((d: any) => d.id === item.id);
+        const folderId = originalDrawing?.extendData?.folderId || null;
+        updatedOverlaysMap.set(item.id, { order: nextOrder, folderId });
+      }
+    });
+
+    // Update candles order on chart
+    activeChart._candlesOrder = candlesOrder;
+
+    // 4. Map updated overlays with new order
+    const updatedOverlays = filtered.map((ov: any) => {
+      const info = updatedOverlaysMap.get(ov.id);
+      const nextOrder = info ? info.order : (ov.extendData?.order ?? 0);
+      const folderId = info ? info.folderId : (ov.extendData?.folderId || null);
+      return {
+        ...ov,
+        extendData: {
+          ...ov.extendData,
+          folderId,
+          order: nextOrder
+        }
+      };
+    });
+
+    // 5. Remove all overlays
+    filtered.forEach((ov: any) => {
+      activeChart.removeOverlay({ id: ov.id });
+    });
+
+    // 6. Recreate overlays in ascending order of their 'order' value.
+    //    Overlays with order < candlesOrder are created first (rendered behind candles).
+    //    Overlays with order > candlesOrder are created last (rendered on top of candles).
+    //    Use createOverlayWithHandlers so all event handlers (onClick, onDrawEnd, etc.) are preserved.
+    updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
+    updatedOverlays.forEach((ov: any) => {
+      createOverlayWithHandlers(activeChart, {
+        name: ov.name,
+        id: ov.id,
+        paneId: ov.paneId || 'candle_pane',
+        points: ov.points,
+        extendData: ov.extendData,
+        lock: ov.lock,
+        visible: ov.visible !== false,
+        styles: ov.styles
+      });
+    });
+
+    // 7. Save and update react states
+    setFolders(nextFolders);
+    localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+    syncAllDrawings();
+    setDrawingTrigger(prev => prev + 1);
+  };
+
+  // Synchronize and unify order values across folders and drawings on a single scale.
+  // IMPORTANT: Must NOT remove+recreate overlays here — that breaks in-progress drawings
+  // and strips event handlers. Use overrideOverlay for normalization-only resets.
+  useEffect(() => {
+    if (!activeChart) return;
+    
+    const overlays = activeChart.getOverlays();
+    const filtered = overlays.filter(
+      (ov: any) =>
+        !ov.id?.startsWith('sync_') &&
+        ov.id !== 'custom_price_line_overlay' &&
+        ov.name !== 'customPriceLine' &&
+        ov.id !== 'session_breaks_overlay' &&
+        ov.name !== 'sessionBreaks'
+    );
+
+    // Guard: if any overlay has null/undefined points it's mid-draw — don't touch anything
+    const hasInProgressDrawing = filtered.some((d: any) => 
+      !d.points || d.points.length === 0 || d.points.some((p: any) => p === null || p === undefined)
+    );
+    if (hasInProgressDrawing) return;
+
+    // Check if normalization is needed
+    const needsNormalization = folders.some(f => (f.order ?? 0) > 50000 || (f.order ?? 0) === 0) || 
+                               filtered.some((d: any) => !d.extendData || d.extendData.order === undefined);
+
+    if (!needsNormalization) return;
+
+    // Normalization: assign stable order values WITHOUT removing/recreating overlays.
+    // This preserves event handlers, active drawing states, and sync copies.
+    const sortedFolders = [...folders].sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+    const sortedDrawings = [...filtered].sort((a, b) => {
+      // Treat new drawings (undefined order) as Infinity so they sort to the top
+      const orderA = a.extendData?.order ?? Infinity;
+      const orderB = b.extendData?.order ?? Infinity;
+      if (orderA !== orderB) return orderB - orderA;
+      return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    const rootDrawings = sortedDrawings.filter((d: any) => !d.extendData?.folderId);
+    const currentCandlesOrder = activeChart._candlesOrder ?? 500;
+
+    const combinedRoot = [
+      ...sortedFolders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
+      ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
+      { type: 'candles' as const, id: 'candles', order: currentCandlesOrder, data: null }
+    ];
+
+    combinedRoot.sort((a, b) => {
+      if (a.order !== b.order) return b.order - a.order;
+      return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    // Flatten: combinedRoot is descending (index 0 = top). We iterate reversed to build 
+    // ascending order values (first item = bottom = lowest order = created first = underneath).
+    const flatList: { type: string, id: string }[] = [];
+    [...combinedRoot].reverse().forEach(item => {
+      if (item.type === 'folder') {
+        const children = sortedDrawings.filter((d: any) => d.extendData?.folderId === item.id);
+        children.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
+        children.forEach(child => flatList.push({ type: 'drawing', id: child.id }));
+        flatList.push({ type: 'folder', id: item.id });
+      } else {
+        flatList.push({ type: item.type, id: item.id });
+      }
+    });
+
+    // Assign orders and update via overrideOverlay (NO remove+recreate)
+    const nextFolders = [...folders];
+    let newCandlesOrder = currentCandlesOrder;
+
+    flatList.forEach((item, idx) => {
+      const nextOrder = (idx + 1) * 100;
+      if (item.type === 'folder') {
+        const fIdx = nextFolders.findIndex(f => f.id === item.id);
+        if (fIdx !== -1) {
+          nextFolders[fIdx] = { ...nextFolders[fIdx], order: nextOrder };
+        }
+      } else if (item.type === 'candles') {
+        newCandlesOrder = nextOrder;
+      } else {
+        // Use overrideOverlay to update order without destroying the overlay
+        const existingOverlay = filtered.find((ov: any) => ov.id === item.id);
+        if (existingOverlay) {
+          activeChart.overrideOverlay({
+            id: item.id,
+            extendData: {
+              ...existingOverlay.extendData,
+              order: nextOrder
+            }
+          });
+        }
+      }
+    });
+
+    activeChart._candlesOrder = newCandlesOrder;
+    setFolders(nextFolders);
+    localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+  }, [activeChart, folders, drawings, activeSymbol]);
+
   // Read drawings from chart
   useEffect(() => {
     if (!activeChart) {
@@ -100,10 +312,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         ov.id !== 'session_breaks_overlay' &&
         ov.name !== 'sessionBreaks'
     );
-    // Sort by order descending if available, else fall back to id descending
+    // Sort by order descending if available, else fall back to id descending.
+    // Treat undefined orders as Infinity so new drawings sort to the top.
     filtered.sort((a: any, b: any) => {
-      const orderA = a.extendData?.order ?? 0;
-      const orderB = b.extendData?.order ?? 0;
+      const orderA = a.extendData?.order ?? Infinity;
+      const orderB = b.extendData?.order ?? Infinity;
       if (orderA !== orderB) {
         return orderB - orderA;
       }
@@ -278,7 +491,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   };
 
   // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, id: string, type: 'drawing' | 'folder') => {
+  const handleDragStart = (e: React.DragEvent, id: string, type: 'drawing' | 'folder' | 'candles') => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
     setDraggedItemId(id);
     setDraggedItemType(type);
@@ -293,21 +506,19 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     setDraggedItemType(null);
     setIsDragging(false);
   };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
   const reorderRootItems = (
     draggedId: string,
-    draggedType: 'drawing' | 'folder',
+    draggedType: 'drawing' | 'folder' | 'candles',
     targetId: string,
-    targetType: 'drawing' | 'folder',
+    targetType: 'drawing' | 'folder' | 'candles',
     position: 'above' | 'below'
   ) => {
     if (!activeChart) return;
-    
-    // 1. Get current overlays and filter to loose ones + get current folders
+
     const overlays = activeChart.getOverlays();
     const filtered = overlays.filter(
       (ov: any) =>
@@ -318,25 +529,16 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         ov.name !== 'sessionBreaks'
     );
 
-    // Sort drawings by order descending (current rendering order)
-    filtered.sort((a: any, b: any) => {
-      const orderA = a.extendData?.order ?? 0;
-      const orderB = b.extendData?.order ?? 0;
-      if (orderA !== orderB) return orderB - orderA;
-      return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
-    });
-
     const rootDrawings = filtered.filter((d: any) => !d.extendData?.folderId);
-    
+    const candlesOrder = activeChart._candlesOrder ?? 500;
+
     const combinedRoot = [
       ...folders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
-      ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d }))
+      ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
+      { type: 'candles' as const, id: 'candles', order: candlesOrder, data: null }
     ];
 
-    combinedRoot.sort((a, b) => {
-      if (a.order !== b.order) return b.order - a.order;
-      return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' });
-    });
+    combinedRoot.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
 
     const draggedIndex = combinedRoot.findIndex(item => item.id === draggedId && item.type === draggedType);
     const targetIndex = combinedRoot.findIndex(item => item.id === targetId && item.type === targetType);
@@ -345,83 +547,15 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
     const reordered = [...combinedRoot];
     const [draggedItem] = reordered.splice(draggedIndex, 1);
-
     let newTargetIndex = reordered.findIndex(item => item.id === targetId && item.type === targetType);
-    if (position === 'below') {
-      newTargetIndex += 1;
-    }
+    if (position === 'below') newTargetIndex += 1;
     reordered.splice(newTargetIndex, 0, draggedItem);
 
-    const nextFolders = [...folders];
-
-    reordered.forEach((item, idx) => {
-      const nextOrder = (reordered.length - idx) * 100;
-      if (item.type === 'folder') {
-        const folderIndex = nextFolders.findIndex(f => f.id === item.id);
-        if (folderIndex !== -1) {
-          nextFolders[folderIndex] = {
-            ...nextFolders[folderIndex],
-            order: nextOrder
-          };
-        }
-      }
-    });
-
-    const flatDrawings: any[] = [];
-    nextFolders.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
-    
-    reordered.forEach((item) => {
-      if (item.type === 'folder') {
-        const children = filtered.filter((d: any) => d.extendData?.folderId === item.id);
-        children.sort((a: any, b: any) => {
-          const orderA = a.extendData?.order ?? 0;
-          const orderB = b.extendData?.order ?? 0;
-          return orderB - orderA;
-        });
-        flatDrawings.push(...children);
-      } else {
-        const drawing = filtered.find((d: any) => d.id === item.id);
-        if (drawing) {
-          flatDrawings.push(drawing);
-        }
-      }
-    });
-
-    const updatedOverlays = flatDrawings.map((ov, idx) => {
-      const nextOrder = flatDrawings.length - idx;
-      return {
-        ...ov,
-        extendData: {
-          ...ov.extendData,
-          order: nextOrder
-        }
-      };
-    });
-
-    filtered.forEach((ov: any) => {
-      activeChart.removeOverlay({ id: ov.id });
-    });
-
-    const reverseList = [...updatedOverlays].reverse();
-    reverseList.forEach((ov: any) => {
-      activeChart.createOverlay({
-        name: ov.name,
-        id: ov.id,
-        paneId: ov.paneId || 'candle_pane',
-        points: ov.points,
-        extendData: ov.extendData,
-        lock: ov.lock,
-        visible: ov.visible !== false,
-        styles: ov.styles
-      });
-    });
-
-    setFolders(nextFolders);
-    localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
-
-    syncAllDrawings();
-    setDrawingTrigger(prev => prev + 1);
+    // Delegate all order calculation and overlay recreation to recalculateAndRecreateOverlays.
+    // reordered is sorted descending (index 0 = top of tree), which matches what that function expects.
+    recalculateAndRecreateOverlays(folders, reordered);
   };
+
 
   const handleDragOverFolder = (e: React.DragEvent, folderId: string) => {
     e.preventDefault();
@@ -431,7 +565,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       setDragOverFolderId(folderId);
       setDragOverItemId(null);
       setDragOverPosition(null);
-    } else if (draggedItemType === 'folder' && draggedItemId !== folderId) {
+    } else if ((draggedItemType === 'folder' || draggedItemType === 'candles') && draggedItemId !== folderId) {
       const rect = e.currentTarget.getBoundingClientRect();
       const relativeY = e.clientY - rect.top;
       const isAbove = relativeY < rect.height / 2;
@@ -491,22 +625,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           return ov;
         });
 
+        // Remove and recreate all overlays in ascending order (lowest order = created first = underneath)
         filtered.forEach((ov: any) => {
           activeChart.removeOverlay({ id: ov.id });
         });
 
-        // Reorder overlays to make sure the newly dropped drawing sits at the top of the folder
-        // Sort by order descending
-        updatedOverlays.sort((a: any, b: any) => {
-          const orderA = a.extendData?.order ?? 0;
-          const orderB = b.extendData?.order ?? 0;
-          if (orderA !== orderB) return orderB - orderA;
-          return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
-        });
-
-        const reverseList = [...updatedOverlays].reverse();
-        reverseList.forEach((ov: any) => {
-          activeChart.createOverlay({
+        updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
+        updatedOverlays.forEach((ov: any) => {
+          createOverlayWithHandlers(activeChart, {
             name: ov.name,
             id: ov.id,
             paneId: ov.paneId || 'candle_pane',
@@ -520,8 +646,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
         syncAllDrawings();
         setDrawingTrigger(prev => prev + 1);
-      } else if (dragType === 'folder' && dragId && dragId !== targetFolderId) {
-        reorderRootItems(dragId, 'folder', targetFolderId, 'folder', dragOverPosition || 'above');
+      } else if ((dragType === 'folder' || dragType === 'candles') && dragId && dragId !== targetFolderId) {
+        reorderRootItems(dragId, dragType, targetFolderId, 'folder', dragOverPosition || 'above');
       }
     } catch (err) {
       console.error(err);
@@ -573,9 +699,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           // Append to the end of the list (bottom of the Object Tree)
           reordered.push(draggedItem);
 
-          // Assign new stable order values based on the new positions
+          // Assign new order values (multiples of 100, descending by index so index 0 = top = highest order)
           const updatedOverlays = reordered.map((ov: any, idx: number) => {
-            const nextOrder = reordered.length - idx;
+            const nextOrder = (reordered.length - idx) * 100;
             return {
               ...ov,
               extendData: {
@@ -585,14 +711,18 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             };
           });
 
-          // Remove and recreate all drawing overlays in order to apply root assignment and maintain visual Z-order
+          // Remove and recreate in ascending order (lowest order first = underneath)
           filtered.forEach((ov: any) => {
             activeChart.removeOverlay({ id: ov.id });
           });
 
-          const reverseList = [...updatedOverlays].reverse();
-          reverseList.forEach((ov: any) => {
-            activeChart.createOverlay({
+          // Re-set candlesOrder to the slot where the dragged drawing ends up
+          // (it was pushed to end = bottom of tree = lowest visual position)
+          // candlesOrder stays unchanged since we only moved a drawing to root
+
+          updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
+          updatedOverlays.forEach((ov: any) => {
+            createOverlayWithHandlers(activeChart, {
               name: ov.name,
               id: ov.id,
               paneId: ov.paneId || 'candle_pane',
@@ -607,7 +737,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           syncAllDrawings();
           setDrawingTrigger(prev => prev + 1);
         }
-      } else if (dragType === 'folder' && dragId) {
+      } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
         const overlays = activeChart.getOverlays();
         const filtered = overlays.filter(
           (ov: any) =>
@@ -619,10 +749,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         );
 
         const rootDrawings = filtered.filter((d: any) => !d.extendData?.folderId);
+        const currentCandlesOrder = activeChart._candlesOrder ?? 500;
 
         const combinedRoot = [
           ...folders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
-          ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d }))
+          ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
+          { type: 'candles' as const, id: 'candles', order: currentCandlesOrder, data: null }
         ];
 
         combinedRoot.sort((a, b) => {
@@ -630,74 +762,15 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' });
         });
 
-        const draggedIndex = combinedRoot.findIndex(item => item.id === dragId && item.type === 'folder');
+        const draggedIndex = combinedRoot.findIndex(item => item.id === dragId && item.type === dragType);
         if (draggedIndex === -1) return;
 
         const reordered = [...combinedRoot];
         const [draggedItem] = reordered.splice(draggedIndex, 1);
         reordered.push(draggedItem);
 
-        const nextFolders = [...folders];
-        reordered.forEach((item, idx) => {
-          const nextOrder = (reordered.length - idx) * 100;
-          if (item.type === 'folder') {
-            const folderIndex = nextFolders.findIndex(f => f.id === item.id);
-            if (folderIndex !== -1) {
-              nextFolders[folderIndex] = {
-                ...nextFolders[folderIndex],
-                order: nextOrder
-              };
-            }
-          }
-        });
-
-        const flatDrawings: any[] = [];
-        nextFolders.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
-        reordered.forEach((item) => {
-          if (item.type === 'folder') {
-            const children = filtered.filter((d: any) => d.extendData?.folderId === item.id);
-            children.sort((a: any, b: any) => (b.extendData?.order ?? 0) - (a.extendData?.order ?? 0));
-            flatDrawings.push(...children);
-          } else {
-            const drawing = filtered.find((d: any) => d.id === item.id);
-            if (drawing) flatDrawings.push(drawing);
-          }
-        });
-
-        const updatedOverlays = flatDrawings.map((ov, idx) => {
-          const nextOrder = flatDrawings.length - idx;
-          return {
-            ...ov,
-            extendData: {
-              ...ov.extendData,
-              order: nextOrder
-            }
-          };
-        });
-
-        filtered.forEach((ov: any) => {
-          activeChart.removeOverlay({ id: ov.id });
-        });
-
-        const reverseList = [...updatedOverlays].reverse();
-        reverseList.forEach((ov: any) => {
-          activeChart.createOverlay({
-            name: ov.name,
-            id: ov.id,
-            paneId: ov.paneId || 'candle_pane',
-            points: ov.points,
-            extendData: ov.extendData,
-            lock: ov.lock,
-            visible: ov.visible !== false,
-            styles: ov.styles
-          });
-        });
-
-        setFolders(nextFolders);
-        localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
-
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
+        // Delegate folder/candles reorder to the single source of truth
+        recalculateAndRecreateOverlays(folders, reordered);
       }
     } catch (err) {
       console.error(err);
@@ -714,8 +787,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       const isAbove = relativeY < rect.height / 2;
       setDragOverItemId(itemId);
       setDragOverPosition(isAbove ? 'above' : 'below');
-    } else if (draggedItemType === 'folder') {
-      // Reorder folder relative to root-level drawing only
+    } else if (draggedItemType === 'folder' || draggedItemType === 'candles') {
+      // Reorder folder/candles relative to root-level drawing only
       const targetOverlay = drawings.find(d => d.id === itemId);
       const isRootDrawing = targetOverlay && !targetOverlay.extendData?.folderId;
       if (isRootDrawing) {
@@ -786,9 +859,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         const targetOverlay = filtered.find((ov: any) => ov.id === targetId);
         const targetFolderId = targetOverlay?.extendData?.folderId || null;
 
-        // Map and update order + folder parameters in a single configuration step
+        // Map and update order + folder parameters in a single configuration step.
+        // reordered[0] = top of tree (drawn last = on top = created last = highest order).
+        // Use (length - idx) * 100 so index 0 (top) gets highest order.
         const updatedOverlays = reordered.map((ov: any, idx: number) => {
-          const nextOrder = reordered.length - idx;
+          const nextOrder = (reordered.length - idx) * 100;
           const isDraggedItem = (ov.id === dragId);
           
           return {
@@ -801,15 +876,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           };
         });
 
-        // Remove all overlays
+        // Remove and recreate in ascending order (lowest order first = underneath)
         filtered.forEach((ov: any) => {
           activeChart.removeOverlay({ id: ov.id });
         });
 
-        // Recreate them in the reverse of display order (bottom of list first, top of list last)
-        const reverseList = [...updatedOverlays].reverse();
-        reverseList.forEach((ov: any) => {
-          activeChart.createOverlay({
+        updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
+        updatedOverlays.forEach((ov: any) => {
+          createOverlayWithHandlers(activeChart, {
             name: ov.name,
             id: ov.id,
             paneId: ov.paneId || 'candle_pane',
@@ -823,11 +897,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
         syncAllDrawings();
         setDrawingTrigger(prev => prev + 1);
-      } else if (dragType === 'folder' && dragId) {
-        // Reorder folder relative to drawing if target drawing is at root level
+      } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
+        // Reorder folder/candles relative to drawing if target drawing is at root level
         const targetOverlay = drawings.find(d => d.id === targetId);
         if (targetOverlay && !targetOverlay.extendData?.folderId) {
-          reorderRootItems(dragId, 'folder', targetId, 'drawing', dropPosition || 'above');
+          reorderRootItems(dragId, dragType, targetId, 'drawing', dropPosition || 'above');
         }
       }
     } catch (err) {
@@ -1044,18 +1118,22 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     return result;
   }, [drawings, folders]);
 
-  // Combined root-level items (folders and loose drawings) sorted by order descending
+  // Combined root-level items (folders, loose drawings, and candles) sorted by order descending
   const rootItems = React.useMemo(() => {
+    const candlesOrder = activeChart ? (activeChart._candlesOrder ?? 500) : 500;
+    const candlesVisible = activeChart ? (activeChart._showCandles !== false) : true;
+
     const items = [
       ...folders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
-      ...(groupedDrawings['root'] || []).map(d => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d }))
+      ...(groupedDrawings['root'] || []).map(d => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
+      { type: 'candles' as const, id: 'candles', order: candlesOrder, data: { name: 'Main Series', isVisible: candlesVisible } }
     ];
     items.sort((a, b) => {
       if (a.order !== b.order) return b.order - a.order;
       return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' });
     });
     return items;
-  }, [folders, groupedDrawings]);
+  }, [folders, groupedDrawings, activeChart, drawingTrigger]);
 
   // Handle single selection
   const handleItemSelect = (e: React.MouseEvent, id: string) => {
@@ -1165,23 +1243,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             onDragOver={handleDragOver}
             onDrop={handleDropOnRoot}
           >
-            {/* Main Instrument Reference Item */}
-            <div className="group flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-transparent hover:bg-[#1f2334] text-xs font-semibold text-gray-300">
-              <div className="flex items-center gap-2">
-                <span className="text-indigo-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" fill="currentColor">
-                    <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z"></path>
-                    <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z"></path>
-                    <path d="M9 8v12h3V8H9zm-.5-1h4a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z"></path>
-                    <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z"></path>
-                  </svg>
-                </span>
-                <span className="truncate">{activeSymbol} · {activeTimeframe} (Main Series)</span>
-              </div>
-              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-gray-800/40 px-1.5 py-0.5 rounded border border-gray-800/50">Chart</span>
-            </div>
-
-            {/* Intermixed Folders & Root-level Drawings */}
+            {/* Intermixed Folders, Drawings & Candles */}
             {rootItems.map(item => {
               if (item.type === 'folder') {
                 const folder = item.data;
@@ -1497,6 +1559,93 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         )}
                       </div>
                     )}
+                  </div>
+                );
+              } else if (item.type === 'candles') {
+                const isVisible = activeChart ? (activeChart._showCandles !== false) : true;
+                const isDragOverThis = dragOverItemId === 'candles';
+
+                return (
+                  <div
+                    key="candles"
+                    draggable={true}
+                    onDragStart={(e) => handleDragStart(e, 'candles', 'candles')}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const relativeY = e.clientY - rect.top;
+                      const isAbove = relativeY < rect.height / 2;
+                      setDragOverItemId('candles');
+                      setDragOverPosition(isAbove ? 'above' : 'below');
+                    }}
+                    onDragLeave={() => {
+                      setDragOverItemId(null);
+                      setDragOverPosition(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const dragType = draggedItemType;
+                      const dragId = draggedItemId;
+                      const dropPosition = dragOverPosition;
+                      handleDragEnd();
+
+                      if (dragId && dragType && dragId !== 'candles') {
+                        reorderRootItems(dragId, dragType, 'candles', 'candles', dropPosition || 'above');
+                      }
+                    }}
+                    className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all border-transparent hover:bg-[#1f2334] text-xs font-semibold text-gray-300`}
+                  >
+                    {isDragOverThis && (
+                      <div
+                        className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                          dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
+                        }`}
+                      />
+                    )}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-indigo-400 flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" fill="currentColor">
+                          <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z"></path>
+                          <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z"></path>
+                          <path d="M9 8v12h3V8H9zm-.5-1h4a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z"></path>
+                          <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z"></path>
+                        </svg>
+                      </span>
+                      <span className="truncate">{activeSymbol} · {activeTimeframe} (Main Series)</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          title={isVisible ? "Hide candles" : "Show candles"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeChart) {
+                              activeChart._showCandles = !isVisible;
+                              activeChart.setStyles({
+                                candle: {
+                                  show: !isVisible
+                                }
+                              });
+                              setDrawingTrigger(prev => prev + 1);
+                            }
+                          }}
+                          className={`p-1 rounded transition-colors ${
+                            !isVisible
+                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
+                              : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                          }`}
+                        >
+                          {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-gray-800/40 px-1.5 py-0.5 rounded border border-gray-800/50 flex-shrink-0">Chart</span>
+                    </div>
                   </div>
                 );
               } else {

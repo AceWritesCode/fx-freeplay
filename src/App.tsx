@@ -808,6 +808,35 @@ export default function App() {
     }
   };
 
+  /**
+   * Creates an overlay on the given chart instance with the full set of interactive event handlers
+   * (onClick → toolbar, onDrawEnd, onRemoved, onMouseEnter, onPressedMove*, etc.).
+   * Used by ObjectTreePanel when recreating overlays after drag-and-drop reordering.
+   */
+  const createOverlayWithHandlers = (chart: any, overlayData: any) => {
+    const interactiveOptions = getInteractiveOverlayOptions(
+      overlayData.name,
+      { current: chart },
+      chartInstancesRef,
+      isShiftPressedRef,
+      syncAllDrawings,
+      setActiveTool
+    );
+    chart.createOverlay({
+      ...interactiveOptions,
+      ...overlayData,
+      // Preserve event handlers from interactiveOptions (don't let overlayData overwrite them)
+      onDrawEnd: interactiveOptions.onDrawEnd,
+      onRemoved: interactiveOptions.onRemoved,
+      onMouseEnter: interactiveOptions.onMouseEnter,
+      onMouseLeave: interactiveOptions.onMouseLeave,
+      onClick: interactiveOptions.onClick,
+      onPressedMoveStart: interactiveOptions.onPressedMoveStart,
+      onPressedMoving: interactiveOptions.onPressedMoving,
+      onPressedMoveEnd: interactiveOptions.onPressedMoveEnd,
+    });
+  };
+
   const syncAllDrawings = () => {
     if (!syncDrawingsRef.current) return;
     const currentLayout = layoutTypeRef.current;
@@ -1875,6 +1904,7 @@ export default function App() {
         },
       },
       candle: {
+        show: chart._showCandles !== false,
         type: s.showBody ? 'candle_solid' : 'ohlc',
         bar: {
           upColor: s.bullColor,
@@ -6174,6 +6204,7 @@ export default function App() {
                 setDrawingTrigger={setDrawingTrigger}
                 activeSymbol={slots[activeChartIndex]?.symbol || assetName}
                 activeTimeframe={slots[activeChartIndex]?.timeframe || activeTimeframe}
+                createOverlayWithHandlers={createOverlayWithHandlers}
               />
             )}
 
