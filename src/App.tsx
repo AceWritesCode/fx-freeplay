@@ -25,7 +25,8 @@ import {
   Loader2,
   RefreshCw,
   LayoutGrid,
-  Layers
+  Layers,
+  Calendar
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { parseCSV, resample1mToTimeframe, saveChartDataToIndexedDB, loadChartDataFromIndexedDB, clearChartDataInIndexedDB, saveDirectoryHandle, loadDirectoryHandle, clearDirectoryHandle, detectPricePrecision, saveDirectoryHandles, loadDirectoryHandles } from './utils/dataUtils';
@@ -2415,32 +2416,36 @@ export default function App() {
     setReplayCurrentTimestamp(prevCandle.timestamp);
   };
 
-  // Helper to format timestamp as YYYY-MM-DD for date input
-  const getDatePickerValue = (timestamp: number | null) => {
+  // Helper to format timestamp as YYYY-MM-DDTHH:mm for datetime-local input
+  const getDateTimePickerValue = (timestamp: number | null) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Helper to get min and max dates of the current timeframe data
-  const getReplayDateBounds = () => {
+  // Helper to get min and max dates/times of the current timeframe data
+  const getReplayDateTimeBounds = () => {
     const fullData = allTimeframesData[activeTimeframe];
     if (!fullData || fullData.length === 0) return { min: '', max: '' };
     
-    const formatDate = (ts: number) => {
+    const formatDateTime = (ts: number) => {
       const date = new Date(ts);
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, '0');
       const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
+      const h = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${d}T${h}:${min}`;
     };
     
     return {
-      min: formatDate(fullData[0].timestamp),
-      max: formatDate(fullData[fullData.length - 1].timestamp)
+      min: formatDateTime(fullData[0].timestamp),
+      max: formatDateTime(fullData[fullData.length - 1].timestamp)
     };
   };
 
@@ -2479,12 +2484,17 @@ export default function App() {
     setReplayCurrentTimestamp(closestCandle.timestamp);
   };
 
-  const handleDatePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDateTimePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (!val) return;
     
-    const [year, month, day] = val.split('-').map(Number);
-    const targetDate = new Date(year, month - 1, day, 0, 0, 0);
+    const [datePart, timePart] = val.split('T');
+    if (!datePart || !timePart) return;
+    
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+    
+    const targetDate = new Date(year, month - 1, day, hour, minute, 0);
     handleReplayJumpToDate(targetDate);
   };
 
@@ -6927,16 +6937,19 @@ export default function App() {
                   <span className="text-xs font-semibold">Jump To</span>
                 </button>
 
-                {/* Date Picker Option */}
-                <input
-                  type="date"
-                  value={getDatePickerValue(replayCurrentTimestamp)}
-                  min={getReplayDateBounds().min}
-                  max={getReplayDateBounds().max}
-                  onChange={handleDatePickerChange}
-                  className="bg-[#121420] border border-[#2a2e45] text-gray-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 cursor-pointer [color-scheme:dark]"
-                  title="Jump to date"
-                />
+                {/* Date/Time Picker Option */}
+                <div className="relative flex items-center gap-1.5 bg-[#121420]/80 border border-[#2a2e45] hover:border-indigo-500/50 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all rounded-lg px-2.5 py-1 text-xs text-gray-300 shadow-inner">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  <input
+                    type="datetime-local"
+                    value={getDateTimePickerValue(replayCurrentTimestamp)}
+                    min={getReplayDateTimeBounds().min}
+                    max={getReplayDateTimeBounds().max}
+                    onChange={handleDateTimePickerChange}
+                    className="bg-transparent text-gray-200 focus:outline-none cursor-pointer [color-scheme:dark] w-[145px] border-none p-0 text-center font-mono selection:bg-transparent"
+                    title="Jump to date & time"
+                  />
+                </div>
               </div>
 
               <div className="h-5 w-px bg-gray-800" />
