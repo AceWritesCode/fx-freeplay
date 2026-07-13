@@ -2415,6 +2415,79 @@ export default function App() {
     setReplayCurrentTimestamp(prevCandle.timestamp);
   };
 
+  // Helper to format timestamp as YYYY-MM-DD for date input
+  const getDatePickerValue = (timestamp: number | null) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper to get min and max dates of the current timeframe data
+  const getReplayDateBounds = () => {
+    const fullData = allTimeframesData[activeTimeframe];
+    if (!fullData || fullData.length === 0) return { min: '', max: '' };
+    
+    const formatDate = (ts: number) => {
+      const date = new Date(ts);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+    
+    return {
+      min: formatDate(fullData[0].timestamp),
+      max: formatDate(fullData[fullData.length - 1].timestamp)
+    };
+  };
+
+  // Replay Jump to Date Helper
+  const handleReplayJumpToDate = (targetDate: Date) => {
+    if (!chartInstance.current || !isReplayActive) {
+      console.warn('[DEBUG] handleReplayJumpToDate - Replay mode is not active.');
+      return;
+    }
+
+    const fullData = allTimeframesData[activeTimeframe];
+    if (!fullData || fullData.length === 0) {
+      console.warn('[DEBUG] handleReplayJumpToDate - Empty or missing data for active timeframe:', activeTimeframe);
+      return;
+    }
+
+    const targetTime = targetDate.getTime();
+    
+    // Find closest candle by absolute time difference
+    let closestCandle = fullData[0];
+    let minDiff = Math.abs(fullData[0].timestamp - targetTime);
+    
+    for (let i = 1; i < fullData.length; i++) {
+      const diff = Math.abs(fullData[i].timestamp - targetTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestCandle = fullData[i];
+      }
+    }
+
+    console.log(`[DEBUG] handleReplayJumpToDate - Jumping to closest candle: ${new Date(closestCandle.timestamp).toLocaleString()} (Target: ${targetDate.toLocaleString()})`);
+    
+    setIsSelectingCutPoint(false);
+    setCutPointHoverX(null);
+    setIsReplayPlaying(false);
+    setReplayCurrentTimestamp(closestCandle.timestamp);
+  };
+
+  const handleDatePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (!val) return;
+    
+    const [year, month, day] = val.split('-').map(Number);
+    const targetDate = new Date(year, month - 1, day, 0, 0, 0);
+    handleReplayJumpToDate(targetDate);
+  };
+
   // Revert back to normal mode
   const exitReplayMode = () => {
     console.log('[DEBUG] exitReplayMode - Exiting Replay Mode. Restoring full dataset.');
@@ -6836,22 +6909,35 @@ export default function App() {
             {/* Center: Replay Controls */}
             <div className="flex items-center gap-4">
               {/* Jump To / Scissors */}
-              <button
-                onClick={() => {
-                  console.log('[DEBUG] Replay Footer - Clicked Jump To.');
-                  setIsSelectingCutPoint(true);
-                  setIsReplayPlaying(false);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all ${
-                  isSelectingCutPoint
-                    ? 'border-indigo-500 bg-indigo-500/20 text-indigo-400 shadow-md shadow-indigo-500/10'
-                    : 'border-transparent text-gray-300 hover:bg-gray-805 hover:bg-gray-800 hover:text-white'
-                }`}
-                title="Jump to cutpoint (Click candle)"
-              >
-                <Scissors className="w-3.5 h-3.5" />
-                <span className="text-xs font-semibold">Jump To</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    console.log('[DEBUG] Replay Footer - Clicked Jump To.');
+                    setIsSelectingCutPoint(true);
+                    setIsReplayPlaying(false);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all ${
+                    isSelectingCutPoint
+                      ? 'border-indigo-500 bg-indigo-500/20 text-indigo-400 shadow-md shadow-indigo-500/10'
+                      : 'border-transparent text-gray-300 hover:bg-gray-805 hover:bg-gray-800 hover:text-white'
+                  }`}
+                  title="Jump to cutpoint (Click candle)"
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  <span className="text-xs font-semibold">Jump To</span>
+                </button>
+
+                {/* Date Picker Option */}
+                <input
+                  type="date"
+                  value={getDatePickerValue(replayCurrentTimestamp)}
+                  min={getReplayDateBounds().min}
+                  max={getReplayDateBounds().max}
+                  onChange={handleDatePickerChange}
+                  className="bg-[#121420] border border-[#2a2e45] text-gray-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 cursor-pointer [color-scheme:dark]"
+                  title="Jump to date"
+                />
+              </div>
 
               <div className="h-5 w-px bg-gray-800" />
 
