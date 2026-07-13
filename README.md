@@ -98,19 +98,6 @@ src/
                                  # loads per-tool defaults from localStorage on new drawing creation
 ```
 
-### How to Add a New Tool
-
-1. **Create** `src/framework/tools/implementations/YourTool.tsx` modeled after `TrendLine.tsx`.
-2. **Define** a `ToolDefinition` object with:
-   - `id`, `name`, `icon`
-   - `settingsSchema` — describes all configurable properties and their types/defaults
-   - `defaultTemplates` — any built-in templates
-   - `createOverlayDef()` — returns a KLineCharts `OverlayTemplate` with your draw/hit/render logic
-3. **Register** it: `ToolRegistry.register(YourTool)` in `tools/index.ts`.
-4. The toolbar, settings dialog, templates, and style persistence all work automatically.
-
----
-
 ---
 
 ## Getting Started: Installation Guide
@@ -159,8 +146,6 @@ If you prefer to run commands manually or are on Mac/Linux, follow these steps:
 
 ---
 
----
-
 ### Running Offline (Without a Server)
 If you want to compile the entire project into a single offline file that doesn't require a terminal or server to run:
 1. In the terminal window, run:
@@ -171,20 +156,6 @@ If you want to compile the entire project into a single offline file that doesn'
 3. Simply go inside `dist` using your normal file explorer and double-click `index.html`. It will open and run completely offline directly in your browser.
 
 ---
-
-## Data Format
-
-FX Freeplay expects a **1-minute OHLCV CSV** file. Supported column layouts:
-
-| Date | Time | Open | High | Low | Close | Volume |
-|------|------|------|------|-----|-------|--------|
-
-Date formats like `YYYY.MM.DD`, `YYYY-MM-DD`, `MM/DD/YYYY` and time formats like `HH:MM`, `HH:MM:SS` are all auto-detected.
-
-> The app stores up to **300,000 rows** of 1-minute data. Older rows are automatically trimmed when you update the dataset.
-
----
-
 ## How to Get Data? (MT5 Candlestick Exporter)
 
 We have provided a custom MetaTrader 5 script file in the repository named `Candlesticks_Data_Export.ex5` to help you extract historical candlestick data from MetaTrader 5 and save it into clean, compatible CSV files. 
@@ -228,6 +199,7 @@ If you don't use the External Export Path, MT5 saves the files locally. To find 
 Go to **File** -> **Open Data Folder** -> **MQL5** -> **Files** -> **MyExports**.
 
 ---
+
 
 ## Tech Stack
 
