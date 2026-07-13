@@ -108,7 +108,7 @@ const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: boolean) 
         type: 'circle',
         attrs: { x: coord.x, y: coord.y, r: 2.5 },
         styles: {
-          style: 'fill',
+          style: 'stroke_fill',
           color: '#474a59',
           borderColor: '#6a6d7c',
           borderSize: 1.5
@@ -120,7 +120,7 @@ const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: boolean) 
         type: 'circle',
         attrs: { x: coord.x, y: coord.y, r: 4.5 },
         styles: {
-          style: 'fill',
+          style: 'stroke_fill',
           color: '#ffffff',
           borderColor: '#2196F3',
           borderSize: 1.5
