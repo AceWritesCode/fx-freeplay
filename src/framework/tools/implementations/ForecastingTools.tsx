@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '../ToolRegistry';
-import { snapPointToCandle } from '../../../utils/overlays';
+import { snapPointToCandle } from '@/engine/charting';
 
 function makeOpaqueColor(colorStr: string): string {
   if (!colorStr) return '#ffffff';
