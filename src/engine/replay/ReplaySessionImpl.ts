@@ -8,6 +8,19 @@ export class ReplaySessionImpl implements ReplaySession {
   private subscribers: Set<(state: ReplaySessionState) => void>;
 
   constructor(config: ReplaySessionConfig) {
+    if (!config) {
+      throw new Error('Replay session configuration is missing.');
+    }
+    if (!config.symbol || config.symbol.trim() === '') {
+      throw new Error('Replay session configuration error: Symbol is required.');
+    }
+    if (!config.historicalData || config.historicalData.length === 0) {
+      throw new Error('Replay session configuration error: Historical data cannot be empty.');
+    }
+    if (config.startIndex < 0 || config.startIndex >= config.historicalData.length) {
+      throw new Error(`Replay session configuration error: Start index ${config.startIndex} is out of bounds (0 to ${config.historicalData.length - 1}).`);
+    }
+
     this.config = config;
     const maxIndex = config.historicalData.length - 1;
     this.timeline = new ReplayTimelineImpl(maxIndex, config.startIndex);

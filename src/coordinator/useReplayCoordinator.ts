@@ -174,25 +174,31 @@ export function useReplayCoordinator(
       unsubscribeRef.current = null;
     }
 
-    const session = replayEngine.createSession({
-      symbol: slots[activeChartIndex]?.symbol || 'INGEST',
-      historicalData: fullData,
-      startIndex: startIndex,
-    });
+    try {
+      const session = replayEngine.createSession({
+        symbol: slots[activeChartIndex]?.symbol || 'INGEST',
+        historicalData: fullData,
+        startIndex: startIndex,
+      });
 
-    sessionRef.current = session;
-    session.setStatus('PAUSED');
+      sessionRef.current = session;
+      session.setStatus('PAUSED');
 
-    const unsub = session.subscribe((state) => {
-      setReplayCurrentTimestamp(state.currentTimestamp);
-      if (state.status === 'COMPLETED') {
-        setIsReplayPlaying(false);
-      }
-    });
-    unsubscribeRef.current = unsub;
+      const unsub = session.subscribe((state) => {
+        setReplayCurrentTimestamp(state.currentTimestamp);
+        if (state.status === 'COMPLETED') {
+          setIsReplayPlaying(false);
+        }
+      });
+      unsubscribeRef.current = unsub;
 
-    setIsReplayActive(true);
-    setIsReplayPlaying(false);
+      setIsReplayActive(true);
+      setIsReplayPlaying(false);
+    } catch (err) {
+      console.error('[ReplayCoordinator] Failed to create replay session:', err);
+      setIsReplayActive(false);
+      setIsReplayPlaying(false);
+    }
   };
 
   // Manage Autoplay Replay Timer Loop (Interval scheduling is now owned by Coordinator)
