@@ -228,18 +228,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         className={`p-2 rounded transition-colors group relative ${isTemplateDropdownOpen ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
         title="Templates"
       >
-        {isRiskReward ? (
-          <span role="img" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" d="M15.5 18.5h6m-3 3v-6"></path>
-              <rect width="6" height="6" rx="1.5" x="6.5" y="6.5"></rect>
-              <rect width="6" height="6" rx="1.5" x="15.5" y="6.5"></rect>
-              <rect width="6" height="6" rx="1.5" x="6.5" y="15.5"></rect>
-            </svg>
-          </span>
-        ) : (
-          <LayoutTemplate className="w-4 h-4 group-hover:text-indigo-500" />
-        )}
+        <LayoutTemplate className="w-4 h-4 group-hover:text-indigo-500" />
       </button>
       
       {isTemplateDropdownOpen && (
@@ -437,12 +426,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'textColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
                 title="Text color"
               >
-                <div className="flex flex-col items-center justify-center relative w-7 h-7">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 13 15" width="13" height="15" fill="none" className="text-gray-700 dark:text-gray-300">
-                    <path stroke="currentColor" strokeWidth="1.2" d="M4 14.5h2.5m2.5 0H6.5m0 0V.5m0 0h-5a1 1 0 0 0-1 1V4m6-3.5h5a1 1 0 0 1 1 1V4"></path>
-                  </svg>
-                  <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
-                </div>
+                <Baseline className="w-4 h-4" />
+                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
               </button>
               
               {activeDropdown === 'textColor' && (
@@ -462,14 +447,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'profitColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
                 title="Target background color"
               >
-                <div className="flex flex-col items-center justify-center relative w-7 h-7">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" className="text-gray-700 dark:text-gray-300">
-                    <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
-                    <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
-                    <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
-                  </svg>
-                  <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5 rounded-full" style={{ backgroundColor: profitColor }} />
-                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
+                  <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+                  <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
+                  <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
+                </svg>
+                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: profitColor }} />
               </button>
               
               {activeDropdown === 'profitColor' && (
@@ -489,14 +472,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'lossColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
                 title="Stop background color"
               >
-                <div className="flex flex-col items-center justify-center relative w-7 h-7">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" fill="none" className="text-gray-700 dark:text-gray-300">
-                    <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
-                    <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
-                    <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
-                  </svg>
-                  <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5 rounded-full" style={{ backgroundColor: lossColor }} />
-                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
+                  <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+                  <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
+                  <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
+                </svg>
+                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lossColor }} />
               </button>
               
               {activeDropdown === 'lossColor' && (
@@ -519,7 +500,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-indigo-500 cursor-pointer" 
               title="Create Limit Order"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="20" height="20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
                 <path d="M22 6H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10v1H6a2 2 0 0 1-2-2V7c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v8h-1V7a1 1 0 0 0-1-1m-6 6.77-3.41-2.48-.6.81 4 2.9 4-2.9-.58-.8zm-4 2.47L8.59 17.7l-.6-.8L12 14 16 16.9l-.59.81zM21 17v3h-3v1h3v3h1v-3h3v-1h-3v-3z"></path>
               </svg>
             </button>
@@ -530,7 +511,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group cursor-pointer text-gray-700 dark:text-gray-300 hover:text-indigo-500" 
               title="Settings"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="20" height="20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
                 <path fillRule="evenodd" d="M18 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"></path>
                 <path fillRule="evenodd" d="M8.5 5h11l5 9-5 9h-11l-5-9 5-9Zm-3.86 9L9.1 6h9.82l4.45 8-4.45 8H9.1l-4.45-8Z"></path>
               </svg>
@@ -539,10 +520,10 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             {/* Lock */}
             <button 
               onClick={onLock}
-              className={`p-2 rounded transition-colors group text-gray-750 dark:text-gray-350 hover:text-indigo-500 ${isLocked ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+              className={`p-2 rounded transition-colors group text-gray-755 dark:text-gray-355 hover:text-indigo-500 ${isLocked ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
               title={isLocked ? "Unlock" : "Lock"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="20" height="20">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
                 <path fill="currentColor" fillRule="evenodd" d="M14 6a3 3 0 0 0-3 3v3h8.5a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 6 21.5v-7A2.5 2.5 0 0 1 8.5 12H10V9a4 4 0 0 1 8 0h-1a3 3 0 0 0-3-3zm-1 11a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0v-2zm-6-2.5c0-.83.67-1.5 1.5-1.5h11c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-11A1.5 1.5 0 0 1 7 21.5v-7z"></path>
               </svg>
             </button>
@@ -553,16 +534,16 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               className="p-2 hover:bg-red-55 dark:hover:bg-red-900/20 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-red-500 cursor-pointer" 
               title="Remove"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="20" height="20">
-                <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5.46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z"></path>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
+                <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5 .46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z"></path>
               </svg>
             </button>
 
             <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
 
             {/* More */}
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-750 dark:text-gray-350" title="More">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none">
+            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-755 dark:text-gray-355" title="More">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none">
                 <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M7.5 13a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM19 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z"></path>
               </svg>
             </button>

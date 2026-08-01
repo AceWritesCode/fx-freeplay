@@ -792,10 +792,16 @@ export function ChartWorkspace() {
     }
 
     if (timezoneChanged) {
-      const rawData = workspaceCoord.getRawDataFromCache(activeWatchlistSymbol || '');
-      if (rawData.length > 0) {
-        dataVersionRef.current += 1;
-        workspaceCoord.regenerateTimeframes(rawData, newSettings, activeTimeframe);
+      const visibleCount = getLayoutChartCount(layoutType);
+      for (let i = 0; i < visibleCount; i++) {
+        const slot = slots[i];
+        if (slot && slot.symbol) {
+          const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
+          if (rawData.length > 0) {
+            dataVersionRef.current += 1;
+            workspaceCoord.regenerateTimeframes(rawData, newSettings, slot.timeframe, i);
+          }
+        }
       }
     }
   };
@@ -819,15 +825,53 @@ export function ChartWorkspace() {
         applySettingsToChart(c, newSettings);
       }
     }
-    const rawData = workspaceCoord.getRawDataFromCache(activeWatchlistSymbol || '');
-    if (rawData.length > 0) {
-      dataVersionRef.current += 1;
-      workspaceCoord.regenerateTimeframes(rawData, newSettings, activeTimeframe);
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let i = 0; i < visibleCount; i++) {
+      const slot = slots[i];
+      if (slot && slot.symbol) {
+        const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
+        if (rawData.length > 0) {
+          dataVersionRef.current += 1;
+          workspaceCoord.regenerateTimeframes(rawData, newSettings, slot.timeframe, i);
+        }
+      }
     }
   };
 
   const handleWatchlistSymbolSwitch = async (symbolName: string) => {
     await workspaceCoord.handleWatchlistSymbolSwitch(symbolName);
+  };
+
+  const resetChartView = () => {
+    chartInstancesRef.current.forEach((chart, index) => {
+      if (!chart) return;
+      const chartSize = chart.getSize();
+      const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+      const slot = slots[index];
+      if (!slot) return;
+      const fullData = workspaceCoord.allTimeframesData[slot.timeframe] || [];
+      if (fullData.length === 0) return;
+      
+      const activeData = isReplayActive && replayCurrentTimestamp !== null
+        ? fullData.filter((d: any) => d.timestamp <= replayCurrentTimestamp)
+        : fullData;
+        
+      if (activeData.length === 0) return;
+      
+      // Re-enable Y-axis auto-scale so prices appear correctly
+      try {
+        const pane = (chart as any).getDrawPaneById?.('candle_pane') || (chart as any)._paneIdMap?.get?.('candle_pane');
+        const yAxis = pane?.getYAxisComponents?.()?.[0] || chart._candlePaneYAxis;
+        if (yAxis) {
+          yAxis.setAutoCalcTickFlag?.(true);
+        }
+      } catch (_) {}
+      
+      const targetOffset = chartWidth / 2;
+      chart.resize();
+      chart.setOffsetRightDistance(targetOffset);
+      chart.scrollToDataIndex(activeData.length - 1);
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -1231,7 +1275,7 @@ export function ChartWorkspace() {
               </div>
             </div>
           )}
-          <div className="h-full w-full relative">
+          <div className="h-full w-full relative group">
             <ChartGrid
               layoutType={layoutType}
               layoutContainerRef={layoutContainerRef}
@@ -1241,6 +1285,35 @@ export function ChartWorkspace() {
               startResize={startResize}
               renderSlot={renderSlot}
             />
+            {hasData && (
+              <button
+                onClick={resetChartView}
+                title="Reset view (center last candle)"
+                className="
+                  absolute bottom-8 left-1/2 -translate-x-1/2 z-20
+                  flex items-center gap-1.5
+                  px-3.5 py-1.5
+                  bg-[#1e222d]/80 hover:bg-[#2a2e3d]/95
+                  border border-white/10 hover:border-indigo-400/50
+                  text-gray-400 hover:text-indigo-300
+                  text-[10px] font-semibold tracking-wider uppercase
+                  rounded-full
+                  backdrop-blur-sm
+                  shadow-lg shadow-black/40
+                  transition-all duration-200
+                  opacity-0 group-hover:opacity-100
+                  pointer-events-auto
+                  select-none
+                  cursor-pointer
+                "
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+                Reset View
+              </button>
+            )}
           </div>
         </main>
 
@@ -1307,10 +1380,17 @@ export function ChartWorkspace() {
         onClearTimezoneAdjustment={() => {
           const newSettings = { ...settings, timezoneAdjustmentEnabled: false };
           setSettings(newSettings);
-          const rawData = workspaceCoord.getRawDataFromCache(activeWatchlistSymbol || '');
-          if (rawData.length > 0) {
-            dataVersionRef.current += 1;
-            workspaceCoord.regenerateTimeframes(rawData, newSettings, activeTimeframe);
+          settingsRepository.saveSettings(newSettings);
+          const visibleCount = getLayoutChartCount(layoutType);
+          for (let i = 0; i < visibleCount; i++) {
+            const slot = slots[i];
+            if (slot && slot.symbol) {
+              const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
+              if (rawData.length > 0) {
+                dataVersionRef.current += 1;
+                workspaceCoord.regenerateTimeframes(rawData, newSettings, slot.timeframe, i);
+              }
+            }
           }
         }}
         detectPricePrecision={detectPricePrecision}

@@ -515,8 +515,18 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
       p0.value, p0.timestamp, p0.dataIndex ?? 0, isLong, dataList, tf
     );
     event.chart.overrideOverlay({ id: event.overlay.id, points: expanded });
-    // Use the just-computed 6 points for the remainder of this drag event.
+    event.overlay.points = expanded;
     points = expanded;
+
+    const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+    event.chart.overrideOverlay({
+      id: event.overlay.id,
+      extendData: {
+        ...(event.overlay.extendData || {}),
+        startPoints: JSON.parse(JSON.stringify(expanded)),
+        startMousePt
+      }
+    });
   }
 
   const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];

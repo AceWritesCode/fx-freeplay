@@ -131,7 +131,7 @@ export function useWorkspaceCoordinator(
           if (bars1m && bars1m.length > 0 && isMounted) {
             rawDataCache.set(savedActiveSymbol, bars1m);
             const currentTf = useLayoutStore.getState().slots[0]?.timeframe || '1m';
-            regenerateTimeframes(bars1m, useSettingsStore.getState().settings, currentTf);
+            regenerateTimeframes(bars1m, useSettingsStore.getState().settings, currentTf, 0);
             loadDrawingsForSymbol(savedActiveSymbol);
           }
         }
@@ -151,7 +151,7 @@ export function useWorkspaceCoordinator(
     return rawDataCache.get(symbol) || [];
   };
 
-  const regenerateTimeframes = (raw1m: KLineData[], s: typeof settings, timeframe: string) => {
+  const regenerateTimeframes = (raw1m: KLineData[], s: typeof settings, timeframe: string, targetChartIndex?: number) => {
     if (raw1m.length === 0) return;
 
     console.log('[DEBUG] regenerateTimeframes - Rebuilding timeframe cache with settings:', {
@@ -163,7 +163,8 @@ export function useWorkspaceCoordinator(
     const newTimeframesData = buildTimeframeCache(raw1m, s, timeframe);
     setAllTimeframesData(newTimeframesData);
 
-    const chart = chartInstancesRef.current[activeChartIndex];
+    const idx = targetChartIndex !== undefined ? targetChartIndex : activeChartIndex;
+    const chart = chartInstancesRef.current[idx];
     if (chart) {
       const fullData = newTimeframesData[timeframe] || [];
       const visibleData = isReplayActive && replayCurrentTimestamp !== null
@@ -712,6 +713,14 @@ export function useWorkspaceCoordinator(
     try {
       const tf = slot.timeframe;
       let raw1m = getRawDataFromCache(slot.symbol);
+
+      if (raw1m.length === 0) {
+        // Query IndexedDB repository first!
+        raw1m = await marketDataRepository.getBars(slot.symbol, '1m') || [];
+        if (raw1m.length > 0) {
+          rawDataCache.set(slot.symbol, raw1m);
+        }
+      }
 
       if (raw1m.length === 0) {
         const map = useWatchlistStore.getState().symbolFilesMap;

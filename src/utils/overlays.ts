@@ -299,6 +299,7 @@ export function getInteractiveOverlayOptions(
       event.chart.overrideOverlay({
         id: event.overlay.id,
         extendData: { 
+          ...(event.overlay.extendData || {}),
           draggedIndex: isHandle ? closestIndex : null,
           startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
           startMousePt
