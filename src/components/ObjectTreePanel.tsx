@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useDrawingStore } from '@/store';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
   activeChartIndex: number;
-  selectedOverlayIds: string[];
-  setSelectedOverlayIds: React.Dispatch<React.SetStateAction<string[]>>;
   syncAllDrawings: () => void;
   drawingTrigger: number;
   setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
@@ -27,8 +26,6 @@ interface FolderItem {
 export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   chartInstancesRef,
   activeChartIndex,
-  selectedOverlayIds,
-  setSelectedOverlayIds,
   syncAllDrawings,
   drawingTrigger,
   setDrawingTrigger,
@@ -37,18 +34,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   createOverlayWithHandlers,
 }) => {
   const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('objectTree');
-  const [folders, setFolders] = useState<FolderItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(`fx_folders_${activeSymbol}`);
-      const parsed = saved ? JSON.parse(saved) : [];
-      return parsed.map((f: any, idx: number) => ({
-        ...f,
-        order: f.order ?? (parsed.length - idx) * 100
-      }));
-    } catch {
-      return [];
-    }
-  });
+
+  // Connect to global drawing store
+  const {
+    folders,
+    setFolders,
+    selectedOverlayIds,
+    setSelectedOverlayIds
+  } = useDrawingStore();
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -66,9 +59,26 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const activeChart = chartInstancesRef.current[activeChartIndex];
   const [drawings, setDrawings] = useState<any[]>([]);
 
+  // Load and sync folders per symbol
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`fx_folders_${activeSymbol}`);
+      const parsed = saved ? JSON.parse(saved) : [];
+      const initialized = parsed.map((f: any, idx: number) => ({
+        ...f,
+        order: f.order ?? (parsed.length - idx) * 100
+      }));
+      setFolders(initialized);
+    } catch {
+      setFolders([]);
+    }
+  }, [activeSymbol, setFolders]);
+
   // Persist folders
   useEffect(() => {
-    localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(folders));
+    if (activeSymbol && folders.length > 0) {
+      localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(folders));
+    }
   }, [folders, activeSymbol]);
 
   // Automatically delete folders that have 0 drawings in them
@@ -86,7 +96,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     if (nonMockFolders.length !== folders.length) {
       setFolders(nonMockFolders);
     }
-  }, [drawings, folders]);
+  }, [drawings, folders, setFolders]);
 
   // Helper to recalculate unified order and recreate all overlays on activeChart.
   // Visual canvas stacking order = creation order: created first = underneath, created last = on top.

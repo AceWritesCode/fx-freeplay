@@ -18,7 +18,7 @@ interface WorkspaceSidebarProps {
   isResizingRightPanel: boolean;
   onResizeStart: () => void;
   onResizeEnd: () => void;
-  watchlistSymbols: { name: string; raw1m: any[] }[];
+  watchlistSymbols: any[];
   importMode: 'single' | 'folder';
   savedFolderHandle: any;
   isVerifyingFolder: boolean;
@@ -36,10 +36,8 @@ interface WorkspaceSidebarProps {
   drawingTrigger: number;
   setDrawingTrigger: (v: any) => void;
   createOverlayWithHandlers: (chart: any, overlay: any) => void;
-  setSelectedOverlayIds: React.Dispatch<React.SetStateAction<string[]>>;
-  watchlistToast: { msg: string; type: 'info' | 'error' } | null;
+  watchlistToast: { msg: string; type: 'info' | 'error' | 'success' } | null;
   activeChartIndex: number;
-  selectedOverlayIds: string[];
   activeTimeframe: string;
 }
 
@@ -69,10 +67,8 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     drawingTrigger,
     setDrawingTrigger,
     createOverlayWithHandlers,
-    setSelectedOverlayIds,
     watchlistToast,
     activeChartIndex,
-    selectedOverlayIds,
     activeTimeframe,
   } = props;
 
@@ -301,8 +297,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
             <ObjectTreePanel
               chartInstancesRef={chartInstancesRef}
               activeChartIndex={activeChartIndex}
-              selectedOverlayIds={selectedOverlayIds}
-              setSelectedOverlayIds={setSelectedOverlayIds}
               syncAllDrawings={syncAllDrawings}
               drawingTrigger={drawingTrigger}
               setDrawingTrigger={setDrawingTrigger}
