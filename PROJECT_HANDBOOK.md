@@ -486,7 +486,32 @@ Which engine each store uses?
 
 ------------------------------------------------------------------------
 
-# 16. Long-Term Roadmap
+# 16. Phase 4 Specification
+
+## Goal
+Implement the repository-driven persistence architecture.
+
+## Repository & Persistence Architecture
+- Permanent repository layer abstraction isolates persistence drivers from the core stores and coordinators.
+- Repositories implemented:
+  - `MarketDataRepository`: Handles OHLCV price candles per symbol/timeframe.
+  - `WatchlistRepository`: Handles symbols list, active symbol, import mode, and folder handles.
+  - `WorkspaceLayoutRepository`: Handles active slots configurations and synchronization flags.
+  - `DrawingRepository`: Handles drawings and annotations per symbol.
+  - `SettingsRepository`: Handles global visual parameters and custom timeframe lists.
+
+## Persistence Drivers
+- *Browser Persistence Driver*: Currently implemented using IndexedDB and LocalStorage, serving as a temporary driver behind the repository layer during web-only execution.
+- *Native SQLite Driver*: Long-term destination driver, to be swapped in seamlessly during Tauri desktop migration without changing stores, coordinators, or repository interfaces.
+
+## Data Ingestion & Lifecycle
+- *Market Data System*: Integrates with CSV/directory imports. Writes through `MarketDataRepository`.
+- *Workspace Persistence*: Sequentially restores settings, watchlists, folder handles, layouts, and data caches on startup.
+- *Runtime Cache Isolation*: Memory raw data cache manages active working sets, Zustand stores own transient application state, and repositories own persistent storage.
+
+------------------------------------------------------------------------
+
+# 17. Long-Term Roadmap
 
 Foundation
 
@@ -524,7 +549,7 @@ Production Platform
 
 ------------------------------------------------------------------------
 
-# 17. Architecture Decision Records
+# 18. Architecture Decision Records
 
 Key Decisions
 
@@ -544,14 +569,15 @@ Key Decisions
     - Monitor WorkspaceCoordinator code-size and split it if it grows too large.
     - Revisit the drawing synchronization architecture when advanced features are added.
     - Re-evaluate decentralized persistence ownership if future complexity justifies centralizing it.
+    - Intentional Architectural Debt: The browser-backed persistence driver serves as a proxy driver under the repository interface. This driver is temporary and will be replaced with native SQLite during Tauri migration.
 
 ------------------------------------------------------------------------
 
-# 18. Current Project Snapshot
+# 19. Current Project Snapshot
 
 Version
 
-v0.3-state-architecture
+v0.4-persistence
 
 Branch
 
@@ -567,14 +593,16 @@ Completed
 
 ✔ Phase 3
 
+✔ Phase 4
+
 Current Goal
 
-Phase 4
+Phase 5
 
-SQLite Integration
+Desktop Integration
 
 Project Status
 
 Stable
 
-State Architecture Approved & Completed. Ready for Phase 4.
+Persistence Architecture and Repository layer approved & completed. Ready for Phase 5.
