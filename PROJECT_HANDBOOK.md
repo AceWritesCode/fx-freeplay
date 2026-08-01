@@ -1,7 +1,7 @@
 # FX Freeplay Project Handbook
 
-**Version:** v0.3-state-architecture\
-**Status:** Phase 3 Complete • Phase 4 Ready
+**Version:** v1.0-architecture
+**Status:** Completed Foundations (Phase 1-5) • Phase 6 Ready
 
 ------------------------------------------------------------------------
 
@@ -22,9 +22,12 @@
 13. Review Workflow
 14. AI Collaboration Guide
 15. Phase 3 Specification
-16. Long-Term Roadmap
-17. Architecture Decision Records
-18. Current Project Snapshot
+16. Phase 4 Specification
+17. Core Subsystems
+18. Long-Term Roadmap
+19. Architecture Decision Records
+20. Current Project Snapshot
+21. Replay Engine Framework
 
 ------------------------------------------------------------------------
 
@@ -132,7 +135,7 @@ Coordinator
 
 ↓
 
-Store (Phase 3)
+Store
 
 ↓
 
@@ -140,17 +143,23 @@ Engine
 
 ↓
 
-Domain
+Repository
+
+↓
+
+Driver
 
 Presentation renders UI.
 
-Coordinator orchestrates.
+Coordinator orchestrates workflows.
 
-Store owns application state.
+Store owns runtime application state.
 
-Engine owns behaviour.
+Engine owns framework-independent algorithms and behaviors.
 
-Domain owns business knowledge.
+Repository abstracts persistence and data access orchestration.
+
+Driver implements concrete physical storage operations.
 
 ------------------------------------------------------------------------
 
@@ -223,6 +232,29 @@ Responsible for:
 No infrastructure.
 
 No framework code.
+
+------------------------------------------------------------------------
+
+## Repository
+
+Responsible for:
+
+-   Persistence abstraction
+-   Data access orchestration
+-   Storage virtualization
+
+Must remain independent of storage implementation.
+
+------------------------------------------------------------------------
+
+## Driver
+
+Responsible for:
+
+-   Concrete persistence implementation (Vite IndexedDB/localStorage)
+-   Future native SQLite database adapters
+
+The Driver layer must remain invisible to higher layers.
 
 ------------------------------------------------------------------------
 
@@ -511,9 +543,25 @@ Implement the repository-driven persistence architecture.
 
 ------------------------------------------------------------------------
 
-# 17. Long-Term Roadmap
+# 17. Core Subsystems
 
-Foundation
+A high-level view of the major architectural subsystems:
+
+-   **Replay Engine**: Core deterministic, index-based timeline state and execution manager.
+-   **Persistence Platform**: Abstraction layer coordinating watchlists, layout syncs, visual configurations, and OHLCV stores.
+-   **Drawing Framework**: Extensible shapes overlay framework rendering lines, zones, and markups.
+-   **Chart Synchronization**: Synchronized multi-chart splits managing scrolling offsets and crosshairs.
+-   **Research Platform (Upcoming)**: Lab tools for testing and validating trading strategies.
+-   **Analytics Platform (Upcoming)**: Execution reports and metrics generation.
+-   **MT5 Integration (Future)**: Native desktop bridge connection to MetaTrader 5 terminal.
+
+------------------------------------------------------------------------
+
+# 18. Long-Term Roadmap
+
+## Product Roadmap
+
+Core Architecture
 
 ↓
 
@@ -525,11 +573,11 @@ Persistence
 
 ↓
 
-Desktop
+Replay Framework
 
 ↓
 
-Research
+Research Platform
 
 ↓
 
@@ -537,19 +585,39 @@ Analytics
 
 ↓
 
-Automation
+Web v1.0
+
+## Platform Evolution
+
+Desktop (Tauri)
 
 ↓
 
-AI Assistance
+Native SQLite
 
 ↓
 
-Production Platform
+MT5 Bridge
+
+↓
+
+Broker APIs
+
+↓
+
+Live Trading
+
+↓
+
+Cloud
+
+↓
+
+AI
 
 ------------------------------------------------------------------------
 
-# 18. Architecture Decision Records
+# 19. Architecture Decision Records
 
 Key Decisions
 
@@ -577,33 +645,41 @@ Key Decisions
 
 ------------------------------------------------------------------------
 
-# 19. Current Project Snapshot
+# 20. Current Project Snapshot
 
 Version
 
-v0.5-replay
+v1.0-architecture
 
 Branch
 
-feature/state-architecture
+main
 
 Completed
 
-✔ Phase 0
-✔ Phase 1
-✔ Phase 2
-✔ Phase 3
-✔ Phase 4
-✔ Phase 5
+-   Architecture Foundation (Phases 0-2)
+-   State Architecture (Phase 3)
+-   Persistence Platform (Phase 4)
+-   Replay Framework (Phase 5)
 
-Project Status
+Current Focus
 
-- **Replay Engine**: Production Ready
-- **Application**: Still under active product development (Vite/web sandbox complete; desktop integration pending)
+-   Phase 6 — Research Platform
+
+Application Status
+
+-   Web-based Trading Research Platform under active development.
+-   Replay Engine is production-ready.
+-   Desktop migration remains a future platform evolution milestone.
+
+Git Tags
+
+-   Current tags: `v0.2-foundation`
+-   Next recommended architectural tag: `v0.5-replay-framework` or `phase-5-complete` (Pending Project Manager approval).
 
 ------------------------------------------------------------------------
 
-# 20. Replay Engine Framework
+# 21. Replay Engine Framework
 
 ## Domain Object Responsibilities
 - **`ReplayEngine`**: Acts as a workspace-scoped session registry and creation factory.
