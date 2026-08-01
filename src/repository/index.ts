@@ -3,7 +3,7 @@ import { WatchlistRepositoryImpl } from './WatchlistRepositoryImpl';
 import { WorkspaceLayoutRepositoryImpl } from './WorkspaceLayoutRepositoryImpl';
 import { DrawingRepositoryImpl } from './DrawingRepositoryImpl';
 import { SettingsRepositoryImpl } from './SettingsRepositoryImpl';
-import { initDatabase } from './db';
+import { initDatabase, migrateLegacyData } from './db';
 
 export * from './types';
 export * from './db';
@@ -15,5 +15,6 @@ export const drawingRepository = new DrawingRepositoryImpl();
 export const settingsRepository = new SettingsRepositoryImpl();
 
 export async function initRepositories(): Promise<void> {
-  await initDatabase();
+  const db = await initDatabase();
+  await migrateLegacyData(db);
 }

@@ -11,14 +11,7 @@ import {
 import {
   parseCSV,
   resample1mToTimeframe,
-  saveChartDataToIndexedDB,
-  loadDirectoryHandles,
-  loadDirectoryHandle,
-  saveDirectoryHandles,
-  clearDirectoryHandle,
-  clearChartDataInIndexedDB,
   detectPricePrecision,
-  loadChartDataFromIndexedDB,
 } from '@/utils/dataUtils';
 import type { KLineData } from '@/utils/dataUtils';
 import {
@@ -116,16 +109,18 @@ export function useWorkspaceCoordinator(
           });
         }
 
-        // Restore Watchlist & Import Mode & Active Symbol
+        // Restore Watchlist & Import Mode & Active Symbol & Folder Handles
         const savedWatchlist = await watchlistRepository.getWatchlistSymbols();
         const savedImportMode = await watchlistRepository.getImportMode();
         const savedActiveSymbol = await watchlistRepository.getActiveSymbol();
+        const savedFolderHandles = await watchlistRepository.getFolderHandles();
 
         if (isMounted) {
           useWatchlistStore.getState().setInitialState({
             watchlistSymbols: savedWatchlist,
             importMode: savedImportMode,
             activeWatchlistSymbol: savedActiveSymbol,
+            savedFolderHandles,
           });
         }
 
@@ -450,14 +445,6 @@ export function useWorkspaceCoordinator(
           if (repoBars && repoBars.length > 0) {
             rawData = repoBars;
             rawDataCache.set(symbolName, repoBars);
-          } else {
-            // Fallback check
-            const dbResult = await loadChartDataFromIndexedDB();
-            if (dbResult && dbResult.raw1mData && dbResult.raw1mData.length > 0) {
-              rawData = dbResult.raw1mData;
-              rawDataCache.set(symbolName, dbResult.raw1mData);
-              await marketDataRepository.saveBars(symbolName, '1m', dbResult.raw1mData);
-            }
           }
         }
       }
@@ -553,7 +540,6 @@ export function useWorkspaceCoordinator(
       setActiveWatchlistSymbol(cleanName);
       updateSlot(activeChartIndex, { symbol: cleanName, timeframe: '1m' });
 
-      saveChartDataToIndexedDB(result.data, cleanName, null, updatedWatchlist, '1m');
       marketDataRepository.saveBars(cleanName, '1m', result.data);
       watchlistRepository.saveWatchlistSymbols(updatedWatchlist);
       watchlistRepository.saveActiveSymbol(cleanName);
@@ -650,7 +636,7 @@ export function useWorkspaceCoordinator(
       });
 
       setSavedFolderHandles(handlesToUse);
-      await saveDirectoryHandles(handlesToUse);
+      await watchlistRepository.saveFolderHandles(handlesToUse);
 
       if (autoImport && symbolsList.length > 0) {
         const target = symbolsList[0];
@@ -679,12 +665,8 @@ export function useWorkspaceCoordinator(
   const handleRestoreSavedFolder = async () => {
     try {
       setIsVerifyingFolder(true);
-      const cachedHandles = await loadDirectoryHandles();
-      const cachedHandle = await loadDirectoryHandle();
+      const cachedHandles = await watchlistRepository.getFolderHandles();
       let handles = cachedHandles || [];
-      if (handles.length === 0 && cachedHandle) {
-        handles = [cachedHandle];
-      }
       if (handles.length > 0) {
         for (const h of handles) {
           const perm = await (h as any).queryPermission({ mode: 'readwrite' });
@@ -707,13 +689,12 @@ export function useWorkspaceCoordinator(
 
   const handleClearFolderHandles = async () => {
     try {
-      await clearDirectoryHandle();
+      await watchlistRepository.saveFolderHandles([]);
       localStorage.removeItem('fx_directory_handles');
       setSavedFolderHandles([]);
       setSymbolFilesMap({});
       setWatchlistSymbols([]);
       setActiveWatchlistSymbol(null);
-      await clearChartDataInIndexedDB();
     } catch (err) {
       console.error('[DEBUG] Error clearing handles:', err);
     }
@@ -787,7 +768,6 @@ export function useWorkspaceCoordinator(
     await marketDataRepository.clearAll();
     await watchlistRepository.saveWatchlistSymbols([]);
     await watchlistRepository.saveActiveSymbol(null);
-    await clearChartDataInIndexedDB();
     await handleClearFolderHandles();
     rawDataCache.clear();
     setAllTimeframesData({ '1m': [] });
@@ -801,7 +781,6 @@ export function useWorkspaceCoordinator(
     await marketDataRepository.deleteBars(symbolName);
     await drawingRepository.clearDrawings(symbolName);
     await watchlistRepository.saveWatchlistSymbols(nextList);
-    await saveChartDataToIndexedDB([], "", null, nextList, '1m');
 
     if (activeWatchlistSymbol === symbolName) {
       if (nextList.length > 0) {
@@ -844,7 +823,6 @@ export function useWorkspaceCoordinator(
         }
         await marketDataRepository.saveBars(cleanName, '1m', result.data);
         await watchlistRepository.saveWatchlistSymbols(nextList);
-        saveChartDataToIndexedDB(result.data, cleanName, null, nextList, '1m');
       }
     };
     reader.readAsText(file);

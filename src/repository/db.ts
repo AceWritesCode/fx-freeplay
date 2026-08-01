@@ -116,3 +116,88 @@ export async function executeTx<T>(
     tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
   });
 }
+
+export async function migrateLegacyData(db: IDBDatabase): Promise<void> {
+  const legacyMigratedKey = 'fx_legacy_data_migrated';
+  if (localStorage.getItem(legacyMigratedKey) === 'true') return;
+
+  try {
+    const legacyDBExists = await new Promise<boolean>((resolve) => {
+      const req = indexedDB.open('FXReplayDB');
+      let existed = true;
+      req.onupgradeneeded = () => {
+        existed = false;
+      };
+      req.onsuccess = () => {
+        req.result.close();
+        if (!existed) {
+          indexedDB.deleteDatabase('FXReplayDB');
+        }
+        resolve(existed);
+      };
+      req.onerror = () => resolve(false);
+    });
+
+    if (!legacyDBExists) {
+      localStorage.setItem(legacyMigratedKey, 'true');
+      return;
+    }
+
+    const legacyDB = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('FXReplayDB');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+    if (!legacyDB.objectStoreNames.contains('chartState')) {
+      legacyDB.close();
+      localStorage.setItem(legacyMigratedKey, 'true');
+      return;
+    }
+
+    const legacyData = await new Promise<any>((resolve, reject) => {
+      const tx = legacyDB.transaction('chartState', 'readonly');
+      const store = tx.objectStore('chartState');
+      const rawRequest = store.get('raw1mData');
+      const nameRequest = store.get('assetName');
+      const watchlistRequest = store.get('watchlistSymbols');
+      
+      tx.oncomplete = () => {
+        resolve({
+          raw1mData: rawRequest.result,
+          assetName: nameRequest.result,
+          watchlistSymbols: watchlistRequest.result,
+        });
+      };
+      tx.onerror = () => reject(tx.error);
+    });
+
+    legacyDB.close();
+
+    if (legacyData.watchlistSymbols && legacyData.watchlistSymbols.length > 0) {
+      const tx = db.transaction([STORES.WATCHLIST, STORES.MARKET_BARS], 'readwrite');
+      tx.objectStore(STORES.WATCHLIST).put(legacyData.watchlistSymbols, 'watchlist_symbols');
+      if (legacyData.assetName) {
+        tx.objectStore(STORES.WATCHLIST).put(legacyData.assetName, 'active_symbol');
+        if (legacyData.raw1mData && legacyData.raw1mData.length > 0) {
+          tx.objectStore(STORES.MARKET_BARS).put(legacyData.raw1mData, `${legacyData.assetName.toUpperCase()}:1m`);
+        }
+      }
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase('FXReplayDB');
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+
+    localStorage.setItem(legacyMigratedKey, 'true');
+    console.log('[DEBUG] One-time legacy IndexedDB migration completed successfully.');
+  } catch (err) {
+    console.error('Failed to migrate legacy IndexedDB data:', err);
+  }
+}
