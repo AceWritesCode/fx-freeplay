@@ -1,11 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useReplayStore, useLayoutStore } from '@/store';
-import {
-  findCandleIndexByTimestamp,
-  getNextReplayTimestamp,
-  getPrevReplayTimestamp,
-  ReplayTimer,
-} from '@/engine/replay';
+import { replayEngine, findCandleIndexByTimestamp } from '@/engine/replay';
+import type { ReplaySession } from '@/engine/replay';
 import { getTrueOffsetRightDistance } from '@/engine/charting';
 
 export function useReplayCoordinator(
@@ -39,56 +35,31 @@ export function useReplayCoordinator(
   const [isSelectingCutPoint, setIsSelectingCutPoint] = useState<boolean>(false);
   const [cutPointHoverX, setCutPointHoverX] = useState<number | null>(null);
 
+  // References to track the active session and its event subscriptions
+  const sessionRef = useRef<ReplaySession | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
   const handleReplayStepForward = () => {
-    const chart = chartInstancesRef.current[activeChartIndex];
-    if (!chart || !isReplayActive) {
-      console.warn('[DEBUG] handleReplayStepForward - Replay mode is not active or chart is missing.');
+    const session = sessionRef.current || replayEngine.getActiveSession();
+    if (!session || !isReplayActive) {
+      console.warn('[DEBUG] handleReplayStepForward - Replay session is not active.');
       return;
     }
 
-    const fullData = allTimeframesData[activeTimeframe];
-    if (!fullData || fullData.length === 0) {
-      console.warn('[DEBUG] handleReplayStepForward - Empty or missing data for active timeframe:', activeTimeframe);
-      return;
-    }
-
-    if (replayCurrentTimestamp === null) {
-      console.warn('[DEBUG] handleReplayStepForward - Current replay timestamp is null (no cutpoint selected).');
-      return;
-    }
-
-    const nextTimestamp = getNextReplayTimestamp(fullData, replayCurrentTimestamp);
-    if (nextTimestamp === null) {
-      console.log('[DEBUG] handleReplayStepForward - Replay has reached the end of dataset. Pausing autoplay.');
+    const state = session.stepForward();
+    if (state.status === 'COMPLETED') {
       setIsReplayPlaying(false);
-      return;
     }
-
-    console.log(`[DEBUG] handleReplayStepForward - Advancing from ${new Date(replayCurrentTimestamp).toLocaleString()} to ${new Date(nextTimestamp).toLocaleString()}`);
-    setReplayCurrentTimestamp(nextTimestamp);
   };
 
   const handleReplayStepBackward = () => {
-    const chart = chartInstancesRef.current[activeChartIndex];
-    if (!chart || !isReplayActive || replayCurrentTimestamp === null) {
-      console.warn('[DEBUG] handleReplayStepBackward - Replay mode is not active or timestamp is null.');
+    const session = sessionRef.current || replayEngine.getActiveSession();
+    if (!session || !isReplayActive) {
+      console.warn('[DEBUG] handleReplayStepBackward - Replay session is not active.');
       return;
     }
 
-    const fullData = allTimeframesData[activeTimeframe];
-    if (!fullData || fullData.length === 0) {
-      console.warn('[DEBUG] handleReplayStepBackward - Empty or missing data for active timeframe:', activeTimeframe);
-      return;
-    }
-
-    const prevTimestamp = getPrevReplayTimestamp(fullData, replayCurrentTimestamp);
-    if (prevTimestamp === null) {
-      console.warn('[DEBUG] handleReplayStepBackward - Cannot step back further.');
-      return;
-    }
-
-    console.log(`[DEBUG] handleReplayStepBackward - Reverting from ${new Date(replayCurrentTimestamp).toLocaleString()} to ${new Date(prevTimestamp).toLocaleString()}`);
-    setReplayCurrentTimestamp(prevTimestamp);
+    session.stepBackward();
   };
 
   const exitReplayMode = () => {
@@ -122,6 +93,14 @@ export function useReplayCoordinator(
     const slicedIndex = (replayCurrentTimestamp !== null && fullData)
       ? findCandleIndexByTimestamp(fullData, replayCurrentTimestamp)
       : -1;
+
+    // Unsubscribe and destroy active session
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+    replayEngine.destroySession();
+    sessionRef.current = null;
 
     resetReplay();
     setIsSelectingCutPoint(false);
@@ -182,26 +161,72 @@ export function useReplayCoordinator(
     console.log(`[DEBUG] selectCutPoint - Initializing replay session from: ${new Date(timestamp).toLocaleString()}`);
     setIsSelectingCutPoint(false);
     setCutPointHoverX(null);
+
+    const fullData = allTimeframesData[activeTimeframe] || [];
+    const startIndex = findCandleIndexByTimestamp(fullData, timestamp);
+    if (startIndex === -1) {
+      console.warn('[DEBUG] handleSelectCutPoint - Start index not found for timestamp:', timestamp);
+      return;
+    }
+
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    const session = replayEngine.createSession({
+      symbol: slots[activeChartIndex]?.symbol || 'INGEST',
+      historicalData: fullData,
+      startIndex: startIndex,
+    });
+
+    sessionRef.current = session;
+    session.setStatus('PAUSED');
+
+    const unsub = session.subscribe((state) => {
+      setReplayCurrentTimestamp(state.currentTimestamp);
+      if (state.status === 'COMPLETED') {
+        setIsReplayPlaying(false);
+      }
+    });
+    unsubscribeRef.current = unsub;
+
     setIsReplayActive(true);
     setIsReplayPlaying(false);
-    setReplayCurrentTimestamp(timestamp);
   };
 
-  // Manage Autoplay Replay Timer Loop
+  // Manage Autoplay Replay Timer Loop (Interval scheduling is now owned by Coordinator)
   useEffect(() => {
-    let timer: ReplayTimer | null = null;
+    let intervalId: any = null;
     if (isReplayActive && isReplayPlaying && replayCurrentTimestamp !== null) {
-      console.log(`[DEBUG] autoplay hook - Starting ReplayTimer. Speed interval: ${replaySpeed}s per bar.`);
-      timer = new ReplayTimer(handleReplayStepForward, replaySpeed);
-      timer.start();
+      console.log(`[DEBUG] autoplay loop - Starting Interval timer. Interval: ${replaySpeed}s.`);
+      intervalId = setInterval(() => {
+        const session = sessionRef.current || replayEngine.getActiveSession();
+        if (session) {
+          const state = session.stepForward();
+          if (state.status === 'COMPLETED') {
+            setIsReplayPlaying(false);
+          }
+        }
+      }, replaySpeed * 1000);
     }
     return () => {
-      if (timer) {
-        console.log('[DEBUG] autoplay hook - Stopping ReplayTimer.');
-        timer.stop();
+      if (intervalId) {
+        console.log('[DEBUG] autoplay loop - Clearing Interval timer.');
+        clearInterval(intervalId);
       }
     };
-  }, [isReplayActive, isReplayPlaying, replayCurrentTimestamp, replaySpeed, activeTimeframe, allTimeframesData]);
+  }, [isReplayActive, isReplayPlaying, replayCurrentTimestamp, replaySpeed]);
+
+  // Clean up session subscriptions on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      replayEngine.destroySession();
+    };
+  }, []);
 
   // Synchronize slots data slices when replay timestamp changes
   useEffect(() => {
