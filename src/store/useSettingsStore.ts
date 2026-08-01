@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { ChartSettings, TimeframeOption } from './types';
 import { PRESET_SETTINGS } from '@/config';
-import { persistenceService } from '@/engine/workspace/persistence';
 
 interface SettingsState {
   settings: ChartSettings;
@@ -9,52 +8,37 @@ interface SettingsState {
 
   // Actions
   setSettings: (settings: Partial<ChartSettings>) => void;
+  setInitialState: (settings: ChartSettings, customTimeframes: TimeframeOption[]) => void;
   resetSettings: () => void;
   addCustomTimeframe: (tf: TimeframeOption) => void;
   removeCustomTimeframe: (value: string) => void;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => {
-  // Load initial settings from persistenceService or fallback to classic presets
-  const savedSettings = persistenceService.getSettings();
-  const initialSettings = savedSettings
-    ? { ...PRESET_SETTINGS.classic, ...savedSettings }
-    : PRESET_SETTINGS.classic;
+export const useSettingsStore = create<SettingsState>((set) => ({
+  settings: PRESET_SETTINGS.classic,
+  customTimeframes: [],
 
-  // Load initial custom timeframes from localStorage
-  const savedTfs = localStorage.getItem('tv_clone_custom_timeframes');
-  const initialTfs = savedTfs ? JSON.parse(savedTfs) : [];
+  setInitialState: (settings, customTimeframes) =>
+    set(() => ({ settings, customTimeframes })),
 
-  return {
-    settings: initialSettings,
-    customTimeframes: initialTfs,
+  setSettings: (newSettings) =>
+    set((state) => ({
+      settings: { ...state.settings, ...newSettings },
+    })),
 
-    setSettings: (newSettings) =>
-      set((state) => {
-        const updated = { ...state.settings, ...newSettings };
-        persistenceService.setSettings(updated);
-        return { settings: updated };
-      }),
+  resetSettings: () =>
+    set(() => ({
+      settings: PRESET_SETTINGS.classic,
+    })),
 
-    resetSettings: () =>
-      set(() => {
-        const defaultSettings = PRESET_SETTINGS.classic;
-        persistenceService.setSettings(defaultSettings);
-        return { settings: defaultSettings };
-      }),
+  addCustomTimeframe: (tf) =>
+    set((state) => {
+      if (state.customTimeframes.some((t) => t.value === tf.value)) return {};
+      return { customTimeframes: [...state.customTimeframes, tf] };
+    }),
 
-    addCustomTimeframe: (tf) =>
-      set((state) => {
-        const updated = [...state.customTimeframes, tf];
-        localStorage.setItem('tv_clone_custom_timeframes', JSON.stringify(updated));
-        return { customTimeframes: updated };
-      }),
-
-    removeCustomTimeframe: (value) =>
-      set((state) => {
-        const updated = state.customTimeframes.filter((t) => t.value !== value);
-        localStorage.setItem('tv_clone_custom_timeframes', JSON.stringify(updated));
-        return { customTimeframes: updated };
-      }),
-  };
-});
+  removeCustomTimeframe: (value) =>
+    set((state) => ({
+      customTimeframes: state.customTimeframes.filter((t) => t.value !== value),
+    })),
+}));

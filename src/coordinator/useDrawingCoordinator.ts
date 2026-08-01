@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLayoutStore, useSettingsStore } from '@/store';
+import { drawingRepository } from '@/repository';
 import { getInteractiveOverlayOptions } from '@/utils/overlays';
 import { getLayoutChartCount } from '@/domain/market';
 
@@ -281,6 +282,19 @@ export function useDrawingCoordinator(
         });
       });
     }
+
+    // Persist original drawings per symbol to DrawingRepository
+    Object.entries(originalDrawingsBySymbol).forEach(([sym, items]) => {
+      const serializableDrawings = items.map(({ overlay }) => ({
+        id: overlay.id,
+        name: overlay.name,
+        points: overlay.points,
+        extendData: overlay.extendData,
+        lock: overlay.lock,
+        visible: overlay.visible,
+      }));
+      drawingRepository.saveDrawings(sym, serializableDrawings);
+    });
   };
 
   const handleSelectTool = (toolName: string) => {

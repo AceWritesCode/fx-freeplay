@@ -1,5 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore } from '@/store';
+import {
+  initRepositories,
+  marketDataRepository,
+  watchlistRepository,
+  workspaceLayoutRepository,
+  settingsRepository,
+  drawingRepository,
+} from '@/repository';
 import {
   parseCSV,
   resample1mToTimeframe,
@@ -82,6 +90,64 @@ export function useWorkspaceCoordinator(
   const [showStats, setShowStats] = useState<boolean>(false);
   const [customAlert, setCustomAlert] = useState<{ title: string; message: string } | null>(null);
   const [watchlistToast, setWatchlistToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
+
+  // Bootstrap repositories and restore stored workspace state into Stores
+  useEffect(() => {
+    let isMounted = true;
+    async function bootstrapWorkspace() {
+      try {
+        await initRepositories();
+
+        // Restore settings
+        const savedSettings = await settingsRepository.getSettings();
+        const customTfs = await settingsRepository.getCustomTimeframes();
+        if (savedSettings && isMounted) {
+          useSettingsStore.getState().setInitialState(savedSettings, customTfs);
+        }
+
+        // Restore layout configuration
+        const savedLayout = await workspaceLayoutRepository.getLayoutConfig();
+        if (savedLayout && isMounted) {
+          useLayoutStore.getState().setInitialState({
+            layoutType: savedLayout.layoutType,
+            slots: savedLayout.slots,
+            layoutSizes: savedLayout.layoutSizes,
+            ...savedLayout.syncSettings,
+          });
+        }
+
+        // Restore Watchlist & Import Mode & Active Symbol
+        const savedWatchlist = await watchlistRepository.getWatchlistSymbols();
+        const savedImportMode = await watchlistRepository.getImportMode();
+        const savedActiveSymbol = await watchlistRepository.getActiveSymbol();
+
+        if (isMounted) {
+          useWatchlistStore.getState().setInitialState({
+            watchlistSymbols: savedWatchlist,
+            importMode: savedImportMode,
+            activeWatchlistSymbol: savedActiveSymbol,
+          });
+        }
+
+        // Restore active symbol's market data from MarketDataRepository
+        if (savedActiveSymbol && isMounted) {
+          const bars1m = await marketDataRepository.getBars(savedActiveSymbol, '1m');
+          if (bars1m && bars1m.length > 0 && isMounted) {
+            rawDataCache.set(savedActiveSymbol, bars1m);
+            const currentTf = useLayoutStore.getState().slots[0]?.timeframe || '1m';
+            regenerateTimeframes(bars1m, useSettingsStore.getState().settings, currentTf);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to bootstrap workspace repositories:', err);
+      }
+    }
+
+    bootstrapWorkspace();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Helper to retrieve raw 1m data for a symbol from in-memory cache
   const getRawDataFromCache = (symbol: string): KLineData[] => {
@@ -380,11 +446,18 @@ export function useWorkspaceCoordinator(
       if (entry) {
         rawData = getRawDataFromCache(symbolName);
         if (rawData.length === 0) {
-          // Check IndexedDB
-          const dbResult = await loadChartDataFromIndexedDB();
-          if (dbResult && dbResult.raw1mData && dbResult.raw1mData.length > 0) {
-            rawData = dbResult.raw1mData;
-            rawDataCache.set(symbolName, dbResult.raw1mData);
+          const repoBars = await marketDataRepository.getBars(symbolName, '1m');
+          if (repoBars && repoBars.length > 0) {
+            rawData = repoBars;
+            rawDataCache.set(symbolName, repoBars);
+          } else {
+            // Fallback check
+            const dbResult = await loadChartDataFromIndexedDB();
+            if (dbResult && dbResult.raw1mData && dbResult.raw1mData.length > 0) {
+              rawData = dbResult.raw1mData;
+              rawDataCache.set(symbolName, dbResult.raw1mData);
+              await marketDataRepository.saveBars(symbolName, '1m', dbResult.raw1mData);
+            }
           }
         }
       }
@@ -397,6 +470,7 @@ export function useWorkspaceCoordinator(
       }
     }
 
+    await watchlistRepository.saveActiveSymbol(symbolName);
     persistenceService.setActiveWatchlistSymbol(symbolName);
     setActiveWatchlistSymbol(symbolName);
     rawDataCache.set(symbolName, rawData);
@@ -480,6 +554,9 @@ export function useWorkspaceCoordinator(
       updateSlot(activeChartIndex, { symbol: cleanName, timeframe: '1m' });
 
       saveChartDataToIndexedDB(result.data, cleanName, null, updatedWatchlist, '1m');
+      marketDataRepository.saveBars(cleanName, '1m', result.data);
+      watchlistRepository.saveWatchlistSymbols(updatedWatchlist);
+      watchlistRepository.saveActiveSymbol(cleanName);
 
       if (chart) {
         const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectedPrecision;
@@ -707,6 +784,9 @@ export function useWorkspaceCoordinator(
   };
 
   const handleClearDatabase = async () => {
+    await marketDataRepository.clearAll();
+    await watchlistRepository.saveWatchlistSymbols([]);
+    await watchlistRepository.saveActiveSymbol(null);
     await clearChartDataInIndexedDB();
     await handleClearFolderHandles();
     rawDataCache.clear();
@@ -718,6 +798,9 @@ export function useWorkspaceCoordinator(
   const handleWatchlistRemoveConfirm = async (symbolName: string) => {
     removeWatchlistSymbol(symbolName);
     const nextList = watchlistSymbols.filter((s) => s.name !== symbolName);
+    await marketDataRepository.deleteBars(symbolName);
+    await drawingRepository.clearDrawings(symbolName);
+    await watchlistRepository.saveWatchlistSymbols(nextList);
     await saveChartDataToIndexedDB([], "", null, nextList, '1m');
 
     if (activeWatchlistSymbol === symbolName) {
@@ -746,7 +829,7 @@ export function useWorkspaceCoordinator(
   const handleWatchlistAddFile = (file: File) => {
     const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string;
       if (!text) return;
       const result = parseCSV(text);
@@ -759,6 +842,8 @@ export function useWorkspaceCoordinator(
           nextList.push({ name: cleanName });
           setWatchlistSymbols(nextList);
         }
+        await marketDataRepository.saveBars(cleanName, '1m', result.data);
+        await watchlistRepository.saveWatchlistSymbols(nextList);
         saveChartDataToIndexedDB(result.data, cleanName, null, nextList, '1m');
       }
     };

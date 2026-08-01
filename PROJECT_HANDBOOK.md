@@ -535,6 +535,10 @@ Key Decisions
 -   Git milestones used for architectural checkpoints.
 -   Review-first development workflow adopted.
 -   State Architecture implemented via decoupled Zustand stores and Coordinator layers (Phase 3).
+-   Persistence Driver Strategy (Phase 4):
+    - *Persistence Architecture*: Permanent abstraction barrier (Repositories) completely decoupled from stores and coordinators.
+    - *Browser Persistence Driver*: Temporary browser-backed proxy implementation (IndexedDB and localStorage) for Vite-only execution.
+    - *Native SQLite Driver*: Target persistence engine, to be swapped in seamlessly during Tauri desktop migration without changing application architecture.
 -   Technical Debt tracked for future stages:
     - Replay loop and ticks math should eventually migrate fully into the Replay Engine.
     - Monitor WorkspaceCoordinator code-size and split it if it grows too large.

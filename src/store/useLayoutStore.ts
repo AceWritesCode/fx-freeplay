@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { SlotConfig, LayoutSizes } from './types';
-import { persistenceService } from '@/engine/workspace/persistence';
 
 interface LayoutState {
   layoutType: string;
@@ -17,6 +16,7 @@ interface LayoutState {
   syncDrawings: boolean;
 
   // Actions
+  setInitialState: (config: Partial<LayoutState>) => void;
   setLayoutType: (type: string) => void;
   setActiveChartIndex: (index: number) => void;
   setSlots: (slots: SlotConfig[]) => void;
@@ -28,14 +28,14 @@ interface LayoutState {
   ) => void;
 }
 
-const DEFAULT_SLOTS: SlotConfig[] = [
+export const DEFAULT_SLOTS: SlotConfig[] = [
   { symbol: null, timeframe: '1m' },
   { symbol: null, timeframe: '1m' },
   { symbol: null, timeframe: '1m' },
   { symbol: null, timeframe: '1m' },
 ];
 
-const DEFAULT_LAYOUT_SIZES: LayoutSizes = {
+export const DEFAULT_LAYOUT_SIZES: LayoutSizes = {
   '2v': [50, 50],
   '2h': [50, 50],
   '3v': [33.33, 33.33, 33.34],
@@ -51,71 +51,43 @@ const DEFAULT_LAYOUT_SIZES: LayoutSizes = {
   '4h': [25, 25, 25, 25],
 };
 
-const SYNC_KEY_MAP = {
-  syncSymbol: 'SYNC_SYMBOL',
-  syncInterval: 'SYNC_INTERVAL',
-  syncCrosshair: 'SYNC_CROSSHAIR',
-  syncTime: 'SYNC_TIME',
-  syncDateRange: 'SYNC_DATE_RANGE',
-  syncDrawings: 'SYNC_DRAWINGS',
-} as const;
+export const useLayoutStore = create<LayoutState>((set) => ({
+  layoutType: '1',
+  activeChartIndex: 0,
+  slots: DEFAULT_SLOTS,
+  layoutSizes: DEFAULT_LAYOUT_SIZES,
 
-export const useLayoutStore = create<LayoutState>((set) => {
-  // Restore layout parameters from persistenceService
-  const initialLayoutType = persistenceService.getLayoutType();
-  const initialSlots = persistenceService.getLayoutSlots() || DEFAULT_SLOTS;
-  const initialLayoutSizes = (persistenceService.getLayoutSizes() as any) || DEFAULT_LAYOUT_SIZES;
+  syncSymbol: true,
+  syncInterval: true,
+  syncCrosshair: true,
+  syncTime: true,
+  syncDateRange: true,
+  syncDrawings: true,
 
-  return {
-    layoutType: initialLayoutType,
-    activeChartIndex: 0,
-    slots: initialSlots,
-    layoutSizes: initialLayoutSizes,
+  setInitialState: (config) =>
+    set((state) => ({ ...state, ...config })),
 
-    syncSymbol: persistenceService.getSyncSetting('SYNC_SYMBOL'),
-    syncInterval: persistenceService.getSyncSetting('SYNC_INTERVAL'),
-    syncCrosshair: persistenceService.getSyncSetting('SYNC_CROSSHAIR'),
-    syncTime: persistenceService.getSyncSetting('SYNC_TIME'),
-    syncDateRange: persistenceService.getSyncSetting('SYNC_DATE_RANGE'),
-    syncDrawings: persistenceService.getSyncSetting('SYNC_DRAWINGS'),
+  setLayoutType: (type) =>
+    set(() => ({ layoutType: type })),
 
-    setLayoutType: (type) =>
-      set(() => {
-        persistenceService.setLayoutType(type);
-        return { layoutType: type };
-      }),
+  setActiveChartIndex: (index) =>
+    set(() => ({ activeChartIndex: index })),
 
-    setActiveChartIndex: (index) =>
-      set(() => ({
-        activeChartIndex: index,
-      })),
+  setSlots: (newSlots) =>
+    set(() => ({ slots: newSlots })),
 
-    setSlots: (newSlots) =>
-      set(() => {
-        persistenceService.setLayoutSlots(newSlots);
-        return { slots: newSlots };
-      }),
+  updateSlot: (index, update) =>
+    set((state) => {
+      const updatedSlots = [...state.slots];
+      updatedSlots[index] = { ...updatedSlots[index], ...update };
+      return { slots: updatedSlots };
+    }),
 
-    updateSlot: (index, update) =>
-      set((state) => {
-        const updatedSlots = [...state.slots];
-        updatedSlots[index] = { ...updatedSlots[index], ...update };
-        persistenceService.setLayoutSlots(updatedSlots);
-        return { slots: updatedSlots };
-      }),
+  setLayoutSizes: (sizes) =>
+    set((state) => ({
+      layoutSizes: { ...state.layoutSizes, ...sizes },
+    })),
 
-    setLayoutSizes: (sizes) =>
-      set((state) => {
-        const updatedSizes = { ...state.layoutSizes, ...sizes };
-        persistenceService.setLayoutSizes(updatedSizes as any);
-        return { layoutSizes: updatedSizes };
-      }),
-
-    setSyncSetting: (key, val) =>
-      set(() => {
-        const apiKey = SYNC_KEY_MAP[key];
-        persistenceService.setSyncSetting(apiKey, val);
-        return { [key]: val };
-      }),
-  };
-});
+  setSyncSetting: (key, val) =>
+    set(() => ({ [key]: val })),
+}));
