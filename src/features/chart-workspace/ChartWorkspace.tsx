@@ -47,6 +47,7 @@ import {
   useReplayCoordinator,
   useDrawingCoordinator,
 } from '@/coordinator';
+import { workspaceLayoutRepository, settingsRepository } from '@/repository';
 
 const HEADER_TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
 
@@ -376,6 +377,7 @@ export function ChartWorkspace() {
     dataVersionRef,
     applySettingsToChart,
     drawingCoord.syncAllDrawings,
+    drawingCoord.loadDrawingsForSymbol,
     capturedOffsetRef,
     wasManualScaleRef,
     capturedYAxisRangeRef,
@@ -663,6 +665,9 @@ export function ChartWorkspace() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       chartInstancesRef.current.forEach((c) => c && c.resize());
+      workspaceLayoutRepository.saveLayoutConfig({
+        layoutSizes: useLayoutStore.getState().layoutSizes,
+      });
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -673,13 +678,16 @@ export function ChartWorkspace() {
   const handleSelectLayout = (type: string) => {
     const currentSymbol = slots[0]?.symbol || assetName;
     const currentTf = slots[0]?.timeframe || activeTimeframe;
-    setSlots(
-      slots.map(() => ({
-        symbol: hasData ? currentSymbol : null,
-        timeframe: currentTf,
-      }))
-    );
+    const newSlots = slots.map(() => ({
+      symbol: hasData ? currentSymbol : null,
+      timeframe: currentTf,
+    }));
+    setSlots(newSlots);
     setLayoutType(type);
+    workspaceLayoutRepository.saveLayoutConfig({
+      layoutType: type,
+      slots: newSlots,
+    });
   };
 
   const handleSettingsSave = (newSettings: ChartSettings) => {
@@ -689,19 +697,29 @@ export function ChartWorkspace() {
       newSettings.userTimezoneOffset !== settings.userTimezoneOffset;
 
     setSettings(newSettings);
+    settingsRepository.saveSettings(newSettings);
 
-    const chart = chartInstancesRef.current[activeChartIndex];
-    if (chart) {
-      applySettingsToChart(chart, newSettings);
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let i = 0; i < visibleCount; i++) {
+      const c = chartInstancesRef.current[i];
+      if (c) {
+        applySettingsToChart(c, newSettings);
+        const slot = slots[i];
+        if (slot && slot.symbol) {
+          const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
+          const precision = newSettings.pricePrecision !== 0 ? newSettings.pricePrecision : detectPricePrecision(rawData);
+          c.setSymbol({
+            ticker: slot.symbol,
+            pricePrecision: precision,
+            volumePrecision: 4,
+          });
+        }
+      }
+    }
+
+    if (timezoneChanged) {
       const rawData = workspaceCoord.getRawDataFromCache(activeWatchlistSymbol || '');
-      const precision = newSettings.pricePrecision !== 0 ? newSettings.pricePrecision : detectPricePrecision(rawData);
-      chart.setSymbol({
-        ticker: assetName,
-        pricePrecision: precision,
-        volumePrecision: 4,
-      });
-
-      if (timezoneChanged && rawData.length > 0) {
+      if (rawData.length > 0) {
         dataVersionRef.current += 1;
         workspaceCoord.regenerateTimeframes(rawData, newSettings, activeTimeframe);
       }
@@ -719,9 +737,13 @@ export function ChartWorkspace() {
       userTimezoneLabel: label,
     };
     setSettings(newSettings);
-    const chart = chartInstancesRef.current[activeChartIndex];
-    if (chart) {
-      applySettingsToChart(chart, newSettings);
+    settingsRepository.saveSettings(newSettings);
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let i = 0; i < visibleCount; i++) {
+      const c = chartInstancesRef.current[i];
+      if (c) {
+        applySettingsToChart(c, newSettings);
+      }
     }
     const rawData = workspaceCoord.getRawDataFromCache(activeWatchlistSymbol || '');
     if (rawData.length > 0) {

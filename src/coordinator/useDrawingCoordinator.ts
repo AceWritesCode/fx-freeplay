@@ -336,6 +336,54 @@ export function useDrawingCoordinator(
     });
   };
 
+  const loadDrawingsForSymbol = async (symbolName: string) => {
+    try {
+      console.log(`[DEBUG] loadDrawingsForSymbol - Restoring drawings for symbol: ${symbolName}`);
+      const savedDrawings = await drawingRepository.getDrawings(symbolName);
+
+      chartInstancesRef.current.forEach((c) => {
+        if (!c) return;
+        const overlays = c.getOverlays();
+        overlays.forEach((ov: any) => {
+          if (
+            ov.id !== 'custom_price_line_overlay' &&
+            ov.name !== 'customPriceLine' &&
+            ov.id !== 'session_breaks_overlay' &&
+            ov.name !== 'sessionBreaks'
+          ) {
+            c.removeOverlay({ id: ov.id });
+          }
+        });
+      });
+
+      if (!savedDrawings || savedDrawings.length === 0) {
+        setDrawingTrigger((prev) => prev + 1);
+        return;
+      }
+
+      const chart = chartInstancesRef.current[activeChartIndex];
+      if (chart) {
+        savedDrawings.forEach((drawing: any) => {
+          createOverlayWithHandlers(chart, {
+            name: drawing.name,
+            id: drawing.id,
+            points: drawing.points,
+            lock: drawing.lock,
+            visible: drawing.visible !== false,
+            extendData: drawing.extendData || {},
+          });
+        });
+      }
+
+      setTimeout(() => {
+        syncAllDrawings();
+        setDrawingTrigger((prev) => prev + 1);
+      }, 50);
+    } catch (err) {
+      console.error(`[DEBUG] loadDrawingsForSymbol failed:`, err);
+    }
+  };
+
   return {
     activeTool,
     setActiveTool,
@@ -347,5 +395,6 @@ export function useDrawingCoordinator(
     createOverlayWithHandlers,
     syncAllDrawings,
     handleSelectTool,
+    loadDrawingsForSymbol,
   };
 }

@@ -37,6 +37,7 @@ export function useWorkspaceCoordinator(
   dataVersionRef: React.MutableRefObject<number>,
   applySettingsToChart: (chart: any, s: any) => void,
   syncAllDrawings: () => void,
+  loadDrawingsForSymbol: (symbol: string) => Promise<void>,
   capturedOffsetRef: React.MutableRefObject<number | null>,
   wasManualScaleRef: React.MutableRefObject<boolean>,
   capturedYAxisRangeRef: React.MutableRefObject<any>,
@@ -131,6 +132,7 @@ export function useWorkspaceCoordinator(
             rawDataCache.set(savedActiveSymbol, bars1m);
             const currentTf = useLayoutStore.getState().slots[0]?.timeframe || '1m';
             regenerateTimeframes(bars1m, useSettingsStore.getState().settings, currentTf);
+            loadDrawingsForSymbol(savedActiveSymbol);
           }
         }
       } catch (err) {
@@ -343,6 +345,7 @@ export function useWorkspaceCoordinator(
     }
 
     updateSlot(activeChartIndex, { symbol: currentSymbol, timeframe: tf });
+    workspaceLayoutRepository.saveLayoutConfig({ slots: useLayoutStore.getState().slots });
 
     if (chart && targetData) {
       const visibleData = activeReplay && alignedTimestamp !== null
@@ -473,8 +476,9 @@ export function useWorkspaceCoordinator(
     }
     console.log(`[DEBUG] handleWatchlistSymbolSwitch - Switched to '${symbolName}'`);
 
-    setTimeout(() => {
-      handleTimeframeSwitch(targetTf, symbolName, rawData, currentFilesMap);
+    setTimeout(async () => {
+      await handleTimeframeSwitch(targetTf, symbolName, rawData, currentFilesMap);
+      await loadDrawingsForSymbol(symbolName);
     }, 0);
   };
 
@@ -539,6 +543,7 @@ export function useWorkspaceCoordinator(
 
       setActiveWatchlistSymbol(cleanName);
       updateSlot(activeChartIndex, { symbol: cleanName, timeframe: '1m' });
+      workspaceLayoutRepository.saveLayoutConfig({ slots: useLayoutStore.getState().slots });
 
       marketDataRepository.saveBars(cleanName, '1m', result.data);
       watchlistRepository.saveWatchlistSymbols(updatedWatchlist);
