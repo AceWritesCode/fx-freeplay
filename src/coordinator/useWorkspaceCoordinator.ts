@@ -18,6 +18,7 @@ import {
   matchFileToTimeframe,
   getTimeframeMinutes,
   getBestTimeframeFile,
+  getLayoutChartCount,
 } from '@/domain/market';
 import {
   buildTimeframeCache,
@@ -125,15 +126,25 @@ export function useWorkspaceCoordinator(
           });
         }
 
-        // Restore active symbol's market data from MarketDataRepository
-        if (savedActiveSymbol && isMounted) {
-          const bars1m = await marketDataRepository.getBars(savedActiveSymbol, '1m');
-          if (bars1m && bars1m.length > 0 && isMounted) {
-            rawDataCache.set(savedActiveSymbol, bars1m);
-            const currentTf = useLayoutStore.getState().slots[0]?.timeframe || '1m';
-            regenerateTimeframes(bars1m, useSettingsStore.getState().settings, currentTf, 0);
-            loadDrawingsForSymbol(savedActiveSymbol);
+        // Restore market data for all saved slots
+        const visibleCount = getLayoutChartCount(savedLayout?.layoutType || '1');
+        for (let i = 0; i < visibleCount; i++) {
+          const slot = savedLayout?.slots?.[i];
+          if (slot && slot.symbol && isMounted) {
+            const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
+            if (bars1m && bars1m.length > 0 && isMounted) {
+              rawDataCache.set(slot.symbol, bars1m);
+              const chart = chartInstancesRef.current[i];
+              if (chart) {
+                await loadDataForSlot(i, chart);
+              }
+            }
           }
+        }
+
+        // Load drawings for the active symbol
+        if (savedActiveSymbol && isMounted) {
+          await loadDrawingsForSymbol(savedActiveSymbol);
         }
       } catch (err) {
         console.error('Failed to bootstrap workspace repositories:', err);
@@ -163,12 +174,13 @@ export function useWorkspaceCoordinator(
     const newTimeframesData = buildTimeframeCache(raw1m, s, timeframe);
     setAllTimeframesData(newTimeframesData);
 
-    const idx = targetChartIndex !== undefined ? targetChartIndex : activeChartIndex;
+    const idx = targetChartIndex !== undefined ? targetChartIndex : useLayoutStore.getState().activeChartIndex;
     const chart = chartInstancesRef.current[idx];
     if (chart) {
       const fullData = newTimeframesData[timeframe] || [];
-      const visibleData = isReplayActive && replayCurrentTimestamp !== null
-        ? fullData.filter((d) => d.timestamp <= replayCurrentTimestamp)
+      const replayState = useReplayStore.getState();
+      const visibleData = replayState.isReplayActive && replayState.replayCurrentTimestamp !== null
+        ? fullData.filter((d) => d.timestamp <= replayState.replayCurrentTimestamp!)
         : fullData;
 
       chart.setDataLoader({
@@ -707,7 +719,7 @@ export function useWorkspaceCoordinator(
   };
 
   const loadDataForSlot = async (index: number, chart: any) => {
-    const slot = slots[index];
+    const slot = useLayoutStore.getState().slots[index];
     if (!slot || !slot.symbol) return;
 
     try {
@@ -727,8 +739,8 @@ export function useWorkspaceCoordinator(
         raw1m = await getRaw1mDataForSupplement(
           slot.symbol,
           map,
-          watchlistSymbols,
-          activeWatchlistSymbol || '',
+          useWatchlistStore.getState().watchlistSymbols,
+          useWatchlistStore.getState().activeWatchlistSymbol || '',
           [],
           parseCSV
         );
@@ -745,8 +757,9 @@ export function useWorkspaceCoordinator(
         chart.setSymbol({ ticker: slot.symbol, pricePrecision: precision, volumePrecision: 4 });
         chart.setPeriod({ type: tf.endsWith('h') ? 'hour' : 'minute', span: tf.endsWith('h') ? parseInt(tf) : 1 });
 
-        const visibleData = isReplayActive && replayCurrentTimestamp !== null
-          ? tfData.filter((d) => d.timestamp <= replayCurrentTimestamp)
+        const replayState = useReplayStore.getState();
+        const visibleData = replayState.isReplayActive && replayState.replayCurrentTimestamp !== null
+          ? tfData.filter((d) => d.timestamp <= replayState.replayCurrentTimestamp!)
           : tfData;
 
         chart.setDataLoader({
