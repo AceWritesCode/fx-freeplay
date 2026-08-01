@@ -581,7 +581,7 @@ Key Decisions
 
 Version
 
-v0.4-persistence
+v0.5-replay
 
 Branch
 
@@ -590,23 +590,43 @@ feature/state-architecture
 Completed
 
 ✔ Phase 0
-
 ✔ Phase 1
-
 ✔ Phase 2
-
 ✔ Phase 3
-
 ✔ Phase 4
-
-Current Goal
-
-Phase 5
-
-Desktop Integration
+✔ Phase 5
 
 Project Status
 
-Stable
+- **Replay Engine**: Production Ready
+- **Application**: Still under active product development (Vite/web sandbox complete; desktop integration pending)
 
-Persistence Architecture and Repository layer approved & completed. Ready for Phase 5.
+------------------------------------------------------------------------
+
+# 20. Replay Engine Framework
+
+## Domain Object Responsibilities
+- **`ReplayEngine`**: Acts as a workspace-scoped session registry and creation factory.
+- **`ReplaySession`**: Orchestrates state transitions (`READY`, `PAUSED`, `COMPLETED`, `ERROR`) and emits state updates. Exposes no clock scheduling.
+- **`ReplayTimeline`**: Serves as the single authority for index-only cursor bounds, selections, bookmarks, and checkpoints.
+- **`ReplayViewport`**: Computes visible chart ranges and window offsets independently of presentation layers.
+
+## Session Lifecycle
+1. **Creation & Validation**: `ReplayEngine` validates the session's symbol and historical boundaries. Throws configuration errors if inputs are invalid.
+2. **Setup**: Instantiates `ReplayTimeline` and `ReplayViewport` at `startIndex` in `READY` status.
+3. **Execution Ticks**: Processes indices increments/decrements. Steps cap at `endIndex`, transitioning status to `COMPLETED`.
+4. **Disposal**: Releases array references and empties subscriptions to allow immediate garbage collection.
+
+## Navigation & Multi-Chart Sync
+- **Navigation Cursors**: Index offsets drive timeline bounds. Timestamps are derived values.
+- **Split Chart Sync**: Multi-chart grids align dynamically to the lowest timeframe's cursor timestamp. Higher timeframes slice their viewport arrays up to this timestamp.
+
+## Bookmarks & Checkpoints
+- **`ReplayBookmark`**: User metadata (labels, notes) mapped to index points for reference.
+- **`ReplayCheckpoint`**: Snapshots of index cursors and viewport ranges. Restoring a checkpoint jumps the timeline to the saved index.
+
+## Replay Architectural Invariants
+1. **Index Superiority**: Timeline calculations and steps must rely exclusively on integer indexes.
+2. **Time Alignment**: All chart slots in a grid synchronize to a single timeline timestamp.
+3. **Decoupled Engine**: Core engine packages must contain zero React, Zustand, or chart library dependencies.
+
