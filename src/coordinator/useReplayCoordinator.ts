@@ -279,7 +279,8 @@ export function useReplayCoordinator(
 
       const tf = slot.timeframe;
       const fullData = allTimeframesData[tf] || [];
-      const visibleData = fullData.filter((d) => d.timestamp <= replayCurrentTimestamp);
+      const idx = findCandleIndexByTimestamp(fullData, replayCurrentTimestamp);
+      const visibleData = idx !== -1 ? fullData.slice(0, idx + 1) : [];
 
       chart.setDataLoader({
         getBars: ({ type: loadType, callback }: any) => {
