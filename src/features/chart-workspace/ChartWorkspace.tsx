@@ -239,6 +239,7 @@ export function ChartWorkspace() {
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isTfDropdownOpen, setIsTfDropdownOpen] = useState<boolean>(false);
+  const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState<boolean>(false);
   const [customValue, setCustomValue] = useState<number>(10);
   const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days' | 'weeks' | 'months'>('minutes');
   const [tempBrokerOffset, setTempBrokerOffset] = useState<string>('exchange');
@@ -867,6 +868,11 @@ export function ChartWorkspace() {
       chart.resize();
       chart.setOffsetRightDistance(targetOffset);
       chart.scrollToDataIndex(activeData.length - 1);
+
+      // Lock the offset in the next frame so scrollToDataIndex cannot override it
+      requestAnimationFrame(() => {
+        chart.setOffsetRightDistance(targetOffset);
+      });
     });
   };
 
@@ -1082,8 +1088,8 @@ export function ChartWorkspace() {
         isSelectingCutPoint={replayCoord.isSelectingCutPoint}
         setIsSelectingCutPoint={replayCoord.setIsSelectingCutPoint}
         replayCurrentTimestamp={replayCurrentTimestamp}
-        isLayoutDropdownOpen={isTfDropdownOpen}
-        setIsLayoutDropdownOpen={setIsTfDropdownOpen}
+        isLayoutDropdownOpen={isLayoutDropdownOpen}
+        setIsLayoutDropdownOpen={setIsLayoutDropdownOpen}
         layoutType={layoutType}
         LAYOUT_OPTIONS={layoutsList}
         handleSelectLayout={handleSelectLayout}

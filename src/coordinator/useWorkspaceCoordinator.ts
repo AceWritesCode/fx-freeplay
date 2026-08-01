@@ -128,13 +128,17 @@ export function useWorkspaceCoordinator(
 
         // Restore market data for all saved slots
         const visibleCount = getLayoutChartCount(savedLayout?.layoutType || '1');
+        console.log(`[DEBUG] bootstrapWorkspace - visibleCount: ${visibleCount}, savedLayout slots:`, savedLayout?.slots);
         for (let i = 0; i < visibleCount; i++) {
           const slot = savedLayout?.slots?.[i];
           if (slot && slot.symbol && isMounted) {
+            console.log(`[DEBUG] bootstrapWorkspace - Slot ${i}: querying DB for symbol ${slot.symbol}`);
             const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
+            console.log(`[DEBUG] bootstrapWorkspace - Slot ${i}: fetched ${bars1m?.length || 0} bars from DB`);
             if (bars1m && bars1m.length > 0 && isMounted) {
               rawDataCache.set(slot.symbol, bars1m);
               const chart = chartInstancesRef.current[i];
+              console.log(`[DEBUG] bootstrapWorkspace - Slot ${i}: chartInstance exists: ${!!chart}`);
               if (chart) {
                 await loadDataForSlot(i, chart);
               }
@@ -144,6 +148,7 @@ export function useWorkspaceCoordinator(
 
         // Load drawings for the active symbol
         if (savedActiveSymbol && isMounted) {
+          console.log(`[DEBUG] bootstrapWorkspace - Loading drawings for active symbol ${savedActiveSymbol}`);
           await loadDrawingsForSymbol(savedActiveSymbol);
         }
       } catch (err) {
@@ -452,6 +457,19 @@ export function useWorkspaceCoordinator(
           targetTf = foundTf;
         }
       }
+
+      if (files['1m']) {
+        try {
+          const text = await files['1m'].text();
+          const parsed = parseCSV(text);
+          if (parsed.parsedCount > 0) {
+            rawData = parsed.data;
+            await marketDataRepository.saveBars(symbolName, '1m', parsed.data);
+          }
+        } catch (err) {
+          console.error(`[DEBUG] handleWatchlistSymbolSwitch - failed to parse 1m file for ${symbolName}:`, err);
+        }
+      }
     } else {
       const entry = watchlistSymbols.find((s) => s.name === symbolName);
       if (entry) {
@@ -648,6 +666,10 @@ export function useWorkspaceCoordinator(
 
       setSymbolFilesMap(mergedSymbolMap);
 
+      const watchlistItems = symbolsList.map(name => ({ name }));
+      setWatchlistSymbols(watchlistItems);
+      await watchlistRepository.saveWatchlistSymbols(watchlistItems);
+
       const initialSelected: Record<string, boolean> = {};
       symbolsList.forEach((sym) => {
         initialSelected[sym] = true;
@@ -720,15 +742,21 @@ export function useWorkspaceCoordinator(
 
   const loadDataForSlot = async (index: number, chart: any) => {
     const slot = useLayoutStore.getState().slots[index];
-    if (!slot || !slot.symbol) return;
+    console.log(`[DEBUG] loadDataForSlot - index: ${index}, slot:`, slot);
+    if (!slot || !slot.symbol) {
+      console.log(`[DEBUG] loadDataForSlot - index: ${index} - slot or symbol is empty!`);
+      return;
+    }
 
     try {
       const tf = slot.timeframe;
       let raw1m = getRawDataFromCache(slot.symbol);
+      console.log(`[DEBUG] loadDataForSlot - index: ${index}, symbol: ${slot.symbol}, cache length: ${raw1m.length}`);
 
       if (raw1m.length === 0) {
         // Query IndexedDB repository first!
         raw1m = await marketDataRepository.getBars(slot.symbol, '1m') || [];
+        console.log(`[DEBUG] loadDataForSlot - index: ${index}, symbol: ${slot.symbol}, DB query length: ${raw1m.length}`);
         if (raw1m.length > 0) {
           rawDataCache.set(slot.symbol, raw1m);
         }

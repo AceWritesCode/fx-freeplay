@@ -6,10 +6,10 @@ import { getTrueOffsetRightDistance } from '@/engine/charting';
 
 export function useReplayCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
-  _chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>,
+  chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>,
   allTimeframesData: Record<string, any[]>,
   activeTimeframe: string,
-  _pendingCutAnimation: React.MutableRefObject<any>,
+  pendingCutAnimation: React.MutableRefObject<any>,
   capturedOffsetRef: React.MutableRefObject<number | null>,
   wasManualScaleRef: React.MutableRefObject<boolean>,
   capturedYAxisRangeRef: React.MutableRefObject<any>
@@ -158,7 +158,7 @@ export function useReplayCoordinator(
     }
   };
 
-  const handleSelectCutPoint = (timestamp: number) => {
+  const handleSelectCutPoint = (timestamp: number, clickX?: number) => {
     console.log(`[DEBUG] selectCutPoint - Initializing replay session from: ${new Date(timestamp).toLocaleString()}`);
     setIsSelectingCutPoint(false);
     setCutPointHoverX(null);
@@ -168,6 +168,19 @@ export function useReplayCoordinator(
     if (startIndex === -1) {
       console.warn('[DEBUG] handleSelectCutPoint - Start index not found for timestamp:', timestamp);
       return;
+    }
+
+    // Store the pending cut animation so the data sync effect can slide the chart in
+    if (clickX !== undefined) {
+      const chart = chartInstancesRef.current[activeChartIndex];
+      const chartSize = chart ? chart.getSize() : null;
+      const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+      pendingCutAnimation.current = {
+        timestamp,
+        clickX,
+        savedOffset: chartWidth / 2,
+      };
+      console.log(`[DEBUG] handleSelectCutPoint - Stored pendingCutAnimation: clickX=${clickX}, savedOffset=${chartWidth / 2}`);
     }
 
     if (unsubscribeRef.current) {
@@ -269,7 +282,8 @@ export function useReplayCoordinator(
     };
   }, []);
 
-  // Synchronize slots data slices when replay timestamp changes
+  // Synchronize slots data slices when replay timestamp changes.
+  // Restores scroll offset and runs the cut-point slide-in animation.
   useEffect(() => {
     if (!isReplayActive || replayCurrentTimestamp === null) return;
 
@@ -277,10 +291,41 @@ export function useReplayCoordinator(
       const chart = chartInstancesRef.current[index];
       if (!chart || !slot.symbol) return;
 
+      const isActiveSlot = index === activeChartIndex;
       const tf = slot.timeframe;
       const fullData = allTimeframesData[tf] || [];
+      if (fullData.length === 0) return;
+
       const idx = findCandleIndexByTimestamp(fullData, replayCurrentTimestamp);
       const visibleData = idx !== -1 ? fullData.slice(0, idx + 1) : [];
+
+      // Capture scroll offset and Y-axis state BEFORE data reload (active slot only)
+      let currentOffset: number | null = null;
+      let yAxis: any = null;
+      let wasManualScale = false;
+      let prevRange: any = null;
+      if (isActiveSlot) {
+        currentOffset = capturedOffsetRef.current !== null
+          ? capturedOffsetRef.current
+          : getTrueOffsetRightDistance(chart);
+        if (capturedOffsetRef.current !== null) {
+          capturedOffsetRef.current = null;
+        }
+        const pane = chart.getDrawPaneById?.('candle_pane');
+        yAxis = pane?.getYAxisComponents?.()?.[0];
+        wasManualScale = yAxis ? !yAxis.getAutoCalcTickFlag() : false;
+        prevRange = wasManualScale && yAxis ? yAxis.getRange() : null;
+      }
+
+      // Check for pending cut animation to override the starting offset
+      const anim = isActiveSlot ? pendingCutAnimation.current : null;
+      let tempOffset = currentOffset;
+      if (anim && anim.timestamp === replayCurrentTimestamp && currentOffset !== null) {
+        const chartSize = chart.getSize();
+        const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+        tempOffset = chartWidth - anim.clickX;
+        console.log(`[DEBUG] dataSync - Cut animation offset override: ${tempOffset} (clickX: ${anim.clickX})`);
+      }
 
       chart.setDataLoader({
         getBars: ({ type: loadType, callback }: any) => {
@@ -292,8 +337,120 @@ export function useReplayCoordinator(
         },
       });
       chart.resetData();
+
+      // Restore scroll offset after data reset (active slot only)
+      if (isActiveSlot && tempOffset !== null) {
+        console.log(`[DEBUG] dataSync - Restoring offsetRightDistance: ${tempOffset}`);
+        chart.setOffsetRightDistance(tempOffset);
+      }
+
+      // Restore or unlock Y-axis scale (active slot only)
+      if (isActiveSlot && yAxis) {
+        if (wasManualScale && prevRange) {
+          console.log('[DEBUG] dataSync - Restoring manual Y-axis range:', prevRange);
+          yAxis.setRange({ ...prevRange });
+          yAxis.setAutoCalcTickFlag(false);
+        } else {
+          yAxis.setAutoCalcTickFlag(true);
+        }
+      }
+
+      // Run the cut-point slide-in animation (active slot, consumed once)
+      if (isActiveSlot && anim && anim.timestamp === replayCurrentTimestamp && tempOffset !== null) {
+        pendingCutAnimation.current = null;
+        const startTime = performance.now();
+        const startOffset = tempOffset;
+        const endOffset = anim.savedOffset;
+        const duration = 700;
+        console.log(`[DEBUG] dataSync - Animating offset: ${startOffset} to ${endOffset} over ${duration}ms`);
+        const animate = (time: number) => {
+          const activeChart = chartInstancesRef.current[activeChartIndex];
+          if (!activeChart || !isReplayActive) return;
+          const elapsed = time - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          activeChart.setOffsetRightDistance(startOffset + (endOffset - startOffset) * eased);
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            console.log(`[DEBUG] dataSync - Animation done. Final offset: ${endOffset}`);
+            activeChart.setOffsetRightDistance(endOffset);
+          }
+        };
+        requestAnimationFrame(animate);
+      }
     });
-  }, [replayCurrentTimestamp, isReplayActive, slots, allTimeframesData]);
+  }, [replayCurrentTimestamp, isReplayActive, slots, allTimeframesData, activeChartIndex]);
+
+  // ─── Cut-Point Pickup Line DOM Event Listeners ───────────────────────────
+  // Binds click (capture phase), mousemove and mouseleave on the active chart
+  // container when replay cut-point selection mode is active.
+  useEffect(() => {
+    const container = chartContainersRef.current[activeChartIndex];
+    const chart = chartInstancesRef.current[activeChartIndex];
+    if (!container || !chart) return;
+
+    const handleContainerClick = (event: MouseEvent) => {
+      if (!isSelectingCutPoint) return;
+      console.log(`[DEBUG] cutpoint click - X=${event.clientX}, Y=${event.clientY}`);
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const result = chart.convertFromPixel({ x, y });
+      if (result) {
+        const dataPoint = Array.isArray(result) ? result[0] : result;
+        if (dataPoint) {
+          let timestamp = dataPoint.timestamp;
+          if (!timestamp && typeof dataPoint.dataIndex === 'number') {
+            const dataIndex = Math.round(dataPoint.dataIndex);
+            const fullData = allTimeframesData[activeTimeframe];
+            if (fullData) {
+              if (dataIndex >= 0 && dataIndex < fullData.length) {
+                timestamp = fullData[dataIndex].timestamp;
+              } else if (dataIndex >= fullData.length) {
+                timestamp = fullData[fullData.length - 1].timestamp;
+              } else {
+                timestamp = fullData[0].timestamp;
+              }
+            }
+          }
+          if (timestamp) {
+            console.log(`[DEBUG] cutpoint click - Resolved: ${new Date(timestamp).toLocaleString()}`);
+            handleSelectCutPoint(timestamp, x);
+          } else {
+            console.error('[DEBUG] cutpoint click - Failed to resolve timestamp.', dataPoint);
+          }
+        }
+      } else {
+        console.warn('[DEBUG] cutpoint click - convertFromPixel returned null.');
+      }
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isSelectingCutPoint) return;
+      const rect = container.getBoundingClientRect();
+      setCutPointHoverX(event.clientX - rect.left);
+    };
+
+    const handleMouseLeave = () => {
+      setCutPointHoverX(null);
+    };
+
+    if (isSelectingCutPoint) {
+      console.log('[DEBUG] cutpoint hook - Active. Binding click + cursor listeners.');
+      container.addEventListener('click', handleContainerClick, true);
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('mouseleave', handleMouseLeave);
+    }
+
+    return () => {
+      container.removeEventListener('click', handleContainerClick, true);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [isSelectingCutPoint, activeTimeframe, allTimeframesData, activeChartIndex]);
 
   return {
     isSelectingCutPoint,
