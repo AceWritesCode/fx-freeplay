@@ -1,14 +1,16 @@
-import type { ReplaySession, ReplaySessionConfig, ReplaySessionState, ReplayStatus } from './types';
+import type { ReplaySession, ReplaySessionConfig, ReplaySessionState, ReplayStatus, ReplayTimeline } from './types';
+import { ReplayTimelineImpl } from './ReplayTimelineImpl';
 
 export class ReplaySessionImpl implements ReplaySession {
   private readonly config: ReplaySessionConfig;
-  private currentIndex: number;
+  private readonly timeline: ReplayTimeline;
   private status: ReplayStatus;
   private subscribers: Set<(state: ReplaySessionState) => void>;
 
   constructor(config: ReplaySessionConfig) {
     this.config = config;
-    this.currentIndex = Math.max(0, Math.min(config.startIndex, config.historicalData.length - 1));
+    const maxIndex = config.historicalData.length - 1;
+    this.timeline = new ReplayTimelineImpl(maxIndex, config.startIndex);
     this.status = 'READY';
     this.subscribers = new Set();
   }
@@ -30,21 +32,19 @@ export class ReplaySessionImpl implements ReplaySession {
   }
 
   public stepForward(): ReplaySessionState {
-    // If completed or error, do not progress
     if (this.status === 'COMPLETED' || this.status === 'ERROR') {
       return this.getState();
     }
 
-    if (this.currentIndex >= this.config.historicalData.length - 1) {
+    const tState = this.timeline.getState();
+    if (tState.currentIndex >= tState.endIndex) {
       this.status = 'COMPLETED';
       this.notify();
       return this.getState();
     }
 
-    this.currentIndex += 1;
-    
-    // If we just stepped onto the last candle, set to completed
-    if (this.currentIndex === this.config.historicalData.length - 1) {
+    const updatedTimeline = this.timeline.stepForward();
+    if (updatedTimeline.currentIndex === updatedTimeline.endIndex) {
       this.status = 'COMPLETED';
     }
 
@@ -57,13 +57,12 @@ export class ReplaySessionImpl implements ReplaySession {
       return this.getState();
     }
 
-    if (this.currentIndex <= 0) {
+    const tState = this.timeline.getState();
+    if (tState.currentIndex <= 0) {
       return this.getState();
     }
 
-    this.currentIndex -= 1;
-    
-    // Reset status from COMPLETED back to READY/PAUSED if we step back
+    this.timeline.stepBackward();
     if (this.status === 'COMPLETED') {
       this.status = 'READY';
     }
@@ -77,13 +76,8 @@ export class ReplaySessionImpl implements ReplaySession {
       return this.getState();
     }
 
-    const targetIndex = Math.max(0, Math.min(index, this.config.historicalData.length - 1));
-    if (targetIndex === this.currentIndex) {
-      return this.getState();
-    }
-
-    this.currentIndex = targetIndex;
-    if (this.currentIndex === this.config.historicalData.length - 1) {
+    const updatedTimeline = this.timeline.jumpTo(index);
+    if (updatedTimeline.currentIndex === updatedTimeline.endIndex) {
       this.status = 'COMPLETED';
     } else if (this.status === 'COMPLETED') {
       this.status = 'READY';
@@ -94,7 +88,7 @@ export class ReplaySessionImpl implements ReplaySession {
   }
 
   public reset(): ReplaySessionState {
-    this.currentIndex = Math.max(0, Math.min(this.config.startIndex, this.config.historicalData.length - 1));
+    this.timeline.reset();
     this.status = 'READY';
     this.notify();
     return this.getState();
@@ -102,7 +96,6 @@ export class ReplaySessionImpl implements ReplaySession {
 
   public subscribe(callback: (state: ReplaySessionState) => void): () => void {
     this.subscribers.add(callback);
-    // Emit initial state immediately on subscription
     callback(this.getState());
     return () => {
       this.subscribers.delete(callback);
@@ -110,10 +103,12 @@ export class ReplaySessionImpl implements ReplaySession {
   }
 
   public getState(): ReplaySessionState {
+    const tState = this.timeline.getState();
     return {
-      currentIndex: this.currentIndex,
-      currentTimestamp: this.getTimestamp(this.currentIndex),
       status: this.status,
+      currentIndex: tState.currentIndex,
+      currentTimestamp: this.getTimestamp(tState.currentIndex),
+      viewportRange: this.timeline.getViewport().getRange(),
     };
   }
 
@@ -125,5 +120,9 @@ export class ReplaySessionImpl implements ReplaySession {
     if (this.status === status) return;
     this.status = status;
     this.notify();
+  }
+
+  public getTimeline(): ReplayTimeline {
+    return this.timeline;
   }
 }
