@@ -152,7 +152,7 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
     const pts = chart.convertToPixel(overlay.points, { paneId: 'candle_pane' });
 
     // Handle mouse drag accumulation during drawing
-    if (coordinates.length > 0 && (!overlay.points || overlay.points.length <= 2)) {
+    if (chart && chart._isMouseDown && coordinates.length > 0 && (!overlay.points || overlay.points.length <= 2)) {
       const currentPoints = (overlay.extendData as any)?.brushPoints || [];
       const movingPoint = coordinates[coordinates.length - 1];
 

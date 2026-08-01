@@ -189,6 +189,7 @@ export function ChartWorkspace() {
   const wasManualScaleRef = useRef<boolean>(false);
   const dataVersionRef = useRef<number>(0);
   const isShiftPressedRef = useRef<boolean>(false);
+  const isCtrlPressedRef = useRef<boolean>(false);
   const activeOverlayIdRef = useRef<string | null>(null);
 
   // Zustand Store Hooks
@@ -400,6 +401,17 @@ export function ChartWorkspace() {
     workspaceCoord.setWatchlistToast = setWatchlistToast;
   }, [workspaceCoord]);
 
+  // Keep chart selection & active tool state synced to chart instances
+  useEffect(() => {
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        chart._selectedOverlayIds = selectedOverlayIds;
+        chart._setSelectedOverlayIds = setSelectedOverlayIds;
+        chart._activeTool = drawingCoord.activeTool;
+      }
+    });
+  }, [selectedOverlayIds, setSelectedOverlayIds, drawingCoord.activeTool]);
+
   // Update refs when stores change for synchronizations
   useEffect(() => {
     syncCrosshairRef.current = syncCrosshair;
@@ -506,6 +518,13 @@ export function ChartWorkspace() {
             (chart as any)._onHoverChange = () => {
               drawingCoord.setDrawingTrigger(prev => prev + 1);
             };
+            (chart as any)._chartIndex = i;
+            (chart as any)._selectedOverlayIds = selectedOverlayIds;
+            (chart as any)._setSelectedOverlayIds = setSelectedOverlayIds;
+            (chart as any)._isCtrlPressedRef = isCtrlPressedRef;
+            (chart as any)._isShiftPressedRef = isShiftPressedRef;
+            (chart as any)._chartInstancesRef = chartInstancesRef;
+            (chart as any)._activeTool = drawingCoord.activeTool;
             workspaceCoord.loadDataForSlot(i, chart);
             chart.resize();
           }
@@ -561,24 +580,79 @@ export function ChartWorkspace() {
       if (e.key === 'Shift') {
         isShiftPressedRef.current = true;
       }
+      if (e.key === 'Control' || e.key === 'Meta') {
+        isCtrlPressedRef.current = true;
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
         isShiftPressedRef.current = false;
       }
+      if (e.key === 'Control' || e.key === 'Meta') {
+        isCtrlPressedRef.current = false;
+      }
     };
     const handleBlur = () => {
       isShiftPressedRef.current = false;
+      isCtrlPressedRef.current = false;
     };
+    const handleMouseDown = () => {
+      chartInstancesRef.current.forEach((chart) => {
+        if (chart) chart._isMouseDown = true;
+      });
+    };
+    const handleMouseUp = () => {
+      chartInstancesRef.current.forEach((chart) => {
+        if (chart) {
+          chart._isMouseDown = false;
+          if (chart._activeTool === 'brush' || chart._activeTool === 'highlighter') {
+            const overlays = chart.getOverlays();
+            const activeBrush = overlays.find(
+              (ov: any) => (ov.name === 'brush' || ov.name === 'highlighter') && ov.points.length < 9999
+            );
+            if (activeBrush) {
+              const brushPoints = activeBrush.extendData?.brushPoints || [];
+              if (brushPoints.length > 0) {
+                const chartPoints = chart.convertFromPixel(brushPoints, { paneId: 'candle_pane' });
+                chart.overrideOverlay({
+                  id: activeBrush.id,
+                  points: chartPoints,
+                  totalStep: chartPoints.length
+                });
+                chart.overrideOverlay({
+                  id: activeBrush.id,
+                  extendData: {
+                    ...(activeBrush.extendData || {}),
+                    brushPoints: []
+                  }
+                });
+                drawingCoord.setActiveTool(null);
+                chart.setScrollEnabled(true);
+                chart.setZoomEnabled(true);
+                setTimeout(() => {
+                  drawingCoord.syncAllDrawings();
+                  drawingCoord.setDrawingTrigger((prev) => prev + 1);
+                }, 50);
+              }
+            }
+          }
+        }
+      });
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [drawingCoord]);
 
   // Close custom timezone and flyouts when clicking outside
   useEffect(() => {
@@ -829,10 +903,12 @@ export function ChartWorkspace() {
 
   const getSelectedSettingsOverlay = () => {
     if (!drawingSettingsOverlayId) return null;
+    const syncMatch = drawingSettingsOverlayId.match(/^sync_(.+)_from_(\d+)$/);
+    const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
     for (let i = 0; i < chartInstancesRef.current.length; i++) {
       const chart = chartInstancesRef.current[i];
       if (chart) {
-        const overlay = chart.getOverlays().find((o: any) => o.id === drawingSettingsOverlayId);
+        const overlay = chart.getOverlays().find((o: any) => o.id === originalId);
         if (overlay) return overlay;
       }
     }
@@ -1325,6 +1401,18 @@ export function ChartWorkspace() {
       <DrawingFloatingToolbar
         selectedOverlayIds={selectedOverlayIds}
         drawingTrigger={drawingCoord.drawingTrigger}
+        getOverlay={(id) => {
+          const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+          const originalId = syncMatch ? syncMatch[1] : id;
+          for (let i = 0; i < chartInstancesRef.current.length; i++) {
+            const chart = chartInstancesRef.current[i];
+            if (chart) {
+              const ov = chart.getOverlays().find((o: any) => o.id === originalId);
+              if (ov) return ov;
+            }
+          }
+          return null;
+        }}
         onApplyTemplate={(tplSettings) => {
           if (selectedOverlayIds.length > 0) {
             const firstId = selectedOverlayIds[0];
@@ -1457,16 +1545,6 @@ export function ChartWorkspace() {
           });
           drawingCoord.syncAllDrawings();
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
-        }}
-        getOverlay={(id) => {
-          for (let i = 0; i < chartInstancesRef.current.length; i++) {
-            const chart = chartInstancesRef.current[i];
-            if (chart) {
-              const overlay = chart.getOverlays().find((o: any) => o.id === id);
-              if (overlay) return overlay;
-            }
-          }
-          return null;
         }}
         onSettingsClick={() => {
           if (selectedOverlayIds.length > 0) {

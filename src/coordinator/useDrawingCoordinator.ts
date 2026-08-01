@@ -84,6 +84,10 @@ export function useDrawingCoordinator(
     chart.createOverlay({
       ...interactiveOptions,
       ...overlayData,
+      extendData: {
+        ...(interactiveOptions.extendData || {}),
+        ...(overlayData.extendData || {}),
+      },
       onDrawEnd: interactiveOptions.onDrawEnd,
       onRemoved: interactiveOptions.onRemoved,
       onMouseEnter: interactiveOptions.onMouseEnter,
