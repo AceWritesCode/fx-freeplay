@@ -792,7 +792,6 @@ export function ChartWorkspace() {
     }
 
     if (timezoneChanged) {
-      const visibleCount = getLayoutChartCount(layoutType);
       for (let i = 0; i < visibleCount; i++) {
         const slot = slots[i];
         if (slot && slot.symbol) {
@@ -824,9 +823,6 @@ export function ChartWorkspace() {
       if (c) {
         applySettingsToChart(c, newSettings);
       }
-    }
-    const visibleCount = getLayoutChartCount(layoutType);
-    for (let i = 0; i < visibleCount; i++) {
       const slot = slots[i];
       if (slot && slot.symbol) {
         const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
