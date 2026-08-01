@@ -1,4 +1,4 @@
-import type { ReplayTimeline, ReplayTimelineState, ReplayViewport } from './types';
+import type { ReplayBookmark, ReplayTimeline, ReplayTimelineState, ReplayViewport } from './types';
 import { ReplayViewportImpl } from './ReplayViewportImpl';
 
 export class ReplayTimelineImpl implements ReplayTimeline {
@@ -7,14 +7,22 @@ export class ReplayTimelineImpl implements ReplayTimeline {
   private readonly endIndex: number;
   private selectionStart: number | null = null;
   private selectionEnd: number | null = null;
-  private bookmarks: number[] = [];
+  private bookmarks: ReplayBookmark[] = [];
   private readonly viewport: ReplayViewport;
+  private readonly getTimestamp: (index: number) => number;
 
-  constructor(endIndex: number, startIndex: number) {
+  constructor(
+    endIndex: number,
+    startIndex: number,
+    getTimestamp: (index: number) => number,
+    initialBookmarks?: ReplayBookmark[]
+  ) {
     this.endIndex = endIndex;
     this.startIndex = Math.max(0, Math.min(startIndex, endIndex));
     this.currentIndex = this.startIndex;
+    this.getTimestamp = getTimestamp;
     this.viewport = new ReplayViewportImpl(endIndex, startIndex);
+    this.bookmarks = initialBookmarks || [];
   }
 
   public stepForward(): ReplayTimelineState {
@@ -55,15 +63,38 @@ export class ReplayTimelineImpl implements ReplayTimeline {
     this.selectionEnd = end;
   }
 
-  public addBookmark(index: number): void {
-    if (!this.bookmarks.includes(index)) {
-      this.bookmarks.push(index);
-      this.bookmarks.sort((a, b) => a - b);
-    }
+  public addBookmark(index: number, label: string, note?: string, isCheckpoint = false): ReplayBookmark {
+    const targetIndex = Math.max(0, Math.min(index, this.endIndex));
+    const newBookmark: ReplayBookmark = {
+      id: `bk_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      index: targetIndex,
+      timestamp: this.getTimestamp(targetIndex),
+      label: label,
+      note: note,
+      createdAt: Date.now(),
+      isCheckpoint: isCheckpoint,
+    };
+
+    this.bookmarks.push(newBookmark);
+    this.bookmarks.sort((a, b) => a.index - b.index);
+    return newBookmark;
   }
 
-  public removeBookmark(index: number): void {
-    this.bookmarks = this.bookmarks.filter((b) => b !== index);
+  public removeBookmark(id: string): void {
+    this.bookmarks = this.bookmarks.filter((b) => b.id !== id);
+  }
+
+  public updateBookmark(id: string, updates: { label?: string; note?: string }): void {
+    this.bookmarks = this.bookmarks.map((b) => {
+      if (b.id === id) {
+        return {
+          ...b,
+          label: updates.label !== undefined ? updates.label : b.label,
+          note: updates.note !== undefined ? updates.note : b.note,
+        };
+      }
+      return b;
+    });
   }
 
   public getState(): ReplayTimelineState {

@@ -23,7 +23,12 @@ export class ReplaySessionImpl implements ReplaySession {
 
     this.config = config;
     const maxIndex = config.historicalData.length - 1;
-    this.timeline = new ReplayTimelineImpl(maxIndex, config.startIndex);
+    this.timeline = new ReplayTimelineImpl(
+      maxIndex,
+      config.startIndex,
+      (idx) => this.getTimestamp(idx),
+      config.initialBookmarks
+    );
     this.status = 'READY';
     this.subscribers = new Set();
   }
@@ -122,6 +127,7 @@ export class ReplaySessionImpl implements ReplaySession {
       currentIndex: tState.currentIndex,
       currentTimestamp: this.getTimestamp(tState.currentIndex),
       viewportRange: this.timeline.getViewport().getRange(),
+      bookmarks: tState.bookmarks,
     };
   }
 

@@ -23,6 +23,7 @@ export function useReplayCoordinator(
     setIsReplayActive,
     setReplayCurrentTimestamp,
     setIsReplayPlaying,
+    setBookmarks,
     resetReplay,
   } = useReplayStore();
 
@@ -186,6 +187,7 @@ export function useReplayCoordinator(
 
       const unsub = session.subscribe((state) => {
         setReplayCurrentTimestamp(state.currentTimestamp);
+        setBookmarks(state.bookmarks);
         if (state.status === 'COMPLETED') {
           setIsReplayPlaying(false);
         }
@@ -198,6 +200,39 @@ export function useReplayCoordinator(
       console.error('[ReplayCoordinator] Failed to create replay session:', err);
       setIsReplayActive(false);
       setIsReplayPlaying(false);
+    }
+  };
+
+  const handleAddBookmark = (label: string, note?: string, isCheckpoint = false) => {
+    const session = sessionRef.current || replayEngine.getActiveSession();
+    if (session) {
+      const state = session.getState();
+      session.getTimeline().addBookmark(state.currentIndex, label, note, isCheckpoint);
+      // Timeline addBookmark updates timeline state, which notifies subscribers and updates Zustand
+    }
+  };
+
+  const handleRemoveBookmark = (id: string) => {
+    const session = sessionRef.current || replayEngine.getActiveSession();
+    if (session) {
+      session.getTimeline().removeBookmark(id);
+    }
+  };
+
+  const handleUpdateBookmark = (id: string, updates: { label?: string; note?: string }) => {
+    const session = sessionRef.current || replayEngine.getActiveSession();
+    if (session) {
+      session.getTimeline().updateBookmark(id, updates);
+    }
+  };
+
+  const handleJumpToBookmark = (id: string) => {
+    const session = sessionRef.current || replayEngine.getActiveSession();
+    if (session) {
+      const bookmark = session.getState().bookmarks.find((b) => b.id === id);
+      if (bookmark) {
+        session.jumpTo(bookmark.index);
+      }
     }
   };
 
@@ -268,5 +303,9 @@ export function useReplayCoordinator(
     handleReplayStepBackward,
     exitReplayMode,
     handleSelectCutPoint,
+    handleAddBookmark,
+    handleRemoveBookmark,
+    handleUpdateBookmark,
+    handleJumpToBookmark,
   };
 }
