@@ -569,7 +569,11 @@ Key Decisions
     - Monitor WorkspaceCoordinator code-size and split it if it grows too large.
     - Revisit the drawing synchronization architecture when advanced features are added.
     - Re-evaluate decentralized persistence ownership if future complexity justifies centralizing it.
-    - Intentional Architectural Debt: The browser-backed persistence driver serves as a proxy driver under the repository interface. This driver is temporary and will be replaced with native SQLite during Tauri migration.
+-   Replay Bookmarks and Checkpoints Divergence (Phase 5):
+    - *ReplayBookmark*: References points in history with user metadata (label, note) for timeline review.
+    - *ReplayCheckpoint*: Represents replay execution state snapshots to restore indices, ranges, and status.
+    - *Concept Divergence*: Currently sharing implementation, they represent separate domain entities and will diverge as looping, viewport, or context snapshots are added.
+-   Intentional Architectural Debt: The browser-backed persistence driver serves as a proxy driver under the repository interface. This driver is temporary and will be replaced with native SQLite during Tauri migration.
 
 ------------------------------------------------------------------------
 
