@@ -90,8 +90,14 @@ const formatPips = (diff: number, refPrice: number) => {
 
 // ─── Custom Drag Handles Draw Helper ─────────────────────────────────────────
 
-const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: boolean) => {
-  coordinates.forEach((coord: any) => {
+const drawGrabHandles = (
+  figures: any[],
+  coordinates: any[],
+  isLocked: boolean,
+  draggedIndex?: number | null,
+  hoveredAnchorIndex?: number | null
+) => {
+  coordinates.forEach((coord: any, idx: number) => {
     if (!coord) return;
     if (isLocked) {
       figures.push({
@@ -106,14 +112,15 @@ const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: boolean) 
         ignoreEvent: true
       });
     } else {
+      const isActive = draggedIndex === idx || hoveredAnchorIndex === idx;
       figures.push({
         type: 'circle',
         attrs: { x: coord.x, y: coord.y, r: 4.5 },
         styles: {
           style: 'stroke_fill',
           color: '#ffffff',
-          borderColor: '#2196F3',
-          borderSize: 1.5
+          borderColor: isActive ? '#EF5350' : '#2196F3',
+          borderSize: isActive ? 2 : 1.5
         },
         ignoreEvent: true
       });
@@ -173,7 +180,7 @@ const computeDefaultRRPoints = (
 
 const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
   name: id,
-  totalStep: 1,
+  totalStep: 2,
   needDefaultPointFigure: false,
   needDefaultXAxisFigure: false,
   needDefaultYAxisFigure: false,
@@ -183,28 +190,12 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
       return [];
     }
 
-    // ── Derive the 6 canonical points ───────────────────────────────────────
-    // When the overlay was just placed (1 point from the click), compute the
-    // default 1RR box inline so the box is visible immediately.
-    let pts6: any[] | null = null;
-
-    if (overlay.points.length >= 6) {
-      // Already fully formed — use convertToPixel on all 6 points.
-      const px = chart.convertToPixel(overlay.points, { paneId: 'candle_pane' });
-      if (px.length >= 6) pts6 = px;
-    } else if (overlay.points.length >= 1) {
-      // Still being placed or onDrawEnd hasn't propagated yet — synthesise 6 value-points.
-      const p0 = overlay.points[0];
-      const dataList = chart.getDataList();
-      const tf = chart?._loadedTimeframe || '1m';
-      const synth = computeDefaultRRPoints(
-        p0.value, p0.timestamp, p0.dataIndex ?? 0, isLong, dataList, tf
-      );
-      const px = chart.convertToPixel(synth, { paneId: 'candle_pane' });
-      if (px.length >= 6) pts6 = px;
+    if (overlay.points.length < 6) {
+      return [];
     }
 
-    if (!pts6 || !yAxis) return [];
+    const pts6 = chart.convertToPixel(overlay.points, { paneId: 'candle_pane' });
+    if (pts6.length < 6 || !yAxis) return [];
 
     const pTL = pts6[0]; // TP left
     const pTR = pts6[1]; // TP right
@@ -363,41 +354,21 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
     // Grab handles — only shown when the box is in focus (selected or hovered)
     // so they don't clutter the canvas when the box is idle.
     if (isSelected || isHovered) {
-      drawGrabHandles(figures, pts6, overlay.lock || false);
+      const draggedIndex = overlay.extendData?.draggedIndex;
+      const hoveredAnchorIndex = overlay.extendData?.hoveredAnchorIndex;
+      drawGrabHandles(figures, pts6, overlay.lock || false, draggedIndex, hoveredAnchorIndex);
     }
 
     return figures;
   },
 
   createYAxisFigures: ({ chart, overlay, yAxis, bounding }: any) => {
-    if (!yAxis || !chart) return [];
-
-    // Determine the 3 prices to show on the Y-axis.
-    // Work with either 6 fully-set points or 1 bootstrap point.
-    let entryPrice: number;
-    let targetPrice: number;
-    let stopPrice: number;
+    if (!yAxis || !chart || overlay.points.length < 6) return [];
 
     const points = overlay.points;
-
-    if (points.length >= 6) {
-      targetPrice = points[0].value;
-      entryPrice  = points[4].value;
-      stopPrice   = points[2].value;
-    } else if (points.length >= 1) {
-      // Derive from the single clicked point using the same default diff logic.
-      const p0 = points[0];
-      entryPrice = p0.value;
-      let diff = 0.005;
-      if (entryPrice < 2.0) diff = 0.005;
-      else if (entryPrice < 200.0) diff = 0.50;
-      else if (entryPrice >= 500.0 && entryPrice < 5000.0) diff = 5.0;
-      else diff = 50.0;
-      targetPrice = isLong ? entryPrice + diff : entryPrice - diff;
-      stopPrice   = isLong ? entryPrice - diff : entryPrice + diff;
-    } else {
-      return [];
-    }
+    const targetPrice = points[0].value;
+    const entryPrice  = points[4].value;
+    const stopPrice   = points[2].value;
 
     const customSettings = overlay?.extendData?.customSettings || {};
     const greenFill  = customSettings.profitColor || 'rgba(76, 175, 80, 0.12)';
@@ -501,152 +472,102 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
 
 const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boolean) => {
   let points = [...event.overlay.points];
+  if (points.length < 6) return false;
 
-  // ── Race-condition guard ─────────────────────────────────────────────────
-  // If onPressedMoveStart fired before our deferred overrideOverlay had a
-  // chance to expand the overlay to 6 points (totalStep:1 race), synthesise
-  // the 6 points now and commit them so this drag and all future ones work.
-  if (points.length < 6) {
-    const p0 = points[0];
-    if (!p0) return false;
-    const dataList = event.chart.getDataList();
-    const tf       = event.chart?._loadedTimeframe || '1m';
-    const expanded = computeDefaultRRPoints(
-      p0.value, p0.timestamp, p0.dataIndex ?? 0, isLong, dataList, tf
-    );
-    event.chart.overrideOverlay({ id: event.overlay.id, points: expanded });
-    event.overlay.points = expanded;
-    points = expanded;
+  const chart = event.chart;
+  const dataList = chart.getDataList();
+  const tf = chart?._loadedTimeframe || '1m';
+  const { value: tfVal, unit: tfUnit } = parseTimeframe(tf);
+  let tfMinutes = tfVal;
+  if (tfUnit === 'hours') tfMinutes = tfVal * 60;
+  else if (tfUnit === 'days') tfMinutes = tfVal * 1440;
+  else if (tfUnit === 'weeks') tfMinutes = tfVal * 10080;
+  else if (tfUnit === 'months') tfMinutes = tfVal * 43200;
+  const tfMs = tfMinutes * 60 * 1000;
 
-    const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
-    event.chart.overrideOverlay({
-      id: event.overlay.id,
-      extendData: {
-        ...(event.overlay.extendData || {}),
-        startPoints: JSON.parse(JSON.stringify(expanded)),
-        startMousePt
-      }
-    });
-  }
-
-  const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+  const mousePt = chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
   if (!mousePt) return false;
 
-  const snapped  = snapPointToCandle(event, event.x, event.y);
+  const snapped = snapPointToCandle(event, event.x, event.y);
   const targetPt = snapped || mousePt;
 
-  const draggedPt = {
-    ...points[draggedIndex],
-    timestamp: targetPt.timestamp,
-    value:     targetPt.value,
-    dataIndex: targetPt.dataIndex
-  };
-  points[draggedIndex] = draggedPt;
+  // Retrieve current values of the 6 points
+  let yTP = points[0].value;
+  let ySL = points[2].value;
+  let yEntry = points[4].value;
 
-  const y            = draggedPt.value;
-  const startPoints  = event.overlay.extendData?.startPoints;
+  let diMin = points[4].dataIndex;
+  let xMin = points[4].timestamp;
+  let diMax = points[5].dataIndex;
+  let xMax = points[5].timestamp;
 
-  const baseXMin   = startPoints ? startPoints[4].timestamp : points[4].timestamp;
-  const baseXMax   = startPoints ? startPoints[5].timestamp : points[5].timestamp;
-  const baseDiMin  = startPoints ? startPoints[4].dataIndex : points[4].dataIndex;
-  const baseDiMax  = startPoints ? startPoints[5].dataIndex : points[5].dataIndex;
-  const baseYTP    = startPoints ? startPoints[0].value      : points[0].value;
-  const baseYSL    = startPoints ? startPoints[2].value      : points[2].value;
-  const baseYEntry = startPoints ? startPoints[4].value      : points[4].value;
+  const isLeftSide = [0, 3, 4].includes(draggedIndex);
 
-  let xMin   = baseXMin;
-  let xMax   = baseXMax;
-  let diMin  = baseDiMin;
-  let diMax  = baseDiMax;
-  let yTP    = baseYTP;
-  let ySL    = baseYSL;
-  let yEntry = baseYEntry;
+  if (isLeftSide) {
+    // Left-side anchors can move horizontally and vertically
+    diMin = targetPt.dataIndex;
+    xMin = targetPt.timestamp;
 
-  const getConstrainedRightPt = (pt: any) => {
-    const pixelMin = event.chart.convertToPixel([{ timestamp: xMin, value: yEntry }], { paneId: 'candle_pane' })[0]?.x;
-    const pixelX   = event.chart.convertToPixel([{ timestamp: pt.timestamp, value: yEntry }], { paneId: 'candle_pane' })[0]?.x;
-    if (pixelMin !== undefined && pixelX !== undefined && pixelX < pixelMin + 40) {
-      const backPt = event.chart.convertFromPixel([{ x: pixelMin + 40, y: 0 }], { paneId: 'candle_pane' })[0];
-      return backPt ? { timestamp: backPt.timestamp, dataIndex: backPt.dataIndex } : pt;
-    }
-    return pt;
-  };
-
-  const getConstrainedLeftPt = (pt: any) => {
-    const pixelMax = event.chart.convertToPixel([{ timestamp: xMax, value: yEntry }], { paneId: 'candle_pane' })[0]?.x;
-    const pixelX   = event.chart.convertToPixel([{ timestamp: pt.timestamp, value: yEntry }], { paneId: 'candle_pane' })[0]?.x;
-    if (pixelMax !== undefined && pixelX !== undefined && pixelX > pixelMax - 40) {
-      const backPt = event.chart.convertFromPixel([{ x: pixelMax - 40, y: 0 }], { paneId: 'candle_pane' })[0];
-      return backPt ? { timestamp: backPt.timestamp, dataIndex: backPt.dataIndex } : pt;
-    }
-    return pt;
-  };
-
-  switch (draggedIndex) {
-    case 0: // TP-left corner: lock horizontal, move TP vertically
-      yTP = y;
-      if (isLong) { if (yTP < yEntry) yTP = yEntry; }
-      else        { if (yTP > yEntry) yTP = yEntry; }
-      break;
-
-    case 1: { // TP-right corner: move right edge + TP level
-      const rightPt1 = getConstrainedRightPt(draggedPt);
-      xMax  = rightPt1.timestamp;
-      diMax = rightPt1.dataIndex;
-      yTP   = y;
-      if (isLong) { if (yTP < yEntry) yTP = yEntry; }
-      else        { if (yTP > yEntry) yTP = yEntry; }
-      break;
+    // Constrain diMin to be valid (>= 0)
+    if (diMin < 0) {
+      diMin = 0;
+      xMin = dataList[0]?.timestamp ?? xMin;
     }
 
-    case 2: { // SL-right corner: move right edge + SL level
-      const rightPt2 = getConstrainedRightPt(draggedPt);
-      xMax  = rightPt2.timestamp;
-      diMax = rightPt2.dataIndex;
-      ySL   = y;
-      if (isLong) { if (ySL > yEntry) ySL = yEntry; }
-      else        { if (ySL < yEntry) ySL = yEntry; }
-      break;
+    if (draggedIndex === 0) { // TP1
+      yTP = targetPt.value;
+      if (isLong) {
+        if (yTP < yEntry) yTP = yEntry;
+      } else {
+        if (yTP > yEntry) yTP = yEntry;
+      }
+    } else if (draggedIndex === 3) { // SL1
+      ySL = targetPt.value;
+      if (isLong) {
+        if (ySL > yEntry) ySL = yEntry;
+      } else {
+        if (ySL < yEntry) ySL = yEntry;
+      }
+    } else if (draggedIndex === 4) { // ENTRY1
+      yEntry = targetPt.value;
+      const min = Math.min(yTP, ySL);
+      const max = Math.max(yTP, ySL);
+      if (yEntry < min) yEntry = min;
+      if (yEntry > max) yEntry = max;
     }
 
-    case 3: // SL-left corner: lock horizontal, move SL vertically
-      ySL = y;
-      if (isLong) { if (ySL > yEntry) ySL = yEntry; }
-      else        { if (ySL < yEntry) ySL = yEntry; }
-      break;
-
-    case 4: { // Entry-left: shift entire box vertically + resize left edge
-      const mousePrice = targetPt.value;
-      if (mousePrice === undefined) break;
-      const dy4 = mousePrice - baseYEntry;
-      yEntry = baseYEntry + dy4;
-      yTP    = baseYTP    + dy4;
-      ySL    = baseYSL    + dy4;
-      const leftPt = getConstrainedLeftPt(draggedPt);
-      xMin  = leftPt.timestamp;
-      diMin = leftPt.dataIndex;
-      break;
+    // Horizontal push constraint: if left edge reaches or exceeds right edge, push right edge
+    if (diMin >= diMax) {
+      diMax = diMin + 1;
+      xMax = diMax < dataList.length
+        ? dataList[diMax].timestamp
+        : xMin + tfMs;
     }
+  } else {
+    // Right-side anchors can ONLY move horizontally
+    diMax = targetPt.dataIndex;
+    xMax = targetPt.timestamp;
 
-    case 5: { // Entry-right: move right edge horizontally
-      const rightPt5 = getConstrainedRightPt(draggedPt);
-      xMax  = rightPt5.timestamp;
-      diMax = rightPt5.dataIndex;
-      break;
+    // Horizontal clamp constraint: right edge cannot cross left edge + 1
+    if (diMax <= diMin) {
+      diMax = diMin + 1;
+      xMax = diMax < dataList.length
+        ? dataList[diMax].timestamp
+        : xMin + tfMs;
     }
   }
 
   const newPoints = [
-    { timestamp: xMin, value: yTP,    dataIndex: diMin },
-    { timestamp: xMax, value: yTP,    dataIndex: diMax },
-    { timestamp: xMax, value: ySL,    dataIndex: diMax },
-    { timestamp: xMin, value: ySL,    dataIndex: diMin },
-    { timestamp: xMin, value: yEntry, dataIndex: diMin },
-    { timestamp: xMax, value: yEntry, dataIndex: diMax }
+    { timestamp: xMin, value: yTP,    dataIndex: diMin }, // Index 0: TP1
+    { timestamp: xMax, value: yTP,    dataIndex: diMax }, // Index 1: TP2
+    { timestamp: xMax, value: ySL,    dataIndex: diMax }, // Index 2: SL2
+    { timestamp: xMin, value: ySL,    dataIndex: diMin }, // Index 3: SL1
+    { timestamp: xMin, value: yEntry, dataIndex: diMin }, // Index 4: ENTRY1
+    { timestamp: xMax, value: yEntry, dataIndex: diMax }  // Index 5: ENTRY2
   ];
 
-  event.chart.overrideOverlay({
-    id:     event.overlay.id,
+  chart.overrideOverlay({
+    id: event.overlay.id,
     points: newPoints
   });
 
