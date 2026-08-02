@@ -124,6 +124,22 @@ const drawGrabHandles = (
         },
         ignoreEvent: true
       });
+
+      // Invisible interactive hit target (captures hover and drag events for klinecharts)
+      figures.push({
+        type: 'rect',
+        attrs: {
+          x: coord.x - 10,
+          y: coord.y - 10,
+          width: 20,
+          height: 20
+        },
+        styles: {
+          style: 'fill',
+          color: 'transparent'
+        },
+        ignoreEvent: false
+      });
     }
   });
 };
@@ -472,7 +488,9 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
 
 const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boolean) => {
   let points = [...event.overlay.points];
-  if (points.length < 6) return false;
+  if (points.length < 6) {
+    return false;
+  }
 
   const chart = event.chart;
   const dataList = chart.getDataList();
@@ -486,20 +504,25 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
   const tfMs = tfMinutes * 60 * 1000;
 
   const mousePt = chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
-  if (!mousePt) return false;
+  if (!mousePt) {
+    return false;
+  }
 
   const snapped = snapPointToCandle(event, event.x, event.y);
   const targetPt = snapped || mousePt;
 
   // Retrieve current values of the 6 points
-  let yTP = points[0].value;
-  let ySL = points[2].value;
-  let yEntry = points[4].value;
+  const startPoints = event.overlay.extendData?.startPoints || points;
 
-  let diMin = points[4].dataIndex;
-  let xMin = points[4].timestamp;
-  let diMax = points[5].dataIndex;
-  let xMax = points[5].timestamp;
+  // Retrieve baseline values of the 6 points from startPoints
+  let yTP = startPoints[0].value;
+  let ySL = startPoints[2].value;
+  let yEntry = startPoints[4].value;
+
+  let diMin = startPoints[4].dataIndex;
+  let xMin = startPoints[4].timestamp;
+  let diMax = startPoints[5].dataIndex;
+  let xMax = startPoints[5].timestamp;
 
   // 1. Vertical adjustment: Dragging TP (0, 1), SL (2, 3), or Entry (4, 5) updates the respective price level
   if (draggedIndex === 0 || draggedIndex === 1) { // TP anchors
@@ -516,7 +539,7 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
     } else {
       if (ySL < yEntry) ySL = yEntry;
     }
-  } else if (draggedIndex === 4 || draggedIndex === 5) { // Entry anchors
+  } else if (draggedIndex === 4) { // Entry Anchor 1 (Left) is vertical + horizontal, Entry Anchor 2 (index 5) is horizontal-only
     yEntry = targetPt.value;
     const min = Math.min(yTP, ySL);
     const max = Math.max(yTP, ySL);
@@ -543,6 +566,20 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
       xMax = diMax < dataList.length
         ? dataList[diMax].timestamp
         : xMin + tfMs;
+
+      // Update startPoints in extendData to persist the pushed position
+      if (event.overlay.extendData?.startPoints) {
+        const sp = event.overlay.extendData.startPoints;
+        if (sp.length >= 6) {
+          // Align all right-side points (TP2: 1, SL2: 2, ENTRY2: 5) to the pushed position
+          sp[1].dataIndex = diMax;
+          sp[1].timestamp = xMax;
+          sp[2].dataIndex = diMax;
+          sp[2].timestamp = xMax;
+          sp[5].dataIndex = diMax;
+          sp[5].timestamp = xMax;
+        }
+      }
     }
   } else {
     // Right-side anchors

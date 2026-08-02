@@ -718,50 +718,44 @@ export function ChartWorkspace() {
       if (!container) return;
 
       if (isMouseDown && activeDraggingOverlay) {
-        container.style.cursor = 'grabbing';
+        if (container.style.cursor !== 'grabbing') {
+          container.style.cursor = 'grabbing';
+        }
         return;
       }
 
-      const targetOverlay = hoveredOverlay || selectedOverlays[0];
-      if (targetOverlay && targetOverlay.points && targetOverlay.points.length >= 6 && ['longPosition', 'shortPosition'].includes(targetOverlay.name)) {
-        const pts = chart.convertToPixel(targetOverlay.points, { paneId: 'candle_pane' });
-        const xVal = e.clientX - containerRect.left;
-        const yVal = e.clientY - containerRect.top;
+      // 1. Prioritize anchor hit-testing across all interactive overlays
+      let targetOverlayForAnchor: any = null;
+      let closestIndex = -1;
+      let minDistance = Infinity;
 
-        let closestIndex = -1;
-        let minDistance = Infinity;
-        pts.forEach((pt: any, idx: number) => {
-          if (pt) {
-            const dist = Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2);
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestIndex = idx;
-            }
-          }
-        });
+      const xVal = e.clientX - containerRect.left;
+      const yVal = e.clientY - containerRect.top;
 
-        const currentHoveredIdx = targetOverlay.extendData?.hoveredAnchorIndex;
-        const nextHoveredIdx = minDistance < 12 ? closestIndex : null;
-
-        if (currentHoveredIdx !== nextHoveredIdx) {
-          chart.overrideOverlay({
-            id: targetOverlay.id,
-            extendData: {
-              ...(targetOverlay.extendData || {}),
-              hoveredAnchorIndex: nextHoveredIdx
+      interactiveOverlays.forEach((ov: any) => {
+        if (ov.points && ov.points.length >= 6 && ['longPosition', 'shortPosition'].includes(ov.name)) {
+          const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          pts.forEach((pt: any, idx: number) => {
+            if (pt) {
+              const dist = Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2);
+              if (dist < minDistance) {
+                minDistance = dist;
+                closestIndex = idx;
+                targetOverlayForAnchor = ov;
+              }
             }
           });
-          drawingCoord.setDrawingTrigger(prev => prev + 1);
         }
+      });
 
-        if (minDistance < 12) {
-          if ([0, 3, 4].includes(closestIndex)) {
-            container.style.cursor = 'move';
-          } else {
-            container.style.cursor = 'ew-resize';
-          }
-          return;
-        }
+      const isAnchorHit = minDistance < 12;
+
+      // 2. If no anchor hit, fall back to body hit-testing for selected or hovered overlays
+      const targetOverlay = hoveredOverlay || selectedOverlays[0];
+      let isInsideBody = false;
+
+      if (!isAnchorHit && targetOverlay && targetOverlay.points && targetOverlay.points.length >= 6 && ['longPosition', 'shortPosition'].includes(targetOverlay.name)) {
+        const pts = chart.convertToPixel(targetOverlay.points, { paneId: 'candle_pane' });
 
         const pTL = pts[0];
         const pTR = pts[1];
@@ -777,11 +771,76 @@ export function ChartWorkspace() {
           const bottom = Math.max(pTL.y, pTR.y, pBL.y, pBR.y);
 
           if (xVal >= left && xVal <= right && yVal >= top && yVal <= bottom) {
-            container.style.cursor = 'grab';
-            return;
+            isInsideBody = true;
           }
         }
+      }
+
+      // 3. Apply the interaction state locally on the chart
+      if (isAnchorHit && targetOverlayForAnchor) {
+        const targetOverlay = targetOverlayForAnchor;
+        const currentHoveredIdx = targetOverlay.extendData?.hoveredAnchorIndex;
+
+        // Clean up hoveredAnchorIndex on all other overlays
+        interactiveOverlays.forEach((ov: any) => {
+          if (ov.id !== targetOverlay.id && ov.extendData?.hoveredAnchorIndex !== null && ov.extendData?.hoveredAnchorIndex !== undefined) {
+            chart.overrideOverlay({
+              id: ov.id,
+              extendData: {
+                ...(ov.extendData || {}),
+                hoveredAnchorIndex: null
+              }
+            });
+          }
+        });
+
+        if (currentHoveredIdx !== closestIndex) {
+          chart.overrideOverlay({
+            id: targetOverlay.id,
+            extendData: {
+              ...(targetOverlay.extendData || {}),
+              hoveredAnchorIndex: closestIndex
+            }
+          });
+          chart.resize();
+        }
+
+        const nextCursor = closestIndex !== 5 ? 'move' : 'ew-resize';
+        if (container.style.cursor !== nextCursor) {
+          container.style.cursor = nextCursor;
+        }
+        return;
+      }
+
+      if (targetOverlay && targetOverlay.points && targetOverlay.points.length >= 6 && ['longPosition', 'shortPosition'].includes(targetOverlay.name)) {
+        // Clean up hoveredAnchorIndex since we are not near any anchor
+        const currentHoveredIdx = targetOverlay.extendData?.hoveredAnchorIndex;
+        if (currentHoveredIdx !== null && currentHoveredIdx !== undefined) {
+          chart.overrideOverlay({
+            id: targetOverlay.id,
+            extendData: {
+              ...(targetOverlay.extendData || {}),
+              hoveredAnchorIndex: null
+            }
+          });
+          chart.resize();
+        }
+
+        // Clean up hoveredAnchorIndex on all other overlays
+        interactiveOverlays.forEach((ov: any) => {
+          if (ov.id !== targetOverlay.id && ov.extendData?.hoveredAnchorIndex !== null && ov.extendData?.hoveredAnchorIndex !== undefined) {
+            chart.overrideOverlay({
+              id: ov.id,
+              extendData: {
+                ...(ov.extendData || {}),
+                hoveredAnchorIndex: null
+              }
+            });
+            chart.resize();
+          }
+        });
       } else {
+        // No overlay body hovered or selected: clean up all hoveredAnchorIndexes
         interactiveOverlays.forEach((ov: any) => {
           if (ov.extendData?.hoveredAnchorIndex !== undefined && ov.extendData?.hoveredAnchorIndex !== null) {
             chart.overrideOverlay({
@@ -791,12 +850,15 @@ export function ChartWorkspace() {
                 hoveredAnchorIndex: null
               }
             });
-            drawingCoord.setDrawingTrigger(prev => prev + 1);
+            chart.resize();
           }
         });
       }
 
-      container.style.cursor = 'default';
+      const finalCursor = isInsideBody ? 'grab' : 'default';
+      if (container.style.cursor !== finalCursor) {
+        container.style.cursor = finalCursor;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
