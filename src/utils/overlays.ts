@@ -268,14 +268,17 @@ export function getInteractiveOverlayOptions(
       return true;
     },
     onPressedMoveStart: (event: any) => {
+      console.log('[DEBUG-MOVESTART] onPressedMoveStart called. event.x:', event.x, 'event.y:', event.y);
       event.chart._clickedOnOverlay = true;
       const hoveredIdx = event.overlay.extendData?.hoveredAnchorIndex;
+      console.log('[DEBUG-MOVESTART] event.overlay.extendData.hoveredAnchorIndex:', hoveredIdx);
       let isHandle = false;
       let closestIndex = 0;
 
       if (hoveredIdx !== undefined && hoveredIdx !== null) {
         isHandle = true;
         closestIndex = hoveredIdx;
+        console.log('[DEBUG-MOVESTART] Using hoveredAnchorIndex:', closestIndex);
       } else {
         const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
         let minDistance = Infinity;
@@ -289,8 +292,12 @@ export function getInteractiveOverlayOptions(
           }
         });
         isHandle = minDistance < 12;
+        console.log('[DEBUG-MOVESTART] Proximity fallback check. minDistance:', minDistance, 'closestIndex:', closestIndex, 'isHandle:', isHandle);
       }
-      event.chart._activeDraggingIndex = isHandle ? closestIndex : null;
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current._activeDraggingIndex = isHandle ? closestIndex : null;
+        console.log('[DEBUG-MOVESTART] chartInstanceRef.current._activeDraggingIndex set to:', chartInstanceRef.current._activeDraggingIndex);
+      }
 
       const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
       const overrideOpts = {
@@ -313,13 +320,20 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
-      const draggedIndex = event.chart._activeDraggingIndex !== undefined
-        ? event.chart._activeDraggingIndex
+      const activeDraggingIndex = chartInstanceRef.current?._activeDraggingIndex;
+      const draggedIndex = activeDraggingIndex !== undefined
+        ? activeDraggingIndex
         : event.overlay.extendData?.draggedIndex;
 
-      if (draggedIndex === undefined) return;
+      console.log('[DEBUG-MOVING] onPressedMoving called. _activeDraggingIndex:', activeDraggingIndex, 'overlayDraggedIndex:', event.overlay.extendData?.draggedIndex, 'final draggedIndex:', draggedIndex, 'toolName:', toolName);
+
+      if (draggedIndex === undefined) {
+        console.log('[DEBUG-MOVING] draggedIndex is undefined, returning');
+        return;
+      }
 
       if (draggedIndex === null) {
+        console.log('[DEBUG-MOVING] draggedIndex is null, executing body drag');
         const startPoints = event.overlay.extendData?.startPoints;
         const startMousePt = event.overlay.extendData?.startMousePt;
         const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
@@ -356,10 +370,14 @@ export function getInteractiveOverlayOptions(
 
       // Call custom tool onPressedMoving hook if defined in registry
       const registeredTool = ToolRegistry.get(toolName);
+      console.log('[DEBUG-MOVING] Custom tool lookup for:', toolName, 'found:', !!registeredTool);
       if (registeredTool && registeredTool.onPressedMoving) {
+        console.log('[DEBUG-MOVING] Dispatching to registeredTool.onPressedMoving with index:', draggedIndex);
         const result = registeredTool.onPressedMoving(event, draggedIndex);
+        console.log('[DEBUG-MOVING] Custom tool returned result:', result);
         if (result) {
           if (typeof result === 'object' && result.points) {
+            console.log('[DEBUG-MOVING] ToolMutationResult received, overriding points and syncing back');
             // ToolMutationResult path: framework owns overrideOverlay and sync-back.
             // The tool is responsible only for geometry; synchronization stays here.
             event.chart.overrideOverlay({
@@ -370,6 +388,7 @@ export function getInteractiveOverlayOptions(
           }
           // For both ToolMutationResult and legacy boolean=true, trigger forward sync.
           if (event.chart._onDrawingSync) {
+            console.log('[DEBUG-MOVING] Calling event.chart._onDrawingSync()');
             event.chart._onDrawingSync();
           }
           return;
@@ -455,7 +474,9 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoveEnd: (event: any) => {
-      event.chart._activeDraggingIndex = undefined;
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current._activeDraggingIndex = undefined;
+      }
       const overrideOpts = {
         extendData: {
           ...(event.overlay.extendData || {}),
