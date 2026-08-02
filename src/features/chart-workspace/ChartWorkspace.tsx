@@ -651,7 +651,6 @@ export function ChartWorkspace() {
             if (clickInside) {
               setTimeout(() => {
                 if (!chart._clickedOnOverlay) {
-                  console.log('[DEBUG] Empty space click — deselecting drawing and returning tool to crosshair');
                   setSelectedOverlayIds([]);
                   if (drawingCoord.activeTool) {
                     drawingCoord.setActiveTool(null);
@@ -1888,33 +1887,32 @@ export function ChartWorkspace() {
         pricePrecision={settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(workspaceCoord.allTimeframesData[activeTimeframe] || [])}
         onDeselectOverlay={() => setSelectedOverlayIds([])}
         onSave={(updatedSettings, updatedPoints) => {
+          if (!drawingSettingsOverlayId) return;
+          const syncMatch = drawingSettingsOverlayId.match(/^sync_(.+)_from_(\d+)$/);
+          const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
+
           chartInstancesRef.current.forEach((chart) => {
             if (!chart) return;
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-
-              const overlay = chart.getOverlays().find(
-                (o: any) => o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-              );
-              if (overlay) {
-                updateDefaultSettings(overlay.name, updatedSettings);
-                const overrideOptions: any = {
-                  id: overlay.id,
-                  extendData: {
-                    ...overlay.extendData,
-                    customSettings: {
-                      ...(overlay.extendData?.customSettings || {}),
-                      ...updatedSettings,
-                    },
+            const overlay = chart.getOverlays().find(
+              (o: any) => o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
+            );
+            if (overlay) {
+              updateDefaultSettings(overlay.name, updatedSettings);
+              const overrideOptions: any = {
+                id: overlay.id,
+                extendData: {
+                  ...overlay.extendData,
+                  customSettings: {
+                    ...(overlay.extendData?.customSettings || {}),
+                    ...updatedSettings,
                   },
-                };
-                if (updatedPoints && updatedPoints.length > 0) {
-                  overrideOptions.points = updatedPoints;
-                }
-                chart.overrideOverlay(overrideOptions);
+                },
+              };
+              if (updatedPoints && updatedPoints.length > 0) {
+                overrideOptions.points = updatedPoints;
               }
-            });
+              chart.overrideOverlay(overrideOptions);
+            }
             chart.resize();
           });
           drawingCoord.syncAllDrawings();
