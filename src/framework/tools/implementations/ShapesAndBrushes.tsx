@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../ToolRegistry';
+import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -478,12 +478,8 @@ export const RectangleTool: ToolDefinition = {
     points[6] = { timestamp: xMin, value: yMid, dataIndex: diMin };
     points[7] = { timestamp: xMax, value: yMid, dataIndex: diMax };
 
-    event.chart.overrideOverlay({
-      id: event.overlay.id,
-      points
-    });
-
-    return true;
+    // Return geometry to the Drawing Framework — it owns overrideOverlay and synchronization.
+    return { points } satisfies ToolMutationResult;
   }
 };
 

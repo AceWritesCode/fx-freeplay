@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Settings, Bell, Lock, Unlock, Trash2, MoreHorizontal, Baseline, X, ChevronDown } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Bell, Baseline, X, ChevronDown } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 import { SearchableDropdown } from './DrawingSettingsDialog';
@@ -412,299 +412,239 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
       {/* Toolbar Content */}
       <div className="flex items-center px-1">
-        {isRiskReward ? (
-          <>
-            {/* Templates */}
-            {templatesDropdown}
+        {/* Templates */}
+        {templatesDropdown}
 
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
 
-            {/* Text Color */}
-            <div className="relative">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
-                className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'textColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Text color"
-              >
-                <Baseline className="w-4 h-4" />
-                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
-              </button>
-              
-              {activeDropdown === 'textColor' && (
-                <div className="absolute top-full mt-2 left-0 z-50">
-                  <ColorPicker 
-                    color={textColor} 
-                    onChange={(c) => handleUpdate({ textColor: c }, false)} 
-                  />
-                </div>
-              )}
+        {/* Line Color */}
+        <div className="relative">
+          <button 
+            onClick={() => setActiveDropdown(activeDropdown === 'color' ? null : 'color')}
+            className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'color' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            title="Line color"
+          >
+            <Palette className="w-4 h-4" />
+            <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
+          </button>
+          
+          {activeDropdown === 'color' && (
+            <div className="absolute top-full mt-2 left-0 z-50">
+              <ColorPicker 
+                color={lineColor} 
+                onChange={(c) => handleUpdate({ lineColor: c }, false)} 
+              />
             </div>
+          )}
+        </div>
 
-            {/* Profit Background Color */}
-            <div className="relative">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'profitColor' ? null : 'profitColor')}
-                className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'profitColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Target background color"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
-                  <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
-                  <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
-                  <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
-                </svg>
-                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: profitColor }} />
-              </button>
-              
-              {activeDropdown === 'profitColor' && (
-                <div className="absolute top-full mt-2 left-0 z-50">
-                  <ColorPicker 
-                    color={profitColor} 
-                    onChange={(c) => handleUpdate({ profitColor: c }, false)} 
-                  />
-                </div>
-              )}
+        {/* Text Color */}
+        <div className="relative">
+          <button 
+            onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
+            className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'textColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            title="Text color"
+          >
+            <Baseline className="w-4 h-4" />
+            <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
+          </button>
+          
+          {activeDropdown === 'textColor' && (
+            <div className="absolute top-full mt-2 left-0 z-50">
+              <ColorPicker 
+                color={textColor} 
+                onChange={(c) => handleUpdate({ textColor: c }, false)} 
+              />
             </div>
+          )}
+        </div>
 
-            {/* Loss Background Color */}
-            <div className="relative">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'lossColor' ? null : 'lossColor')}
-                className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'lossColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Stop background color"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
-                  <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
-                  <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
-                  <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
-                </svg>
-                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lossColor }} />
-              </button>
-              
-              {activeDropdown === 'lossColor' && (
-                <div className="absolute top-full mt-2 left-0 z-50">
-                  <ColorPicker 
-                    color={lossColor} 
-                    onChange={(c) => handleUpdate({ lossColor: c }, false)} 
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            {/* Create Limit Order */}
+        {/* Profit Background Color */}
+        {isRiskReward && (
+          <div className="relative">
             <button 
-              onClick={() => {
-                if (onCreateLimitOrder && firstOverlay) onCreateLimitOrder(firstOverlay);
-              }}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-indigo-500 cursor-pointer" 
-              title="Create Limit Order"
+              onClick={() => setActiveDropdown(activeDropdown === 'profitColor' ? null : 'profitColor')}
+              className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'profitColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+              title="Target background color"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
-                <path d="M22 6H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10v1H6a2 2 0 0 1-2-2V7c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v8h-1V7a1 1 0 0 0-1-1m-6 6.77-3.41-2.48-.6.81 4 2.9 4-2.9-.58-.8zm-4 2.47L8.59 17.7l-.6-.8L12 14 16 16.9l-.59.81zM21 17v3h-3v1h3v3h1v-3h3v-1h-3v-3z"></path>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
+                <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+                <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
+                <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
               </svg>
+              <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: profitColor }} />
             </button>
-
-            {/* Settings */}
-            <button 
-              onClick={onSettingsClick}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group cursor-pointer text-gray-700 dark:text-gray-300 hover:text-indigo-500" 
-              title="Settings"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
-                <path fillRule="evenodd" d="M18 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"></path>
-                <path fillRule="evenodd" d="M8.5 5h11l5 9-5 9h-11l-5-9 5-9Zm-3.86 9L9.1 6h9.82l4.45 8-4.45 8H9.1l-4.45-8Z"></path>
-              </svg>
-            </button>
-
-            {/* Lock */}
-            <button 
-              onClick={onLock}
-              className={`p-2 rounded transition-colors group text-gray-755 dark:text-gray-355 hover:text-indigo-500 ${isLocked ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-              title={isLocked ? "Unlock" : "Lock"}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
-                <path fill="currentColor" fillRule="evenodd" d="M14 6a3 3 0 0 0-3 3v3h8.5a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 6 21.5v-7A2.5 2.5 0 0 1 8.5 12H10V9a4 4 0 0 1 8 0h-1a3 3 0 0 0-3-3zm-1 11a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0v-2zm-6-2.5c0-.83.67-1.5 1.5-1.5h11c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-11A1.5 1.5 0 0 1 7 21.5v-7z"></path>
-              </svg>
-            </button>
-
-            {/* Remove */}
-            <button 
-              onClick={onDelete}
-              className="p-2 hover:bg-red-55 dark:hover:bg-red-900/20 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-red-500 cursor-pointer" 
-              title="Remove"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
-                <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5 .46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z"></path>
-              </svg>
-            </button>
-
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            {/* More */}
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-755 dark:text-gray-355" title="More">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none">
-                <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M7.5 13a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM19 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z"></path>
-              </svg>
-            </button>
-          </>
-        ) : (
-          <>
-            {/* Templates */}
-            {templatesDropdown}
-
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            {/* Line Color */}
-            <div className="relative">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'color' ? null : 'color')}
-                className={`p-2 rounded transition-colors group relative ${activeDropdown === 'color' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Line color"
-              >
-                <Palette className="w-4 h-4" />
-                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
-              </button>
-              
-              {activeDropdown === 'color' && (
-                <div className="absolute top-full mt-2 left-0 z-50">
-                  <ColorPicker 
-                    color={lineColor} 
-                    onChange={(c) => handleUpdate({ lineColor: c }, false)} 
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Text Color */}
-            <div className="relative">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
-                className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'textColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Text color"
-              >
-                <Baseline className="w-4 h-4" />
-                <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
-              </button>
-              
-              {activeDropdown === 'textColor' && (
-                <div className="absolute top-full mt-2 left-0 z-50">
-                  <ColorPicker 
-                    color={textColor} 
-                    onChange={(c) => handleUpdate({ textColor: c }, false)} 
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Line Width */}
-            <div className="relative mx-1">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors group ${activeDropdown === 'width' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Line width"
-              >
-                <Minus className="w-4 h-4 stroke-[3px]" />
-                <span className="text-[11px] font-semibold">{lineWidth}px</span>
-              </button>
-              
-              {activeDropdown === 'width' && (
-                <div className="absolute top-full mt-2 left-0 w-24 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
-                  {[1, 2, 3, 4].map(w => (
-                    <button
-                      key={w}
-                      onClick={() => handleUpdate({ lineWidth: w })}
-                      className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between ${w === lineWidth ? 'text-indigo-500' : ''}`}
-                    >
-                      {w}px
-                      <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Line Style */}
-            <div className="relative">
-              <button 
-                onClick={() => setActiveDropdown(activeDropdown === 'style' ? null : 'style')}
-                className={`p-2 rounded transition-colors group ${activeDropdown === 'style' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-                title="Line style"
-              >
-                {lineStyle === 'solid' && (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="0" y1="8" x2="16" y2="8" />
-                  </svg>
-                )}
-                {lineStyle === 'dashed' && (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2">
-                    <line x1="0" y1="8" x2="16" y2="8" />
-                  </svg>
-                )}
-                {lineStyle === 'dotted' && (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2">
-                    <line x1="0" y1="8" x2="16" y2="8" />
-                  </svg>
-                )}
-              </button>
-              
-              {activeDropdown === 'style' && (
-                <div className="absolute top-full mt-2 left-0 w-28 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
-                  {['solid', 'dashed', 'dotted'].map(s => (
-                    <button
-                      key={s}
-                      onClick={() => handleUpdate({ lineStyle: s })}
-                      className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between ${s === lineStyle ? 'text-indigo-500' : ''}`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            {/* Settings */}
-            <button 
-              onClick={onSettingsClick}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group cursor-pointer" 
-              title="Settings"
-            >
-              <Settings className="w-4 h-4 group-hover:text-indigo-500" />
-            </button>
-
-            {/* Add Alert */}
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group" title="Add Alert">
-              <Bell className="w-4 h-4" />
-            </button>
-
-            {/* Lock */}
-            <button 
-              onClick={onLock}
-              className={`p-2 rounded transition-colors group ${isLocked ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
-              title={isLocked ? "Unlock" : "Lock"}
-            >
-              {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-            </button>
-
-            {/* Remove */}
-            <button 
-              onClick={onDelete}
-              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-red-500" 
-              title="Remove"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-
-            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
-
-            {/* More */}
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group" title="More">
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-          </>
+            
+            {activeDropdown === 'profitColor' && (
+              <div className="absolute top-full mt-2 left-0 z-50">
+                <ColorPicker 
+                  color={profitColor} 
+                  onChange={(c) => handleUpdate({ profitColor: c }, false)} 
+                />
+              </div>
+            )}
+          </div>
         )}
+
+        {/* Loss Background Color */}
+        {isRiskReward && (
+          <div className="relative">
+            <button 
+              onClick={() => setActiveDropdown(activeDropdown === 'lossColor' ? null : 'lossColor')}
+              className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'lossColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+              title="Stop background color"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
+                <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+                <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
+                <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
+              </svg>
+              <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lossColor }} />
+            </button>
+            
+            {activeDropdown === 'lossColor' && (
+              <div className="absolute top-full mt-2 left-0 z-50">
+                <ColorPicker 
+                  color={lossColor} 
+                  onChange={(c) => handleUpdate({ lossColor: c }, false)} 
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Line Width */}
+        <div className="relative mx-1">
+          <button 
+            onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors group ${activeDropdown === 'width' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            title="Line width"
+          >
+            <Minus className="w-4 h-4 stroke-[3px]" />
+            <span className="text-[11px] font-semibold">{lineWidth}px</span>
+          </button>
+          
+          {activeDropdown === 'width' && (
+            <div className="absolute top-full mt-2 left-0 w-24 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
+              {[1, 2, 3, 4].map(w => (
+                <button
+                  key={w}
+                  onClick={() => handleUpdate({ lineWidth: w })}
+                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between ${w === lineWidth ? 'text-indigo-500' : ''}`}
+                >
+                  {w}px
+                  <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Line Style */}
+        <div className="relative">
+          <button 
+            onClick={() => setActiveDropdown(activeDropdown === 'style' ? null : 'style')}
+            className={`p-2 rounded transition-colors group ${activeDropdown === 'style' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            title="Line style"
+          >
+            {lineStyle === 'solid' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="0" y1="8" x2="16" y2="8" />
+              </svg>
+            )}
+            {lineStyle === 'dashed' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2">
+                <line x1="0" y1="8" x2="16" y2="8" />
+              </svg>
+            )}
+            {lineStyle === 'dotted' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2">
+                <line x1="0" y1="8" x2="16" y2="8" />
+              </svg>
+            )}
+          </button>
+          
+          {activeDropdown === 'style' && (
+            <div className="absolute top-full mt-2 left-0 w-28 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
+              {['solid', 'dashed', 'dotted'].map(s => (
+                <button
+                  key={s}
+                  onClick={() => handleUpdate({ lineStyle: s })}
+                  className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between ${s === lineStyle ? 'text-indigo-500' : ''}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+
+        {/* Create Limit Order */}
+        {isRiskReward && (
+          <button 
+            onClick={() => {
+              if (onCreateLimitOrder && firstOverlay) onCreateLimitOrder(firstOverlay);
+            }}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-indigo-500 cursor-pointer" 
+            title="Create Limit Order"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
+              <path d="M22 6H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10v1H6a2 2 0 0 1-2-2V7c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v8h-1V7a1 1 0 0 0-1-1m-6 6.77-3.41-2.48-.6.81 4 2.9 4-2.9-.58-.8zm-4 2.47L8.59 17.7l-.6-.8L12 14 16 16.9l-.59.81zM21 17v3h-3v1h3v3h1v-3h3v-1h-3v-3z"></path>
+            </svg>
+          </button>
+        )}
+
+        {/* Settings */}
+        <button 
+          onClick={onSettingsClick}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group cursor-pointer text-gray-700 dark:text-gray-300 hover:text-indigo-500" 
+          title="Settings"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
+            <path fillRule="evenodd" d="M18 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"></path>
+            <path fillRule="evenodd" d="M8.5 5h11l5 9-5 9h-11l-5-9 5-9Zm-3.86 9L9.1 6h9.82l4.45 8-4.45 8H9.1l-4.45-8Z"></path>
+          </svg>
+        </button>
+
+        {/* Add Alert */}
+        {!isRiskReward && (
+          <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group" title="Add Alert">
+            <Bell className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Lock */}
+        <button 
+          onClick={onLock}
+          className={`p-2 rounded transition-colors group text-gray-755 dark:text-gray-355 hover:text-indigo-500 ${isLocked ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+          title={isLocked ? "Unlock" : "Lock"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
+            <path fill="currentColor" fillRule="evenodd" d="M14 6a3 3 0 0 0-3 3v3h8.5a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 6 21.5v-7A2.5 2.5 0 0 1 8.5 12H10V9a4 4 0 0 1 8 0h-1a3 3 0 0 0-3-3zm-1 11a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0v-2zm-6-2.5c0-.83.67-1.5 1.5-1.5h11c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-11A1.5 1.5 0 0 1 7 21.5v-7z"></path>
+          </svg>
+        </button>
+
+        {/* Remove */}
+        <button 
+          onClick={onDelete}
+          className="p-2 hover:bg-red-55 dark:hover:bg-red-900/20 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-red-500 cursor-pointer" 
+          title="Remove"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
+            <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5 .46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z"></path>
+          </svg>
+        </button>
+
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+
+        {/* More */}
+        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-755 dark:text-gray-355" title="More">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none">
+            <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M7.5 13a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM19 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z"></path>
+          </svg>
+        </button>
       </div>
 
       {/* Save Template Modal */}

@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../ToolRegistry';
+import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
 
 function makeOpaqueColor(colorStr: string): string {
@@ -501,10 +501,33 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
   let diMax = points[5].dataIndex;
   let xMax = points[5].timestamp;
 
+  // 1. Vertical adjustment: Dragging TP (0, 1), SL (2, 3), or Entry (4, 5) updates the respective price level
+  if (draggedIndex === 0 || draggedIndex === 1) { // TP anchors
+    yTP = targetPt.value;
+    if (isLong) {
+      if (yTP < yEntry) yTP = yEntry;
+    } else {
+      if (yTP > yEntry) yTP = yEntry;
+    }
+  } else if (draggedIndex === 2 || draggedIndex === 3) { // SL anchors
+    ySL = targetPt.value;
+    if (isLong) {
+      if (ySL > yEntry) ySL = yEntry;
+    } else {
+      if (ySL < yEntry) ySL = yEntry;
+    }
+  } else if (draggedIndex === 4 || draggedIndex === 5) { // Entry anchors
+    yEntry = targetPt.value;
+    const min = Math.min(yTP, ySL);
+    const max = Math.max(yTP, ySL);
+    if (yEntry < min) yEntry = min;
+    if (yEntry > max) yEntry = max;
+  }
+
+  // 2. Horizontal adjustment: Left-side anchors adjust diMin/xMin, right-side anchors adjust diMax/xMax
   const isLeftSide = [0, 3, 4].includes(draggedIndex);
 
   if (isLeftSide) {
-    // Left-side anchors can move horizontally and vertically
     diMin = targetPt.dataIndex;
     xMin = targetPt.timestamp;
 
@@ -512,28 +535,6 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
     if (diMin < 0) {
       diMin = 0;
       xMin = dataList[0]?.timestamp ?? xMin;
-    }
-
-    if (draggedIndex === 0) { // TP1
-      yTP = targetPt.value;
-      if (isLong) {
-        if (yTP < yEntry) yTP = yEntry;
-      } else {
-        if (yTP > yEntry) yTP = yEntry;
-      }
-    } else if (draggedIndex === 3) { // SL1
-      ySL = targetPt.value;
-      if (isLong) {
-        if (ySL > yEntry) ySL = yEntry;
-      } else {
-        if (ySL < yEntry) ySL = yEntry;
-      }
-    } else if (draggedIndex === 4) { // ENTRY1
-      yEntry = targetPt.value;
-      const min = Math.min(yTP, ySL);
-      const max = Math.max(yTP, ySL);
-      if (yEntry < min) yEntry = min;
-      if (yEntry > max) yEntry = max;
     }
 
     // Horizontal push constraint: if left edge reaches or exceeds right edge, push right edge
@@ -544,7 +545,7 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
         : xMin + tfMs;
     }
   } else {
-    // Right-side anchors can ONLY move horizontally
+    // Right-side anchors
     diMax = targetPt.dataIndex;
     xMax = targetPt.timestamp;
 
@@ -566,12 +567,8 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boo
     { timestamp: xMax, value: yEntry, dataIndex: diMax }  // Index 5: ENTRY2
   ];
 
-  chart.overrideOverlay({
-    id: event.overlay.id,
-    points: newPoints
-  });
-
-  return true;
+  // Return geometry to the Drawing Framework — it owns overrideOverlay and synchronization.
+  return { points: newPoints } satisfies ToolMutationResult;
 };
 
 // ─── Tool Exports ─────────────────────────────────────────────────────────────

@@ -24,6 +24,19 @@ export interface ToolTemplate {
   commonSettings: Record<string, any>; // Non-color settings mapped by id
 }
 
+/**
+ * The result returned by a tool's onPressedMoving hook when the tool has
+ * computed new geometry and wants the Drawing Framework to apply and
+ * synchronize the update.
+ *
+ * Add new optional fields here as the framework evolves — callers that omit
+ * a field will simply not trigger the corresponding framework behavior.
+ */
+export interface ToolMutationResult {
+  /** Updated overlay points to apply via overrideOverlay and synchronize. */
+  points: any[];
+}
+
 export interface ToolDefinition {
   id: string;          // e.g., 'trendLine'
   name: string;        // 'Trend Line'
@@ -43,7 +56,14 @@ export interface ToolDefinition {
   hotkey?: string;     // e.g., 'Alt + T'
 
   // Custom event hooks for complex interactive drag resizing/completion
-  onPressedMoving?: (event: any, draggedIndex: number) => boolean;
+  //
+  // onPressedMoving may return either:
+  //   - ToolMutationResult  — tool provides updated geometry; the Drawing Framework
+  //                           applies overrideOverlay and handles synchronization.
+  //   - true (boolean)      — tool has already called overrideOverlay itself (legacy).
+  //                           The framework will still trigger forward synchronization.
+  //   - false / undefined   — event not handled; framework falls through to default path.
+  onPressedMoving?: (event: any, draggedIndex: number) => ToolMutationResult | boolean;
   onDrawEnd?: (event: any) => void;
 }
 

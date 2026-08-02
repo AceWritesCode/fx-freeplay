@@ -105,61 +105,6 @@ export function useDrawingCoordinator(
     const currentSlots = slots;
     const visibleCount = getLayoutChartCount(currentLayout);
 
-    // 0. Sync back modified synced copies to original drawings
-    for (let i = 0; i < visibleCount; i++) {
-      if (i === activeChartIndex) continue;
-
-      const chart = chartInstancesRef.current[i];
-      if (!chart) continue;
-
-      const overlays = (chart as any).getOverlays();
-      overlays.forEach((ov: any) => {
-        const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-        if (syncMatch) {
-          const originalId = syncMatch[1];
-          const sourceIndex = parseInt(syncMatch[2]);
-          const sourceChart = chartInstancesRef.current[sourceIndex];
-          if (sourceChart) {
-            const originalOverlay = (sourceChart as any).getOverlays().find((o: any) => o.id === originalId);
-            if (originalOverlay) {
-              const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
-              const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
-              const lockChanged = originalOverlay.lock !== ov.lock;
-              if (pointsChanged || extendDataChanged || lockChanged) {
-                (sourceChart as any).overrideOverlay({
-                  id: originalId,
-                  points: JSON.parse(JSON.stringify(ov.points)),
-                  extendData: ov.extendData,
-                  lock: ov.lock,
-                  styles: {
-                    point: ov.lock ? {
-                      radius: 0,
-                      activeRadius: 0,
-                      color: 'transparent',
-                      borderColor: 'transparent',
-                      borderSize: 0,
-                      activeColor: 'transparent',
-                      activeBorderColor: 'transparent',
-                      activeBorderSize: 0
-                    } : {
-                      radius: 4.5,
-                      activeRadius: 5.5,
-                      color: '#ffffff',
-                      borderColor: '#2196F3',
-                      borderSize: 1.5,
-                      activeColor: '#ffffff',
-                      activeBorderColor: '#2196F3',
-                      activeBorderSize: 2
-                    }
-                  }
-                });
-              }
-            }
-          }
-        }
-      });
-    }
-
     // 1. Gather all original drawings from all visible charts
     const originalDrawingsBySymbol: Record<string, { chartIndex: number; overlay: any }[]> = {};
 
