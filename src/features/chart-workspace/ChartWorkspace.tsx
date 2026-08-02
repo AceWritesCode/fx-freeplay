@@ -602,8 +602,8 @@ export function ChartWorkspace() {
         if (chart) chart._isMouseDown = true;
       });
     };
-    const handleMouseUp = () => {
-      chartInstancesRef.current.forEach((chart) => {
+    const handleMouseUp = (e: MouseEvent) => {
+      chartInstancesRef.current.forEach((chart, index) => {
         if (chart) {
           chart._isMouseDown = false;
           if (chart._activeTool === 'brush' || chart._activeTool === 'highlighter') {
@@ -637,8 +637,166 @@ export function ChartWorkspace() {
               }
             }
           }
+
+          // Clear selection & reset active tool to Crosshair on empty space click
+          const container = chartContainersRef.current[index];
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const clickInside =
+              e.clientX >= rect.left &&
+              e.clientX <= rect.right &&
+              e.clientY >= rect.top &&
+              e.clientY <= rect.bottom;
+
+            if (clickInside) {
+              setTimeout(() => {
+                if (!chart._clickedOnOverlay) {
+                  console.log('[DEBUG] Empty space click — deselecting drawing and returning tool to crosshair');
+                  setSelectedOverlayIds([]);
+                  if (drawingCoord.activeTool) {
+                    drawingCoord.setActiveTool(null);
+                    chart.setScrollEnabled(true);
+                    chart.setZoomEnabled(true);
+                  }
+                }
+                chart._clickedOnOverlay = false;
+              }, 50);
+            }
+          }
         }
       });
+    };
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      let activeIndex = -1;
+      let containerRect: DOMRect | null = null;
+      for (let i = 0; i < chartContainersRef.current.length; i++) {
+        const container = chartContainersRef.current[i];
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          if (
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom
+          ) {
+            activeIndex = i;
+            containerRect = rect;
+            break;
+          }
+        }
+      }
+
+      if (activeIndex === -1 || !containerRect) return;
+
+      const chart = chartInstancesRef.current[activeIndex];
+      if (!chart) return;
+
+      if (drawingCoord.activeTool) return;
+
+      const overlays = chart.getOverlays();
+      const interactiveOverlays = overlays.filter(
+        (ov: any) =>
+          ov.id !== 'custom_price_line_overlay' &&
+          ov.name !== 'customPriceLine' &&
+          ov.id !== 'session_breaks_overlay' &&
+          ov.name !== 'sessionBreaks'
+      );
+
+      const selectedOverlays = interactiveOverlays.filter((ov: any) =>
+        selectedOverlayIds.includes(ov.id) ||
+        selectedOverlayIds.includes(`sync_${ov.id}_from_${activeIndex}`)
+      );
+      
+      const hoveredOverlay = interactiveOverlays.find((ov: any) => ov.extendData?.isHovered);
+      const isMouseDown = chart._isMouseDown || false;
+      const activeDraggingOverlay = interactiveOverlays.find(
+        (ov: any) => ov.extendData?.draggedIndex !== undefined && ov.extendData?.draggedIndex !== null
+      ) || (isMouseDown ? selectedOverlays[0] : null);
+
+      const container = chartContainersRef.current[activeIndex];
+      if (!container) return;
+
+      if (isMouseDown && activeDraggingOverlay) {
+        container.style.cursor = 'grabbing';
+        return;
+      }
+
+      const targetOverlay = hoveredOverlay || selectedOverlays[0];
+      if (targetOverlay && targetOverlay.points && targetOverlay.points.length >= 6 && ['longPosition', 'shortPosition'].includes(targetOverlay.name)) {
+        const pts = chart.convertToPixel(targetOverlay.points, { paneId: 'candle_pane' });
+        const xVal = e.clientX - containerRect.left;
+        const yVal = e.clientY - containerRect.top;
+
+        let closestIndex = -1;
+        let minDistance = Infinity;
+        pts.forEach((pt: any, idx: number) => {
+          if (pt) {
+            const dist = Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestIndex = idx;
+            }
+          }
+        });
+
+        const currentHoveredIdx = targetOverlay.extendData?.hoveredAnchorIndex;
+        const nextHoveredIdx = minDistance < 12 ? closestIndex : null;
+
+        if (currentHoveredIdx !== nextHoveredIdx) {
+          chart.overrideOverlay({
+            id: targetOverlay.id,
+            extendData: {
+              ...(targetOverlay.extendData || {}),
+              hoveredAnchorIndex: nextHoveredIdx
+            }
+          });
+          drawingCoord.setDrawingTrigger(prev => prev + 1);
+        }
+
+        if (minDistance < 12) {
+          if ([0, 3, 4].includes(closestIndex)) {
+            container.style.cursor = 'move';
+          } else {
+            container.style.cursor = 'ew-resize';
+          }
+          return;
+        }
+
+        const pTL = pts[0];
+        const pTR = pts[1];
+        const pBR = pts[2];
+        const pBL = pts[3];
+        const pML = pts[4];
+        const pMR = pts[5];
+
+        if (pTL && pTR && pBR && pBL) {
+          const left = Math.min(pTL.x, pBL.x, pML.x);
+          const right = Math.max(pTR.x, pBR.x, pMR.x);
+          const top = Math.min(pTL.y, pTR.y, pBL.y, pBR.y);
+          const bottom = Math.max(pTL.y, pTR.y, pBL.y, pBR.y);
+
+          if (xVal >= left && xVal <= right && yVal >= top && yVal <= bottom) {
+            container.style.cursor = 'grab';
+            return;
+          }
+        }
+      } else {
+        interactiveOverlays.forEach((ov: any) => {
+          if (ov.extendData?.hoveredAnchorIndex !== undefined && ov.extendData?.hoveredAnchorIndex !== null) {
+            chart.overrideOverlay({
+              id: ov.id,
+              extendData: {
+                ...(ov.extendData || {}),
+                hoveredAnchorIndex: null
+              }
+            });
+            drawingCoord.setDrawingTrigger(prev => prev + 1);
+          }
+        });
+      }
+
+      container.style.cursor = 'default';
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -646,12 +804,14 @@ export function ChartWorkspace() {
     window.addEventListener('blur', handleBlur);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleGlobalMouseMove);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
     };
   }, [drawingCoord]);
 
