@@ -282,6 +282,7 @@ export function getInteractiveOverlayOptions(
       return true;
     },
     onPressedMoveStart: (event: any) => {
+      event.chart._clickedOnOverlay = true;
       const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
       let closestIndex = 0;
       let minDistance = Infinity;
