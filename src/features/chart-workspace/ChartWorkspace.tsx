@@ -1314,6 +1314,18 @@ export function ChartWorkspace() {
     val: boolean
   ) => {
     setSyncSetting(key, val);
+
+    // Persist to database
+    workspaceLayoutRepository.saveLayoutConfig({
+      syncSettings: {
+        syncSymbol: key === 'syncSymbol' ? val : syncSymbol,
+        syncInterval: key === 'syncInterval' ? val : syncInterval,
+        syncCrosshair: key === 'syncCrosshair' ? val : syncCrosshair,
+        syncTime: key === 'syncTime' ? val : syncTime,
+        syncDateRange: key === 'syncDateRange' ? val : syncDateRange,
+        syncDrawings: key === 'syncDrawings' ? val : syncDrawings,
+      }
+    });
     
     // Immediately synchronize if the flag is enabled
     if (key === 'syncSymbol' && val) {
