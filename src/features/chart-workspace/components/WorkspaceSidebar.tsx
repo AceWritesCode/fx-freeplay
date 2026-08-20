@@ -192,7 +192,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                   <input
                     ref={watchlistAddInputRef}
                     type="file"
-                    accept=".csv"
+                    accept=".csv,.json"
                     multiple
                     className="hidden"
                     onChange={(e) => {

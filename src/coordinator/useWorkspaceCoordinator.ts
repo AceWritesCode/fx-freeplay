@@ -892,6 +892,10 @@ export function useWorkspaceCoordinator(
   };
 
   const handleWatchlistAddFile = (file: File) => {
+    if (file.name.toLowerCase() === 'symbolprofile.json') {
+      handleSymbolProfileFile(file);
+      return;
+    }
     const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -915,10 +919,10 @@ export function useWorkspaceCoordinator(
   };
 
   /**
-   * Imports and stores a SymbolProfile JSON for the given symbol.
+   * Imports and stores a SymbolProfile JSON.
    * Shows a descriptive error alert on validation failure; no partial import occurs.
    */
-  const handleSymbolProfileFile = async (symbol: string, file: File) => {
+  const handleSymbolProfileFile = async (file: File) => {
     try {
       const text = await file.text();
       const result = parseAndValidateSymbolProfile(text);
@@ -929,8 +933,11 @@ export function useWorkspaceCoordinator(
         });
         return;
       }
+      const symbol = result.profile.symbol.toUpperCase();
       await symbolProfileRepository.saveSymbolProfile(symbol, result.profile);
-      setSymbolProfile(result.profile);
+      if (activeWatchlistSymbol === symbol) {
+        setSymbolProfile(result.profile);
+      }
       setWatchlistToast({ msg: 'Symbol Profile imported successfully.', type: 'success' });
       setTimeout(() => setWatchlistToast(null), 2500);
     } catch (err) {
