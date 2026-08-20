@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
   } = props;
 
   return (
-    <header className="h-12 bg-[#1e222d] border-b border-gray-950 flex items-center justify-between px-4 z-20">
+    <header className="h-12 bg-[#1e222d] border-b border-gray-950 flex items-center justify-between px-4 z-30">
       
       {/* Left Side: Asset Name & Status Indicators */}
       <div className="flex items-center gap-3">

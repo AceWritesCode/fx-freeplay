@@ -39,6 +39,8 @@ interface WorkspaceSidebarProps {
   watchlistToast: { msg: string; type: 'info' | 'error' | 'success' } | null;
   activeChartIndex: number;
   activeTimeframe: string;
+  hoveredCandle?: any;
+  symbolProfile?: any;
 }
 
 export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
@@ -70,6 +72,8 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     watchlistToast,
     activeChartIndex,
     activeTimeframe,
+    hoveredCandle,
+    symbolProfile,
   } = props;
 
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -303,6 +307,8 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               activeSymbol={activeSymbol || 'No Symbol'}
               activeTimeframe={activeTimeframe}
               createOverlayWithHandlers={createOverlayWithHandlers}
+              hoveredCandle={hoveredCandle}
+              symbolProfile={symbolProfile}
             />
           )}
         </div>

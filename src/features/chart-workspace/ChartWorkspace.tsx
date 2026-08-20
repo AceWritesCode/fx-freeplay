@@ -238,6 +238,7 @@ export function ChartWorkspace() {
   const [rightPanelWidth] = useState<number>(300);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [hoveredCandle, setHoveredCandle] = useState<any | null>(null);
   const [isTfDropdownOpen, setIsTfDropdownOpen] = useState<boolean>(false);
   const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState<boolean>(false);
   const [customValue, setCustomValue] = useState<number>(10);
@@ -491,6 +492,11 @@ export function ChartWorkspace() {
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
               handleCrosshairSync(i, params);
+              if (params && params.kLineData) {
+                setHoveredCandle(params.kLineData);
+              } else {
+                setHoveredCandle(null);
+              }
             });
 
             chart.subscribeAction('onVisibleRangeChange', () => {
@@ -1575,6 +1581,8 @@ export function ChartWorkspace() {
           activeChartIndex={activeChartIndex}
           activeTimeframe={activeTimeframe}
           watchlistToast={watchlistToast}
+          hoveredCandle={hoveredCandle}
+          symbolProfile={workspaceCoord.symbolProfile}
         />
       </div>
 

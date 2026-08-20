@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
+import type { KLineData } from '@/utils/dataUtils';
+import type { SymbolProfile } from '@/domain/market';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -12,6 +14,8 @@ interface ObjectTreePanelProps {
   activeTimeframe: string;
   /** Creates an overlay with the full set of interactive event handlers (onClick, onDrawEnd, etc.) */
   createOverlayWithHandlers: (chart: any, overlayData: any) => void;
+  hoveredCandle?: KLineData | null;
+  symbolProfile?: SymbolProfile | null;
 }
 
 interface FolderItem {
@@ -32,6 +36,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   activeSymbol,
   activeTimeframe,
   createOverlayWithHandlers,
+  hoveredCandle,
+  symbolProfile,
 }) => {
   const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('objectTree');
 
@@ -1795,12 +1801,95 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           </div>
         </div>
       ) : (
-        /* ── Data Window Tab Placeholder ── */
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" className="text-gray-600 mb-2 opacity-50">
-            <path stroke="currentColor" strokeWidth="2" d="M3 6h22M3 12h22M3 18h22" />
-          </svg>
-          <p className="text-[11px] leading-relaxed">Hover over a candle to view data window stats.</p>
+        <div className="flex-1 flex flex-col overflow-y-auto px-4 py-3 space-y-5 bg-[#1c2030] text-xs">
+          
+          {/* Table 1: Symbol Info */}
+          <div className="flex flex-col gap-2">
+            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Symbol Profile
+            </div>
+
+            {symbolProfile ? (
+              <div className="bg-[#121420]/80 rounded-xl border border-gray-800/60 p-3.5 flex flex-col gap-2 text-[11px]">
+                {([
+                  { label: 'Symbol Name',    value: symbolProfile.symbol },
+                  { label: 'Asset Type',     value: symbolProfile.assetType },
+                  { label: 'Broker',         value: symbolProfile.broker },
+                  { label: 'Digits',         value: symbolProfile.digits !== undefined ? String(symbolProfile.digits) : undefined },
+                  { label: 'Point',          value: symbolProfile.point !== undefined ? String(symbolProfile.point) : undefined },
+                  { label: 'Tick Size',      value: symbolProfile.tickSize !== undefined ? String(symbolProfile.tickSize) : undefined },
+                  { label: 'Pip Size',       value: symbolProfile.pipSize !== undefined ? String(symbolProfile.pipSize) : undefined },
+                  { label: 'Contract Size',  value: symbolProfile.contractSize !== undefined ? String(symbolProfile.contractSize) : undefined },
+                  { label: 'Base Currency',  value: symbolProfile.baseCurrency },
+                  { label: 'Quote Currency', value: symbolProfile.quoteCurrency },
+                  { label: 'Timezone',       value: symbolProfile.timezone },
+                ] as { label: string; value: string | undefined }[])
+                  .filter(row => row.value !== undefined && row.value !== '')
+                  .map(row => (
+                    <div key={row.label} className="flex items-center justify-between gap-4">
+                      <span className="text-gray-500 shrink-0">{row.label}</span>
+                      <span className="text-gray-205 font-mono text-right">{row.value}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            ) : (
+              <div className="bg-[#121420]/40 rounded-xl border border-gray-850/40 p-4 text-center text-gray-500 italic text-[11px] py-6">
+                No profile file imported for {activeSymbol}.
+              </div>
+            )}
+          </div>
+
+          {/* Table 2: Candle Data (OHLCV & DateTime) */}
+          <div className="flex flex-col gap-2">
+            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              OHLCV & Time
+            </div>
+            
+            {hoveredCandle ? (
+              <div className="bg-[#121420]/80 rounded-xl border border-gray-800/60 p-3.5 space-y-2">
+                <div className="flex justify-between items-center text-[11px] border-b border-gray-850 pb-2">
+                  <span className="text-gray-500">Date/Time</span>
+                  <span className="font-mono text-gray-250 font-semibold">
+                    {new Date(hoveredCandle.timestamp).toLocaleString()}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[11px] pt-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Open</span>
+                    <span className="font-mono text-gray-250 font-medium">{hoveredCandle.open}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">High</span>
+                    <span className="font-mono text-green-400 font-medium">{hoveredCandle.high}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Low</span>
+                    <span className="font-mono text-red-400 font-medium">{hoveredCandle.low}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Close</span>
+                    <span className="font-mono text-gray-250 font-medium">{hoveredCandle.close}</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center text-[11px] border-t border-gray-850 pt-2 mt-1">
+                  <span className="text-gray-500">Volume</span>
+                  <span className="font-mono text-gray-400">{hoveredCandle.volume ?? '-'}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#121420]/40 rounded-xl border border-gray-850/40 p-4 text-center text-gray-500 italic text-[11px] py-6">
+                Hover cursor on chart to view candle stats.
+              </div>
+            )}
+          </div>
+
         </div>
       )}
     </div>
