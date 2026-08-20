@@ -5,7 +5,8 @@ import {
   Settings, 
   Scissors, 
   LayoutGrid,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
 
@@ -423,64 +424,129 @@ export const Header: React.FC<HeaderProps> = (props) => {
                     <div className="h-px bg-gray-800" />
 
                     <div>
-                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                        Sync Options
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">
+                        SYNC IN LAYOUT
                       </div>
-                      <div className="flex flex-col gap-2.5 text-[11px] text-gray-300">
-                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={syncSymbol}
-                            onChange={(e) => onSyncSettingChange('syncSymbol', e.target.checked)}
-                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
-                          />
-                          Sync Symbol
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={syncInterval}
-                            onChange={(e) => onSyncSettingChange('syncInterval', e.target.checked)}
-                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
-                          />
-                          Sync Timeframe
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={syncCrosshair}
-                            onChange={(e) => onSyncSettingChange('syncCrosshair', e.target.checked)}
-                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
-                          />
-                          Sync Crosshair
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={syncDrawings}
-                            onChange={(e) => onSyncSettingChange('syncDrawings', e.target.checked)}
-                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
-                          />
-                          Sync Drawings
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={syncTime}
-                            onChange={(e) => onSyncSettingChange('syncTime', e.target.checked)}
-                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
-                          />
-                          Sync Replay Cursor
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={syncDateRange}
-                            onChange={(e) => onSyncSettingChange('syncDateRange', e.target.checked)}
-                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
-                          />
-                          Sync Zoom/Scroll
-                        </label>
+                      <div className="flex flex-col gap-3.5 text-xs text-gray-300">
+                        {/* Symbol Sync */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                            <span>Symbol</span>
+                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                          </div>
+                          <div
+                            onClick={() => onSyncSettingChange('syncSymbol', !syncSymbol)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                              syncSymbol ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
+                                syncSymbol ? 'translate-x-[16px]' : 'translate-x-0'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Interval Sync */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                            <span>Interval</span>
+                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                          </div>
+                          <div
+                            onClick={() => onSyncSettingChange('syncInterval', !syncInterval)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                              syncInterval ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
+                                syncInterval ? 'translate-x-[16px]' : 'translate-x-0'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Crosshair Sync */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                            <span>Crosshair</span>
+                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                          </div>
+                          <div
+                            onClick={() => onSyncSettingChange('syncCrosshair', !syncCrosshair)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                              syncCrosshair ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
+                                syncCrosshair ? 'translate-x-[16px]' : 'translate-x-0'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Time Sync */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                            <span>Time</span>
+                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                          </div>
+                          <div
+                            onClick={() => onSyncSettingChange('syncTime', !syncTime)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                              syncTime ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
+                                syncTime ? 'translate-x-[16px]' : 'translate-x-0'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Date range Sync */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                            <span>Date range</span>
+                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                          </div>
+                          <div
+                            onClick={() => onSyncSettingChange('syncDateRange', !syncDateRange)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                              syncDateRange ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
+                                syncDateRange ? 'translate-x-[16px]' : 'translate-x-0'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Drawings Sync */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                            <span>Drawings</span>
+                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                          </div>
+                          <div
+                            onClick={() => onSyncSettingChange('syncDrawings', !syncDrawings)}
+                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                              syncDrawings ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
+                                syncDrawings ? 'translate-x-[16px]' : 'translate-x-0'
+                              }`}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
