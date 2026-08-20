@@ -1319,6 +1319,7 @@ export function ChartWorkspace() {
         savedFolderHandle={savedFolderHandle}
         isVerifyingFolder={workspaceCoord.isVerifyingFolder}
         handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
+        symbolProfile={workspaceCoord.symbolProfile}
       />
 
       {/* Floating CSV Import Stats Card */}

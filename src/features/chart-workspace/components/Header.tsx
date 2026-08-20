@@ -8,6 +8,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
+import type { SymbolProfile } from '@/domain/market';
 
 interface HeaderProps {
   assetName: string;
@@ -42,6 +43,7 @@ interface HeaderProps {
   savedFolderHandle: any;
   isVerifyingFolder: boolean;
   handleRestoreSavedFolder: () => void;
+  symbolProfile?: SymbolProfile | null;
 }
 
 export const Header: React.FC<HeaderProps> = (props) => {
@@ -78,6 +80,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
     savedFolderHandle,
     isVerifyingFolder,
     handleRestoreSavedFolder,
+    symbolProfile,
   } = props;
 
   return (
@@ -90,7 +93,44 @@ export const Header: React.FC<HeaderProps> = (props) => {
           <span className="font-semibold text-xs tracking-wider uppercase text-white">FX Freeplay</span>
         </div>
         <div className="h-4 w-px bg-gray-800" />
-        <span className="text-sm font-semibold text-white truncate max-w-[120px] sm:max-w-xs">{assetName}</span>
+        {symbolProfile ? (
+          <div className="relative group/symbolcard">
+            <span className="text-sm font-semibold text-white truncate max-w-[120px] sm:max-w-xs cursor-default select-none border-b border-dashed border-gray-600 hover:border-indigo-400 transition-colors">
+              {assetName}
+            </span>
+            {/* Symbol Profile Hover Card */}
+            <div className="absolute left-0 top-full mt-2 z-50 opacity-0 pointer-events-none group-hover/symbolcard:opacity-100 group-hover/symbolcard:pointer-events-auto transition-opacity duration-150">
+              <div className="bg-[#1a1d2d] border border-gray-800 rounded-xl shadow-2xl shadow-black/40 p-4 min-w-[220px] max-w-[280px]">
+                <div className="text-white font-bold text-sm mb-3">{symbolProfile.symbol}</div>
+                <div className="h-px bg-gray-800 mb-3" />
+                <div className="flex flex-col gap-2">
+                  {([
+                    { label: 'Asset Type',     value: symbolProfile.assetType },
+                    { label: 'Broker',         value: symbolProfile.broker },
+                    { label: 'Digits',         value: symbolProfile.digits !== undefined ? String(symbolProfile.digits) : undefined },
+                    { label: 'Point',          value: symbolProfile.point !== undefined ? String(symbolProfile.point) : undefined },
+                    { label: 'Tick Size',      value: symbolProfile.tickSize !== undefined ? String(symbolProfile.tickSize) : undefined },
+                    { label: 'Pip Size',       value: symbolProfile.pipSize !== undefined ? String(symbolProfile.pipSize) : undefined },
+                    { label: 'Contract Size',  value: symbolProfile.contractSize !== undefined ? String(symbolProfile.contractSize) : undefined },
+                    { label: 'Base Currency',  value: symbolProfile.baseCurrency },
+                    { label: 'Quote Currency', value: symbolProfile.quoteCurrency },
+                    { label: 'Timezone',       value: symbolProfile.timezone },
+                  ] as { label: string; value: string | undefined }[])
+                    .filter(row => row.value !== undefined && row.value !== '')
+                    .map(row => (
+                      <div key={row.label} className="flex items-center justify-between gap-4">
+                        <span className="text-[11px] text-gray-500 shrink-0">{row.label}</span>
+                        <span className="text-[11px] text-gray-200 font-mono text-right">{row.value}</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-sm font-semibold text-white truncate max-w-[120px] sm:max-w-xs">{assetName}</span>
+        )}
 
         {hasData && parseFeedback && (
           <button

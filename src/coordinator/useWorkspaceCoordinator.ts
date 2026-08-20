@@ -7,7 +7,10 @@ import {
   workspaceLayoutRepository,
   settingsRepository,
   drawingRepository,
+  symbolProfileRepository,
 } from '@/repository';
+import type { SymbolProfile } from '@/domain/market';
+import { parseAndValidateSymbolProfile } from '@/utils/symbolProfileUtils';
 import {
   parseCSV,
   resample1mToTimeframe,
@@ -85,6 +88,7 @@ export function useWorkspaceCoordinator(
   const [showStats, setShowStats] = useState<boolean>(false);
   const [customAlert, setCustomAlert] = useState<{ title: string; message: string } | null>(null);
   const [watchlistToast, setWatchlistToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
+  const [symbolProfile, setSymbolProfile] = useState<SymbolProfile | null>(null);
 
   // Bootstrap repositories and restore stored workspace state into Stores
   useEffect(() => {
@@ -510,6 +514,9 @@ export function useWorkspaceCoordinator(
     setTimeout(async () => {
       await handleTimeframeSwitch(targetTf, symbolName, rawData, currentFilesMap);
       await loadDrawingsForSymbol(symbolName);
+      // Load Symbol Profile for the hover card (Phase 6 foundation)
+      const profile = await symbolProfileRepository.getSymbolProfile(symbolName);
+      setSymbolProfile(profile);
     }, 0);
   };
 
@@ -628,6 +635,28 @@ export function useWorkspaceCoordinator(
               symbolMap[symbol] = {};
             }
             symbolMap[symbol][tf] = file;
+          }
+        } else if (entry.name.toLowerCase() === 'symbolprofile.json') {
+          // Auto-discover SymbolProfile.json: determine which symbol it belongs to via folder path
+          const file = await entry.getFile();
+          const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+          const parts = relativePath.split('/');
+          let symbol = '';
+          if (parts.length >= 3) {
+            symbol = parts[1].toUpperCase();
+          } else if (parts.length === 2) {
+            symbol = parts[0].toUpperCase();
+          }
+          if (symbol) {
+            try {
+              const text = await file.text();
+              const result = parseAndValidateSymbolProfile(text);
+              if (result.error === null) {
+                await symbolProfileRepository.saveSymbolProfile(symbol, result.profile);
+              }
+            } catch {
+              // Non-fatal: skip invalid profile files during directory scan
+            }
           }
         }
       } else if (entry.kind === 'directory') {
@@ -835,9 +864,11 @@ export function useWorkspaceCoordinator(
     const nextList = watchlistSymbols.filter((s) => s.name !== symbolName);
     await marketDataRepository.deleteBars(symbolName);
     await drawingRepository.clearDrawings(symbolName);
+    await symbolProfileRepository.deleteSymbolProfile(symbolName);
     await watchlistRepository.saveWatchlistSymbols(nextList);
 
     if (activeWatchlistSymbol === symbolName) {
+      setSymbolProfile(null);
       if (nextList.length > 0) {
         handleWatchlistSymbolSwitch(nextList[0].name);
       } else {
@@ -883,6 +914,41 @@ export function useWorkspaceCoordinator(
     reader.readAsText(file);
   };
 
+  /**
+   * Imports and stores a SymbolProfile JSON for the given symbol.
+   * Shows a descriptive error alert on validation failure; no partial import occurs.
+   */
+  const handleSymbolProfileFile = async (symbol: string, file: File) => {
+    try {
+      const text = await file.text();
+      const result = parseAndValidateSymbolProfile(text);
+      if (result.error !== null) {
+        setCustomAlert({
+          title: 'Invalid Symbol Profile',
+          message: result.error,
+        });
+        return;
+      }
+      await symbolProfileRepository.saveSymbolProfile(symbol, result.profile);
+      setSymbolProfile(result.profile);
+      setWatchlistToast({ msg: 'Symbol Profile imported successfully.', type: 'success' });
+      setTimeout(() => setWatchlistToast(null), 2500);
+    } catch (err) {
+      setCustomAlert({
+        title: 'Symbol Profile Import Failed',
+        message: 'An unexpected error occurred while reading the file.',
+      });
+    }
+  };
+
+  /**
+   * Retrieval API for the Symbol Profile.
+   * All consumers must use this — never access the repository directly from components.
+   */
+  const getSymbolProfile = async (symbol: string): Promise<SymbolProfile | null> => {
+    return symbolProfileRepository.getSymbolProfile(symbol);
+  };
+
   return {
     allTimeframesData,
     setAllTimeframesData,
@@ -897,6 +963,9 @@ export function useWorkspaceCoordinator(
     setCustomAlert,
     watchlistToast,
     setWatchlistToast,
+    symbolProfile,
+    handleSymbolProfileFile,
+    getSymbolProfile,
     getRawDataFromCache,
     processCSVFile,
     handleFileChange,

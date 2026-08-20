@@ -1,6 +1,8 @@
 import type { KLineData } from '@/utils/dataUtils';
 import type { ChartSettings, TimeframeOption } from '@/config';
 import type { WatchlistSymbol, SlotConfig, LayoutSizes } from '@/store/types';
+import type { SymbolProfile } from '@/domain/market';
+
 
 export interface MigrationScript {
   version: number;
@@ -57,4 +59,10 @@ export interface SettingsRepository {
   saveSettings(settings: ChartSettings): Promise<void>;
   getCustomTimeframes(): Promise<TimeframeOption[]>;
   saveCustomTimeframes(tfList: TimeframeOption[]): Promise<void>;
+}
+
+export interface SymbolProfileRepository {
+  getSymbolProfile(symbol: string): Promise<SymbolProfile | null>;
+  saveSymbolProfile(symbol: string, profile: SymbolProfile): Promise<void>;
+  deleteSymbolProfile(symbol: string): Promise<void>;
 }
