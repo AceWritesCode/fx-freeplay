@@ -100,10 +100,24 @@ export function useDrawingCoordinator(
   };
 
   const syncAllDrawings = () => {
-    if (!syncDrawings) return;
     const currentLayout = layoutType;
     const currentSlots = slots;
     const visibleCount = getLayoutChartCount(currentLayout);
+
+    if (!syncDrawings) {
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          const targetOverlays = chart.getOverlays();
+          targetOverlays.forEach((ov: any) => {
+            if (ov.id?.startsWith('sync_')) {
+              chart.removeOverlay({ id: ov.id });
+            }
+          });
+        }
+      }
+      return;
+    }
 
     // 1. Gather all original drawings from all visible charts
     const originalDrawingsBySymbol: Record<string, { chartIndex: number; overlay: any }[]> = {};
