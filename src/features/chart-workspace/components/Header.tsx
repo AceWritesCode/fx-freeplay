@@ -42,6 +42,13 @@ interface HeaderProps {
   savedFolderHandle: any;
   isVerifyingFolder: boolean;
   handleRestoreSavedFolder: () => void;
+  syncSymbol: boolean;
+  syncInterval: boolean;
+  syncCrosshair: boolean;
+  syncDrawings: boolean;
+  syncTime: boolean;
+  syncDateRange: boolean;
+  onSyncSettingChange: (key: 'syncSymbol' | 'syncInterval' | 'syncCrosshair' | 'syncTime' | 'syncDateRange' | 'syncDrawings', val: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = (props) => {
@@ -78,6 +85,13 @@ export const Header: React.FC<HeaderProps> = (props) => {
     savedFolderHandle,
     isVerifyingFolder,
     handleRestoreSavedFolder,
+    syncSymbol,
+    syncInterval,
+    syncCrosshair,
+    syncDrawings,
+    syncTime,
+    syncDateRange,
+    onSyncSettingChange,
   } = props;
 
   return (
@@ -376,32 +390,98 @@ export const Header: React.FC<HeaderProps> = (props) => {
                   onClick={() => setIsLayoutDropdownOpen(false)}
                 />
                 <div className="absolute right-0 mt-2 z-50 w-72 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div>
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                      Select Layout
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                        Select Layout
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {LAYOUT_OPTIONS.map((lay) => {
+                          const isSelected = layoutType === lay.type;
+                          const iconEl = React.isValidElement(lay.icon) ? lay.icon : null;
+                          return (
+                            <button
+                              key={lay.type}
+                              onClick={() => {
+                                handleSelectLayout(lay.type);
+                                setIsLayoutDropdownOpen(false);
+                              }}
+                              title={lay.label}
+                              className={`p-1.5 rounded border transition-all duration-150 flex items-center justify-center cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-650/10 border-indigo-500 text-indigo-400'
+                                  : 'border-gray-800 hover:border-gray-700 text-gray-400 hover:text-gray-200'
+                              }`}
+                            >
+                              {iconEl}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {LAYOUT_OPTIONS.map((lay) => {
-                        const isSelected = layoutType === lay.type;
-                        const iconEl = React.isValidElement(lay.icon) ? lay.icon : null;
-                        return (
-                          <button
-                            key={lay.type}
-                            onClick={() => {
-                              handleSelectLayout(lay.type);
-                              setIsLayoutDropdownOpen(false);
-                            }}
-                            title={lay.label}
-                            className={`p-1.5 rounded border transition-all duration-150 flex items-center justify-center cursor-pointer ${
-                              isSelected
-                                ? 'bg-indigo-650/10 border-indigo-500 text-indigo-400'
-                                : 'border-gray-800 hover:border-gray-700 text-gray-400 hover:text-gray-200'
-                            }`}
-                          >
-                            {iconEl}
-                          </button>
-                        );
-                      })}
+
+                    <div className="h-px bg-gray-800" />
+
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                        Sync Options
+                      </div>
+                      <div className="flex flex-col gap-2.5 text-[11px] text-gray-300">
+                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={syncSymbol}
+                            onChange={(e) => onSyncSettingChange('syncSymbol', e.target.checked)}
+                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
+                          />
+                          Sync Symbol
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={syncInterval}
+                            onChange={(e) => onSyncSettingChange('syncInterval', e.target.checked)}
+                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
+                          />
+                          Sync Timeframe
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={syncCrosshair}
+                            onChange={(e) => onSyncSettingChange('syncCrosshair', e.target.checked)}
+                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
+                          />
+                          Sync Crosshair
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={syncDrawings}
+                            onChange={(e) => onSyncSettingChange('syncDrawings', e.target.checked)}
+                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
+                          />
+                          Sync Drawings
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={syncTime}
+                            onChange={(e) => onSyncSettingChange('syncTime', e.target.checked)}
+                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
+                          />
+                          Sync Replay Cursor
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none hover:text-white transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={syncDateRange}
+                            onChange={(e) => onSyncSettingChange('syncDateRange', e.target.checked)}
+                            className="w-3.5 h-3.5 accent-indigo-500 rounded border-gray-800 bg-[#121420] text-indigo-650 focus:ring-0"
+                          />
+                          Sync Zoom/Scroll
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>

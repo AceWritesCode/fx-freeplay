@@ -203,10 +203,13 @@ export function ChartWorkspace() {
     setSlots,
     layoutSizes,
     setLayoutSizes,
+    syncSymbol,
+    syncInterval,
     syncCrosshair,
     syncTime,
     syncDateRange,
     syncDrawings,
+    setSyncSetting,
   } = useLayoutStore();
 
   const {
@@ -394,7 +397,8 @@ export function ChartWorkspace() {
     pendingCutAnimation,
     capturedOffsetRef,
     wasManualScaleRef,
-    capturedYAxisRangeRef
+    capturedYAxisRangeRef,
+    workspaceCoord.loadDataForSlot
   );
 
   // Connect toast triggers
@@ -425,7 +429,8 @@ export function ChartWorkspace() {
   }, [syncDateRange]);
   useEffect(() => {
     syncDrawingsRef.current = syncDrawings;
-  }, [syncDrawings]);
+    drawingCoord.syncAllDrawings();
+  }, [syncDrawings, drawingCoord]);
   useEffect(() => {
     activeChartIndexRef.current = activeChartIndex;
   }, [activeChartIndex]);
@@ -435,6 +440,26 @@ export function ChartWorkspace() {
   useEffect(() => {
     layoutTypeRef.current = layoutType;
   }, [layoutType]);
+
+  // Slot Data Loader Effect - runs whenever slots, layoutType, or timeline changes
+  useEffect(() => {
+    if (!hasData) return;
+    const visibleCount = getLayoutChartCount(layoutType);
+    
+    const promises: Promise<void>[] = [];
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        promises.push(workspaceCoord.loadDataForSlot(i, chart));
+      }
+    }
+    
+    Promise.all(promises).then(() => {
+      drawingCoord.syncAllDrawings();
+    }).catch(err => {
+      console.error('[DEBUG] Error loading slots data:', err);
+    });
+  }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp]);
 
   // Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
@@ -1284,6 +1309,31 @@ export function ChartWorkspace() {
     );
   };
 
+  const handleSyncSettingChange = (
+    key: 'syncSymbol' | 'syncInterval' | 'syncCrosshair' | 'syncTime' | 'syncDateRange' | 'syncDrawings',
+    val: boolean
+  ) => {
+    setSyncSetting(key, val);
+    
+    // Immediately synchronize if the flag is enabled
+    if (key === 'syncSymbol' && val) {
+      const activeSlot = slots[activeChartIndex];
+      if (activeSlot && activeSlot.symbol) {
+        const newSlots = slots.map((s) => ({ ...s, symbol: activeSlot.symbol }));
+        setSlots(newSlots);
+        workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
+      }
+    }
+    if (key === 'syncInterval' && val) {
+      const activeSlot = slots[activeChartIndex];
+      if (activeSlot) {
+        const newSlots = slots.map((s) => ({ ...s, timeframe: activeSlot.timeframe }));
+        setSlots(newSlots);
+        workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#131722] text-[#b2b5be] overflow-hidden select-none">
       <Header
@@ -1319,6 +1369,13 @@ export function ChartWorkspace() {
         savedFolderHandle={savedFolderHandle}
         isVerifyingFolder={workspaceCoord.isVerifyingFolder}
         handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
+        syncSymbol={syncSymbol}
+        syncInterval={syncInterval}
+        syncCrosshair={syncCrosshair}
+        syncDrawings={syncDrawings}
+        syncTime={syncTime}
+        syncDateRange={syncDateRange}
+        onSyncSettingChange={handleSyncSettingChange}
       />
 
       {/* Floating CSV Import Stats Card */}
