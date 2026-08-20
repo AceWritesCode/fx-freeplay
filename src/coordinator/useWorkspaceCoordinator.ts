@@ -53,7 +53,6 @@ export function useWorkspaceCoordinator(
   const {
     activeChartIndex,
     slots,
-    updateSlot,
     setActiveChartIndex,
   } = useLayoutStore();
 
@@ -362,8 +361,24 @@ export function useWorkspaceCoordinator(
       }
     }
 
-    updateSlot(activeChartIndex, { symbol: currentSymbol, timeframe: tf });
-    workspaceLayoutRepository.saveLayoutConfig({ slots: useLayoutStore.getState().slots });
+    const layoutStore = useLayoutStore.getState();
+    const newSlots = [...layoutStore.slots];
+    
+    newSlots[activeChartIndex] = { symbol: currentSymbol, timeframe: tf };
+    
+    if (layoutStore.syncSymbol && currentSymbol) {
+      newSlots.forEach((_, idx) => {
+        newSlots[idx] = { ...newSlots[idx], symbol: currentSymbol };
+      });
+    }
+    if (layoutStore.syncInterval) {
+      newSlots.forEach((_, idx) => {
+        newSlots[idx] = { ...newSlots[idx], timeframe: tf };
+      });
+    }
+    
+    layoutStore.setSlots(newSlots);
+    workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
 
     if (chart && targetData) {
       const visibleData = activeReplay && alignedTimestamp !== null
@@ -573,8 +588,21 @@ export function useWorkspaceCoordinator(
       setWatchlistSymbols(updatedWatchlist);
 
       setActiveWatchlistSymbol(cleanName);
-      updateSlot(activeChartIndex, { symbol: cleanName, timeframe: '1m' });
-      workspaceLayoutRepository.saveLayoutConfig({ slots: useLayoutStore.getState().slots });
+      const layoutStore = useLayoutStore.getState();
+      const newSlots = [...layoutStore.slots];
+      newSlots[activeChartIndex] = { symbol: cleanName, timeframe: '1m' };
+      if (layoutStore.syncSymbol) {
+        newSlots.forEach((_, idx) => {
+          newSlots[idx] = { ...newSlots[idx], symbol: cleanName };
+        });
+      }
+      if (layoutStore.syncInterval) {
+        newSlots.forEach((_, idx) => {
+          newSlots[idx] = { ...newSlots[idx], timeframe: '1m' };
+        });
+      }
+      layoutStore.setSlots(newSlots);
+      workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
 
       marketDataRepository.saveBars(cleanName, '1m', result.data);
       watchlistRepository.saveWatchlistSymbols(updatedWatchlist);
