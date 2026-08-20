@@ -491,11 +491,14 @@ export function ChartWorkspace() {
             chart.setPeriod({ type: 'minute', span: 1 });
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
+              const isSyncing = isSyncingCrosshairRef.current;
               handleCrosshairSync(i, params);
-              if (params && params.kLineData) {
-                setHoveredCandle(params.kLineData);
-              } else {
-                setHoveredCandle(null);
+              if (!isSyncing) {
+                if (params && params.kLineData) {
+                  setHoveredCandle(params.kLineData);
+                } else {
+                  setHoveredCandle(null);
+                }
               }
             });
 

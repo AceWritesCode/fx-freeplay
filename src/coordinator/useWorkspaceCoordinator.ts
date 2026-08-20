@@ -150,10 +150,14 @@ export function useWorkspaceCoordinator(
           }
         }
 
-        // Load drawings for the active symbol
+        // Load drawings & symbol profile for the active symbol
         if (savedActiveSymbol && isMounted) {
           console.log(`[DEBUG] bootstrapWorkspace - Loading drawings for active symbol ${savedActiveSymbol}`);
           await loadDrawingsForSymbol(savedActiveSymbol);
+          const profile = await symbolProfileRepository.getSymbolProfile(savedActiveSymbol);
+          if (isMounted) {
+            setSymbolProfile(profile);
+          }
         }
       } catch (err) {
         console.error('Failed to bootstrap workspace repositories:', err);
