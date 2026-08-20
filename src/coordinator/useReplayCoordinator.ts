@@ -12,7 +12,8 @@ export function useReplayCoordinator(
   pendingCutAnimation: React.MutableRefObject<any>,
   capturedOffsetRef: React.MutableRefObject<number | null>,
   wasManualScaleRef: React.MutableRefObject<boolean>,
-  capturedYAxisRangeRef: React.MutableRefObject<any>
+  capturedYAxisRangeRef: React.MutableRefObject<any>,
+  loadDataForSlot: (index: number, chart: any) => Promise<void>
 ) {
   // Store Hooks
   const {
@@ -292,12 +293,6 @@ export function useReplayCoordinator(
       if (!chart || !slot.symbol) return;
 
       const isActiveSlot = index === activeChartIndex;
-      const tf = slot.timeframe;
-      const fullData = allTimeframesData[tf] || [];
-      if (fullData.length === 0) return;
-
-      const idx = findCandleIndexByTimestamp(fullData, replayCurrentTimestamp);
-      const visibleData = idx !== -1 ? fullData.slice(0, idx + 1) : [];
 
       // Capture scroll offset and Y-axis state BEFORE data reload (active slot only)
       let currentOffset: number | null = null;
@@ -327,16 +322,8 @@ export function useReplayCoordinator(
         console.log(`[DEBUG] dataSync - Cut animation offset override: ${tempOffset} (clickX: ${anim.clickX})`);
       }
 
-      chart.setDataLoader({
-        getBars: ({ type: loadType, callback }: any) => {
-          if (loadType === 'init') {
-            callback(visibleData);
-          } else {
-            callback([]);
-          }
-        },
-      });
-      chart.resetData();
+      // Reload data for this slot using loadDataForSlot
+      loadDataForSlot(index, chart);
 
       // Restore scroll offset after data reset (active slot only)
       if (isActiveSlot && tempOffset !== null) {
@@ -380,7 +367,7 @@ export function useReplayCoordinator(
         requestAnimationFrame(animate);
       }
     });
-  }, [replayCurrentTimestamp, isReplayActive, slots, allTimeframesData, activeChartIndex]);
+  }, [replayCurrentTimestamp, isReplayActive, slots, activeChartIndex, loadDataForSlot]);
 
   // ─── Cut-Point Pickup Line DOM Event Listeners ───────────────────────────
   // Binds click (capture phase), mousemove and mouseleave on the active chart
