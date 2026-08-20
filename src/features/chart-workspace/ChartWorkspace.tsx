@@ -239,6 +239,7 @@ export function ChartWorkspace() {
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [hoveredCandle, setHoveredCandle] = useState<any | null>(null);
+  const hoveredChartIndexRef = useRef<number | null>(null);
   const [isTfDropdownOpen, setIsTfDropdownOpen] = useState<boolean>(false);
   const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState<boolean>(false);
   const [customValue, setCustomValue] = useState<number>(10);
@@ -491,9 +492,8 @@ export function ChartWorkspace() {
             chart.setPeriod({ type: 'minute', span: 1 });
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
-              const isSyncing = isSyncingCrosshairRef.current;
               handleCrosshairSync(i, params);
-              if (!isSyncing) {
+              if (hoveredChartIndexRef.current === i) {
                 if (params && params.kLineData) {
                   setHoveredCandle(params.kLineData);
                 } else {
@@ -1218,6 +1218,14 @@ export function ChartWorkspace() {
     return (
       <div
         onClick={() => workspaceCoord.handleSelectChartSlot(i)}
+        onMouseEnter={() => {
+          hoveredChartIndexRef.current = i;
+        }}
+        onMouseLeave={() => {
+          if (hoveredChartIndexRef.current === i) {
+            hoveredChartIndexRef.current = null;
+          }
+        }}
         className={`
           relative w-full h-full bg-[#131722] rounded overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
           ${showHighlight && isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : showHighlight ? 'border border-gray-800 hover:border-gray-750' : ''}
