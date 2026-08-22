@@ -69,6 +69,29 @@ export const findDataIndexByTimestamp = (data: any[], timestamp: number, tfMs: n
 };
 
 /**
+ * Finds the index of the largest candle timestamp less than or equal to the target timestamp.
+ */
+export const findFloorIndexByTimestamp = (data: any[], timestamp: number): number => {
+  if (data.length === 0) return 0;
+  if (timestamp < data[0].timestamp) return 0;
+  if (timestamp >= data[data.length - 1].timestamp) return data.length - 1;
+
+  let low = 0;
+  let high = data.length - 1;
+  let ans = 0;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (data[mid].timestamp <= timestamp) {
+      ans = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return ans;
+};
+
+/**
  * Recalculates and sets offset to center the given timestamp on the chart.
  */
 export const centerTimestampOnChart = (chart: any, timestamp: number, tfMs: number) => {
@@ -111,11 +134,15 @@ export const syncCrosshairs = (
         if (points && points.length > 0) {
           const { timestamp, value } = points[0];
           if (timestamp !== undefined && value !== undefined) {
-            const coords = targetChart.convertToPixel([{ timestamp, value }]);
-            if (coords && coords.length > 0) {
-              const { x, y } = coords[0];
-              if (x !== undefined && y !== undefined) {
-                targetChart.executeAction('onCrosshairChange', { x, y });
+            const targetData = targetChart.getDataList();
+            if (targetData && targetData.length > 0) {
+              const targetIdx = findFloorIndexByTimestamp(targetData, timestamp);
+              const coords = targetChart.convertToPixel([{ dataIndex: targetIdx, value }]);
+              if (coords && coords.length > 0) {
+                const { x, y } = coords[0];
+                if (x !== undefined && y !== undefined) {
+                  targetChart.executeAction('onCrosshairChange', { x, y });
+                }
               }
             }
           }
