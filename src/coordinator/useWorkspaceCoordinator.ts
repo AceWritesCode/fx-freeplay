@@ -89,6 +89,31 @@ export function useWorkspaceCoordinator(
       try {
         await initRepositories();
 
+        // Check for timezone database migration
+        const migrationKey = 'timezone_migration_v2';
+        if (localStorage.getItem(migrationKey) !== 'true') {
+          console.log('[DEBUG] bootstrapWorkspace - Invalidating old mixed-timezone IndexedDB cache...');
+          await marketDataRepository.clearAll();
+          await watchlistRepository.saveWatchlistSymbols([]);
+          await watchlistRepository.saveFolderHandles([]);
+          await watchlistRepository.saveActiveSymbol(null);
+          localStorage.setItem(migrationKey, 'true');
+          
+          if (isMounted) {
+            useWatchlistStore.getState().setInitialState({
+              watchlistSymbols: [],
+              activeWatchlistSymbol: null,
+              savedFolderHandles: [],
+            });
+            useLayoutStore.getState().setSlots([
+              { symbol: null, timeframe: '1m' },
+              { symbol: null, timeframe: '1m' },
+              { symbol: null, timeframe: '1m' },
+              { symbol: null, timeframe: '1m' },
+            ]);
+          }
+        }
+
         // Restore settings
         const savedSettings = await settingsRepository.getSettings();
         const customTfs = await settingsRepository.getCustomTimeframes();
@@ -160,11 +185,24 @@ export function useWorkspaceCoordinator(
     return rawDataCache.get(symbol) || [];
   };
 
+  const adjustTimezone = (bars: KLineData[]): KLineData[] => {
+    if (settings.timezoneAdjustmentEnabled) {
+      const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
+      if (offsetDiffMs !== 0) {
+        return bars.map((c) => ({
+          ...c,
+          timestamp: c.timestamp + offsetDiffMs,
+        }));
+      }
+    }
+    return bars;
+  };
+
   const getOrImportTimeframeData = async (symbol: string, tf: string): Promise<KLineData[]> => {
     // 1. Try to read from IndexedDB repository first!
-    let data = await marketDataRepository.getBars(symbol, tf) || [];
+    const data = await marketDataRepository.getBars(symbol, tf) || [];
     if (data.length > 0) {
-      return data;
+      return adjustTimezone(data);
     }
 
     // 2. If not in DB, check files map (Folder import mode)
@@ -178,22 +216,14 @@ export function useWorkspaceCoordinator(
         const text = await bestMatch.file.text();
         const result = parseCSV(text);
         if (result.parsedCount > 0) {
-          let adjustedData = result.data;
-          if (settings.timezoneAdjustmentEnabled) {
-            const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
-            adjustedData = result.data.map((c) => ({
-              ...c,
-              timestamp: c.timestamp + offsetDiffMs,
-            }));
-          }
-          let tfData = adjustedData;
+          let tfData = result.data;
           if (bestMatch.tf !== tf) {
             // Need to resample the parsed base file to the target timeframe
-            tfData = resample1mToTimeframe(adjustedData, getTimeframeMinutes(tf));
+            tfData = resample1mToTimeframe(result.data, getTimeframeMinutes(tf));
           }
-          // Save the parsed timeframe data so we never have to parse it again!
+          // Save the RAW parsed timeframe data so we never have to parse it again!
           await marketDataRepository.saveBars(symbol, tf, tfData);
-          return tfData;
+          return adjustTimezone(tfData);
         }
       }
     }
@@ -207,18 +237,10 @@ export function useWorkspaceCoordinator(
       }
     }
     if (raw1m.length > 0) {
-      let baseData = raw1m;
-      if (settings.timezoneAdjustmentEnabled) {
-        const offsetDiffMs = (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000;
-        baseData = raw1m.map((c) => ({
-          ...c,
-          timestamp: c.timestamp + offsetDiffMs,
-        }));
-      }
-      const tfData = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
-      // Save it
+      const tfData = resample1mToTimeframe(raw1m, getTimeframeMinutes(tf));
+      // Save raw resampled bars to DB
       await marketDataRepository.saveBars(symbol, tf, tfData);
-      return tfData;
+      return adjustTimezone(tfData);
     }
 
     return [];
