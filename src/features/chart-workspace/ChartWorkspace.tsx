@@ -175,6 +175,10 @@ export function ChartWorkspace() {
   const activeChartIndexRef = useRef<number>(0);
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
+  const prevSlotsRef = useRef<any[] | null>(null);
+  const prevLayoutTypeRef = useRef<string>('1');
+  const prevReplayActiveRef = useRef<boolean>(false);
+  const prevReplayTimestampRef = useRef<number | null>(null);
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const subContainerRef1 = useRef<HTMLDivElement>(null);
   const subContainerRef2 = useRef<HTMLDivElement>(null);
@@ -443,22 +447,51 @@ export function ChartWorkspace() {
 
   // Slot Data Loader Effect - runs whenever slots, layoutType, or timeline changes
   useEffect(() => {
-    if (!hasData) return;
+    if (!hasData) {
+      prevSlotsRef.current = slots;
+      prevLayoutTypeRef.current = layoutType;
+      prevReplayActiveRef.current = isReplayActive;
+      prevReplayTimestampRef.current = replayCurrentTimestamp;
+      return;
+    }
+
     const visibleCount = getLayoutChartCount(layoutType);
+    const prevSlots = prevSlotsRef.current;
     
+    const layoutTypeChanged = layoutType !== prevLayoutTypeRef.current;
+    const replayActiveChanged = isReplayActive !== prevReplayActiveRef.current;
+    const replayTimestampChanged = replayCurrentTimestamp !== prevReplayTimestampRef.current;
+
+    prevSlotsRef.current = slots;
+    prevLayoutTypeRef.current = layoutType;
+    prevReplayActiveRef.current = isReplayActive;
+    prevReplayTimestampRef.current = replayCurrentTimestamp;
+
+    const forceAll = !prevSlots || layoutTypeChanged || replayActiveChanged || replayTimestampChanged;
+
     const promises: Promise<void>[] = [];
     for (let i = 0; i < visibleCount; i++) {
       const chart = chartInstancesRef.current[i];
       if (chart) {
-        promises.push(workspaceCoord.loadDataForSlot(i, chart));
+        const currentSlot = slots[i];
+        const prevSlot = prevSlots?.[i];
+
+        const symbolChanged = currentSlot?.symbol !== prevSlot?.symbol;
+        const timeframeChanged = currentSlot?.timeframe !== prevSlot?.timeframe;
+
+        if (forceAll || symbolChanged || timeframeChanged) {
+          promises.push(workspaceCoord.loadDataForSlot(i, chart));
+        }
       }
     }
-    
-    Promise.all(promises).then(() => {
-      drawingCoord.syncAllDrawings();
-    }).catch(err => {
-      console.error('[DEBUG] Error loading slots data:', err);
-    });
+
+    if (promises.length > 0) {
+      Promise.all(promises).then(() => {
+        drawingCoord.syncAllDrawings();
+      }).catch(err => {
+        console.error('[DEBUG] Error loading slots data:', err);
+      });
+    }
   }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp]);
 
   // Layout Manager effect - handles creation and disposal of chart slots
