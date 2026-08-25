@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore } from '@/store';
+import { TIMEZONE_OPTIONS } from '@/config';
 import {
   initRepositories,
   marketDataRepository,
@@ -26,6 +27,32 @@ import {
 import { persistenceService } from '@/engine/workspace/persistence';
 import { getTrueOffsetRightDistance } from '@/engine/charting';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
+
+export function parseTimezoneToLabelAndOffset(tz: string): { label: string; offset: number } {
+  const normalized = tz.toUpperCase().trim();
+  if (normalized === 'UTC' || normalized === 'UTC+0' || normalized === 'UTC-0') {
+    return { label: 'UTC', offset: 0 };
+  }
+
+  const match = normalized.match(/^UTC([+-]\d+(?::\d+)?)$/);
+  if (match) {
+    const tzStr = match[1]; // e.g. "+3", "+3:30", "-5"
+    const targetPrefix = `(UTC${tzStr})`;
+    const found = TIMEZONE_OPTIONS.find(opt => opt.label.startsWith(targetPrefix));
+    if (found) {
+      return { label: found.label, offset: found.value as number };
+    }
+
+    const parts = tzStr.split(':');
+    const hours = parseInt(parts[0], 10);
+    const minutes = parts[1] ? parseInt(parts[1], 10) : 0;
+    const sign = hours < 0 ? -1 : 1;
+    const offset = hours * 60 + sign * minutes;
+    return { label: `(UTC${tzStr}) Custom`, offset };
+  }
+
+  return { label: 'UTC', offset: 0 };
+}
 
 // Static, in-memory cache for raw 1-minute candlestick data to isolate heavy payloads from React state diffing
 const rawDataCache = new Map<string, KLineData[]>();
@@ -583,16 +610,21 @@ export function useWorkspaceCoordinator(
           return { isValid: false, errorMsg: `Symbol Info symbol '${parsed.symbol}' does not match folder symbol '${symbol}'.` };
         }
         if (
-          parsed.pricePrecision === undefined ||
-          parsed.brokerTimezoneOffset === undefined ||
-          parsed.brokerTimezoneLabel === undefined
+          parsed.digits === undefined ||
+          parsed.timezone === undefined
         ) {
           return {
             isValid: false,
-            errorMsg: `Symbol Info for ${symbol} must contain required fields: pricePrecision, brokerTimezoneOffset, brokerTimezoneLabel.`,
+            errorMsg: `Symbol Info for ${symbol} must contain required fields: digits, timezone.`,
           };
         }
-        profileData = parsed;
+        const tzInfo = parseTimezoneToLabelAndOffset(parsed.timezone);
+        profileData = {
+          symbol: parsed.symbol,
+          pricePrecision: parsed.digits,
+          brokerTimezoneOffset: tzInfo.offset,
+          brokerTimezoneLabel: tzInfo.label,
+        };
       } catch (err) {
         return { isValid: false, errorMsg: `Failed to parse Symbol Info JSON for ${symbol}: ${(err as Error).message}` };
       }
