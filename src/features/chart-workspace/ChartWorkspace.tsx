@@ -972,7 +972,9 @@ export function ChartWorkspace() {
     } catch (err) {
       console.error('Error syncing date ranges:', err);
     } finally {
-      isSyncingRangeRef.current = false;
+      requestAnimationFrame(() => {
+        isSyncingRangeRef.current = false;
+      });
     }
   };
 
