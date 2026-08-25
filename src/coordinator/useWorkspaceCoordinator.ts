@@ -60,6 +60,9 @@ const rawDataCache = new Map<string, KLineData[]>();
 // Static, in-memory cache for timezone-adjusted timeframe data to avoid repeated IndexedDB reads and timezone conversions
 const timezoneAdjustedCache = new Map<string, Record<string, KLineData[]>>();
 
+// Static, in-memory cache for symbol profiles to avoid IndexedDB reads during symbol switching
+const symbolProfileCache = new Map<string, any>();
+
 export function useWorkspaceCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
   _chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>,
@@ -560,29 +563,38 @@ export function useWorkspaceCoordinator(
       return;
     }
 
-    await watchlistRepository.saveActiveSymbol(symbolName);
+    // Persist active symbol (non-blocking — don't stall the UI for a DB write)
+    watchlistRepository.saveActiveSymbol(symbolName).catch(console.error);
     persistenceService.setActiveWatchlistSymbol(symbolName);
     setActiveWatchlistSymbol(symbolName);
 
-    // Cache raw 1m data if it exists for supplement/resampling fallback purposes
-    let raw1m = await marketDataRepository.getBars(symbolName, '1m');
-    if (raw1m.length === 0 && files && files['1m']) {
-      try {
-        const text = await files['1m'].text();
-        const parsed = parseCSV(text);
-        if (parsed.parsedCount > 0) {
-          raw1m = parsed.data;
-          await marketDataRepository.saveBars(symbolName, '1m', parsed.data);
+    // Use rawDataCache first; only hit DB if not cached
+    if (!rawDataCache.has(symbolName)) {
+      const raw1m = await marketDataRepository.getBars(symbolName, '1m');
+      if (raw1m.length > 0) {
+        rawDataCache.set(symbolName, raw1m);
+      } else if (files && files['1m']) {
+        try {
+          const text = await files['1m'].text();
+          const parsed = parseCSV(text);
+          if (parsed.parsedCount > 0) {
+            rawDataCache.set(symbolName, parsed.data);
+            marketDataRepository.saveBars(symbolName, '1m', parsed.data).catch(console.error);
+          }
+        } catch (err) {
+          console.error(`[DEBUG] Failed to cache 1m data for ${symbolName}:`, err);
         }
-      } catch (err) {
-        console.error(`[DEBUG] Failed to cache 1m data for ${symbolName}:`, err);
       }
     }
-    if (raw1m.length > 0) {
-      rawDataCache.set(symbolName, raw1m);
-    }
 
-    const profile = await watchlistRepository.getSymbolProfile(symbolName);
+    // Use profile cache first; only hit DB if not cached
+    let profile = symbolProfileCache.get(symbolName) || null;
+    if (!profile) {
+      profile = await watchlistRepository.getSymbolProfile(symbolName);
+      if (profile) {
+        symbolProfileCache.set(symbolName, profile);
+      }
+    }
     let updatedSettings = { ...settings };
     if (profile) {
       updatedSettings = {
@@ -592,7 +604,8 @@ export function useWorkspaceCoordinator(
         pricePrecision: profile.pricePrecision,
       };
       setSettings(updatedSettings);
-      await settingsRepository.saveSettings(updatedSettings);
+      // Persist settings non-blocking
+      settingsRepository.saveSettings(updatedSettings).catch(console.error);
       
       const visibleCount = getLayoutChartCount(useLayoutStore.getState().layoutType);
       for (let i = 0; i < visibleCount; i++) {
@@ -613,7 +626,6 @@ export function useWorkspaceCoordinator(
       const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(targetData);
       chart.setSymbol({ ticker: symbolName, pricePrecision: precision, volumePrecision: 4 });
     }
-    console.log(`[DEBUG] handleWatchlistSymbolSwitch - Switched to '${symbolName}'`);
 
     setTimeout(async () => {
       try {
@@ -729,6 +741,7 @@ export function useWorkspaceCoordinator(
     // 4. Clear memory caches
     rawDataCache.clear();
     timezoneAdjustedCache.clear();
+    symbolProfileCache.clear();
     setAllTimeframesData({ '1m': [] });
 
     // 5. Reset Replay
@@ -882,6 +895,7 @@ export function useWorkspaceCoordinator(
       for (const sym of validSymbols) {
         const profile = parsedProfiles[sym];
         await watchlistRepository.saveSymbolProfile(sym, profile);
+        symbolProfileCache.set(sym, profile);
 
         const tfFiles = mergedSymbolMap[sym];
         const importPromises = Object.entries(tfFiles).map(async ([tf, file]) => {
