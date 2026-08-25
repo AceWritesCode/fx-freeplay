@@ -864,7 +864,6 @@ export function ChartWorkspace() {
               hoveredAnchorIndex: closestIndex
             }
           });
-          chart.resize();
         }
 
         const nextCursor = closestIndex !== 5 ? 'move' : 'ew-resize';
@@ -885,7 +884,6 @@ export function ChartWorkspace() {
               hoveredAnchorIndex: null
             }
           });
-          chart.resize();
         }
 
         // Clean up hoveredAnchorIndex on all other overlays
@@ -898,7 +896,6 @@ export function ChartWorkspace() {
                 hoveredAnchorIndex: null
               }
             });
-            chart.resize();
           }
         });
       } else {
@@ -912,7 +909,6 @@ export function ChartWorkspace() {
                 hoveredAnchorIndex: null
               }
             });
-            chart.resize();
           }
         });
       }
