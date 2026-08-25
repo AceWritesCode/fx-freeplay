@@ -287,13 +287,13 @@ export function useWorkspaceCoordinator(
     tf: string,
     overrideSymbol?: string
   ) => {
-    const hasData = activeWatchlistSymbol !== null;
+    const hasData = slots.some((s) => s.symbol !== null);
     if (!hasData && !overrideSymbol) {
       console.warn('[DEBUG] handleTimeframeSwitch - Attempted switch but no data is loaded.');
       return;
     }
     const isSymbolSwitch = !!overrideSymbol;
-    const currentSymbol = overrideSymbol || activeWatchlistSymbol || '';
+    const currentSymbol = overrideSymbol || slots[activeChartIndex]?.symbol || '';
 
     setIsLoadingSymbol(true);
 
@@ -817,10 +817,16 @@ export function useWorkspaceCoordinator(
     setActiveChartIndex(index);
     const targetSlot = slots[index];
     if (targetSlot && targetSlot.symbol) {
-      const rawData = getRawDataFromCache(targetSlot.symbol);
-      if (rawData.length > 0) {
-        dataVersionRef.current += 1;
-        regenerateTimeframes(rawData, settings, targetSlot.timeframe);
+      try {
+        const tfData = await getOrImportTimeframeData(targetSlot.symbol, targetSlot.timeframe);
+        if (tfData && tfData.length > 0) {
+          setAllTimeframesData((prev) => ({
+            ...prev,
+            [targetSlot.timeframe]: tfData
+          }));
+        }
+      } catch (err) {
+        console.error('[DEBUG] handleSelectChartSlot - Error loading slot data:', err);
       }
     }
   };

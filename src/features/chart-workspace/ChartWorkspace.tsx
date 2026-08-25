@@ -284,8 +284,8 @@ export function ChartWorkspace() {
   const magnetMenuRef = useRef<HTMLDivElement>(null);
 
   // Derived states
-  const hasData = activeWatchlistSymbol !== null;
-  const assetName = activeWatchlistSymbol || 'No Asset Loaded';
+  const hasData = slots.some((s) => s.symbol !== null);
+  const assetName = slots[activeChartIndex]?.symbol || 'No Asset Loaded';
   const activeTimeframe = slots[activeChartIndex]?.timeframe || '1m';
 
   function applySettingsToChart(chart: any, s: ChartSettings) {
