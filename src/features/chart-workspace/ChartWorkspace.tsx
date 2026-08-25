@@ -542,6 +542,10 @@ export function ChartWorkspace() {
             chartInstancesRef.current[i] = chart;
             applySettingsToChart(chart, settings);
             
+            container.addEventListener('mousedown', () => {
+              workspaceCoord.handleSelectChartSlot(i);
+            }, { capture: true });
+
             chart.setMaxOffsetLeftDistance(10000);
             chart.setMaxOffsetRightDistance(10000);
             
