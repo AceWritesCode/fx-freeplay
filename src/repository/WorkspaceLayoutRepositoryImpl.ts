@@ -50,7 +50,9 @@ export class WorkspaceLayoutRepositoryImpl implements WorkspaceLayoutRepository 
     const merged: WorkspaceLayoutConfig = {
       layoutType: configUpdate.layoutType ?? existing.layoutType,
       slots: configUpdate.slots ?? existing.slots,
-      layoutSizes: configUpdate.layoutSizes ?? existing.layoutSizes,
+      layoutSizes: configUpdate.layoutSizes
+        ? { ...existing.layoutSizes, ...configUpdate.layoutSizes }
+        : existing.layoutSizes,
       syncSettings: {
         ...existing.syncSettings,
         ...(configUpdate.syncSettings || {}),

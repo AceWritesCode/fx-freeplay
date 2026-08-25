@@ -72,7 +72,15 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   syncDrawings: true,
 
   setInitialState: (config) =>
-    set((state) => ({ ...state, ...config })),
+    set((state) => ({
+      ...state,
+      ...config,
+      layoutSizes: {
+        ...DEFAULT_LAYOUT_SIZES,
+        ...state.layoutSizes,
+        ...(config.layoutSizes || {}),
+      },
+    })),
 
   setLayoutType: (type) =>
     set(() => ({ layoutType: type })),

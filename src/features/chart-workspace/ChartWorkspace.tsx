@@ -506,6 +506,7 @@ export function ChartWorkspace() {
         // it means the container was remounted by React and the chart is dead.
         if (chartInstancesRef.current[i] && container.children.length === 0) {
           console.log(`[DEBUG] Container for slot ${i} was remounted. Disposing dead chart instance.`);
+          console.log(`[DATE-SYNC UNSUBSCRIBE] chart: chart-${i}`);
           try {
             dispose(chartInstancesRef.current[i]);
           } catch (e) {
@@ -601,6 +602,7 @@ export function ChartWorkspace() {
     // Dispose out-of-bounds slots
     for (let i = visibleCount; i < 4; i++) {
       if (chartInstancesRef.current[i]) {
+        console.log(`[DATE-SYNC UNSUBSCRIBE] chart: chart-${i}`);
         dispose(chartContainersRef.current[i] || chartInstancesRef.current[i]);
         chartInstancesRef.current[i] = null;
       }
@@ -1014,7 +1016,8 @@ export function ChartWorkspace() {
     const isVertical = direction === 'vertical';
     const totalSize = isVertical ? rect.width : rect.height;
 
-    const initialSizes = [...layoutSizes[key]];
+    const rawVal = layoutSizes[key];
+    const initialSizes = [...(rawVal || [50, 50])];
     const startPos = isVertical ? mouseDownEvent.clientX : mouseDownEvent.clientY;
 
     const handleMouseMove = (mouseMoveEvent: MouseEvent) => {
