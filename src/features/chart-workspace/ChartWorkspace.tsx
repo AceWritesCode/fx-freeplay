@@ -964,13 +964,17 @@ export function ChartWorkspace() {
     isSyncingRangeRef.current = false;
   };
 
+  const lastSyncLogRef = useRef<number>(0);
   const handleDateRangeSync = (sourceIndex: number) => {
     if (!syncDateRangeRef.current) return;
-    if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) {
-      console.log(`[DEBUG] handleDateRangeSync BLOCKED for sourceIndex ${sourceIndex} - isSyncingRange: ${isSyncingRangeRef.current}, isSwitchingTimeframe: ${workspaceCoord.isSwitchingTimeframeRef.current}`);
-      return;
+    if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
+    
+    const now = Date.now();
+    if (now - lastSyncLogRef.current > 1000) {
+      lastSyncLogRef.current = now;
+      console.log(`[DEBUG] DateSync: Source Slot #${sourceIndex + 1} -> Target Slots (Active Slot: #${activeChartIndexRef.current + 1})`);
     }
-    console.log(`[DEBUG] handleDateRangeSync EXECUTING for sourceIndex ${sourceIndex} (activeChartIndex: ${activeChartIndexRef.current})`);
+
     isSyncingRangeRef.current = true;
     try {
       executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
