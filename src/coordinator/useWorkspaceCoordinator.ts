@@ -543,100 +543,95 @@ export function useWorkspaceCoordinator(
       }
     }
 
+    // Show loader and yield a paint frame so the spinner actually renders
     setIsLoadingSymbol(true);
 
-    let targetData: KLineData[] = [];
+    // Wrap all heavy work in a requestAnimationFrame + setTimeout to guarantee
+    // React paints the loading overlay before we start chart operations
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            // 1. Load timeframe data (cache hit = instant)
+            let targetData: KLineData[] = [];
+            try {
+              const tfsToLoad = files ? Object.keys(files) : ['1m', '5m', '15m', '30m', '1h', '4h', 'D'];
+              await Promise.all(tfsToLoad.map(tf => getOrImportTimeframeData(symbolName, tf)));
+              targetData = await getOrImportTimeframeData(symbolName, targetTf);
+            } catch (err) {
+              console.error(`[DEBUG] handleWatchlistSymbolSwitch - failed to load data for ${symbolName}:`, err);
+            }
 
-    try {
-      const tfsToLoad = files ? Object.keys(files) : ['1m', '5m', '15m', '30m', '1h', '4h', 'D'];
-      await Promise.all(tfsToLoad.map(tf => getOrImportTimeframeData(symbolName, tf)));
-      targetData = await getOrImportTimeframeData(symbolName, targetTf);
-    } catch (err) {
-      console.error(`[DEBUG] handleWatchlistSymbolSwitch - failed to load data for ${symbolName}:`, err);
-      setIsLoadingSymbol(false);
-    }
+            if (targetData.length === 0) {
+              setWatchlistToast({ msg: `No data found for '${symbolName}'.`, type: 'error' });
+              setTimeout(() => setWatchlistToast(null), 2500);
+              return;
+            }
 
-    if (targetData.length === 0) {
-      setWatchlistToast({ msg: `No data found for '${symbolName}'.`, type: 'error' });
-      setTimeout(() => setWatchlistToast(null), 2500);
-      setIsLoadingSymbol(false);
-      return;
-    }
+            // 2. Update active symbol state (persistence non-blocking)
+            watchlistRepository.saveActiveSymbol(symbolName).catch(console.error);
+            persistenceService.setActiveWatchlistSymbol(symbolName);
+            setActiveWatchlistSymbol(symbolName);
 
-    // Persist active symbol (non-blocking — don't stall the UI for a DB write)
-    watchlistRepository.saveActiveSymbol(symbolName).catch(console.error);
-    persistenceService.setActiveWatchlistSymbol(symbolName);
-    setActiveWatchlistSymbol(symbolName);
+            // 3. Cache raw 1m if not already cached
+            if (!rawDataCache.has(symbolName)) {
+              const raw1m = await marketDataRepository.getBars(symbolName, '1m');
+              if (raw1m.length > 0) {
+                rawDataCache.set(symbolName, raw1m);
+              }
+            }
 
-    // Use rawDataCache first; only hit DB if not cached
-    if (!rawDataCache.has(symbolName)) {
-      const raw1m = await marketDataRepository.getBars(symbolName, '1m');
-      if (raw1m.length > 0) {
-        rawDataCache.set(symbolName, raw1m);
-      } else if (files && files['1m']) {
-        try {
-          const text = await files['1m'].text();
-          const parsed = parseCSV(text);
-          if (parsed.parsedCount > 0) {
-            rawDataCache.set(symbolName, parsed.data);
-            marketDataRepository.saveBars(symbolName, '1m', parsed.data).catch(console.error);
+            // 4. Load profile from cache (instant) or DB
+            let profile = symbolProfileCache.get(symbolName) || null;
+            if (!profile) {
+              profile = await watchlistRepository.getSymbolProfile(symbolName);
+              if (profile) {
+                symbolProfileCache.set(symbolName, profile);
+              }
+            }
+            let updatedSettings = { ...settings };
+            if (profile) {
+              updatedSettings = {
+                ...settings,
+                brokerTimezoneOffset: profile.brokerTimezoneOffset,
+                brokerTimezoneLabel: profile.brokerTimezoneLabel,
+                pricePrecision: profile.pricePrecision,
+              };
+              setSettings(updatedSettings);
+              settingsRepository.saveSettings(updatedSettings).catch(console.error);
+
+              const visibleCount = getLayoutChartCount(useLayoutStore.getState().layoutType);
+              for (let i = 0; i < visibleCount; i++) {
+                const c = chartInstancesRef.current[i];
+                if (c) {
+                  applySettingsToChart(c, updatedSettings);
+                }
+              }
+            }
+
+            // 5. Update state and chart
+            dataVersionRef.current += 1;
+            setAllTimeframesData({ [targetTf]: targetData });
+            resetReplay();
+
+            const chart = chartInstancesRef.current[activeChartIndex];
+            if (chart) {
+              const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(targetData);
+              chart.setSymbol({ ticker: symbolName, pricePrecision: precision, volumePrecision: 4 });
+            }
+
+            // 6. Apply data to chart directly (skip redundant handleTimeframeSwitch)
+            await handleTimeframeSwitch(targetTf, symbolName);
+            await loadDrawingsForSymbol(symbolName);
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setIsLoadingSymbol(false);
+            resolve();
           }
-        } catch (err) {
-          console.error(`[DEBUG] Failed to cache 1m data for ${symbolName}:`, err);
-        }
-      }
-    }
-
-    // Use profile cache first; only hit DB if not cached
-    let profile = symbolProfileCache.get(symbolName) || null;
-    if (!profile) {
-      profile = await watchlistRepository.getSymbolProfile(symbolName);
-      if (profile) {
-        symbolProfileCache.set(symbolName, profile);
-      }
-    }
-    let updatedSettings = { ...settings };
-    if (profile) {
-      updatedSettings = {
-        ...settings,
-        brokerTimezoneOffset: profile.brokerTimezoneOffset,
-        brokerTimezoneLabel: profile.brokerTimezoneLabel,
-        pricePrecision: profile.pricePrecision,
-      };
-      setSettings(updatedSettings);
-      // Persist settings non-blocking
-      settingsRepository.saveSettings(updatedSettings).catch(console.error);
-      
-      const visibleCount = getLayoutChartCount(useLayoutStore.getState().layoutType);
-      for (let i = 0; i < visibleCount; i++) {
-        const c = chartInstancesRef.current[i];
-        if (c) {
-          applySettingsToChart(c, updatedSettings);
-        }
-      }
-    }
-
-    dataVersionRef.current += 1;
-    setAllTimeframesData({ [targetTf]: targetData });
-
-    resetReplay();
-
-    const chart = chartInstancesRef.current[activeChartIndex];
-    if (chart) {
-      const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(targetData);
-      chart.setSymbol({ ticker: symbolName, pricePrecision: precision, volumePrecision: 4 });
-    }
-
-    setTimeout(async () => {
-      try {
-        await handleTimeframeSwitch(targetTf, symbolName);
-        await loadDrawingsForSymbol(symbolName);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoadingSymbol(false);
-      }
-    }, 0);
+        }, 0);
+      });
+    });
   };
 
   const validateImportedSymbol = async (
@@ -994,7 +989,10 @@ export function useWorkspaceCoordinator(
       const tfData = await getOrImportTimeframeData(slot.symbol, tf);
 
       if (tfData.length > 0) {
-        const profile = await watchlistRepository.getSymbolProfile(slot.symbol);
+        const profile = symbolProfileCache.get(slot.symbol) || await watchlistRepository.getSymbolProfile(slot.symbol);
+        if (profile && !symbolProfileCache.has(slot.symbol)) {
+          symbolProfileCache.set(slot.symbol, profile);
+        }
         const precision = profile?.pricePrecision !== undefined
           ? profile.pricePrecision
           : (settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData));
