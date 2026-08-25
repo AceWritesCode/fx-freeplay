@@ -6,7 +6,6 @@ import {
   AlertCircle,
   X,
   FolderOpen,
-  Loader2,
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
@@ -1579,8 +1578,8 @@ export function ChartWorkspace() {
             />
             {/* Canvas-only loading spinner overlay */}
             {workspaceCoord.isLoadingSymbol && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#131722]/60 backdrop-blur-[2px] select-none pointer-events-auto">
-                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#131722]/70 select-none pointer-events-auto">
+                <div className="w-8 h-8 rounded-full border-[3px] border-indigo-500/20 border-t-indigo-400 animate-spin" />
               </div>
             )}
             {hasData && (
