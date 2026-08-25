@@ -271,6 +271,7 @@ export const syncDateRange = (
     if (sourceSymbol === targetSymbol && slots[i]?.timeframe === slots[sourceIndex]?.timeframe) {
       const oldSpace = getChartBarSpace(sourceChart);
       const oldOffset = getTrueOffsetRightDistance(sourceChart);
+      console.log(`[DEBUG] syncDateRange SAME TF/SYM - source: ${sourceIndex} -> target: ${i}, oldSpace: ${oldSpace}, oldOffset: ${oldOffset}`);
       targetChart.setBarSpace(oldSpace);
       targetChart.setOffsetRightDistance(oldOffset);
     } else {
@@ -283,6 +284,7 @@ export const syncDateRange = (
       targetChart.setBarSpace(desiredBarSpace);
       const actualSpace = getChartBarSpace(targetChart);
       const offsetRightDistance = (targetTo - targetData.length) * actualSpace;
+      console.log(`[DEBUG] syncDateRange DIFF TF/SYM - source: ${sourceIndex} -> target: ${i}, desiredSpace: ${desiredBarSpace}, offset: ${offsetRightDistance}`);
       
       targetChart.setOffsetRightDistance(offsetRightDistance);
     }

@@ -965,7 +965,12 @@ export function ChartWorkspace() {
   };
 
   const handleDateRangeSync = (sourceIndex: number) => {
-    if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current || !syncDateRangeRef.current) return;
+    if (!syncDateRangeRef.current) return;
+    if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) {
+      console.log(`[DEBUG] handleDateRangeSync BLOCKED for sourceIndex ${sourceIndex} - isSyncingRange: ${isSyncingRangeRef.current}, isSwitchingTimeframe: ${workspaceCoord.isSwitchingTimeframeRef.current}`);
+      return;
+    }
+    console.log(`[DEBUG] handleDateRangeSync EXECUTING for sourceIndex ${sourceIndex} (activeChartIndex: ${activeChartIndexRef.current})`);
     isSyncingRangeRef.current = true;
     try {
       executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
