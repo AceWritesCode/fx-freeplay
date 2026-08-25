@@ -367,7 +367,7 @@ export function useReplayCoordinator(
         requestAnimationFrame(animate);
       }
     });
-  }, [replayCurrentTimestamp, isReplayActive, slots, activeChartIndex, loadDataForSlot]);
+  }, [replayCurrentTimestamp, isReplayActive, slots, loadDataForSlot]);
 
   // ─── Cut-Point Pickup Line DOM Event Listeners ───────────────────────────
   // Binds click (capture phase), mousemove and mouseleave on the active chart

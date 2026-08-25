@@ -1030,23 +1030,9 @@ export function useWorkspaceCoordinator(
     }
   };
 
-  const handleSelectChartSlot = async (index: number) => {
+  const handleSelectChartSlot = (index: number) => {
     if (index === activeChartIndex) return;
     setActiveChartIndex(index);
-    const targetSlot = slots[index];
-    if (targetSlot && targetSlot.symbol) {
-      try {
-        const tfData = await getOrImportTimeframeData(targetSlot.symbol, targetSlot.timeframe);
-        if (tfData && tfData.length > 0) {
-          setAllTimeframesData((prev) => ({
-            ...prev,
-            [targetSlot.timeframe]: tfData
-          }));
-        }
-      } catch (err) {
-        console.error('[DEBUG] handleSelectChartSlot - Error loading slot data:', err);
-      }
-    }
   };
 
   const handleClearDatabase = async () => {
