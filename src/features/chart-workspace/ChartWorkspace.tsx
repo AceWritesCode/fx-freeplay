@@ -639,40 +639,11 @@ export function ChartWorkspace() {
   // Synchronize keydown and clicks
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return;
-      }
       if (e.key === 'Shift') {
         isShiftPressedRef.current = true;
       }
       if (e.key === 'Control' || e.key === 'Meta') {
         isCtrlPressedRef.current = true;
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !drawingCoord.activeTool) {
-        chartInstancesRef.current.forEach((chart) => {
-          if (!chart) return;
-          const selectedIds = chart._selectedOverlayIds || selectedOverlayIds || [];
-          selectedIds.forEach((id: string) => {
-            const ov = (chart as any).getOverlays().find((o: any) => o.id === id);
-            if (id === 'custom_price_line_overlay' || ov?.name === 'customPriceLine' || id === 'session_breaks_overlay' || ov?.name === 'sessionBreaks') return;
-
-            const syncMatch = ov?.id?.match(/^sync_(.+)_from_(\d+)$/);
-            if (syncMatch) {
-              const originalId = syncMatch[1];
-              const sourceIndex = parseInt(syncMatch[2], 10);
-              const sourceChart = chartInstancesRef.current[sourceIndex];
-              if (sourceChart) {
-                sourceChart.removeOverlay({ id: originalId });
-              }
-            }
-            chart.removeOverlay({ id });
-          });
-        });
-        setSelectedOverlayIds([]);
-        setTimeout(() => {
-          drawingCoord.syncAllDrawings();
-        }, 50);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -993,11 +964,11 @@ export function ChartWorkspace() {
     isSyncingRangeRef.current = false;
   };
 
-  const handleDateRangeSync = (slotIndex?: number) => {
+  const handleDateRangeSync = (_eventSlotIndex: number) => {
     if (!syncDateRangeRef.current) return;
     if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
 
-    const sourceIndex = slotIndex !== undefined ? slotIndex : activeChartIndexRef.current;
+    const sourceIndex = activeChartIndexRef.current;
 
     isSyncingRangeRef.current = true;
     try {

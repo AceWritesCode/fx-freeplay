@@ -164,7 +164,7 @@ export function registerCustomOverlays() {
 export function getInteractiveOverlayOptions(
   toolName: string,
   chartInstanceRef: any,
-  _chartInstancesRef: any,
+  chartInstancesRef: any,
   isShiftPressedRef: any,
   syncAllDrawings: () => void,
   setActiveTool: (tool: string | null) => void
@@ -216,6 +216,18 @@ export function getInteractiveOverlayOptions(
 
       setTimeout(() => syncAllDrawings(), 50);
       return true;
+    },
+    onRemoved: (event: any) => {
+      const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+      if (syncMatch) {
+        const originalId = syncMatch[1];
+        const sourceIndex = parseInt(syncMatch[2]);
+        const sourceChart = chartInstancesRef.current[sourceIndex];
+        if (sourceChart) {
+          sourceChart.removeOverlay({ id: originalId });
+        }
+      }
+      setTimeout(() => syncAllDrawings(), 50);
     },
     onMouseEnter: (event: any) => {
       const overrideOpts = {
@@ -502,23 +514,6 @@ export function getInteractiveOverlayOptions(
         }
       }
       return true;
-    },
-    onRemoved: (event: any) => {
-      const id = event.overlay.id;
-      const syncMatch = id?.match(/^sync_(.+)_from_(\d+)$/);
-      if (syncMatch) {
-        const originalId = syncMatch[1];
-        const sourceIndex = parseInt(syncMatch[2], 10);
-        const sourceChart = event.chart._chartInstancesRef?.current?.[sourceIndex];
-        if (sourceChart) {
-          sourceChart.removeOverlay({ id: originalId });
-        }
-      }
-      setTimeout(() => {
-        if (event.chart._onDrawingSync) {
-          event.chart._onDrawingSync();
-        }
-      }, 50);
     }
   };
 
