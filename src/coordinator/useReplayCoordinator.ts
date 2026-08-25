@@ -253,7 +253,7 @@ export function useReplayCoordinator(
   // Manage Autoplay Replay Timer Loop (Interval scheduling is now owned by Coordinator)
   useEffect(() => {
     let intervalId: any = null;
-    if (isReplayActive && isReplayPlaying && replayCurrentTimestamp !== null) {
+    if (isReplayActive && isReplayPlaying) {
       console.log(`[DEBUG] autoplay loop - Starting Interval timer. Interval: ${replaySpeed}s.`);
       intervalId = setInterval(() => {
         const session = sessionRef.current || replayEngine.getActiveSession();
@@ -271,7 +271,7 @@ export function useReplayCoordinator(
         clearInterval(intervalId);
       }
     };
-  }, [isReplayActive, isReplayPlaying, replayCurrentTimestamp, replaySpeed]);
+  }, [isReplayActive, isReplayPlaying, replaySpeed]);
 
   // Clean up session subscriptions on unmount
   useEffect(() => {
