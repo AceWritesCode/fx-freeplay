@@ -565,20 +565,22 @@ export function useWorkspaceCoordinator(
     timeframeFiles: Record<string, File>,
     profileFile?: File
   ): Promise<{ isValid: boolean; errorMsg?: string; profileData?: any }> => {
-    // 1. Validate Symbol Profile if provided
+    // 1. Validate Symbol Info if provided
     let profileData: any = null;
     if (profileFile) {
       try {
         const text = await profileFile.text();
         const parsed = JSON.parse(text);
         if (!parsed || typeof parsed !== 'object') {
-          return { isValid: false, errorMsg: `Symbol Profile for ${symbol} is not a valid JSON object.` };
+          return { isValid: false, errorMsg: `Symbol Info for ${symbol} is not a valid JSON object.` };
         }
         if (!parsed.symbol || typeof parsed.symbol !== 'string' || parsed.symbol.trim() === '') {
-          return { isValid: false, errorMsg: `Symbol Profile for ${symbol} must contain a non-empty 'symbol' string.` };
+          return { isValid: false, errorMsg: `Symbol Info for ${symbol} must contain a non-empty 'symbol' string.` };
         }
-        if (parsed.symbol.toUpperCase() !== symbol.toUpperCase()) {
-          return { isValid: false, errorMsg: `Symbol Profile symbol '${parsed.symbol}' does not match folder symbol '${symbol}'.` };
+        const fileSym = parsed.symbol.toUpperCase();
+        const folderSym = symbol.toUpperCase();
+        if (fileSym !== folderSym && !folderSym.startsWith(fileSym)) {
+          return { isValid: false, errorMsg: `Symbol Info symbol '${parsed.symbol}' does not match folder symbol '${symbol}'.` };
         }
         if (
           parsed.pricePrecision === undefined ||
@@ -587,15 +589,15 @@ export function useWorkspaceCoordinator(
         ) {
           return {
             isValid: false,
-            errorMsg: `Symbol Profile for ${symbol} must contain required fields: pricePrecision, brokerTimezoneOffset, brokerTimezoneLabel.`,
+            errorMsg: `Symbol Info for ${symbol} must contain required fields: pricePrecision, brokerTimezoneOffset, brokerTimezoneLabel.`,
           };
         }
         profileData = parsed;
       } catch (err) {
-        return { isValid: false, errorMsg: `Failed to parse SymbolProfile.json for ${symbol}: ${(err as Error).message}` };
+        return { isValid: false, errorMsg: `Failed to parse Symbol Info JSON for ${symbol}: ${(err as Error).message}` };
       }
     } else {
-      return { isValid: false, errorMsg: `Missing SymbolProfile.json for ${symbol} in the selected folder.` };
+      return { isValid: false, errorMsg: `Missing Symbol Info JSON (*_info.json) for ${symbol} in the selected folder.` };
     }
 
     // 2. Validate Timeframe CSV files
@@ -713,7 +715,7 @@ export function useWorkspaceCoordinator(
             }
             symbolMap[symbol][tf] = file;
           }
-        } else if (lowerName === 'symbolprofile.json' || lowerName.endsWith('symbolprofile.json')) {
+        } else if (lowerName.endsWith('_info.json')) {
           const file = await entry.getFile();
           const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
           const parts = relativePath.split('/');
@@ -721,6 +723,9 @@ export function useWorkspaceCoordinator(
           let symbol = '';
           if (parts.length >= 2) {
             symbol = parts[parts.length - 2].toUpperCase();
+          } else {
+            const baseName = entry.name.slice(0, -10);
+            symbol = baseName.toUpperCase();
           }
           if (symbol) {
             profileMap[symbol] = file;
