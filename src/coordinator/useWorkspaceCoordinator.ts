@@ -989,9 +989,7 @@ export function useWorkspaceCoordinator(
 
   const loadDataForSlot = async (index: number, chart: any) => {
     const slot = useLayoutStore.getState().slots[index];
-    console.log(`[DEBUG] loadDataForSlot - index: ${index}, slot:`, slot);
     if (!slot || !slot.symbol) {
-      console.log(`[DEBUG] loadDataForSlot - index: ${index} - slot or symbol is empty!`);
       return;
     }
 

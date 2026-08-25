@@ -179,9 +179,8 @@ export function ChartWorkspace() {
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const prevSlotsRef = useRef<any[] | null>(null);
-  const prevLayoutTypeRef = useRef<string>('1');
+  const prevLayoutTypeRef = useRef<string | null>(null);
   const prevReplayActiveRef = useRef<boolean>(false);
-  const prevReplayTimestampRef = useRef<number | null>(null);
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const subContainerRef1 = useRef<HTMLDivElement>(null);
   const subContainerRef2 = useRef<HTMLDivElement>(null);
@@ -451,7 +450,6 @@ export function ChartWorkspace() {
       prevSlotsRef.current = slots;
       prevLayoutTypeRef.current = layoutType;
       prevReplayActiveRef.current = isReplayActive;
-      prevReplayTimestampRef.current = replayCurrentTimestamp;
       return;
     }
 
@@ -460,14 +458,12 @@ export function ChartWorkspace() {
     
     const layoutTypeChanged = layoutType !== prevLayoutTypeRef.current;
     const replayActiveChanged = isReplayActive !== prevReplayActiveRef.current;
-    const replayTimestampChanged = replayCurrentTimestamp !== prevReplayTimestampRef.current;
 
     prevSlotsRef.current = slots;
     prevLayoutTypeRef.current = layoutType;
     prevReplayActiveRef.current = isReplayActive;
-    prevReplayTimestampRef.current = replayCurrentTimestamp;
 
-    const forceAll = !prevSlots || layoutTypeChanged || replayActiveChanged || replayTimestampChanged;
+    const forceAll = !prevSlots || layoutTypeChanged || replayActiveChanged;
 
     const promises: Promise<void>[] = [];
     for (let i = 0; i < visibleCount; i++) {
@@ -492,7 +488,7 @@ export function ChartWorkspace() {
         console.error('[DEBUG] Error loading slots data:', err);
       });
     }
-  }, [slots, layoutType, hasData, isReplayActive, replayCurrentTimestamp]);
+  }, [slots, layoutType, hasData, isReplayActive]);
 
   // Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
