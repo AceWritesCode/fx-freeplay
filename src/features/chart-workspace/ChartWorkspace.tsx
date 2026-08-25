@@ -968,7 +968,9 @@ export function ChartWorkspace() {
     if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current || !syncDateRangeRef.current) return;
     isSyncingRangeRef.current = true;
     executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
-    isSyncingRangeRef.current = false;
+    setTimeout(() => {
+      isSyncingRangeRef.current = false;
+    }, 50);
   };
 
   // Resizing layout columns

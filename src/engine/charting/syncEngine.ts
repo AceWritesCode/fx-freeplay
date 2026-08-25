@@ -282,7 +282,7 @@ export const syncDateRange = (
       
       targetChart.setBarSpace(desiredBarSpace);
       const actualSpace = getChartBarSpace(targetChart);
-      const offsetRightDistance = ((targetData.length - 1) - targetTo) * actualSpace;
+      const offsetRightDistance = (targetTo - targetData.length) * actualSpace;
       
       targetChart.setOffsetRightDistance(offsetRightDistance);
     }

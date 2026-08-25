@@ -225,14 +225,18 @@ export function useDrawingCoordinator(
         const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
 
         if (existingCopy) {
-          (targetChart as any).overrideOverlay({
-            id: syncId,
-            points: JSON.parse(JSON.stringify(orig.points)),
-            extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
-            lock: orig.lock,
-            visible: orig.visible !== false,
-            styles: orig.styles,
-          });
+          const pointsChanged = JSON.stringify(existingCopy.points) !== JSON.stringify(orig.points);
+          const extendDataChanged = JSON.stringify(existingCopy.extendData) !== JSON.stringify(orig.extendData);
+          if (pointsChanged || extendDataChanged) {
+            (targetChart as any).overrideOverlay({
+              id: syncId,
+              points: JSON.parse(JSON.stringify(orig.points)),
+              extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
+              lock: orig.lock,
+              visible: orig.visible !== false,
+              styles: orig.styles,
+            });
+          }
         } else {
           const interactiveOptions = getInteractiveOverlayOptions(
             orig.name,
