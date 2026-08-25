@@ -5,8 +5,6 @@ import {
   RefreshCw, 
   Plus, 
   X, 
-  Loader2, 
-  CheckCircle2, 
   AlertCircle
 } from 'lucide-react';
 import { ObjectTreePanel } from '@/components/ObjectTreePanel';
@@ -23,8 +21,6 @@ interface WorkspaceSidebarProps {
   savedFolderHandle: any;
   isVerifyingFolder: boolean;
   handleRestoreSavedFolder: () => void;
-  onClearFolderHandles: () => void;
-  isRestoreError: boolean;
   symbolFilesMap: Record<string, any>;
   loadSymbolFromFolder: (sym: string) => void;
   activeSymbol: string | null;
@@ -53,8 +49,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     savedFolderHandle,
     isVerifyingFolder,
     handleRestoreSavedFolder,
-    onClearFolderHandles,
-    isRestoreError,
     symbolFilesMap,
     loadSymbolFromFolder,
     activeSymbol,
@@ -188,29 +182,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               {/* Watchlist items list */}
               <div className="flex-1 overflow-y-auto py-2 px-3 flex flex-col gap-1 select-none">
                 
-                {/* Folder status status information */}
-                {importMode === 'folder' && savedFolderHandle && (
-                  <div className="mb-2 p-2 bg-gray-950/40 rounded-lg border border-gray-850 flex items-center justify-between text-[10px]">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {isVerifyingFolder ? (
-                        <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
-                      ) : isRestoreError ? (
-                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
-                      ) : (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      )}
-                      <span className="text-gray-400 truncate">Folder Mode:</span>
-                      <span className="text-emerald-300/70 font-mono truncate">{savedFolderHandle.name}</span>
-                    </div>
-                    <button
-                      onClick={onClearFolderHandles}
-                      title="Disconnect directory"
-                      className="p-0.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-950/20 transition-colors cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+
 
                 {/* Watchlist Toast Notification */}
                 {watchlistToast && (

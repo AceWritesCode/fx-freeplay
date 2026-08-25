@@ -6,6 +6,7 @@ import {
   AlertCircle,
   X,
   FolderOpen,
+  Loader2,
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
@@ -1627,8 +1628,6 @@ export function ChartWorkspace() {
           savedFolderHandle={savedFolderHandle}
           isVerifyingFolder={workspaceCoord.isVerifyingFolder}
           handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
-          onClearFolderHandles={workspaceCoord.handleClearFolderHandles}
-          isRestoreError={workspaceCoord.isRestoreError}
           symbolFilesMap={symbolFilesMap}
           loadSymbolFromFolder={handleWatchlistSymbolSwitch}
           activeSymbol={activeWatchlistSymbol}
@@ -1712,12 +1711,12 @@ export function ChartWorkspace() {
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Delete watch symbol</h3>
+                <h3 className="text-sm font-bold text-white">Delete Symbol Data</h3>
                 <p className="text-gray-400 text-[11px] mt-0.5">This action cannot be undone.</p>
               </div>
             </div>
             <p className="text-gray-300 text-xs leading-normal">
-              Are you sure you want to delete <span className="font-semibold text-white">"{pendingRemoveSymbol}"</span> from your watchlist? All cached timeframe directories will be cleared.
+              Are you sure you want to delete symbol <span className="font-semibold text-white">"{pendingRemoveSymbol}"</span>? This will permanently delete its timeframe data, drawings, and info profile from local storage. Other symbols will not be affected.
             </p>
             <div className="flex gap-2.5 mt-2">
               <button
@@ -1734,9 +1733,24 @@ export function ChartWorkspace() {
                 }}
                 className="flex-1 py-2 bg-red-600 hover:bg-red-500 border border-red-500 text-white text-xs font-semibold rounded transition-colors cursor-pointer"
               >
-                Delete symbol
+                Delete Symbol
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Importing Loader Overlay */}
+      {workspaceCoord.isLoadingSymbol && (
+        <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm select-none">
+          <div className="bg-[#1e222d] border border-indigo-500/20 p-8 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col items-center gap-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center animate-spin">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+            <h3 className="text-sm font-bold tracking-wider uppercase text-white">Importing Folder Data</h3>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Validating and importing timeframe CSVs and Symbol Info. This may take a moment...
+            </p>
           </div>
         </div>
       )}
