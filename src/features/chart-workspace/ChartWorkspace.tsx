@@ -966,9 +966,18 @@ export function ChartWorkspace() {
     isSyncingRangeRef.current = false;
   };
 
-  const handleDateRangeSync = (sourceIndex: number) => {
+  const lastSyncLogRef = useRef<number>(0);
+  const handleDateRangeSync = (eventSlotIndex: number) => {
     if (!syncDateRangeRef.current) return;
     if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
+
+    const sourceIndex = activeChartIndexRef.current;
+
+    const now = Date.now();
+    if (now - lastSyncLogRef.current > 1000) {
+      lastSyncLogRef.current = now;
+      console.log(`[SYNC PROPAGATION] Active Slot: #${sourceIndex + 1} | Action on: Slot #${eventSlotIndex + 1} | Syncing FROM Slot #${sourceIndex + 1} -> Target Slots`);
+    }
 
     isSyncingRangeRef.current = true;
     try {
