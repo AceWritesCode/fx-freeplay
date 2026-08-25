@@ -119,6 +119,38 @@ export function useDrawingCoordinator(
       return;
     }
 
+    // 0. Sync back modified synced copies to original drawings
+    for (let i = 0; i < visibleCount; i++) {
+      if (i !== activeChartIndex) continue;
+
+      const chart = chartInstancesRef.current[i];
+      if (!chart) continue;
+
+      const overlays = (chart as any).getOverlays();
+      overlays.forEach((ov: any) => {
+        const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+        if (syncMatch) {
+          const originalId = syncMatch[1];
+          const sourceIndex = parseInt(syncMatch[2], 10);
+          const sourceChart = chartInstancesRef.current[sourceIndex];
+          if (sourceChart) {
+            const originalOverlay = (sourceChart as any).getOverlays().find((o: any) => o.id === originalId);
+            if (originalOverlay) {
+              const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
+              const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
+              if (pointsChanged || extendDataChanged) {
+                (sourceChart as any).overrideOverlay({
+                  id: originalId,
+                  points: JSON.parse(JSON.stringify(ov.points)),
+                  extendData: ov.extendData
+                });
+              }
+            }
+          }
+        }
+      });
+    }
+
     // 1. Gather all original drawings from all visible charts
     const originalDrawingsBySymbol: Record<string, { chartIndex: number; overlay: any }[]> = {};
 
@@ -176,73 +208,67 @@ export function useDrawingCoordinator(
       const targetOverlays = (targetChart as any).getOverlays();
       const existingSyncedCopies = targetOverlays.filter((ov: any) => ov.id?.startsWith('sync_'));
       const desiredCopies = activeOriginals.filter((item) => item.chartIndex !== i);
+      const desiredCopyIds = new Set(desiredCopies.map((item) => `sync_${item.overlay.id}_from_${item.chartIndex}`));
 
+      // Remove only stale synced copies
       existingSyncedCopies.forEach((copy: any) => {
-        (targetChart as any).removeOverlay({ id: copy.id });
+        if (!desiredCopyIds.has(copy.id)) {
+          (targetChart as any).removeOverlay({ id: copy.id });
+        }
       });
 
+      // Create or update desired synced copies
       desiredCopies.forEach((item) => {
         const orig = item.overlay;
         const sourceIndex = item.chartIndex;
         const syncId = `sync_${orig.id}_from_${sourceIndex}`;
+        const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
 
-        const interactiveOptions = getInteractiveOverlayOptions(
-          orig.name,
-          { current: targetChart },
-          chartInstancesRef,
-          isShiftPressedRef,
-          syncAllDrawings,
-          setActiveTool
-        );
+        if (existingCopy) {
+          (targetChart as any).overrideOverlay({
+            id: syncId,
+            points: JSON.parse(JSON.stringify(orig.points)),
+            extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
+            lock: orig.lock,
+            visible: orig.visible !== false,
+            styles: orig.styles,
+          });
+        } else {
+          const interactiveOptions = getInteractiveOverlayOptions(
+            orig.name,
+            { current: targetChart },
+            chartInstancesRef,
+            isShiftPressedRef,
+            syncAllDrawings,
+            setActiveTool
+          );
 
-        targetChart.createOverlay({
-          ...interactiveOptions,
-          name: orig.name,
-          id: syncId,
-          paneId: orig.paneId || 'candle_pane',
-          points: JSON.parse(JSON.stringify(orig.points)),
-          extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
-          lock: orig.lock,
-          visible: orig.visible !== false,
-          styles: orig.lock ? {
-            point: {
-              radius: 0,
-              activeRadius: 0,
-              color: 'transparent',
-              borderColor: 'transparent',
-              borderSize: 0,
-              activeColor: 'transparent',
-              activeBorderColor: 'transparent',
-              activeBorderSize: 0
-            }
-          } : {
-            point: {
-              radius: 4.5,
-              activeRadius: 5.5,
-              color: '#ffffff',
-              borderColor: '#2196F3',
-              borderSize: 1.5,
-              activeColor: '#ffffff',
-              activeBorderColor: '#2196F3',
-              activeBorderSize: 2
-            }
-          },
-          onRemoved: (event: any) => {
-            console.log(`[DEBUG] synced copy - onRemoved callback fired for id: ${event.overlay.id}`);
-            const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
-            if (syncMatch) {
-              const originalId = syncMatch[1];
-              const sourceIdx = parseInt(syncMatch[2]);
-              const sourceChart = chartInstancesRef.current[sourceIdx];
-              if (sourceChart) {
-                sourceChart.removeOverlay({ id: originalId });
+          targetChart.createOverlay({
+            ...interactiveOptions,
+            name: orig.name,
+            id: syncId,
+            paneId: orig.paneId || 'candle_pane',
+            points: JSON.parse(JSON.stringify(orig.points)),
+            extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
+            lock: orig.lock,
+            visible: orig.visible !== false,
+            styles: orig.styles,
+            onRemoved: (event: any) => {
+              const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+              if (syncMatch) {
+                const originalId = syncMatch[1];
+                const sourceIdx = parseInt(syncMatch[2], 10);
+                const sourceChart = chartInstancesRef.current[sourceIdx];
+                if (sourceChart) {
+                  sourceChart.removeOverlay({ id: originalId });
+                }
               }
-            }
-            setTimeout(() => {
-              syncAllDrawings();
-            }, 50);
-          },
-        });
+              setTimeout(() => {
+                syncAllDrawings();
+              }, 50);
+            },
+          });
+        }
       });
     }
 
