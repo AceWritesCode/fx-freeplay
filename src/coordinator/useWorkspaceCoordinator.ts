@@ -540,11 +540,7 @@ export function useWorkspaceCoordinator(
       }
     }
 
-    const cachedSymbol = timezoneAdjustedCache.get(symbolName);
-    const hasCachedData = cachedSymbol && cachedSymbol[targetTf] && cachedSymbol[targetTf].length > 0;
-    if (!hasCachedData) {
-      setIsLoadingSymbol(true);
-    }
+    setIsLoadingSymbol(true);
 
     let targetData: KLineData[] = [];
 
