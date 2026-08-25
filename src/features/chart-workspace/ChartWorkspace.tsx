@@ -541,7 +541,7 @@ export function ChartWorkspace() {
             applySettingsToChart(chart, settings);
             
             container.addEventListener('mousedown', () => {
-              workspaceCoord.handleSelectChartSlot(i);
+              handleSelectSlot(i);
             }, { capture: true });
 
             chart.setMaxOffsetLeftDistance(10000);
@@ -964,11 +964,16 @@ export function ChartWorkspace() {
     isSyncingRangeRef.current = false;
   };
 
-  const handleDateRangeSync = (eventSlotIndex: number) => {
+  const handleSelectSlot = (i: number) => {
+    activeChartIndexRef.current = i;
+    workspaceCoord.handleSelectChartSlot(i);
+  };
+
+  const handleDateRangeSync = (_eventSlotIndex: number) => {
     if (!syncDateRangeRef.current) return;
     if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
 
-    const sourceIndex = eventSlotIndex;
+    const sourceIndex = activeChartIndexRef.current;
 
     isSyncingRangeRef.current = true;
     try {
@@ -1273,7 +1278,7 @@ export function ChartWorkspace() {
     const showHighlight = layoutType !== '1';
     return (
       <div
-        onClick={() => workspaceCoord.handleSelectChartSlot(i)}
+        onClick={() => handleSelectSlot(i)}
         className={`
           relative w-full h-full bg-[#131722] rounded overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
           ${showHighlight && isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : showHighlight ? 'border border-gray-800 hover:border-gray-750' : ''}
