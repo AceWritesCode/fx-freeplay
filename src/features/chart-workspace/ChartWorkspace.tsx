@@ -175,6 +175,7 @@ export function ChartWorkspace() {
   const syncDateRangeRef = useRef<boolean>(false);
   const syncDrawingsRef = useRef<boolean>(false);
   const activeChartIndexRef = useRef<number>(0);
+  const userInteractingSlotRef = useRef<number | null>(null);
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const prevSlotsRef = useRef<any[] | null>(null);
@@ -505,6 +506,7 @@ export function ChartWorkspace() {
         // it means the container was remounted by React and the chart is dead.
         if (chartInstancesRef.current[i] && container.children.length === 0) {
           console.log(`[DEBUG] Container for slot ${i} was remounted. Disposing dead chart instance.`);
+          console.log(`[DATE-SYNC UNSUBSCRIBE] chart: chart-${i}`);
           try {
             dispose(chartInstancesRef.current[i]);
           } catch (e) {
@@ -540,9 +542,12 @@ export function ChartWorkspace() {
             chartInstancesRef.current[i] = chart;
             applySettingsToChart(chart, settings);
             
-            container.addEventListener('mousedown', () => {
+            const markUserInteraction = () => {
+              userInteractingSlotRef.current = i;
               handleSelectSlot(i);
-            }, { capture: true });
+            };
+            container.addEventListener('mousedown', markUserInteraction, { capture: true });
+            container.addEventListener('wheel', markUserInteraction, { capture: true });
 
             chart.setMaxOffsetLeftDistance(10000);
             chart.setMaxOffsetRightDistance(10000);
@@ -597,6 +602,7 @@ export function ChartWorkspace() {
     // Dispose out-of-bounds slots
     for (let i = visibleCount; i < 4; i++) {
       if (chartInstancesRef.current[i]) {
+        console.log(`[DATE-SYNC UNSUBSCRIBE] chart: chart-${i}`);
         dispose(chartContainersRef.current[i] || chartInstancesRef.current[i]);
         chartInstancesRef.current[i] = null;
       }
@@ -964,16 +970,25 @@ export function ChartWorkspace() {
     isSyncingRangeRef.current = false;
   };
 
+  const prevActiveChartIndexRef = useRef<number>(activeChartIndex);
+  useEffect(() => {
+    prevActiveChartIndexRef.current = activeChartIndex;
+    activeChartIndexRef.current = activeChartIndex;
+  }, [activeChartIndex]);
+
   const handleSelectSlot = (i: number) => {
     activeChartIndexRef.current = i;
     workspaceCoord.handleSelectChartSlot(i);
   };
 
-  const handleDateRangeSync = (_eventSlotIndex: number) => {
-    if (!syncDateRangeRef.current) return;
-    if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
+  const handleDateRangeSync = (eventSlotIndex: number) => {
+    if (!syncDateRangeRef.current || isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
 
-    const sourceIndex = activeChartIndexRef.current;
+    // Distinguish genuine physical user interaction from programmatic sync update
+    const isPhysicalUserSource = userInteractingSlotRef.current === eventSlotIndex || activeChartIndexRef.current === eventSlotIndex;
+    if (!isPhysicalUserSource && userInteractingSlotRef.current !== null) return;
+
+    const sourceIndex = eventSlotIndex;
 
     isSyncingRangeRef.current = true;
     try {

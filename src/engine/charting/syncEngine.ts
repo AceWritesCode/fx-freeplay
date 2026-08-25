@@ -267,7 +267,6 @@ export const syncDateRange = (
     const targetTfMs = getTimeframeMs(slots[i]?.timeframe || '1m');
     const targetSymbol = slots[i]?.symbol;
     const sourceSymbol = slots[sourceIndex]?.symbol;
-
     if (sourceSymbol === targetSymbol && slots[i]?.timeframe === slots[sourceIndex]?.timeframe) {
       const oldSpace = getChartBarSpace(sourceChart);
       const oldOffset = getTrueOffsetRightDistance(sourceChart);
