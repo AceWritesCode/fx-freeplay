@@ -436,7 +436,9 @@ export function ChartWorkspace() {
   }, [syncDrawings, drawingCoord]);
   useEffect(() => {
     activeChartIndexRef.current = activeChartIndex;
-  }, [activeChartIndex]);
+    const activeSlot = slots[activeChartIndex];
+    console.log(`[ACTIVATION] Chart Slot #${activeChartIndex + 1} activated (Symbol: ${activeSlot?.symbol || 'N/A'}, Timeframe: ${activeSlot?.timeframe || 'N/A'})`);
+  }, [activeChartIndex, slots]);
   useEffect(() => {
     slotsRef.current = slots;
   }, [slots]);

@@ -998,6 +998,10 @@ export function useWorkspaceCoordinator(
       const tfData = await getOrImportTimeframeData(slot.symbol, tf);
 
       if (tfData.length > 0) {
+        setAllTimeframesData((prev) => ({
+          ...prev,
+          [tf]: tfData,
+        }));
         const profile = symbolProfileCache.get(slot.symbol) || await watchlistRepository.getSymbolProfile(slot.symbol);
         if (profile && !symbolProfileCache.has(slot.symbol)) {
           symbolProfileCache.set(slot.symbol, profile);
