@@ -1035,7 +1035,8 @@ export function useWorkspaceCoordinator(
   };
 
   const handleSelectChartSlot = (index: number) => {
-    if (index === activeChartIndex) return;
+    const currentActiveIndex = useLayoutStore.getState().activeChartIndex;
+    if (index === currentActiveIndex) return;
     setActiveChartIndex(index);
   };
 
