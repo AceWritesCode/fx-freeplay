@@ -285,5 +285,17 @@ export const syncDateRange = (
       
       targetChart.setOffsetRightDistance(offsetRightDistance);
     }
+
+    // Invalidate target chart's candle pane natively to force an immediate canvas repaint
+    const pane = targetChart.getDrawPaneById?.('candle_pane');
+    if (pane) {
+      if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
+        pane.getWidget().invalidate();
+      } else if (typeof pane.requestInvalidate === 'function') {
+        pane.requestInvalidate();
+      } else if (typeof pane.invalidate === 'function') {
+        pane.invalidate();
+      }
+    }
   }
 };
