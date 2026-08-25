@@ -964,11 +964,11 @@ export function ChartWorkspace() {
     isSyncingRangeRef.current = false;
   };
 
-  const handleDateRangeSync = (_eventSlotIndex: number) => {
+  const handleDateRangeSync = (eventSlotIndex: number) => {
     if (!syncDateRangeRef.current) return;
     if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
 
-    const sourceIndex = activeChartIndexRef.current;
+    const sourceIndex = eventSlotIndex;
 
     isSyncingRangeRef.current = true;
     try {
