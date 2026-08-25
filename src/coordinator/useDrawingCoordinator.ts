@@ -108,12 +108,26 @@ export function useDrawingCoordinator(
       for (let i = 0; i < visibleCount; i++) {
         const chart = chartInstancesRef.current[i];
         if (chart) {
+          let chartNeedsInvalidate = false;
           const targetOverlays = chart.getOverlays();
           targetOverlays.forEach((ov: any) => {
             if (ov.id?.startsWith('sync_')) {
               chart.removeOverlay({ id: ov.id });
+              chartNeedsInvalidate = true;
             }
           });
+          if (chartNeedsInvalidate) {
+            const pane = (chart as any).getDrawPaneById?.('candle_pane');
+            if (pane) {
+              if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
+                pane.getWidget().invalidate();
+              } else if (typeof pane.requestInvalidate === 'function') {
+                pane.requestInvalidate();
+              } else if (typeof pane.invalidate === 'function') {
+                pane.invalidate();
+              }
+            }
+          }
         }
       }
       return;
@@ -210,10 +224,13 @@ export function useDrawingCoordinator(
       const desiredCopies = activeOriginals.filter((item) => item.chartIndex !== i);
       const desiredCopyIds = new Set(desiredCopies.map((item) => `sync_${item.overlay.id}_from_${item.chartIndex}`));
 
+      let targetNeedsInvalidate = false;
+
       // Remove only stale synced copies
       existingSyncedCopies.forEach((copy: any) => {
         if (!desiredCopyIds.has(copy.id)) {
           (targetChart as any).removeOverlay({ id: copy.id });
+          targetNeedsInvalidate = true;
         }
       });
 
@@ -236,6 +253,7 @@ export function useDrawingCoordinator(
               visible: orig.visible !== false,
               styles: orig.styles,
             });
+            targetNeedsInvalidate = true;
           }
         } else {
           const interactiveOptions = getInteractiveOverlayOptions(
@@ -272,8 +290,22 @@ export function useDrawingCoordinator(
               }, 50);
             },
           });
+          targetNeedsInvalidate = true;
         }
       });
+
+      if (targetNeedsInvalidate) {
+        const pane = (targetChart as any).getDrawPaneById?.('candle_pane');
+        if (pane) {
+          if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
+            pane.getWidget().invalidate();
+          } else if (typeof pane.requestInvalidate === 'function') {
+            pane.requestInvalidate();
+          } else if (typeof pane.invalidate === 'function') {
+            pane.invalidate();
+          }
+        }
+      }
     }
 
     // Persist original drawings per symbol to DrawingRepository
