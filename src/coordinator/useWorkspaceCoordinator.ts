@@ -134,40 +134,46 @@ export function useWorkspaceCoordinator(
 
         // Restore Watchlist & Import Mode & Active Symbol & Folder Handles
         const savedWatchlist = await watchlistRepository.getWatchlistSymbols();
-        const savedImportMode = await watchlistRepository.getImportMode();
-        const savedActiveSymbol = await watchlistRepository.getActiveSymbol();
-        const savedFolderHandles = await watchlistRepository.getFolderHandles();
+        if (savedWatchlist.length === 0) {
+          if (isMounted) {
+            await resetWorkspace();
+          }
+        } else {
+          const savedImportMode = await watchlistRepository.getImportMode();
+          const savedActiveSymbol = await watchlistRepository.getActiveSymbol();
+          const savedFolderHandles = await watchlistRepository.getFolderHandles();
 
-        if (isMounted) {
-          useWatchlistStore.getState().setInitialState({
-            watchlistSymbols: savedWatchlist,
-            importMode: savedImportMode,
-            activeWatchlistSymbol: savedActiveSymbol,
-            savedFolderHandles,
-          });
-        }
+          if (isMounted) {
+            useWatchlistStore.getState().setInitialState({
+              watchlistSymbols: savedWatchlist,
+              importMode: savedImportMode,
+              activeWatchlistSymbol: savedActiveSymbol,
+              savedFolderHandles,
+            });
+          }
 
-        // Restore market data for all saved slots
-        const visibleCount = getLayoutChartCount(savedLayout?.layoutType || '1');
-        console.log(`[DEBUG] bootstrapWorkspace - visibleCount: ${visibleCount}, savedLayout slots:`, savedLayout?.slots);
-        for (let i = 0; i < visibleCount; i++) {
-          const slot = savedLayout?.slots?.[i];
-          if (slot && slot.symbol && isMounted) {
-            const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
-            if (bars1m && bars1m.length > 0) {
-              rawDataCache.set(slot.symbol, bars1m);
-            }
-            const chart = chartInstancesRef.current[i];
-            if (chart && isMounted) {
-              await loadDataForSlot(i, chart);
+          // Restore market data for all saved slots
+          const visibleCount = getLayoutChartCount(savedLayout?.layoutType || '1');
+          console.log(`[DEBUG] bootstrapWorkspace - visibleCount: ${visibleCount}, savedLayout slots:`, savedLayout?.slots);
+          for (let i = 0; i < visibleCount; i++) {
+            const slot = savedLayout?.slots?.[i];
+            if (slot && slot.symbol && isMounted) {
+              const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
+              if (bars1m && bars1m.length > 0) {
+                rawDataCache.set(slot.symbol, bars1m);
+              }
+              const chart = chartInstancesRef.current[i];
+              if (chart && isMounted) {
+                await loadDataForSlot(i, chart);
+              }
             }
           }
-        }
 
-        // Load drawings for the active symbol
-        if (savedActiveSymbol && isMounted) {
-          console.log(`[DEBUG] bootstrapWorkspace - Loading drawings for active symbol ${savedActiveSymbol}`);
-          await loadDrawingsForSymbol(savedActiveSymbol);
+          // Load drawings for the active symbol
+          if (savedActiveSymbol && isMounted) {
+            console.log(`[DEBUG] bootstrapWorkspace - Loading drawings for active symbol ${savedActiveSymbol}`);
+            await loadDrawingsForSymbol(savedActiveSymbol);
+          }
         }
       } catch (err) {
         console.error('Failed to bootstrap workspace repositories:', err);
@@ -515,6 +521,27 @@ export function useWorkspaceCoordinator(
       rawDataCache.set(symbolName, raw1m);
     }
 
+    const profile = await watchlistRepository.getSymbolProfile(symbolName);
+    let updatedSettings = { ...settings };
+    if (profile) {
+      updatedSettings = {
+        ...settings,
+        brokerTimezoneOffset: profile.brokerTimezoneOffset,
+        brokerTimezoneLabel: profile.brokerTimezoneLabel,
+        pricePrecision: profile.pricePrecision,
+      };
+      setSettings(updatedSettings);
+      await settingsRepository.saveSettings(updatedSettings);
+      
+      const visibleCount = getLayoutChartCount(useLayoutStore.getState().layoutType);
+      for (let i = 0; i < visibleCount; i++) {
+        const c = chartInstancesRef.current[i];
+        if (c) {
+          applySettingsToChart(c, updatedSettings);
+        }
+      }
+    }
+
     dataVersionRef.current += 1;
     setAllTimeframesData({ [targetTf]: targetData });
 
@@ -522,7 +549,7 @@ export function useWorkspaceCoordinator(
 
     const chart = chartInstancesRef.current[activeChartIndex];
     if (chart) {
-      const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(targetData);
+      const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(targetData);
       chart.setSymbol({ ticker: symbolName, pricePrecision: precision, volumePrecision: 4 });
     }
     console.log(`[DEBUG] handleWatchlistSymbolSwitch - Switched to '${symbolName}'`);
@@ -533,109 +560,133 @@ export function useWorkspaceCoordinator(
     }, 0);
   };
 
-  const processCSVFile = (file: File) => {
-    console.log(`[DEBUG] processCSVFile - Ingesting file '${file.name}' (${file.size} bytes)`);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      if (!text) {
-        console.error('[DEBUG] processCSVFile - CSV text payload is empty.');
-        return;
+  const validateImportedSymbol = async (
+    symbol: string,
+    timeframeFiles: Record<string, File>,
+    profileFile?: File
+  ): Promise<{ isValid: boolean; errorMsg?: string; profileData?: any }> => {
+    // 1. Validate Symbol Profile if provided
+    let profileData: any = null;
+    if (profileFile) {
+      try {
+        const text = await profileFile.text();
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object') {
+          return { isValid: false, errorMsg: `Symbol Profile for ${symbol} is not a valid JSON object.` };
+        }
+        if (!parsed.symbol || typeof parsed.symbol !== 'string' || parsed.symbol.trim() === '') {
+          return { isValid: false, errorMsg: `Symbol Profile for ${symbol} must contain a non-empty 'symbol' string.` };
+        }
+        if (parsed.symbol.toUpperCase() !== symbol.toUpperCase()) {
+          return { isValid: false, errorMsg: `Symbol Profile symbol '${parsed.symbol}' does not match folder symbol '${symbol}'.` };
+        }
+        if (
+          parsed.pricePrecision === undefined ||
+          parsed.brokerTimezoneOffset === undefined ||
+          parsed.brokerTimezoneLabel === undefined
+        ) {
+          return {
+            isValid: false,
+            errorMsg: `Symbol Profile for ${symbol} must contain required fields: pricePrecision, brokerTimezoneOffset, brokerTimezoneLabel.`,
+          };
+        }
+        profileData = parsed;
+      } catch (err) {
+        return { isValid: false, errorMsg: `Failed to parse SymbolProfile.json for ${symbol}: ${(err as Error).message}` };
       }
+    } else {
+      return { isValid: false, errorMsg: `Missing SymbolProfile.json for ${symbol} in the selected folder.` };
+    }
 
-      const result = parseCSV(text);
-      console.log(`[DEBUG] processCSVFile - Parsing completed. Row Count: ${result.rowCount}, Valid Bars: ${result.parsedCount}, Skipped: ${result.skippedCount}`);
+    // 2. Validate Timeframe CSV files
+    const timeframes = Object.keys(timeframeFiles);
+    if (timeframes.length === 0) {
+      return { isValid: false, errorMsg: `No timeframe CSV files found for symbol ${symbol}.` };
+    }
 
-      setParseFeedback({
-        errors: result.errors,
-        headers: result.headers,
-        rowCount: result.rowCount,
-        parsedCount: result.parsedCount,
-        skippedCount: result.skippedCount,
-      });
-
-      if (result.parsedCount === 0) {
-        console.error('[DEBUG] processCSVFile - Failed completely. No valid candlestick bars could be extracted.');
-        return;
+    for (const tf of timeframes) {
+      const file = timeframeFiles[tf];
+      try {
+        const text = await file.text();
+        const parsed = parseCSV(text);
+        if (parsed.parsedCount === 0) {
+          return { isValid: false, errorMsg: `File ${file.name} for timeframe ${tf} contains no valid candlestick data.` };
+        }
+      } catch (err) {
+        return { isValid: false, errorMsg: `Failed to parse CSV file ${file.name}: ${(err as Error).message}` };
       }
+    }
 
-      const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
-      rawDataCache.set(cleanName, result.data);
-
-      let updatedSettings = { ...settings };
-      const detectedPrecision = detectPricePrecision(result.data);
-
-      setSettings(updatedSettings);
-
-      const chart = chartInstancesRef.current[activeChartIndex];
-      if (chart) {
-        applySettingsToChart(chart, updatedSettings);
-      }
-
-      resetReplay();
-      dataVersionRef.current += 1;
-      regenerateTimeframes(result.data, updatedSettings, '1m');
-
-      let updatedWatchlist: any[] = [];
-      const entry = { name: cleanName, settings: updatedSettings };
-
-      const filtered = watchlistSymbols.filter(
-        (s) => s.name !== activeWatchlistSymbol || activeWatchlistSymbol === cleanName
-      );
-      const exists = filtered.findIndex((s) => s.name === cleanName);
-      let nextList = [...filtered];
-      if (exists >= 0) {
-        nextList[exists] = entry;
-      } else {
-        nextList.push(entry);
-      }
-      updatedWatchlist = nextList;
-      setWatchlistSymbols(updatedWatchlist);
-
-      setActiveWatchlistSymbol(cleanName);
-      const layoutStore = useLayoutStore.getState();
-      const newSlots = [...layoutStore.slots];
-      newSlots[activeChartIndex] = { symbol: cleanName, timeframe: '1m' };
-      if (layoutStore.syncSymbol) {
-        newSlots.forEach((_, idx) => {
-          newSlots[idx] = { ...newSlots[idx], symbol: cleanName };
-        });
-      }
-      if (layoutStore.syncInterval) {
-        newSlots.forEach((_, idx) => {
-          newSlots[idx] = { ...newSlots[idx], timeframe: '1m' };
-        });
-      }
-      layoutStore.setSlots(newSlots);
-      workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
-
-      marketDataRepository.saveBars(cleanName, '1m', result.data);
-      watchlistRepository.saveWatchlistSymbols(updatedWatchlist);
-      watchlistRepository.saveActiveSymbol(cleanName);
-
-      if (chart) {
-        const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectedPrecision;
-        chart.setSymbol({ ticker: cleanName, pricePrecision: precision, volumePrecision: 4 });
-        chart.setPeriod({ type: 'minute', span: 1 });
-      }
-    };
-    reader.readAsText(file);
+    return { isValid: true, profileData };
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      processCSVFile(e.target.files[0]);
-    }
+  const resetWorkspace = async () => {
+    // 1. Reset layout store
+    const layoutStore = useLayoutStore.getState();
+    const defaultSlots = [
+      { symbol: null, timeframe: '1m' },
+      { symbol: null, timeframe: '1m' },
+      { symbol: null, timeframe: '1m' },
+      { symbol: null, timeframe: '1m' },
+    ];
+    layoutStore.setSlots(defaultSlots);
+    layoutStore.setLayoutType('1');
+    layoutStore.setActiveChartIndex(0);
+
+    // 2. Save reset layout to DB
+    await workspaceLayoutRepository.saveLayoutConfig({
+      layoutType: '1',
+      slots: defaultSlots,
+      layoutSizes: {},
+    });
+
+    // 3. Reset watchlist store active symbol, handles, etc.
+    setActiveWatchlistSymbol(null);
+    await watchlistRepository.saveActiveSymbol(null);
+    setWatchlistSymbols([]);
+    await watchlistRepository.saveWatchlistSymbols([]);
+    setSymbolFilesMap({});
+    await watchlistRepository.saveFolderHandles([]);
+    await watchlistRepository.clearAllSymbolProfiles();
+    localStorage.removeItem('fx_directory_handles');
+    setSavedFolderHandles([]);
+    setParseFeedback(null);
+
+    // 4. Clear memory caches
+    rawDataCache.clear();
+    setAllTimeframesData({ '1m': [] });
+
+    // 5. Reset Replay
+    resetReplay();
+
+    // 6. Reset each chart instance
+    chartInstancesRef.current.forEach((chart, idx) => {
+      if (chart) {
+        try {
+          chart.setDataLoader({
+            getBars: ({ callback }: any) => {
+              callback([]);
+            },
+          });
+          chart.resetData();
+          chart.setSymbol({ ticker: 'No Symbol', pricePrecision: 4, volumePrecision: 4 });
+        } catch (e) {
+          console.warn(`[DEBUG] Failed to reset chart ${idx}:`, e);
+        }
+      }
+    });
   };
 
   const processDirectoryHandle = async (
     dirHandle: any,
     symbolMap: Record<string, Record<string, File>>,
+    profileMap: Record<string, File>,
     currentPath: string = ''
   ) => {
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file') {
-        if (entry.name.toLowerCase().endsWith('.csv')) {
+        const lowerName = entry.name.toLowerCase();
+        if (lowerName.endsWith('.csv')) {
           const file = await entry.getFile();
           const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
           const parts = relativePath.split('/');
@@ -644,7 +695,7 @@ export function useWorkspaceCoordinator(
           let filename = '';
 
           if (parts.length >= 3) {
-            symbol = parts[1].toUpperCase();
+            symbol = parts[parts.length - 2].toUpperCase();
             filename = parts[parts.length - 1];
           } else if (parts.length === 2) {
             symbol = parts[0].toUpperCase();
@@ -662,10 +713,22 @@ export function useWorkspaceCoordinator(
             }
             symbolMap[symbol][tf] = file;
           }
+        } else if (lowerName === 'symbolprofile.json' || lowerName.endsWith('symbolprofile.json')) {
+          const file = await entry.getFile();
+          const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+          const parts = relativePath.split('/');
+
+          let symbol = '';
+          if (parts.length >= 2) {
+            symbol = parts[parts.length - 2].toUpperCase();
+          }
+          if (symbol) {
+            profileMap[symbol] = file;
+          }
         }
       } else if (entry.kind === 'directory') {
         const nextPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-        await processDirectoryHandle(entry, symbolMap, nextPath);
+        await processDirectoryHandle(entry, symbolMap, profileMap, nextPath);
       }
     }
   };
@@ -674,16 +737,22 @@ export function useWorkspaceCoordinator(
     try {
       setIsLoadingSymbol(true);
       const mergedSymbolMap: Record<string, Record<string, File>> = {};
+      const mergedProfileMap: Record<string, File> = {};
 
       for (const dirHandle of handlesToUse) {
         const symbolMap: Record<string, Record<string, File>> = {};
-        await processDirectoryHandle(dirHandle, symbolMap, dirHandle.name);
+        const profileMap: Record<string, File> = {};
+        await processDirectoryHandle(dirHandle, symbolMap, profileMap, dirHandle.name);
 
         Object.entries(symbolMap).forEach(([sym, files]) => {
           mergedSymbolMap[sym] = {
             ...(mergedSymbolMap[sym] || {}),
             ...files,
           };
+        });
+
+        Object.entries(profileMap).forEach(([sym, file]) => {
+          mergedProfileMap[sym] = file;
         });
       }
 
@@ -697,22 +766,66 @@ export function useWorkspaceCoordinator(
         return;
       }
 
+      // Validate all discovered symbols
+      const validSymbols: string[] = [];
+      const validationErrors: string[] = [];
+      const parsedProfiles: Record<string, any> = {};
+
+      for (const sym of symbolsList) {
+        const profileFile = mergedProfileMap[sym];
+        const tfFiles = mergedSymbolMap[sym];
+
+        const validationResult = await validateImportedSymbol(sym, tfFiles, profileFile);
+        if (validationResult.isValid) {
+          validSymbols.push(sym);
+          parsedProfiles[sym] = validationResult.profileData;
+        } else {
+          validationErrors.push(validationResult.errorMsg || `Validation failed for ${sym}`);
+        }
+      }
+
+      if (validSymbols.length === 0) {
+        setCustomAlert({
+          title: 'Import Validation Failed',
+          message: `None of the symbol folders passed validation:\n\n${validationErrors.join('\n')}`,
+        });
+        setIsLoadingSymbol(false);
+        return;
+      }
+
+      if (validationErrors.length > 0) {
+        setCustomAlert({
+          title: 'Import Warning',
+          message: `The following folders failed validation and were skipped:\n\n${validationErrors.join('\n')}\n\nValid symbols will be imported.`,
+        });
+      }
+
+      // Commit the valid symbols' data and profiles to persistent storage
+      for (const sym of validSymbols) {
+        const profile = parsedProfiles[sym];
+        await watchlistRepository.saveSymbolProfile(sym, profile);
+
+        const tfFiles = mergedSymbolMap[sym];
+        for (const [tf, file] of Object.entries(tfFiles)) {
+          const text = await file.text();
+          const parsed = parseCSV(text);
+          if (parsed.parsedCount > 0) {
+            await marketDataRepository.saveBars(sym, tf, parsed.data);
+          }
+        }
+      }
+
       setSymbolFilesMap(mergedSymbolMap);
 
-      const watchlistItems = symbolsList.map(name => ({ name }));
+      const watchlistItems = validSymbols.map((name) => ({ name }));
       setWatchlistSymbols(watchlistItems);
       await watchlistRepository.saveWatchlistSymbols(watchlistItems);
-
-      const initialSelected: Record<string, boolean> = {};
-      symbolsList.forEach((sym) => {
-        initialSelected[sym] = true;
-      });
 
       setSavedFolderHandles(handlesToUse);
       await watchlistRepository.saveFolderHandles(handlesToUse);
 
-      if (autoImport && symbolsList.length > 0) {
-        const target = symbolsList[0];
+      if (autoImport && validSymbols.length > 0) {
+        const target = validSymbols[0];
         await handleWatchlistSymbolSwitch(target, undefined, mergedSymbolMap);
       }
     } catch (err) {
@@ -762,12 +875,7 @@ export function useWorkspaceCoordinator(
 
   const handleClearFolderHandles = async () => {
     try {
-      await watchlistRepository.saveFolderHandles([]);
-      localStorage.removeItem('fx_directory_handles');
-      setSavedFolderHandles([]);
-      setSymbolFilesMap({});
-      setWatchlistSymbols([]);
-      setActiveWatchlistSymbol(null);
+      await resetWorkspace();
     } catch (err) {
       console.error('[DEBUG] Error clearing handles:', err);
     }
@@ -786,7 +894,10 @@ export function useWorkspaceCoordinator(
       const tfData = await getOrImportTimeframeData(slot.symbol, tf);
 
       if (tfData.length > 0) {
-        const precision = settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData);
+        const profile = await watchlistRepository.getSymbolProfile(slot.symbol);
+        const precision = profile?.pricePrecision !== undefined
+          ? profile.pricePrecision
+          : (settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData));
 
         chart.setSymbol({ ticker: slot.symbol, pricePrecision: precision, volumePrecision: 4 });
         chart.setPeriod({ type: tf.endsWith('h') ? 'hour' : 'minute', span: tf.endsWith('h') ? parseInt(tf) : 1 });
@@ -833,13 +944,7 @@ export function useWorkspaceCoordinator(
 
   const handleClearDatabase = async () => {
     await marketDataRepository.clearAll();
-    await watchlistRepository.saveWatchlistSymbols([]);
-    await watchlistRepository.saveActiveSymbol(null);
-    await handleClearFolderHandles();
-    rawDataCache.clear();
-    setAllTimeframesData({ '1m': [] });
-    setWatchlistSymbols([]);
-    setActiveWatchlistSymbol(null);
+    await resetWorkspace();
   };
 
   const handleWatchlistRemoveConfirm = async (symbolName: string) => {
@@ -847,15 +952,21 @@ export function useWorkspaceCoordinator(
     const nextList = watchlistSymbols.filter((s) => s.name !== symbolName);
     await marketDataRepository.deleteBars(symbolName);
     await drawingRepository.clearDrawings(symbolName);
+    await watchlistRepository.deleteSymbolProfile(symbolName);
     await watchlistRepository.saveWatchlistSymbols(nextList);
 
-    if (activeWatchlistSymbol === symbolName) {
-      if (nextList.length > 0) {
-        handleWatchlistSymbolSwitch(nextList[0].name);
-      } else {
-        rawDataCache.clear();
-        setAllTimeframesData({ '1m': [] });
-        setActiveWatchlistSymbol(null);
+    const layoutStore = useLayoutStore.getState();
+    const newSlots = layoutStore.slots.map(slot =>
+      slot.symbol === symbolName ? { ...slot, symbol: null } : slot
+    );
+    layoutStore.setSlots(newSlots);
+    await workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
+
+    if (nextList.length === 0) {
+      await resetWorkspace();
+    } else {
+      if (activeWatchlistSymbol === symbolName || slots[activeChartIndex]?.symbol === symbolName) {
+        await handleWatchlistSymbolSwitch(nextList[0].name);
       }
     }
   };
@@ -910,8 +1021,6 @@ export function useWorkspaceCoordinator(
     watchlistToast,
     setWatchlistToast,
     getRawDataFromCache,
-    processCSVFile,
-    handleFileChange,
     handleSelectFolderAPI,
     handleRestoreSavedFolder,
     handleClearFolderHandles,

@@ -30,7 +30,6 @@ interface WorkspaceSidebarProps {
   activeSymbol: string | null;
   onRemoveSymbol: (sym: string) => void;
   onAddSymbolFolder?: () => void;
-  onAddSymbolFile?: (file: File) => void;
   chartInstancesRef: any;
   syncAllDrawings: () => void;
   drawingTrigger: number;
@@ -61,7 +60,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     activeSymbol,
     onRemoveSymbol,
     onAddSymbolFolder,
-    onAddSymbolFile,
     chartInstancesRef,
     syncAllDrawings,
     drawingTrigger,
@@ -73,7 +71,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
   } = props;
 
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const watchlistAddInputRef = useRef<HTMLInputElement>(null);
 
   // Resize handler for Right Panel
   const handleMouseDownResize = (e: React.MouseEvent) => {
@@ -178,32 +175,13 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                   {/* + Add symbol icon button */}
                   <button
                     onClick={() => {
-                      if (importMode === 'folder') {
-                        onAddSymbolFolder?.();
-                      } else {
-                        watchlistAddInputRef.current?.click();
-                      }
+                      onAddSymbolFolder?.();
                     }}
-                    title={importMode === 'folder' ? "Add symbol folder" : "Add symbol from CSV"}
+                    title="Add symbol folder"
                     className="p-1 rounded-md text-gray-500 hover:text-indigo-350 hover:bg-indigo-600/10 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
-                  <input
-                    ref={watchlistAddInputRef}
-                    type="file"
-                    accept=".csv"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        Array.from(e.target.files).forEach(file => {
-                          onAddSymbolFile?.(file);
-                        });
-                        e.target.value = '';
-                      }
-                    }}
-                  />
                 </div>
               </div>
 

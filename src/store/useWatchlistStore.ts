@@ -27,10 +27,16 @@ export const useWatchlistStore = create<WatchlistState>((set) => ({
   savedFolderHandle: null,
   savedFolderHandles: [],
   symbolFilesMap: {},
-  importMode: 'single',
+  importMode: 'folder',
 
   setInitialState: (config) =>
-    set((state) => ({ ...state, ...config })),
+    set((state) => {
+      const next = { ...state, ...config };
+      if (config.savedFolderHandles !== undefined) {
+        next.savedFolderHandle = config.savedFolderHandles[0] || null;
+      }
+      return next;
+    }),
 
   setWatchlistSymbols: (symbols) => set(() => ({ watchlistSymbols: symbols })),
   
@@ -38,7 +44,7 @@ export const useWatchlistStore = create<WatchlistState>((set) => ({
   
   setSavedFolderHandle: (handle) => set(() => ({ savedFolderHandle: handle })),
   
-  setSavedFolderHandles: (handles) => set(() => ({ savedFolderHandles: handles })),
+  setSavedFolderHandles: (handles) => set(() => ({ savedFolderHandles: handles, savedFolderHandle: handles[0] || null })),
   
   setSymbolFilesMap: (map) => set(() => ({ symbolFilesMap: map })),
   

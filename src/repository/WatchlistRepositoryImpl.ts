@@ -65,4 +65,29 @@ export class WatchlistRepositoryImpl implements WatchlistRepository {
       store.put(symbol, KEYS.ACTIVE_SYMBOL)
     );
   }
+
+  async getSymbolProfile(symbol: string): Promise<any | null> {
+    const profile = await executeTx<any | undefined>(
+      STORES.METADATA,
+      'readonly',
+      (store) => store.get(`profile:${symbol.toUpperCase()}`)
+    );
+    return profile || null;
+  }
+
+  async saveSymbolProfile(symbol: string, profile: any): Promise<void> {
+    await executeTx(STORES.METADATA, 'readwrite', (store) =>
+      store.put(profile, `profile:${symbol.toUpperCase()}`)
+    );
+  }
+
+  async deleteSymbolProfile(symbol: string): Promise<void> {
+    await executeTx(STORES.METADATA, 'readwrite', (store) =>
+      store.delete(`profile:${symbol.toUpperCase()}`)
+    );
+  }
+
+  async clearAllSymbolProfiles(): Promise<void> {
+    await executeTx(STORES.METADATA, 'readwrite', (store) => store.clear());
+  }
 }

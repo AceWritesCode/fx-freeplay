@@ -5,6 +5,7 @@ import {
   FileSpreadsheet,
   AlertCircle,
   X,
+  FolderOpen,
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
@@ -182,7 +183,6 @@ export function ChartWorkspace() {
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const subContainerRef1 = useRef<HTMLDivElement>(null);
   const subContainerRef2 = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCutAnimation = useRef<{
     timestamp: number;
     clickX: number;
@@ -230,9 +230,8 @@ export function ChartWorkspace() {
     watchlistSymbols,
     activeWatchlistSymbol,
     savedFolderHandle,
+    savedFolderHandles,
     symbolFilesMap,
-    importMode,
-    setImportMode,
   } = useWatchlistStore();
 
   const {
@@ -1169,9 +1168,6 @@ export function ChartWorkspace() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (importMode === 'single' && e.dataTransfer.files && e.dataTransfer.files[0]) {
-      workspaceCoord.processCSVFile(e.dataTransfer.files[0]);
-    }
   };
 
   const handleAddCustomTimeframe = (val: number, unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months') => {
@@ -1410,7 +1406,7 @@ export function ChartWorkspace() {
         LAYOUT_OPTIONS={layoutsList}
         handleSelectLayout={handleSelectLayout}
         onOpenThemeModal={() => setIsSettingsOpen(true)}
-        importMode={importMode}
+        importMode="folder"
         savedFolderHandle={savedFolderHandle}
         isVerifyingFolder={workspaceCoord.isVerifyingFolder}
         handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
@@ -1495,23 +1491,6 @@ export function ChartWorkspace() {
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-gray-400">Import Mode</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setImportMode('single')}
-                      className={`flex-1 p-2 border rounded text-xs cursor-pointer ${importMode === 'single' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-transparent border-gray-800 text-gray-400'}`}
-                    >
-                      Single File
-                    </button>
-                    <button
-                      onClick={() => setImportMode('folder')}
-                      className={`flex-1 p-2 border rounded text-xs cursor-pointer ${importMode === 'folder' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-transparent border-gray-800 text-gray-400'}`}
-                    >
-                      Folder Structure
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1578,23 +1557,11 @@ export function ChartWorkspace() {
                 </div>
                 <div className="flex flex-col gap-2.5 w-full">
                   <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
                     className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/15 border border-indigo-500 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
-                    Select CSV File (Single Mode)
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={workspaceCoord.handleFileChange}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
-                    className="w-full py-2.5 px-4 bg-[#1e222d] hover:bg-[#262b3a] text-gray-200 border border-gray-800 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    Open Directory (Folder Mode)
+                    <FolderOpen className="w-4 h-4" />
+                    <span>Open Directory (Folder Mode)</span>
                   </button>
                 </div>
               </div>
@@ -1656,7 +1623,7 @@ export function ChartWorkspace() {
             setIsResizingRightPanel(false);
           }}
           watchlistSymbols={watchlistSymbols}
-          importMode={importMode}
+          importMode="folder"
           savedFolderHandle={savedFolderHandle}
           isVerifyingFolder={workspaceCoord.isVerifyingFolder}
           handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
@@ -1667,7 +1634,6 @@ export function ChartWorkspace() {
           activeSymbol={activeWatchlistSymbol}
           onRemoveSymbol={setPendingRemoveSymbol}
           onAddSymbolFolder={workspaceCoord.handleWatchlistAddFolder}
-          onAddSymbolFile={workspaceCoord.handleWatchlistAddFile}
           chartInstancesRef={chartInstancesRef}
           syncAllDrawings={drawingCoord.syncAllDrawings}
           drawingTrigger={drawingCoord.drawingTrigger}
@@ -1729,10 +1695,8 @@ export function ChartWorkspace() {
         onSettingsSave={handleSettingsSave}
         hasData={hasData}
         onClearDatabase={workspaceCoord.handleClearDatabase}
-        onUploadNewDataset={workspaceCoord.processCSVFile}
         assetName={assetName}
-        importMode={importMode}
-        savedFolderHandle={savedFolderHandle}
+        savedFolderHandles={savedFolderHandles}
         onSelectFolder={async () => {
           setIsSettingsOpen(false);
           await workspaceCoord.handleSelectFolderAPI(undefined, true);

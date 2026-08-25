@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Database, Trash2, FileSpreadsheet, Upload, Folder, FolderOpen } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Database, Trash2, Folder, FolderOpen } from 'lucide-react';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -42,10 +42,8 @@ interface ThemeSettingsModalProps {
   onSettingsSave: (newSettings: ChartSettings) => void;
   hasData: boolean;
   onClearDatabase?: () => void;
-  onUploadNewDataset?: (file: File) => void;
   assetName?: string;
-  importMode?: 'single' | 'folder';
-  savedFolderHandle?: any;
+  savedFolderHandles?: any[];
   onSelectFolder?: () => void;
 }
 
@@ -58,10 +56,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   onSettingsSave,
   hasData,
   onClearDatabase,
-  onUploadNewDataset,
   assetName = 'No Asset Loaded',
-  importMode = 'single',
-  savedFolderHandle = null,
+  savedFolderHandles = [],
   onSelectFolder,
 }) => {
   if (!isOpen) return null;
@@ -720,151 +716,71 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 </div>
 
                 {!hasData ? (
-                  importMode === 'folder' ? (
-                    <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
-                      <Folder className="w-8 h-8 text-gray-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-gray-400 mb-1">No Folder Selected</p>
-                        <p className="text-[11px] text-gray-500 max-w-xs">
-                          Select a master folder containing subfolders for each trading pair to populate the watchlist and load charts.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onSelectFolder) onSelectFolder();
-                        }}
-                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5" />
-                        <span>Select Symbol Directory</span>
-                      </button>
+                  <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
+                    <Folder className="w-8 h-8 text-gray-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-400 mb-1">No Folder Selected</p>
+                      <p className="text-[11px] text-gray-500 max-w-xs">
+                        Select a master folder containing subfolders for each trading pair to populate the watchlist and load charts.
+                      </p>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
-                      <Database className="w-8 h-8 text-gray-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-gray-400 mb-1">No Dataset Loaded</p>
-                        <p className="text-[11px] text-gray-500 max-w-xs">
-                          Import a standard 1-Minute CSV dataset to begin replay and charting.
-                        </p>
-                      </div>
-                      <input
-                        type="file"
-                        id="modal-main-file-upload"
-                        accept=".csv"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0] && onUploadNewDataset) {
-                            onUploadNewDataset(e.target.files[0]);
-                            onClose();
-                          }
-                        }}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => document.getElementById('modal-main-file-upload')?.click()}
-                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Select Main CSV File</span>
-                      </button>
-                    </div>
-                  )
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onSelectFolder) onSelectFolder();
+                      }}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>Select Symbol Directory</span>
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-4">
                     {/* Active Dataset Section */}
                     <div className="bg-[#1a1d26]/40 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
-                      
-                      {importMode === 'folder' ? (
-                        <>
-                          <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
-                            <div>
-                              <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Symbol / Watchlist</span>
-                              <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
-                                {assetName}
-                              </span>
-                              {savedFolderHandle && (
-                                <span className="text-[10px] text-gray-400 block mt-1">
-                                  Folder: <span className="text-emerald-400 font-medium font-mono">{savedFolderHandle.name}</span>
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                              Connected
-                            </span>
-                          </div>
+                      <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
+                        <div>
+                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Symbol / Watchlist</span>
+                          <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
+                            {assetName}
+                          </span>
+                        </div>
+                        <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                          Connected
+                        </span>
+                      </div>
 
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (onSelectFolder) onSelectFolder();
-                              }}
-                              className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              <FolderOpen className="w-3.5 h-3.5" />
-                              <span>Change Folder</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setShowClearConfirm(true)}
-                              className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Clear Database</span>
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
-                            <div>
-                              <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Dataset</span>
-                              <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
-                                {assetName}
-                              </span>
-                            </div>
-                            <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                              Connected
-                            </span>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <input
-                              type="file"
-                              id="modal-change-file-upload"
-                              accept=".csv"
-                              onChange={(e) => {
-                                if (e.target.files && e.target.files[0] && onUploadNewDataset) {
-                                  onUploadNewDataset(e.target.files[0]);
-                                  onClose();
-                                }
-                              }}
-                              className="hidden"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => document.getElementById('modal-change-file-upload')?.click()}
-                              className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              <FileSpreadsheet className="w-3.5 h-3.5" />
-                              <span>Change File</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setShowClearConfirm(true)}
-                              className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Clear Database</span>
-                            </button>
-                          </div>
-                        </>
+                      {savedFolderHandles && savedFolderHandles.length > 0 && (
+                        <div className="bg-[#131722]/50 border border-gray-800/40 rounded-xl p-3 flex flex-col gap-1.5">
+                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Connected Directories</span>
+                          <span className="text-[11px] text-gray-300 font-medium truncate">
+                            {savedFolderHandles.map((h: any) => h.name).join(', ')}
+                          </span>
+                        </div>
                       )}
 
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onSelectFolder) onSelectFolder();
+                          }}
+                          className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" />
+                          <span>Change Folder</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowClearConfirm(true)}
+                          className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Data</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -978,9 +894,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-1">
                 <Trash2 className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold tracking-wider uppercase text-white">Clear Database?</h3>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-white">Delete Symbol Data?</h3>
               <p className="text-xs text-gray-400 leading-relaxed">
-                This will permanently delete your stored chart data, overlays, drawings, and session state. This action cannot be undone.
+                This will permanently delete the active symbol's timeframe data, drawings, and profile from local storage. This action cannot be undone.
               </p>
               <div className="flex items-center gap-3 justify-center mt-2">
                 <button
@@ -998,7 +914,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   }}
                   className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/25 transition-all cursor-pointer"
                 >
-                  Clear Everything
+                  Delete Data
                 </button>
               </div>
             </div>

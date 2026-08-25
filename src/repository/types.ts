@@ -39,6 +39,10 @@ export interface WatchlistRepository {
   saveImportMode(mode: 'single' | 'folder'): Promise<void>;
   getActiveSymbol(): Promise<string | null>;
   saveActiveSymbol(symbol: string | null): Promise<void>;
+  getSymbolProfile(symbol: string): Promise<any | null>;
+  saveSymbolProfile(symbol: string, profile: any): Promise<void>;
+  deleteSymbolProfile(symbol: string): Promise<void>;
+  clearAllSymbolProfiles(): Promise<void>;
 }
 
 export interface WorkspaceLayoutRepository {
