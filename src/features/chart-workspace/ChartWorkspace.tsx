@@ -972,7 +972,27 @@ export function ChartWorkspace() {
 
   const prevActiveChartIndexRef = useRef<number>(activeChartIndex);
   useEffect(() => {
-    prevActiveChartIndexRef.current = activeChartIndex;
+    if (prevActiveChartIndexRef.current !== activeChartIndex) {
+      const prevChart = chartInstancesRef.current[prevActiveChartIndexRef.current];
+      if (prevChart) {
+        if (prevChart._chartEvent) {
+          prevChart._chartEvent._mouseDownWidget = null;
+          prevChart._chartEvent._startScrollCoordinate = null;
+          prevChart._chartEvent._touchCoordinate = null;
+        }
+        const pane = prevChart.getDrawPaneById?.('candle_pane');
+        if (pane) {
+          if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
+            pane.getWidget().invalidate();
+          } else if (typeof pane.requestInvalidate === 'function') {
+            pane.requestInvalidate();
+          } else if (typeof pane.invalidate === 'function') {
+            pane.invalidate();
+          }
+        }
+      }
+      prevActiveChartIndexRef.current = activeChartIndex;
+    }
     activeChartIndexRef.current = activeChartIndex;
   }, [activeChartIndex]);
 
