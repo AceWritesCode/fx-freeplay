@@ -967,10 +967,13 @@ export function ChartWorkspace() {
   const handleDateRangeSync = (sourceIndex: number) => {
     if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current || !syncDateRangeRef.current) return;
     isSyncingRangeRef.current = true;
-    executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
-    setTimeout(() => {
+    try {
+      executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
+    } catch (err) {
+      console.error('Error syncing date ranges:', err);
+    } finally {
       isSyncingRangeRef.current = false;
-    }, 50);
+    }
   };
 
   // Resizing layout columns
