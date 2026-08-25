@@ -192,6 +192,8 @@ export function useWorkspaceCoordinator(
               if (bars1m && bars1m.length > 0) {
                 rawDataCache.set(slot.symbol, bars1m);
               }
+              // Pre-load slot's timeframe data in background to make initial boot instant
+              getOrImportTimeframeData(slot.symbol, slot.timeframe).catch(console.error);
               const chart = chartInstancesRef.current[i];
               if (chart && isMounted) {
                 await loadDataForSlot(i, chart);
@@ -547,6 +549,8 @@ export function useWorkspaceCoordinator(
     let targetData: KLineData[] = [];
 
     try {
+      const tfsToLoad = files ? Object.keys(files) : ['1m', '5m', '15m', '30m', '1h', '4h', 'D'];
+      await Promise.all(tfsToLoad.map(tf => getOrImportTimeframeData(symbolName, tf)));
       targetData = await getOrImportTimeframeData(symbolName, targetTf);
     } catch (err) {
       console.error(`[DEBUG] handleWatchlistSymbolSwitch - failed to load data for ${symbolName}:`, err);
@@ -889,6 +893,13 @@ export function useWorkspaceCoordinator(
           const parsed = parseCSV(text);
           if (parsed.parsedCount > 0) {
             await marketDataRepository.saveBars(sym, tf, parsed.data);
+            
+            // Pre-populate in-memory cache so switching after import is instant with zero loading screen
+            const adjusted = adjustTimezone(parsed.data);
+            if (!timezoneAdjustedCache.has(sym)) {
+              timezoneAdjustedCache.set(sym, {});
+            }
+            timezoneAdjustedCache.get(sym)![tf] = adjusted;
           }
         });
         await Promise.all(importPromises);
