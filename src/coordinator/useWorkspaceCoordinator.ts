@@ -515,7 +515,6 @@ export function useWorkspaceCoordinator(
     preferredTf?: string,
     overrideFilesMap?: Record<string, Record<string, File>>
   ) => {
-    const switchStartTime = performance.now();
     const activeTf = slots[activeChartIndex]?.timeframe || '1m';
     let targetTf = preferredTf || activeTf || '1m';
 
@@ -624,7 +623,6 @@ export function useWorkspaceCoordinator(
         console.error(err);
       } finally {
         setIsLoadingSymbol(false);
-        console.log(`[PERF] Symbol switch to ${symbolName} (Timeframe: ${targetTf}) completed in ${(performance.now() - switchStartTime).toFixed(1)} ms. Cache Hit: ${hasCachedData}`);
       }
     }, 0);
   };
@@ -881,7 +879,6 @@ export function useWorkspaceCoordinator(
       }
 
       // Commit the valid symbols' data and profiles to persistent storage
-      const importStartTime = performance.now();
       for (const sym of validSymbols) {
         const profile = parsedProfiles[sym];
         await watchlistRepository.saveSymbolProfile(sym, profile);
@@ -896,7 +893,6 @@ export function useWorkspaceCoordinator(
         });
         await Promise.all(importPromises);
       }
-      console.log(`[PERF] Folder import for symbols [${validSymbols.join(', ')}] completed in ${(performance.now() - importStartTime).toFixed(1)} ms`);
 
       setSymbolFilesMap(mergedSymbolMap);
 
