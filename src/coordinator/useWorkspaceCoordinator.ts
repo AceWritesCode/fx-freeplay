@@ -57,6 +57,9 @@ export function parseTimezoneToLabelAndOffset(tz: string): { label: string; offs
 // Static, in-memory cache for raw 1-minute candlestick data to isolate heavy payloads from React state diffing
 const rawDataCache = new Map<string, KLineData[]>();
 
+// Static, in-memory cache for timezone-adjusted timeframe data to avoid repeated IndexedDB reads and timezone conversions
+const timezoneAdjustedCache = new Map<string, Record<string, KLineData[]>>();
+
 export function useWorkspaceCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
   _chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>,
@@ -213,6 +216,11 @@ export function useWorkspaceCoordinator(
     };
   }, []);
 
+  // Invalidate timezoneAdjustedCache when timezone settings change
+  useEffect(() => {
+    timezoneAdjustedCache.clear();
+  }, [settings.userTimezoneOffset, settings.brokerTimezoneOffset, settings.timezoneAdjustmentEnabled]);
+
   // Helper to retrieve raw 1m data for a symbol from in-memory cache
   const getRawDataFromCache = (symbol: string): KLineData[] => {
     return rawDataCache.get(symbol) || [];
@@ -232,13 +240,24 @@ export function useWorkspaceCoordinator(
   };
 
   const getOrImportTimeframeData = async (symbol: string, tf: string): Promise<KLineData[]> => {
-    // 1. Try to read from IndexedDB repository first!
-    const data = await marketDataRepository.getBars(symbol, tf) || [];
-    if (data.length > 0) {
-      return adjustTimezone(data);
+    // 1. Try to read from in-memory timezoneAdjustedCache first!
+    const cachedSymbol = timezoneAdjustedCache.get(symbol);
+    if (cachedSymbol && cachedSymbol[tf]) {
+      return cachedSymbol[tf];
     }
 
-    // 2. If not in DB, check files map (Folder import mode)
+    // 2. Try to read from IndexedDB repository first!
+    const data = await marketDataRepository.getBars(symbol, tf) || [];
+    if (data.length > 0) {
+      const adjusted = adjustTimezone(data);
+      if (!timezoneAdjustedCache.has(symbol)) {
+        timezoneAdjustedCache.set(symbol, {});
+      }
+      timezoneAdjustedCache.get(symbol)![tf] = adjusted;
+      return adjusted;
+    }
+
+    // 3. If not in DB, check files map (Folder import mode)
     const filesMap = useWatchlistStore.getState().symbolFilesMap;
     const files = filesMap[symbol];
     if (files) {
@@ -256,12 +275,17 @@ export function useWorkspaceCoordinator(
           }
           // Save the RAW parsed timeframe data so we never have to parse it again!
           await marketDataRepository.saveBars(symbol, tf, tfData);
-          return adjustTimezone(tfData);
+          const adjusted = adjustTimezone(tfData);
+          if (!timezoneAdjustedCache.has(symbol)) {
+            timezoneAdjustedCache.set(symbol, {});
+          }
+          timezoneAdjustedCache.get(symbol)![tf] = adjusted;
+          return adjusted;
         }
       }
     }
 
-    // 3. Fallback: try to load raw 1m from DB/cache and resample it
+    // 4. Fallback: try to load raw 1m from DB/cache and resample it
     let raw1m = getRawDataFromCache(symbol);
     if (raw1m.length === 0) {
       raw1m = await marketDataRepository.getBars(symbol, '1m') || [];
@@ -273,7 +297,12 @@ export function useWorkspaceCoordinator(
       const tfData = resample1mToTimeframe(raw1m, getTimeframeMinutes(tf));
       // Save raw resampled bars to DB
       await marketDataRepository.saveBars(symbol, tf, tfData);
-      return adjustTimezone(tfData);
+      const adjusted = adjustTimezone(tfData);
+      if (!timezoneAdjustedCache.has(symbol)) {
+        timezoneAdjustedCache.set(symbol, {});
+      }
+      timezoneAdjustedCache.get(symbol)![tf] = adjusted;
+      return adjusted;
     }
 
     return [];
@@ -486,14 +515,12 @@ export function useWorkspaceCoordinator(
     preferredTf?: string,
     overrideFilesMap?: Record<string, Record<string, File>>
   ) => {
-    setIsLoadingSymbol(true);
+    const switchStartTime = performance.now();
     const activeTf = slots[activeChartIndex]?.timeframe || '1m';
     let targetTf = preferredTf || activeTf || '1m';
 
     const currentFilesMap = overrideFilesMap || useWatchlistStore.getState().symbolFilesMap;
     const files = currentFilesMap[symbolName];
-
-    let targetData: KLineData[] = [];
 
     // Determine target timeframe
     if (files && !preferredTf) {
@@ -506,17 +533,25 @@ export function useWorkspaceCoordinator(
         if (!foundTf) {
           setWatchlistToast({ msg: `No valid timeframes found for '${symbolName}'.`, type: 'error' });
           setTimeout(() => setWatchlistToast(null), 2500);
-          setIsLoadingSymbol(false);
           return;
         }
         targetTf = foundTf;
       }
     }
 
+    const cachedSymbol = timezoneAdjustedCache.get(symbolName);
+    const hasCachedData = cachedSymbol && cachedSymbol[targetTf] && cachedSymbol[targetTf].length > 0;
+    if (!hasCachedData) {
+      setIsLoadingSymbol(true);
+    }
+
+    let targetData: KLineData[] = [];
+
     try {
       targetData = await getOrImportTimeframeData(symbolName, targetTf);
     } catch (err) {
       console.error(`[DEBUG] handleWatchlistSymbolSwitch - failed to load data for ${symbolName}:`, err);
+      setIsLoadingSymbol(false);
     }
 
     if (targetData.length === 0) {
@@ -582,8 +617,15 @@ export function useWorkspaceCoordinator(
     console.log(`[DEBUG] handleWatchlistSymbolSwitch - Switched to '${symbolName}'`);
 
     setTimeout(async () => {
-      await handleTimeframeSwitch(targetTf, symbolName);
-      await loadDrawingsForSymbol(symbolName);
+      try {
+        await handleTimeframeSwitch(targetTf, symbolName);
+        await loadDrawingsForSymbol(symbolName);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoadingSymbol(false);
+        console.log(`[PERF] Symbol switch to ${symbolName} (Timeframe: ${targetTf}) completed in ${(performance.now() - switchStartTime).toFixed(1)} ms. Cache Hit: ${hasCachedData}`);
+      }
     }, 0);
   };
 
@@ -688,6 +730,7 @@ export function useWorkspaceCoordinator(
 
     // 4. Clear memory caches
     rawDataCache.clear();
+    timezoneAdjustedCache.clear();
     setAllTimeframesData({ '1m': [] });
 
     // 5. Reset Replay
@@ -838,19 +881,22 @@ export function useWorkspaceCoordinator(
       }
 
       // Commit the valid symbols' data and profiles to persistent storage
+      const importStartTime = performance.now();
       for (const sym of validSymbols) {
         const profile = parsedProfiles[sym];
         await watchlistRepository.saveSymbolProfile(sym, profile);
 
         const tfFiles = mergedSymbolMap[sym];
-        for (const [tf, file] of Object.entries(tfFiles)) {
+        const importPromises = Object.entries(tfFiles).map(async ([tf, file]) => {
           const text = await file.text();
           const parsed = parseCSV(text);
           if (parsed.parsedCount > 0) {
             await marketDataRepository.saveBars(sym, tf, parsed.data);
           }
-        }
+        });
+        await Promise.all(importPromises);
       }
+      console.log(`[PERF] Folder import for symbols [${validSymbols.join(', ')}] completed in ${(performance.now() - importStartTime).toFixed(1)} ms`);
 
       setSymbolFilesMap(mergedSymbolMap);
 

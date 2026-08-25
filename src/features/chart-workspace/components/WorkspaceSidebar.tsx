@@ -21,7 +21,6 @@ interface WorkspaceSidebarProps {
   savedFolderHandle: any;
   isVerifyingFolder: boolean;
   handleRestoreSavedFolder: () => void;
-  symbolFilesMap: Record<string, any>;
   loadSymbolFromFolder: (sym: string) => void;
   activeSymbol: string | null;
   onRemoveSymbol: (sym: string) => void;
@@ -49,7 +48,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     savedFolderHandle,
     isVerifyingFolder,
     handleRestoreSavedFolder,
-    symbolFilesMap,
     loadSymbolFromFolder,
     activeSymbol,
     onRemoveSymbol,
@@ -198,7 +196,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
 
                 {watchlistSymbols.map((item) => {
                   const isSelected = item.name === activeSymbol;
-                  const hasFiles = symbolFilesMap[item.name] !== undefined;
 
                   return (
                     <div
@@ -222,11 +219,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                           <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-indigo-400' : 'bg-gray-750 group-hover:bg-gray-500'}`} />
                         )}
                         <span className="truncate text-xs font-semibold">{item.name}</span>
-                        {importMode === 'folder' && hasFiles && (
-                          <span className="text-[9px] px-1 bg-gray-950/60 text-gray-500 rounded font-mono group-hover/item:bg-gray-900">
-                            {Object.keys(symbolFilesMap[item.name]).length} TF
-                          </span>
-                        )}
                       </div>
 
                       <button

@@ -232,7 +232,6 @@ export function ChartWorkspace() {
     activeWatchlistSymbol,
     savedFolderHandle,
     savedFolderHandles,
-    symbolFilesMap,
   } = useWatchlistStore();
 
   const {
@@ -1628,7 +1627,6 @@ export function ChartWorkspace() {
           savedFolderHandle={savedFolderHandle}
           isVerifyingFolder={workspaceCoord.isVerifyingFolder}
           handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
-          symbolFilesMap={symbolFilesMap}
           loadSymbolFromFolder={handleWatchlistSymbolSwitch}
           activeSymbol={activeWatchlistSymbol}
           onRemoveSymbol={setPendingRemoveSymbol}
