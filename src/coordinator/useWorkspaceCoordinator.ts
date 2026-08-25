@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore } from '@/store';
 import { TIMEZONE_OPTIONS } from '@/config';
 import {
@@ -107,6 +107,7 @@ export function useWorkspaceCoordinator(
   } = useReplayStore();
 
   // Local Coordinator states
+  const isSwitchingTimeframeRef = useRef<boolean>(false);
   const [allTimeframesData, setAllTimeframesData] = useState<Record<string, KLineData[]>>({ '1m': [] });
   const [isLoadingSymbol, setIsLoadingSymbol] = useState<boolean>(false);
   const [isVerifyingFolder, setIsVerifyingFolder] = useState<boolean>(false);
@@ -363,157 +364,163 @@ export function useWorkspaceCoordinator(
     const isSymbolSwitch = !!overrideSymbol;
     const currentSymbol = overrideSymbol || slots[activeChartIndex]?.symbol || '';
 
+    isSwitchingTimeframeRef.current = true;
     setIsLoadingSymbol(true);
 
-    let targetData = isSymbolSwitch ? undefined : allTimeframesData[tf];
-
     try {
+      let targetData = isSymbolSwitch ? undefined : allTimeframesData[tf];
+
       if (!targetData || targetData.length === 0) {
         targetData = await getOrImportTimeframeData(currentSymbol, tf);
         if (targetData && targetData.length > 0) {
           setAllTimeframesData((prev) => ({ ...prev, [tf]: targetData } as Record<string, KLineData[]>));
         } else {
           console.error(`[DEBUG] handleTimeframeSwitch - Failed to generate data for timeframe ${tf}`);
-          setIsLoadingSymbol(false);
           return;
         }
       }
-    } catch (err) {
-      console.error('[DEBUG] handleTimeframeSwitch - Error loading timeframe data:', err);
-      setIsLoadingSymbol(false);
-      return;
-    }
 
-    const chart = chartInstancesRef.current[activeChartIndex];
-    if (chart) {
-      if (isSymbolSwitch) {
-        capturedOffsetRef.current = null;
-        wasManualScaleRef.current = false;
-        capturedYAxisRangeRef.current = null;
-        console.log(`[DEBUG] handleTimeframeSwitch - Symbol switch: cleared offset/scale cache.`);
-      } else {
-        capturedOffsetRef.current = getTrueOffsetRightDistance(chart);
-
-        let wasManual = false;
-        let range = null;
-        const pane = chart.getDrawPaneById?.('candle_pane');
-        const yAxis = pane?.getYAxisComponents?.()?.[0];
-        if (yAxis) {
-          wasManual = !yAxis.getAutoCalcTickFlag();
-          if (wasManual) {
-            const r = yAxis.getRange();
-            if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
-              range = r;
-            } else {
-              wasManual = false;
-            }
-          }
-        }
-        wasManualScaleRef.current = wasManual;
-        capturedYAxisRangeRef.current = range;
-
-        console.log(`[DEBUG] handleTimeframeSwitch - Captured offset before switch: ${capturedOffsetRef.current}, manual scale: ${wasManual}, range:`, range);
-      }
-    }
-
-    const activeReplay = isSymbolSwitch ? false : isReplayActive;
-    let alignedTimestamp = activeReplay ? replayCurrentTimestamp : null;
-    if (activeReplay && alignedTimestamp !== null && targetData) {
-      const fullData = targetData;
-      let alignedBar = null;
-      for (let i = fullData.length - 1; i >= 0; i--) {
-        if (fullData[i].timestamp <= alignedTimestamp) {
-          alignedBar = fullData[i];
-          break;
-        }
-      }
-      if (alignedBar) {
-        const originalTs = alignedTimestamp;
-        alignedTimestamp = alignedBar.timestamp;
-        console.log(`[DEBUG] handleTimeframeSwitch - Aligned replay timestamp from ${new Date(originalTs).toLocaleString()} to new timeframe ${tf} timestamp: ${new Date(alignedTimestamp).toLocaleString()}`);
-        setReplayCurrentTimestamp(alignedTimestamp);
-      }
-    }
-
-    const layoutStore = useLayoutStore.getState();
-    const newSlots = [...layoutStore.slots];
-    
-    newSlots[activeChartIndex] = { symbol: currentSymbol, timeframe: tf };
-    
-    if (layoutStore.syncSymbol && currentSymbol) {
-      newSlots.forEach((_, idx) => {
-        newSlots[idx] = { ...newSlots[idx], symbol: currentSymbol };
-      });
-    }
-    if (layoutStore.syncInterval) {
-      newSlots.forEach((_, idx) => {
-        newSlots[idx] = { ...newSlots[idx], timeframe: tf };
-      });
-    }
-    
-    layoutStore.setSlots(newSlots);
-    workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
-
-    if (chart && targetData) {
-      const visibleData = activeReplay && alignedTimestamp !== null
-        ? targetData.filter((d) => d.timestamp <= alignedTimestamp)
-        : targetData;
-
-      chart.setDataLoader({
-        getBars: ({ type: loadType, callback }: any) => {
-          if (loadType === 'init') {
-            callback(visibleData);
-          } else {
-            callback([]);
-          }
-        },
-      });
-      chart.resetData();
-      chart.setPeriod(parseTimeframeToPeriod(tf));
-
-      const scrollIndex = activeReplay && alignedTimestamp !== null
-        ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
-        : targetData.length - 1;
-
-      if (scrollIndex !== -1) {
-        chart.scrollToDataIndex(scrollIndex);
-
-        let space = 6;
-        const barSpaceVal = chart.getBarSpace();
-        if (barSpaceVal) {
-          if (typeof barSpaceVal === 'number') space = barSpaceVal;
-          else if (typeof barSpaceVal === 'object') space = barSpaceVal.bar || 6;
-        }
-
-        const offsetVal = capturedOffsetRef.current;
-        if (offsetVal !== null && offsetVal !== 0 && !isSymbolSwitch) {
-          const barsOffset = Math.round(offsetVal / space);
-          const targetScrollIndex = scrollIndex + barsOffset;
-          console.log(`[DEBUG] handleTimeframeSwitch - Restoring saved scroll offset: ${offsetVal}px (${barsOffset} bars). Snapping scroll index to: ${targetScrollIndex}`);
-          chart.scrollToDataIndex(targetScrollIndex);
+      const activeChart = chartInstancesRef.current[activeChartIndex];
+      if (activeChart) {
+        if (isSymbolSwitch) {
+          capturedOffsetRef.current = null;
+          wasManualScaleRef.current = false;
+          capturedYAxisRangeRef.current = null;
         } else {
-          const defaultOffset = chart.getSize() ? chart.getSize().width / 2 : 400;
-          const defaultBars = Math.round(defaultOffset / space);
-          const defaultScrollIndex = scrollIndex + defaultBars;
-          console.log(`[DEBUG] handleTimeframeSwitch - Using fallback scroll snap offset (center screen) index: ${defaultScrollIndex}`);
-          chart.scrollToDataIndex(defaultScrollIndex);
-        }
+          capturedOffsetRef.current = getTrueOffsetRightDistance(activeChart);
 
-        if (wasManualScaleRef.current && capturedYAxisRangeRef.current && !isSymbolSwitch) {
-          const pane = chart.getDrawPaneById?.('candle_pane');
+          let wasManual = false;
+          let range = null;
+          const pane = activeChart.getDrawPaneById?.('candle_pane');
           const yAxis = pane?.getYAxisComponents?.()?.[0];
           if (yAxis) {
-            yAxis.setRange(capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
+            wasManual = !yAxis.getAutoCalcTickFlag();
+            if (wasManual) {
+              const r = yAxis.getRange();
+              if (r && !isNaN(r.from) && !isNaN(r.to) && r.from < r.to) {
+                range = r;
+              } else {
+                wasManual = false;
+              }
+            }
+          }
+          wasManualScaleRef.current = wasManual;
+          capturedYAxisRangeRef.current = range;
+        }
+      }
+
+      const activeReplay = isSymbolSwitch ? false : isReplayActive;
+      let alignedTimestamp = activeReplay ? replayCurrentTimestamp : null;
+      if (activeReplay && alignedTimestamp !== null && targetData) {
+        const fullData = targetData;
+        let alignedBar = null;
+        for (let i = fullData.length - 1; i >= 0; i--) {
+          if (fullData[i].timestamp <= alignedTimestamp) {
+            alignedBar = fullData[i];
+            break;
+          }
+        }
+        if (alignedBar) {
+          alignedTimestamp = alignedBar.timestamp;
+          setReplayCurrentTimestamp(alignedTimestamp);
+        }
+      }
+
+      const layoutStore = useLayoutStore.getState();
+      const newSlots = [...layoutStore.slots];
+      
+      newSlots[activeChartIndex] = { symbol: currentSymbol, timeframe: tf };
+      
+      if (layoutStore.syncSymbol && currentSymbol) {
+        newSlots.forEach((_, idx) => {
+          newSlots[idx] = { ...newSlots[idx], symbol: currentSymbol };
+        });
+      }
+      if (layoutStore.syncInterval) {
+        newSlots.forEach((_, idx) => {
+          newSlots[idx] = { ...newSlots[idx], timeframe: tf };
+        });
+      }
+      
+      layoutStore.setSlots(newSlots);
+      workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
+
+      const visibleCount = getLayoutChartCount(layoutStore.layoutType);
+      const affectedIndices = layoutStore.syncInterval
+        ? Array.from({ length: visibleCount }, (_, i) => i)
+        : [activeChartIndex];
+
+      for (const idx of affectedIndices) {
+        const chart = chartInstancesRef.current[idx];
+        const slotSym = newSlots[idx]?.symbol || currentSymbol;
+        if (!chart || !slotSym) continue;
+
+        let slotData = (idx === activeChartIndex && targetData) ? targetData : await getOrImportTimeframeData(slotSym, tf);
+        if (!slotData || slotData.length === 0) continue;
+
+        const visibleData = activeReplay && alignedTimestamp !== null
+          ? slotData.filter((d) => d.timestamp <= alignedTimestamp)
+          : slotData;
+
+        chart.setDataLoader({
+          getBars: ({ type: loadType, callback }: any) => {
+            if (loadType === 'init') {
+              callback(visibleData);
+            } else {
+              callback([]);
+            }
+          },
+        });
+        chart.resetData();
+        chart.setPeriod(parseTimeframeToPeriod(tf));
+
+        const scrollIndex = activeReplay && alignedTimestamp !== null
+          ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
+          : slotData.length - 1;
+
+        if (scrollIndex !== -1) {
+          if (idx === activeChartIndex) {
+            let space = 6;
+            const barSpaceVal = chart.getBarSpace();
+            if (barSpaceVal) {
+              if (typeof barSpaceVal === 'number') space = barSpaceVal;
+              else if (typeof barSpaceVal === 'object') space = barSpaceVal.bar || 6;
+            }
+
+            const offsetVal = capturedOffsetRef.current;
+            if (offsetVal !== null && offsetVal !== 0 && !isSymbolSwitch) {
+              const barsOffset = Math.round(offsetVal / space);
+              const targetScrollIndex = scrollIndex + barsOffset;
+              chart.scrollToDataIndex(targetScrollIndex);
+            } else {
+              const defaultOffset = chart.getSize() ? chart.getSize().width / 2 : 400;
+              const defaultBars = Math.round(defaultOffset / space);
+              const defaultScrollIndex = scrollIndex + defaultBars;
+              chart.scrollToDataIndex(defaultScrollIndex);
+            }
+
+            if (wasManualScaleRef.current && capturedYAxisRangeRef.current && !isSymbolSwitch) {
+              const pane = chart.getDrawPaneById?.('candle_pane');
+              const yAxis = pane?.getYAxisComponents?.()?.[0];
+              if (yAxis) {
+                yAxis.setRange(capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
+              }
+            }
+          } else {
+            chart.scrollToDataIndex(scrollIndex);
           }
         }
       }
+
+      setTimeout(() => {
+        syncAllDrawings();
+      }, 50);
+    } catch (err) {
+      console.error('[DEBUG] handleTimeframeSwitch - Error loading timeframe data:', err);
+    } finally {
+      setIsLoadingSymbol(false);
+      isSwitchingTimeframeRef.current = false;
     }
-
-    setTimeout(() => {
-      syncAllDrawings();
-    }, 50);
-
-    setIsLoadingSymbol(false);
   };
 
   // Switch active symbol
@@ -1133,5 +1140,6 @@ export function useWorkspaceCoordinator(
     regenerateTimeframes,
     handleTimeframeSwitch,
     handleWatchlistSymbolSwitch,
+    isSwitchingTimeframeRef,
   };
 }

@@ -619,7 +619,7 @@ export function ChartWorkspace() {
         workspaceCoord.handleTimeframeSwitch(activeTimeframe, undefined);
       }
     }, 150);
-  }, [layoutType, hasData, activeTimeframe]);
+  }, [layoutType, hasData]);
 
   // Clean up all charts on unmount
   useEffect(() => {
@@ -965,7 +965,7 @@ export function ChartWorkspace() {
   };
 
   const handleDateRangeSync = (sourceIndex: number) => {
-    if (isSyncingRangeRef.current || !syncDateRangeRef.current) return;
+    if (isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current || !syncDateRangeRef.current) return;
     isSyncingRangeRef.current = true;
     executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
     isSyncingRangeRef.current = false;
