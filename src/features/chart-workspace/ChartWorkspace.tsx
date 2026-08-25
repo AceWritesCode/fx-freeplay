@@ -1577,6 +1577,12 @@ export function ChartWorkspace() {
               startResize={startResize}
               renderSlot={renderSlot}
             />
+            {/* Canvas-only loading spinner overlay */}
+            {workspaceCoord.isLoadingSymbol && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#131722]/60 backdrop-blur-[2px] select-none pointer-events-auto">
+                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+              </div>
+            )}
             {hasData && (
               <button
                 onClick={resetChartView}
@@ -1738,20 +1744,7 @@ export function ChartWorkspace() {
         </div>
       )}
 
-      {/* Importing Loader Overlay */}
-      {workspaceCoord.isLoadingSymbol && (
-        <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm select-none">
-          <div className="bg-[#1e222d] border border-indigo-500/20 p-8 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col items-center gap-4 animate-in zoom-in-95 duration-150">
-            <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center animate-spin">
-              <Loader2 className="w-6 h-6 animate-spin" />
-            </div>
-            <h3 className="text-sm font-bold tracking-wider uppercase text-white">Importing Folder Data</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Validating and importing timeframe CSVs and Symbol Info. This may take a moment...
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* Custom Alert Overlay Modal */}
       {workspaceCoord.customAlert && (
