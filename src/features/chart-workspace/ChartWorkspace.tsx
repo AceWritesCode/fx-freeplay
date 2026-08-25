@@ -28,6 +28,7 @@ import type { ChartSettings } from '@/config';
 
 import {
   getLayoutChartCount,
+  parseTimeframeToPeriod,
 } from '@/domain/market';
 
 import {
@@ -543,7 +544,7 @@ export function ChartWorkspace() {
             chart.setMaxOffsetRightDistance(10000);
             
             chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
-            chart.setPeriod({ type: 'minute', span: 1 });
+            chart.setPeriod(parseTimeframeToPeriod(slots[i]?.timeframe || '1m'));
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
               handleCrosshairSync(i, params);

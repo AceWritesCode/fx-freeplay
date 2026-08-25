@@ -20,6 +20,7 @@ import {
   getTimeframeMinutes,
   getBestTimeframeFile,
   getLayoutChartCount,
+  parseTimeframeToPeriod,
 } from '@/domain/market';
 import {
   buildTimeframeCache,
@@ -468,6 +469,7 @@ export function useWorkspaceCoordinator(
         },
       });
       chart.resetData();
+      chart.setPeriod(parseTimeframeToPeriod(tf));
 
       const scrollIndex = activeReplay && alignedTimestamp !== null
         ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
@@ -998,7 +1000,7 @@ export function useWorkspaceCoordinator(
           : (settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData));
 
         chart.setSymbol({ ticker: slot.symbol, pricePrecision: precision, volumePrecision: 4 });
-        chart.setPeriod({ type: tf.endsWith('h') ? 'hour' : 'minute', span: tf.endsWith('h') ? parseInt(tf) : 1 });
+        chart.setPeriod(parseTimeframeToPeriod(tf));
 
         const replayState = useReplayStore.getState();
         const visibleData = replayState.isReplayActive && replayState.replayCurrentTimestamp !== null

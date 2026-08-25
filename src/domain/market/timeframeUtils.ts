@@ -98,6 +98,28 @@ export const matchFileToTimeframe = (filename: string): string | null => {
   return null;
 };
 
+export const parseTimeframeToPeriod = (tf: string): { type: 'minute' | 'hour' | 'day' | 'week' | 'month'; span: number } => {
+  let span = 1;
+  let type: 'minute' | 'hour' | 'day' | 'week' | 'month' = 'minute';
+  if (tf.endsWith('m')) {
+    span = parseInt(tf, 10) || 1;
+    type = 'minute';
+  } else if (tf.endsWith('H') || tf.endsWith('h')) {
+    span = parseInt(tf, 10) || 1;
+    type = 'hour';
+  } else if (tf.endsWith('D') || tf.endsWith('d')) {
+    span = parseInt(tf, 10) || 1;
+    type = 'day';
+  } else if (tf.endsWith('W') || tf.endsWith('w')) {
+    span = parseInt(tf, 10) || 1;
+    type = 'week';
+  } else if (tf.endsWith('M')) {
+    span = parseInt(tf, 10) || 1;
+    type = 'month';
+  }
+  return { type, span };
+};
+
 export const getLayoutChartCount = (type: string): number => {
   if (type.startsWith('4')) return 4;
   if (type.startsWith('3')) return 3;
