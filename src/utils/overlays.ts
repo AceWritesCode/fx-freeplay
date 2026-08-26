@@ -482,7 +482,10 @@ export function getInteractiveOverlayOptions(
       }
     },
     onClick: (event: any) => {
-      const id = event.overlay.id;
+      const rawId = event.overlay.id;
+      const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
+      const id = syncMatch ? syncMatch[1] : rawId;
+
       if (event.chart._activeTool === 'eraser') {
         useDrawingStore.getState().removeSymbolDrawingById(id);
         runWorkspaceReconciliation(chartInstancesRef);

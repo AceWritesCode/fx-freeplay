@@ -507,6 +507,7 @@ export function ChartWorkspace() {
   const drawingsBySymbol = useDrawingStore((s) => s.drawingsBySymbol);
 
   useEffect(() => {
+    setSelectedOverlayIds([]);
     runWorkspaceReconciliation(chartInstancesRef);
   }, [drawingsBySymbol, slots, activeChartIndex, syncDrawings]);
 
@@ -1497,12 +1498,18 @@ export function ChartWorkspace() {
     });
     
     // Immediately synchronize if the flag is enabled
-    if (key === 'syncSymbol' && val) {
-      const activeSlot = slots[activeChartIndex];
-      if (activeSlot && activeSlot.symbol) {
-        const newSlots = slots.map((s) => ({ ...s, symbol: activeSlot.symbol }));
-        setSlots(newSlots);
-        workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
+    if (key === 'syncSymbol') {
+      setSelectedOverlayIds([]);
+      if (val) {
+        const activeSlot = slots[activeChartIndex];
+        if (activeSlot && activeSlot.symbol) {
+          const newSlots = slots.map((s) => ({ ...s, symbol: activeSlot.symbol }));
+          setSlots(newSlots);
+          workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
+          reconcileWorkspace(newSlots, chartInstancesRef, activeChartIndex, syncDrawings);
+        }
+      } else {
+        reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, syncDrawings);
       }
     }
     if (key === 'syncInterval' && val) {
