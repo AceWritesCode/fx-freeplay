@@ -2046,6 +2046,7 @@ export function ChartWorkspace() {
             });
           }
           setSelectedOverlayIds([]);
+          runWorkspaceReconciliation(chartInstancesRef);
         }}
       />
 

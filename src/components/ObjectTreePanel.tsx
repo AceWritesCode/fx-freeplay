@@ -969,6 +969,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     const originalId = syncMatch ? syncMatch[1] : id;
     if (activeSymbol) {
       useDrawingStore.getState().removeSymbolDrawing(activeSymbol, originalId);
+      syncAllDrawings();
     }
     setSelectedOverlayIds(prev => prev.filter(item => item !== id && item !== originalId));
   };

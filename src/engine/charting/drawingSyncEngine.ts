@@ -80,9 +80,7 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
   const { drawingsBySymbol, visibleSlots, activeIndex, isDrawingSyncEnabled } = input;
   const visibleCount = visibleSlots ? visibleSlots.length : 0;
   const validActiveIndex = activeIndex >= 0 && activeIndex < visibleCount ? activeIndex : 0;
-  const activeSlotSymbol = visibleSlots && visibleSlots[validActiveIndex]?.symbol
-    ? visibleSlots[validActiveIndex].symbol!.toUpperCase()
-    : null;
+  const isSingleChart = visibleCount === 1;
 
   const slotPlans: SlotSyncPlan[] = [];
 
@@ -93,57 +91,53 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
     const desiredOverlays = new Map<string, DesiredOverlayItem>();
 
     if (slotSymbol) {
-      if (isPrimarySlot) {
-        // RULE 1: Active slot receives original drawings belonging to activeSlotSymbol
-        const symbolDrawings = drawingsBySymbol[slotSymbol] || [];
-        symbolDrawings.forEach((d) => {
+      const symbolDrawings = drawingsBySymbol[slotSymbol] || [];
+
+      symbolDrawings.forEach((d) => {
+        const sourceSlotIndex = typeof d.extendData?.sourceSlotIndex === 'number'
+          ? d.extendData.sourceSlotIndex
+          : 0;
+
+        if (isSingleChart) {
+          // Single-chart layout: render canonical drawings relevant to visible symbol as original overlays (no sync copies)
           desiredOverlays.set(d.id, {
             originalId: d.id,
             overlayId: d.id,
-            sourceSlotIndex: slotIndex,
-            targetSlotIndex: slotIndex,
+            sourceSlotIndex: 0,
+            targetSlotIndex: 0,
             symbol: slotSymbol,
             isSyncedCopy: false,
             drawing: d,
           });
-        });
-      } else {
-        // Target slot (slotIndex !== validActiveIndex)
-        if (activeSlotSymbol && slotSymbol === activeSlotSymbol) {
-          // Same symbol as active chart slot
-          if (isDrawingSyncEnabled) {
-            // RULE 2: Same symbol + sync ON -> Target slot receives synced copies of active slot's drawings
-            const activeSymbolDrawings = drawingsBySymbol[activeSlotSymbol] || [];
-            activeSymbolDrawings.forEach((d) => {
-              const syncOverlayId = `sync_${d.id}_from_${validActiveIndex}`;
-              desiredOverlays.set(syncOverlayId, {
-                originalId: d.id,
-                overlayId: syncOverlayId,
-                sourceSlotIndex: validActiveIndex,
-                targetSlotIndex: slotIndex,
-                symbol: slotSymbol,
-                isSyncedCopy: true,
-                drawing: d,
-              });
-            });
-          }
-          // RULE 3: Same symbol + sync OFF -> Target slot receives NO drawings from active chart (desiredOverlays remains empty)
         } else {
-          // RULE 4: Different symbol than active chart slot -> Target slot receives drawings from its OWN symbol container
-          const ownSymbolDrawings = drawingsBySymbol[slotSymbol] || [];
-          ownSymbolDrawings.forEach((d) => {
+          // Multi-chart layout
+          if (sourceSlotIndex === slotIndex) {
+            // Owner slot renders original canonical drawing
             desiredOverlays.set(d.id, {
               originalId: d.id,
               overlayId: d.id,
-              sourceSlotIndex: slotIndex,
+              sourceSlotIndex,
               targetSlotIndex: slotIndex,
               symbol: slotSymbol,
               isSyncedCopy: false,
               drawing: d,
             });
-          });
+          } else if (isDrawingSyncEnabled) {
+            // Sync ON -> Non-owner slot renders synced copy projection
+            const syncOverlayId = `sync_${d.id}_from_${sourceSlotIndex}`;
+            desiredOverlays.set(syncOverlayId, {
+              originalId: d.id,
+              overlayId: syncOverlayId,
+              sourceSlotIndex,
+              targetSlotIndex: slotIndex,
+              symbol: slotSymbol,
+              isSyncedCopy: true,
+              drawing: d,
+            });
+          }
+          // Sync OFF & sourceSlotIndex !== slotIndex -> 0 overlay added
         }
-      }
+      });
     }
 
     slotPlans.push({

@@ -202,11 +202,18 @@ export function getInteractiveOverlayOptions(
       // Store-first migration: Save newly created drawing object directly to useDrawingStore upfront
       const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
       if (currentSymbol && event.overlay) {
+        const sourceSlotIndex = typeof chartInstanceRef.current?._chartIndex === 'number'
+          ? chartInstanceRef.current._chartIndex
+          : useLayoutStore.getState().activeChartIndex;
+
         const drawingObj = {
           id: event.overlay.id,
           name: event.overlay.name || toolName,
           points: JSON.parse(JSON.stringify(event.overlay.points || [])),
-          extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+          extendData: {
+            ...JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+            sourceSlotIndex,
+          },
           lock: !!event.overlay.lock,
           visible: event.overlay.visible !== false,
           symbol: currentSymbol.toUpperCase(),
