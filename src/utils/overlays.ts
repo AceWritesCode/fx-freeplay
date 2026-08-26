@@ -517,21 +517,12 @@ export function getInteractiveOverlayOptions(
     onClick: (event: any) => {
       const id = event.overlay.id;
       if (event.chart._activeTool === 'eraser') {
-        const syncMatch = id?.match(/^sync_(.+)_from_(\d+)$/);
-        if (syncMatch) {
-          const originalId = syncMatch[1];
-          const sourceIndex = parseInt(syncMatch[2]);
-          const sourceChart = event.chart._chartInstancesRef?.current?.[sourceIndex];
-          if (sourceChart) {
-            sourceChart.removeOverlay({ id: originalId });
-          }
+        const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
+        if (currentSymbol) {
+          const syncMatch = id?.match(/^sync_(.+)_from_(\d+)$/);
+          const originalId = syncMatch ? syncMatch[1] : id;
+          useDrawingStore.getState().removeSymbolDrawing(currentSymbol, originalId);
         }
-        event.chart.removeOverlay({ id });
-        setTimeout(() => {
-          if (event.chart._onDrawingSync) {
-            event.chart._onDrawingSync();
-          }
-        }, 50);
         return true;
       }
       event.chart._clickedOnOverlay = true;

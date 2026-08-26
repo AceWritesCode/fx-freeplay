@@ -2020,24 +2020,15 @@ export function ChartWorkspace() {
           }
         }}
         onDelete={() => {
-          chartInstancesRef.current.forEach((chart) => {
-            if (!chart) return;
+          const currentSymbol = slots[activeChartIndex]?.symbol;
+          if (currentSymbol) {
             selectedOverlayIds.forEach((id) => {
               const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
               const originalId = syncMatch ? syncMatch[1] : id;
-              chart.removeOverlay({ id: originalId });
-              chart.removeOverlay({ id });
-
-              chart.getOverlays().forEach((o: any) => {
-                if (o.id?.startsWith(`sync_${originalId}_from_`)) {
-                  chart.removeOverlay({ id: o.id });
-                }
-              });
+              useDrawingStore.getState().removeSymbolDrawing(currentSymbol, originalId);
             });
-          });
-          drawingCoord.syncAllDrawings();
+          }
           setSelectedOverlayIds([]);
-          drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
       />
 

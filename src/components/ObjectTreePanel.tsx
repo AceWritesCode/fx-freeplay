@@ -384,22 +384,19 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     // Remove folder
     setFolders(prev => prev.filter(f => f.id !== folderId));
 
-    // Remove folderId reference from child drawings
-    if (activeChart) {
-      const overlays = activeChart.getOverlays();
-      overlays.forEach((ov: any) => {
-        if (ov.extendData?.folderId === folderId) {
-          activeChart.overrideOverlay({
-            id: ov.id,
+    // Remove folderId reference from child drawings in store
+    if (activeSymbol) {
+      const drawings = useDrawingStore.getState().getSymbolDrawings(activeSymbol);
+      drawings.forEach((d) => {
+        if (d.extendData?.folderId === folderId) {
+          useDrawingStore.getState().updateSymbolDrawing(activeSymbol, d.id, {
             extendData: {
-              ...ov.extendData,
+              ...(d.extendData || {}),
               folderId: null,
             },
           });
         }
       });
-      syncAllDrawings();
-      setDrawingTrigger(prev => prev + 1);
     }
   };
 
@@ -968,12 +965,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Delete drawing
   const handleDeleteDrawing = (id: string) => {
-    if (activeChart) {
-      activeChart.removeOverlay({ id });
-      setSelectedOverlayIds(prev => prev.filter(item => item !== id));
-      syncAllDrawings();
-      setDrawingTrigger(prev => prev + 1);
+    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+    const originalId = syncMatch ? syncMatch[1] : id;
+    if (activeSymbol) {
+      useDrawingStore.getState().removeSymbolDrawing(activeSymbol, originalId);
     }
+    setSelectedOverlayIds(prev => prev.filter(item => item !== id && item !== originalId));
   };
 
   // Rename action
@@ -1073,13 +1070,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   };
 
   const handleDeleteSelected = () => {
-    if (selectedOverlayIds.length === 0 || !activeChart) return;
+    if (selectedOverlayIds.length === 0 || !activeSymbol) return;
     selectedOverlayIds.forEach(id => {
-      activeChart.removeOverlay({ id });
+      const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+      const originalId = syncMatch ? syncMatch[1] : id;
+      useDrawingStore.getState().removeSymbolDrawing(activeSymbol, originalId);
     });
     setSelectedOverlayIds([]);
-    syncAllDrawings();
-    setDrawingTrigger(prev => prev + 1);
   };
 
   // Drawing helper
