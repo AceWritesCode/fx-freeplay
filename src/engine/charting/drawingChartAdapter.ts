@@ -83,20 +83,25 @@ export class DrawingChartAdapter {
   /**
    * Forces an immediate repaint pass on a KLineCharts chart's HTML5 canvas widget.
    */
-  static invalidatePane(chart: any, paneId: string = 'candle_pane'): void {
+  static invalidatePane(chart: any, _paneId: string = 'candle_pane'): void {
     if (!chart) return;
     try {
-      const pane = chart.getDrawPaneById?.(paneId);
-      if (pane) {
-        if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
-          pane.getWidget().invalidate();
-        } else if (typeof pane.requestInvalidate === 'function') {
-          pane.requestInvalidate();
-        } else if (typeof pane.invalidate === 'function') {
-          pane.invalidate();
+      // 1. Invalidate all KLineCharts canvas pane widgets directly
+      if (chart._chartStore && typeof chart._chartStore.getPaneStore === 'function') {
+        const panes = chart._chartStore.getPaneStore().getPanes();
+        if (Array.isArray(panes)) {
+          panes.forEach((pane: any) => {
+            if (typeof pane.getWidget === 'function') {
+              pane.getWidget()?.invalidate?.();
+            }
+          });
         }
       }
-      if (typeof chart.resize === 'function') {
+
+      // 2. Trigger KLineCharts layout redraw pass by setting current offset distance
+      if (typeof chart.getOffsetRightDistance === 'function' && typeof chart.setOffsetRightDistance === 'function') {
+        chart.setOffsetRightDistance(chart.getOffsetRightDistance());
+      } else if (typeof chart.resize === 'function') {
         chart.resize();
       }
     } catch (_) {}

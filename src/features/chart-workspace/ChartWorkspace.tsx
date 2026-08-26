@@ -37,6 +37,7 @@ import {
   syncTimeScale as executeTimeSync,
   syncDateRange as executeDateRangeSync,
   runWorkspaceReconciliation,
+  reconcileWorkspace,
 } from '@/engine/charting';
 
 import {
@@ -1513,7 +1514,7 @@ export function ChartWorkspace() {
       }
     }
     if (key === 'syncDrawings') {
-      runWorkspaceReconciliation(chartInstancesRef);
+      reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, val);
     }
   };
 
