@@ -1,19 +1,15 @@
 import { useState } from 'react';
-import { useLayoutStore, useSettingsStore } from '@/store';
-import { drawingRepository } from '@/repository';
+import { useLayoutStore, useSettingsStore, useDrawingStore } from '@/store';
 import { getInteractiveOverlayOptions } from '@/utils/overlays';
-import { getLayoutChartCount } from '@/domain/market';
-import { isReconcilingDrawings } from '@/engine/charting';
+import { runWorkspaceReconciliation } from '@/engine/charting';
 
 export function useDrawingCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
   isShiftPressedRef: React.MutableRefObject<boolean>
 ) {
   const {
-    layoutType,
     activeChartIndex,
     slots,
-    syncDrawings,
   } = useLayoutStore();
 
   const {
@@ -101,253 +97,7 @@ export function useDrawingCoordinator(
   };
 
   const syncAllDrawings = () => {
-    const currentLayout = layoutType;
-    const currentSlots = slots;
-    const visibleCount = getLayoutChartCount(currentLayout);
-
-    if (!syncDrawings) {
-      for (let i = 0; i < visibleCount; i++) {
-        const chart = chartInstancesRef.current[i];
-        if (chart) {
-          let chartNeedsInvalidate = false;
-          const targetOverlays = chart.getOverlays();
-          targetOverlays.forEach((ov: any) => {
-            if (ov.id?.startsWith('sync_')) {
-              chart.removeOverlay({ id: ov.id });
-              chartNeedsInvalidate = true;
-            }
-          });
-          if (chartNeedsInvalidate) {
-            const pane = (chart as any).getDrawPaneById?.('candle_pane');
-            if (pane) {
-              if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
-                pane.getWidget().invalidate();
-              } else if (typeof pane.requestInvalidate === 'function') {
-                pane.requestInvalidate();
-              } else if (typeof pane.invalidate === 'function') {
-                pane.invalidate();
-              }
-            }
-          }
-        }
-      }
-      return;
-    }
-
-    // 0. Sync back modified synced copies to original drawings
-    for (let i = 0; i < visibleCount; i++) {
-      if (i !== activeChartIndex) continue;
-
-      const chart = chartInstancesRef.current[i];
-      if (!chart) continue;
-
-      const overlays = (chart as any).getOverlays();
-      overlays.forEach((ov: any) => {
-        const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-        if (syncMatch) {
-          const originalId = syncMatch[1];
-          const sourceIndex = parseInt(syncMatch[2], 10);
-          const sourceChart = chartInstancesRef.current[sourceIndex];
-          if (sourceChart) {
-            const originalOverlay = (sourceChart as any).getOverlays().find((o: any) => o.id === originalId);
-            if (originalOverlay) {
-              const pointsChanged = JSON.stringify(originalOverlay.points) !== JSON.stringify(ov.points);
-              const extendDataChanged = JSON.stringify(originalOverlay.extendData) !== JSON.stringify(ov.extendData);
-              if (pointsChanged || extendDataChanged) {
-                (sourceChart as any).overrideOverlay({
-                  id: originalId,
-                  points: JSON.parse(JSON.stringify(ov.points)),
-                  extendData: ov.extendData
-                });
-              }
-            }
-          }
-        }
-      });
-    }
-
-    // 1. Gather all original drawings from all visible charts
-    const originalDrawingsBySymbol: Record<string, { chartIndex: number; overlay: any }[]> = {};
-
-    for (let i = 0; i < visibleCount; i++) {
-      const chart = chartInstancesRef.current[i];
-      if (!chart) continue;
-
-      const symbol = currentSlots[i]?.symbol;
-      if (!symbol) continue;
-
-      const overlays = (chart as any).getOverlays();
-      const originals = overlays.filter(
-        (ov: any) =>
-          !ov.id?.startsWith('sync_') &&
-          ov.id !== 'custom_price_line_overlay' &&
-          ov.name !== 'customPriceLine' &&
-          ov.id !== 'session_breaks_overlay' &&
-          ov.name !== 'sessionBreaks'
-      );
-
-      if (!originalDrawingsBySymbol[symbol]) {
-        originalDrawingsBySymbol[symbol] = [];
-      }
-      originals.forEach((ov: any) => {
-        originalDrawingsBySymbol[symbol].push({ chartIndex: i, overlay: ov });
-      });
-    }
-
-    // 2. Apply/sync drawings to each target chart
-    for (let i = 0; i < visibleCount; i++) {
-      const targetChart = chartInstancesRef.current[i];
-      if (!targetChart) continue;
-
-      const symbol = currentSlots[i]?.symbol;
-      if (!symbol) {
-        const targetOverlays = (targetChart as any).getOverlays();
-        targetOverlays.forEach((ov: any) => {
-          if (ov.id?.startsWith('sync_')) {
-            (targetChart as any).removeOverlay({ id: ov.id });
-          }
-        });
-        continue;
-      }
-
-      const activeOriginals = originalDrawingsBySymbol[symbol] || [];
-      activeOriginals.sort((a, b) => {
-        const orderA = a.overlay.extendData?.order ?? 0;
-        const orderB = b.overlay.extendData?.order ?? 0;
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-        return (a.overlay.id || '').localeCompare(b.overlay.id || '', undefined, { numeric: true, sensitivity: 'base' });
-      });
-
-      const targetOverlays = (targetChart as any).getOverlays();
-      const existingSyncedCopies = targetOverlays.filter((ov: any) => ov.id?.startsWith('sync_'));
-      const desiredCopies = activeOriginals.filter((item) => item.chartIndex !== i);
-      const desiredCopyIds = new Set(desiredCopies.map((item) => `sync_${item.overlay.id}_from_${item.chartIndex}`));
-
-      let targetNeedsInvalidate = false;
-
-      // Remove only stale synced copies
-      existingSyncedCopies.forEach((copy: any) => {
-        if (!desiredCopyIds.has(copy.id)) {
-          const existsBefore = (targetChart as any).getOverlays().some((o: any) => o.id === copy.id);
-          (targetChart as any).removeOverlay({ id: copy.id });
-          targetNeedsInvalidate = true;
-          const existsAfter = (targetChart as any).getOverlays().some((o: any) => o.id === copy.id);
-          console.log(`[TARGET DELETE]\ntargetChart: chart-${i}\ncopyId: ${copy.id}\nexistsBefore: ${existsBefore}\nremoveCalled: true\nexistsAfter: ${existsAfter}`);
-          const sourceMatch = copy.id?.match(/^sync_(.+)_from_(\d+)$/);
-          const origId = sourceMatch ? sourceMatch[1] : copy.id;
-          const sourceIdx = sourceMatch ? parseInt(sourceMatch[2], 10) : 0;
-          const sourceChart = chartInstancesRef.current[sourceIdx];
-          const sourceExists = sourceChart ? (sourceChart as any).getOverlays().some((o: any) => o.id === origId) : false;
-          console.log(`[DRAW DELETE VERIFIED]\nsourceId: ${origId}\ntargetChart: chart-${i}\ncopyId: ${copy.id}\nsourceExists: ${sourceExists}\ntargetCopyExists: ${existsAfter}`);
-        }
-      });
-
-      // Create or update desired synced copies
-      desiredCopies.forEach((item) => {
-        const orig = item.overlay;
-        const sourceIndex = item.chartIndex;
-        const syncId = `sync_${orig.id}_from_${sourceIndex}`;
-        const existingCopy = targetOverlays.find((ov: any) => ov.id === syncId);
-
-        if (existingCopy) {
-          const pointsChanged = JSON.stringify(existingCopy.points) !== JSON.stringify(orig.points);
-          const extendDataChanged = JSON.stringify(existingCopy.extendData) !== JSON.stringify(orig.extendData);
-          if (pointsChanged || extendDataChanged) {
-            (targetChart as any).overrideOverlay({
-              id: syncId,
-              points: JSON.parse(JSON.stringify(orig.points)),
-              extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
-              lock: orig.lock,
-              visible: orig.visible !== false,
-              styles: orig.styles,
-            });
-            targetNeedsInvalidate = true;
-          }
-        } else {
-          const interactiveOptions = getInteractiveOverlayOptions(
-            orig.name,
-            { current: targetChart },
-            chartInstancesRef,
-            isShiftPressedRef,
-            syncAllDrawings,
-            setActiveTool
-          );
-
-          targetChart.createOverlay({
-            ...interactiveOptions,
-            name: orig.name,
-            id: syncId,
-            paneId: orig.paneId || 'candle_pane',
-            points: JSON.parse(JSON.stringify(orig.points)),
-            extendData: JSON.parse(JSON.stringify(orig.extendData || {})),
-            lock: orig.lock,
-            visible: orig.visible !== false,
-            styles: orig.styles,
-            onRemoved: (event: any) => {
-              if (isReconcilingDrawings()) {
-                return;
-              }
-              const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
-              if (syncMatch) {
-                const originalId = syncMatch[1];
-                const sourceIdx = parseInt(syncMatch[2], 10);
-                const sourceChart = chartInstancesRef.current[sourceIdx];
-                if (sourceChart) {
-                  sourceChart.removeOverlay({ id: originalId });
-                }
-              }
-              setTimeout(() => {
-                syncAllDrawings();
-              }, 50);
-            },
-          });
-          targetNeedsInvalidate = true;
-        }
-
-        const targetCopyExists = (targetChart as any).getOverlays().some((o: any) => o.id === syncId);
-        console.log(`[DRAW SYNC VERIFIED]\nsourceId: ${orig.id}\ntargetChart: chart-${i}\ntargetCopyId: ${syncId}\ntargetCopyExists: ${targetCopyExists}`);
-      });
-
-      if (targetNeedsInvalidate) {
-        const pane = (targetChart as any).getDrawPaneById?.('candle_pane');
-        if (pane) {
-          if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
-            pane.getWidget().invalidate();
-          } else if (typeof pane.requestInvalidate === 'function') {
-            pane.requestInvalidate();
-          } else if (typeof pane.invalidate === 'function') {
-            pane.invalidate();
-          }
-        }
-      }
-    }
-
-    for (let i = 0; i < visibleCount; i++) {
-      const chart = chartInstancesRef.current[i];
-      if (chart) {
-        const allOverlays = (chart as any).getOverlays();
-        const origIds = allOverlays.filter((o: any) => !o.id?.startsWith('sync_') && o.id !== 'custom_price_line_overlay' && o.name !== 'customPriceLine' && o.id !== 'session_breaks_overlay' && o.name !== 'sessionBreaks').map((o: any) => o.id);
-        const syncIds = allOverlays.filter((o: any) => o.id?.startsWith('sync_')).map((o: any) => o.id);
-        console.log(`[DRAW VISUAL STATE]\ntargetChart: chart-${i}\ntargetOverlayCount: ${allOverlays.length}\noriginalOverlayIds: ${JSON.stringify(origIds)}\nsyncedOverlayIds: ${JSON.stringify(syncIds)}`);
-      }
-    }
-
-
-
-    // Persist original drawings per symbol to DrawingRepository
-    Object.entries(originalDrawingsBySymbol).forEach(([sym, items]) => {
-      const serializableDrawings = items.map(({ overlay }) => ({
-        id: overlay.id,
-        name: overlay.name,
-        points: overlay.points,
-        extendData: overlay.extendData,
-        lock: overlay.lock,
-        visible: overlay.visible,
-      }));
-      drawingRepository.saveDrawings(sym, serializableDrawings);
-    });
+    runWorkspaceReconciliation(chartInstancesRef);
   };
 
   const handleSelectTool = (toolName: string) => {
@@ -391,49 +141,10 @@ export function useDrawingCoordinator(
 
   const loadDrawingsForSymbol = async (symbolName: string) => {
     try {
-      console.log(`[DEBUG] loadDrawingsForSymbol - Restoring drawings for symbol: ${symbolName}`);
-      const savedDrawings = await drawingRepository.getDrawings(symbolName);
-
-      chartInstancesRef.current.forEach((c) => {
-        if (!c) return;
-        const overlays = c.getOverlays();
-        overlays.forEach((ov: any) => {
-          if (
-            ov.id !== 'custom_price_line_overlay' &&
-            ov.name !== 'customPriceLine' &&
-            ov.id !== 'session_breaks_overlay' &&
-            ov.name !== 'sessionBreaks'
-          ) {
-            c.removeOverlay({ id: ov.id });
-          }
-        });
-      });
-
-      if (!savedDrawings || savedDrawings.length === 0) {
-        setDrawingTrigger((prev) => prev + 1);
-        return;
-      }
-
-      const chart = chartInstancesRef.current[activeChartIndex];
-      if (chart) {
-        savedDrawings.forEach((drawing: any) => {
-          createOverlayWithHandlers(chart, {
-            name: drawing.name,
-            id: drawing.id,
-            points: drawing.points,
-            lock: drawing.lock,
-            visible: drawing.visible !== false,
-            extendData: drawing.extendData || {},
-          });
-        });
-      }
-
-      setTimeout(() => {
-        syncAllDrawings();
-        setDrawingTrigger((prev) => prev + 1);
-      }, 50);
+      await useDrawingStore.getState().loadSymbolDrawings(symbolName);
+      runWorkspaceReconciliation(chartInstancesRef);
     } catch (err) {
-      console.error(`[DEBUG] loadDrawingsForSymbol failed:`, err);
+      console.error(`[useDrawingCoordinator] loadDrawingsForSymbol failed:`, err);
     }
   };
 
