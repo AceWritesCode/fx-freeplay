@@ -153,9 +153,12 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
       const symbolDrawings = drawingsBySymbol[slotSymbol] || [];
 
       symbolDrawings.forEach((d) => {
-        const sourceSlotIndex = typeof d.extendData?.sourceSlotIndex === 'number'
-          ? d.extendData.sourceSlotIndex
-          : 0;
+        // Checkpoint 2: Dynamically resolve authoritative owner slot for drawing d
+        const ownerSlotIndex = resolveDrawingOwnerSlot(d, visibleSlots, isDrawingSyncEnabled);
+
+        if (ownerSlotIndex === null) {
+          return;
+        }
 
         if (isSingleChart) {
           // Single-chart layout: render canonical drawings relevant to visible symbol as original overlays (no sync copies)
@@ -170,12 +173,12 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
           });
         } else {
           // Multi-chart layout
-          if (sourceSlotIndex === slotIndex) {
+          if (ownerSlotIndex === slotIndex) {
             // Owner slot renders original canonical drawing
             desiredOverlays.set(d.id, {
               originalId: d.id,
               overlayId: d.id,
-              sourceSlotIndex,
+              sourceSlotIndex: ownerSlotIndex,
               targetSlotIndex: slotIndex,
               symbol: slotSymbol,
               isSyncedCopy: false,
@@ -183,18 +186,18 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
             });
           } else if (isDrawingSyncEnabled) {
             // Sync ON -> Non-owner slot renders synced copy projection
-            const syncOverlayId = `sync_${d.id}_from_${sourceSlotIndex}`;
+            const syncOverlayId = `sync_${d.id}_from_${ownerSlotIndex}`;
             desiredOverlays.set(syncOverlayId, {
               originalId: d.id,
               overlayId: syncOverlayId,
-              sourceSlotIndex,
+              sourceSlotIndex: ownerSlotIndex,
               targetSlotIndex: slotIndex,
               symbol: slotSymbol,
               isSyncedCopy: true,
               drawing: d,
             });
           }
-          // Sync OFF & sourceSlotIndex !== slotIndex -> 0 overlay added
+          // Sync OFF & ownerSlotIndex !== slotIndex -> 0 overlay added
         }
       });
     }
