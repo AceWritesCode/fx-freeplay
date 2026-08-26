@@ -80,7 +80,7 @@ export interface WorkspaceSyncPlan {
 export function resolveDrawingOwnerSlot(
   drawing: DrawingItem,
   visibleSlots: { symbol: string | null; timeframe: string }[],
-  isDrawingSyncEnabled: boolean
+  _isDrawingSyncEnabled: boolean
 ): number | null {
   const visibleCount = visibleSlots ? visibleSlots.length : 0;
   if (visibleCount === 0 || !drawing || !drawing.symbol) {
@@ -109,24 +109,22 @@ export function resolveDrawingOwnerSlot(
     return 0;
   }
 
-  if (isDrawingSyncEnabled) {
-    // Rule 2: Multi-chart + Sync ON -> Use tagged sourceSlotIndex if valid & slot displays same symbol
-    const taggedSlotIndex = typeof drawing.extendData?.sourceSlotIndex === 'number'
-      ? drawing.extendData.sourceSlotIndex
-      : -1;
+  // Check if tagged sourceSlotIndex is valid and the slot at that index currently displays drawingSymbol
+  const taggedSlotIndex = typeof drawing.extendData?.sourceSlotIndex === 'number'
+    ? drawing.extendData.sourceSlotIndex
+    : -1;
 
-    if (taggedSlotIndex >= 0 && taggedSlotIndex < visibleCount) {
-      const taggedSlotSymbol = visibleSlots[taggedSlotIndex]?.symbol
-        ? visibleSlots[taggedSlotIndex].symbol!.toUpperCase()
-        : null;
+  if (taggedSlotIndex >= 0 && taggedSlotIndex < visibleCount) {
+    const taggedSlotSymbol = visibleSlots[taggedSlotIndex]?.symbol
+      ? visibleSlots[taggedSlotIndex].symbol!.toUpperCase()
+      : null;
 
-      if (taggedSlotSymbol === drawingSymbol) {
-        return taggedSlotIndex;
-      }
+    if (taggedSlotSymbol === drawingSymbol) {
+      return taggedSlotIndex;
     }
   }
 
-  // Rule 3 & Fallback: First visible slot displaying drawing.symbol becomes the dynamic owner
+  // Fallback for untagged drawings or if creator slot no longer displays drawingSymbol
   return firstSlotIndexForSymbol;
 }
 
