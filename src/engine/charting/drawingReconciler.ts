@@ -43,7 +43,7 @@ export function reconcileWorkspace(
   slots: { symbol: string | null; timeframe: string }[],
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
   activeIndex: number = 0,
-  isDrawingSyncEnabled: boolean = true
+  isDrawingSyncEnabled: boolean = useLayoutStore.getState().syncDrawings
 ): void {
   if (!slots || slots.length === 0 || !chartInstancesRef || !chartInstancesRef.current) {
     return;
@@ -175,7 +175,8 @@ export function reconcileChartsFromStore(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
   activeIndex: number = 0
 ): void {
-  reconcileWorkspace(slots, chartInstancesRef, activeIndex, true);
+  const syncDrawings = useLayoutStore.getState().syncDrawings;
+  reconcileWorkspace(slots, chartInstancesRef, activeIndex, syncDrawings);
 }
 
 /**

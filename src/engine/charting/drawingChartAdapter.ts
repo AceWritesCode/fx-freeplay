@@ -85,15 +85,20 @@ export class DrawingChartAdapter {
    */
   static invalidatePane(chart: any, paneId: string = 'candle_pane'): void {
     if (!chart) return;
-    const pane = chart.getDrawPaneById?.(paneId);
-    if (pane) {
-      if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
-        pane.getWidget().invalidate();
-      } else if (typeof pane.requestInvalidate === 'function') {
-        pane.requestInvalidate();
-      } else if (typeof pane.invalidate === 'function') {
-        pane.invalidate();
+    try {
+      const pane = chart.getDrawPaneById?.(paneId);
+      if (pane) {
+        if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
+          pane.getWidget().invalidate();
+        } else if (typeof pane.requestInvalidate === 'function') {
+          pane.requestInvalidate();
+        } else if (typeof pane.invalidate === 'function') {
+          pane.invalidate();
+        }
       }
-    }
+      if (typeof chart.resize === 'function') {
+        chart.resize();
+      }
+    } catch (_) {}
   }
 }
