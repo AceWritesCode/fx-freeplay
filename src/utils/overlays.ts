@@ -1,5 +1,6 @@
 import { registerOverlay } from 'klinecharts';
 import { snapPointToCandle } from '@/engine/charting';
+import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
 
@@ -210,6 +211,21 @@ export function getInteractiveOverlayOptions(
           });
         }
       }
+      // Store-first migration: Save newly created drawing object directly to useDrawingStore upfront
+      const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
+      if (currentSymbol && event.overlay) {
+        const drawingObj = {
+          id: event.overlay.id,
+          name: event.overlay.name || toolName,
+          points: JSON.parse(JSON.stringify(event.overlay.points || [])),
+          extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+          lock: !!event.overlay.lock,
+          visible: event.overlay.visible !== false,
+          symbol: currentSymbol.toUpperCase(),
+        };
+        useDrawingStore.getState().addSymbolDrawing(currentSymbol, drawingObj);
+      }
+
       setActiveTool(null);
       
       // Auto-select the newly created drawing so the floating toolbar appears immediately
