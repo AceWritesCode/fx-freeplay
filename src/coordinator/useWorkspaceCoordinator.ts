@@ -457,7 +457,7 @@ export function useWorkspaceCoordinator(
       workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
 
       const visibleCount = getLayoutChartCount(layoutStore.layoutType);
-      const affectedIndices = layoutStore.syncInterval
+      const affectedIndices = (layoutStore.syncSymbol || layoutStore.syncInterval)
         ? Array.from({ length: visibleCount }, (_, i) => i)
         : [activeChartIndex];
 
