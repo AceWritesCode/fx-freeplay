@@ -229,8 +229,17 @@ export function useDrawingCoordinator(
       // Remove only stale synced copies
       existingSyncedCopies.forEach((copy: any) => {
         if (!desiredCopyIds.has(copy.id)) {
+          const existsBefore = (targetChart as any).getOverlays().some((o: any) => o.id === copy.id);
           (targetChart as any).removeOverlay({ id: copy.id });
           targetNeedsInvalidate = true;
+          const existsAfter = (targetChart as any).getOverlays().some((o: any) => o.id === copy.id);
+          console.log(`[TARGET DELETE]\ntargetChart: chart-${i}\ncopyId: ${copy.id}\nexistsBefore: ${existsBefore}\nremoveCalled: true\nexistsAfter: ${existsAfter}`);
+          const sourceMatch = copy.id?.match(/^sync_(.+)_from_(\d+)$/);
+          const origId = sourceMatch ? sourceMatch[1] : copy.id;
+          const sourceIdx = sourceMatch ? parseInt(sourceMatch[2], 10) : 0;
+          const sourceChart = chartInstancesRef.current[sourceIdx];
+          const sourceExists = sourceChart ? (sourceChart as any).getOverlays().some((o: any) => o.id === origId) : false;
+          console.log(`[DRAW DELETE VERIFIED]\nsourceId: ${origId}\ntargetChart: chart-${i}\ncopyId: ${copy.id}\nsourceExists: ${sourceExists}\ntargetCopyExists: ${existsAfter}`);
         }
       });
 
@@ -292,6 +301,9 @@ export function useDrawingCoordinator(
           });
           targetNeedsInvalidate = true;
         }
+
+        const targetCopyExists = (targetChart as any).getOverlays().some((o: any) => o.id === syncId);
+        console.log(`[DRAW SYNC VERIFIED]\nsourceId: ${orig.id}\ntargetChart: chart-${i}\ntargetCopyId: ${syncId}\ntargetCopyExists: ${targetCopyExists}`);
       });
 
       if (targetNeedsInvalidate) {
@@ -307,6 +319,18 @@ export function useDrawingCoordinator(
         }
       }
     }
+
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        const allOverlays = (chart as any).getOverlays();
+        const origIds = allOverlays.filter((o: any) => !o.id?.startsWith('sync_') && o.id !== 'custom_price_line_overlay' && o.name !== 'customPriceLine' && o.id !== 'session_breaks_overlay' && o.name !== 'sessionBreaks').map((o: any) => o.id);
+        const syncIds = allOverlays.filter((o: any) => o.id?.startsWith('sync_')).map((o: any) => o.id);
+        console.log(`[DRAW VISUAL STATE]\ntargetChart: chart-${i}\ntargetOverlayCount: ${allOverlays.length}\noriginalOverlayIds: ${JSON.stringify(origIds)}\nsyncedOverlayIds: ${JSON.stringify(syncIds)}`);
+      }
+    }
+
+
 
     // Persist original drawings per symbol to DrawingRepository
     Object.entries(originalDrawingsBySymbol).forEach(([sym, items]) => {

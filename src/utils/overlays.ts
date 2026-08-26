@@ -185,6 +185,9 @@ export function getInteractiveOverlayOptions(
       customSettings: defaultSettings
     },
     onDrawEnd: (event: any) => {
+      const chartIdx = chartInstanceRef.current?._chartIndex ?? 0;
+      console.log(`[DRAW CREATED]\ntype: ${toolName}\nid: ${event.overlay.id}\nsourceChart: chart-${chartIdx}`);
+
       // Call custom tool onDrawEnd hook if defined in registry
       const registeredTool = ToolRegistry.get(toolName);
       if (registeredTool && registeredTool.onDrawEnd) {
@@ -226,6 +229,8 @@ export function getInteractiveOverlayOptions(
         if (sourceChart) {
           sourceChart.removeOverlay({ id: originalId });
         }
+      } else {
+        console.log(`[DRAW DELETED]\nsourceId: ${event.overlay.id}\ntype: ${event.overlay.name}\nsourceChart: chart-${event.chart?._chartIndex ?? 0}`);
       }
       setTimeout(() => syncAllDrawings(), 50);
     },
