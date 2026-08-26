@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { X, Paintbrush, Percent, Clock, Database, Trash2, Folder, FolderOpen, Play } from 'lucide-react';
-import { calculateSpeedSteps } from '@/utils/replayUtils';
-
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS } from '@/config';
@@ -723,18 +721,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
             {/* Tab: Replay Speed Range */}
             {activeTab === 'Replay' && (
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 <div>
                   <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                    Bar Replay Speed Range Settings
+                    Bar Replay Speed Limits
                   </div>
                   <p className="text-xs text-gray-400">
-                    Configure the slowest (maximum bar duration) and fastest (minimum bar duration) playback speed limits for the Bar Replay engine.
+                    Configure the maximum (slowest) and minimum (fastest) bar duration boundaries for playback simulation.
                   </p>
                 </div>
 
                 {/* Slowest Speed (Max Duration per Bar) */}
-                <div className="flex flex-col gap-2 bg-[#131722] p-4 rounded-lg border border-gray-800">
+                <div className="flex flex-col gap-2 bg-[#131722] p-3.5 rounded-lg border border-gray-800">
                   <div className="flex items-center justify-between">
                     <label className="font-semibold text-white text-xs">
                       Slowest Speed (Maximum Duration per Bar)
@@ -745,32 +743,32 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   </div>
                   <input
                     type="range"
-                    min="0.50"
-                    max="10.00"
-                    step="0.10"
+                    min="0.01"
+                    max="3.00"
+                    step="0.01"
                     value={formState.replayMaxDuration ?? 3.0}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
-                      const minDur = formState.replayMinDuration ?? 0.1;
+                      const minDur = formState.replayMinDuration ?? 0.01;
                       const validatedMax = Math.max(val, minDur);
                       handleFieldChange('replayMaxDuration', validatedMax);
                     }}
                     className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                   />
                   <div className="flex justify-between text-[10px] text-gray-500">
-                    <span>0.50s / bar</span>
-                    <span>10.00s / bar</span>
+                    <span>0.01s / bar</span>
+                    <span>3.00s / bar</span>
                   </div>
                 </div>
 
                 {/* Fastest Speed (Min Duration per Bar) */}
-                <div className="flex flex-col gap-2 bg-[#131722] p-4 rounded-lg border border-gray-800">
+                <div className="flex flex-col gap-2 bg-[#131722] p-3.5 rounded-lg border border-gray-800">
                   <div className="flex items-center justify-between">
                     <label className="font-semibold text-white text-xs">
                       Fastest Speed (Minimum Duration per Bar)
                     </label>
                     <span className="font-mono text-indigo-400 font-bold text-xs">
-                      {(formState.replayMinDuration ?? 0.1).toFixed(2)} s/bar
+                      {(formState.replayMinDuration ?? 0.01).toFixed(2)} s/bar
                     </span>
                   </div>
                   <input
@@ -778,7 +776,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     min="0.01"
                     max="1.00"
                     step="0.01"
-                    value={formState.replayMinDuration ?? 0.1}
+                    value={formState.replayMinDuration ?? 0.01}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
                       const maxDur = formState.replayMaxDuration ?? 3.0;
@@ -788,23 +786,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                   />
                   <div className="flex justify-between text-[10px] text-gray-500">
-                    <span>0.01s / bar (100 fps)</span>
+                    <span>0.01s / bar</span>
                     <span>1.00s / bar</span>
-                  </div>
-                </div>
-
-                {/* Discrete Speed Steps Preview */}
-                <div className="bg-[#131722] p-4 rounded-lg border border-gray-800 space-y-2">
-                  <div className="text-xs font-semibold text-gray-300">Resulting Speed Slider Steps:</div>
-                  <div className="flex items-center gap-2 overflow-x-auto py-1">
-                    {calculateSpeedSteps(formState.replayMaxDuration ?? 3.0, formState.replayMinDuration ?? 0.1).map((step, idx) => (
-                      <div key={idx} className="px-3 py-1.5 bg-[#1e222d] rounded border border-gray-800 text-center min-w-[70px]">
-                        <div className="text-[10px] text-gray-400 font-medium">
-                          {idx === 0 ? 'Slowest' : idx === 2 ? 'Medium' : idx === 4 ? 'Fastest' : `Step ${idx + 1}`}
-                        </div>
-                        <div className="text-xs font-mono font-bold text-indigo-400">{step}s/b</div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>

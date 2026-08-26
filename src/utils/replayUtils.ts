@@ -5,9 +5,9 @@
  * @param minDur Fastest speed boundary (seconds per bar, default: 0.1)
  * @returns An array of 5 numeric speed step values from max (Slowest) down to min (Fastest).
  */
-export function calculateSpeedSteps(maxDur: number = 3.0, minDur: number = 0.1): number[] {
+export function calculateSpeedSteps(maxDur: number = 3.0, minDur: number = 0.01): number[] {
   const max = Math.max(0.01, maxDur ?? 3.0);
-  const min = Math.min(max, Math.max(0.01, minDur ?? 0.1));
+  const min = Math.min(max, Math.max(0.01, minDur ?? 0.01));
 
   // If default limits (3.0s to 0.1s), return exact historical steps
   if (Math.abs(max - 3.0) < 0.001 && Math.abs(min - 0.1) < 0.001) {

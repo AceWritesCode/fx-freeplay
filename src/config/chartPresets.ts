@@ -93,7 +93,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
     replayMaxDuration: 3.0,
-    replayMinDuration: 0.1,
+    replayMinDuration: 0.01,
   },
   obsidian: {
     showBody: true,
@@ -135,7 +135,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
     replayMaxDuration: 3.0,
-    replayMinDuration: 0.1,
+    replayMinDuration: 0.01,
   },
   matrix: {
     showBody: true,
@@ -177,6 +177,6 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
     replayMaxDuration: 3.0,
-    replayMinDuration: 0.1,
+    replayMinDuration: 0.01,
   },
 };
