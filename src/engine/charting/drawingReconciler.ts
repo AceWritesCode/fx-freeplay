@@ -88,6 +88,15 @@ export function reconcileWorkspace(
         return;
       }
 
+      // Ignore overlays currently in-progress / being drawn by the user
+      const isActivelyDrawing =
+        (typeof ov.currentStep === 'number' && typeof ov.totalStep === 'number' && ov.currentStep < ov.totalStep) ||
+        (chart._activeDrawingId && ov.id === chart._activeDrawingId);
+
+      if (isActivelyDrawing) {
+        return;
+      }
+
       if (!desiredOverlays.has(ov.id)) {
         DrawingChartAdapter.removeOverlay(chart, ov.id);
         slotModified = true;

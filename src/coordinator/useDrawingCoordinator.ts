@@ -122,6 +122,7 @@ export function useDrawingCoordinator(
     }, 0);
 
     const newDrawingId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    chart._activeDrawingId = newDrawingId;
     const newOrder = maxOrder + 1;
 
     const folderSettings = localStorage.getItem(`fx_folders_${slots[activeChartIndex]?.symbol || 'INGEST'}`);

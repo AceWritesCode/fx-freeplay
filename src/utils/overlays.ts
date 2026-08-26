@@ -196,6 +196,7 @@ export function getInteractiveOverlayOptions(
       }
 
       if (chartInstanceRef.current) {
+        chartInstanceRef.current._activeDrawingId = null;
         chartInstanceRef.current._clickedOnOverlay = true;
         chartInstanceRef.current.setScrollEnabled(true);
         chartInstanceRef.current.setZoomEnabled(true);
