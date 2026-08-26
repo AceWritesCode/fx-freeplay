@@ -1,4 +1,4 @@
-import { useDrawingStore } from '@/store';
+import { useDrawingStore, useLayoutStore } from '@/store';
 import {
   calculateWorkspaceSyncPlan,
   type SyncEngineInput,
@@ -153,4 +153,16 @@ export function reconcileChartsFromStore(
   activeIndex: number = 0
 ): void {
   reconcileWorkspace(slots, chartInstancesRef, activeIndex, true);
+}
+
+/**
+ * Universal Storage-First Reconciliation Trigger.
+ * Reads current workspace layout state and executes reconcileWorkspace().
+ */
+export function runWorkspaceReconciliation(
+  chartInstancesRef: React.MutableRefObject<(any | null)[]>
+): void {
+  if (!chartInstancesRef || !chartInstancesRef.current) return;
+  const { slots, activeChartIndex, syncDrawings } = useLayoutStore.getState();
+  reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, syncDrawings);
 }

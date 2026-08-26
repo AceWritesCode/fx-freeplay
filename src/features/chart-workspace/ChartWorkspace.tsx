@@ -35,6 +35,7 @@ import {
   syncCrosshairs as executeCrosshairSync,
   syncTimeScale as executeTimeSync,
   syncDateRange as executeDateRangeSync,
+  runWorkspaceReconciliation,
 } from '@/engine/charting';
 
 import {
@@ -443,6 +444,13 @@ export function ChartWorkspace() {
   useEffect(() => {
     layoutTypeRef.current = layoutType;
   }, [layoutType]);
+
+  // Universal Storage-First Drawing Reconciliation Pipeline (Checkpoint F)
+  const drawingsBySymbol = useDrawingStore((s) => s.drawingsBySymbol);
+
+  useEffect(() => {
+    runWorkspaceReconciliation(chartInstancesRef);
+  }, [drawingsBySymbol, slots, activeChartIndex, syncDrawings]);
 
   // Slot Data Loader Effect - runs whenever slots, layoutType, or timeline changes
   useEffect(() => {
