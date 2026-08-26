@@ -18,7 +18,38 @@ export function useDrawingCoordinator(
 
   // Local Coordinator states
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [drawingTargetChartIndex, setDrawingTargetChartIndex] = useState<number | null>(null);
   const [drawingTrigger, setDrawingTrigger] = useState<number>(0);
+
+  const cancelDrawingSession = () => {
+    if (drawingTargetChartIndex !== null) {
+      const targetChart = chartInstancesRef.current[drawingTargetChartIndex];
+      if (targetChart) {
+        if (targetChart._activeDrawingId) {
+          targetChart.removeOverlay({ id: targetChart._activeDrawingId });
+          targetChart._activeDrawingId = null;
+        }
+        targetChart.setScrollEnabled(true);
+        targetChart.setZoomEnabled(true);
+      }
+    }
+    setActiveTool(null);
+    setDrawingTargetChartIndex(null);
+  };
+
+  const handleSetActiveTool = (tool: string | null) => {
+    setActiveTool(tool);
+    if (tool === null) {
+      if (drawingTargetChartIndex !== null) {
+        const targetChart = chartInstancesRef.current[drawingTargetChartIndex];
+        if (targetChart) {
+          targetChart.setScrollEnabled(true);
+          targetChart.setZoomEnabled(true);
+        }
+      }
+      setDrawingTargetChartIndex(null);
+    }
+  };
 
   // Snapping and magnet modes (supports legacy normal, normal_magnet, weak_magnet, strong_magnet keys)
   const [magnetMode, setMagnetMode] = useState<'normal' | 'normal_magnet' | 'weak_magnet' | 'strong_magnet'>('normal');
@@ -76,7 +107,7 @@ export function useDrawingCoordinator(
       chartInstancesRef,
       isShiftPressedRef,
       syncAllDrawings,
-      setActiveTool
+      handleSetActiveTool
     );
     chart.createOverlay({
       ...interactiveOptions,
@@ -105,13 +136,24 @@ export function useDrawingCoordinator(
     if (!chart) return;
 
     if (activeTool === toolName) {
-      setActiveTool(null);
-      chart.setScrollEnabled(true);
-      chart.setZoomEnabled(true);
+      cancelDrawingSession();
       return;
     }
 
+    if (drawingTargetChartIndex !== null) {
+      const prevChart = chartInstancesRef.current[drawingTargetChartIndex];
+      if (prevChart) {
+        if (prevChart._activeDrawingId) {
+          prevChart.removeOverlay({ id: prevChart._activeDrawingId });
+          prevChart._activeDrawingId = null;
+        }
+        prevChart.setScrollEnabled(true);
+        prevChart.setZoomEnabled(true);
+      }
+    }
+
     setActiveTool(toolName);
+    setDrawingTargetChartIndex(activeChartIndex);
     chart.setScrollEnabled(false);
     chart.setZoomEnabled(false);
 
@@ -151,7 +193,9 @@ export function useDrawingCoordinator(
 
   return {
     activeTool,
-    setActiveTool,
+    setActiveTool: handleSetActiveTool,
+    drawingTargetChartIndex,
+    cancelDrawingSession,
     drawingTrigger,
     setDrawingTrigger,
     magnetMode,

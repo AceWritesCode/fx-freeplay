@@ -600,6 +600,9 @@ export function ChartWorkspace() {
             applySettingsToChart(chart, settings);
             
             const markUserInteraction = () => {
+              if (drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i) {
+                return;
+              }
               userInteractingSlotRef.current = i;
               handleSelectSlot(i);
             };
@@ -702,6 +705,11 @@ export function ChartWorkspace() {
   // Synchronize keydown and clicks
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (drawingCoord.drawingTargetChartIndex !== null || drawingCoord.activeTool !== null) {
+          drawingCoord.cancelDrawingSession();
+        }
+      }
       if (e.key === 'Shift') {
         isShiftPressedRef.current = true;
       }
@@ -1034,6 +1042,9 @@ export function ChartWorkspace() {
   }, [activeChartIndex]);
 
   const handleSelectSlot = (i: number) => {
+    if (drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i) {
+      return;
+    }
     activeChartIndexRef.current = i;
     workspaceCoord.handleSelectChartSlot(i);
   };
@@ -1118,6 +1129,7 @@ export function ChartWorkspace() {
 
   // Staging Layout triggers
   const handleSelectLayout = (type: string) => {
+    drawingCoord.cancelDrawingSession();
     const currentSymbol = slots[0]?.symbol || assetName;
     const currentTf = slots[0]?.timeframe || activeTimeframe;
     const newSlots = slots.map(() => ({
@@ -1366,6 +1378,22 @@ export function ChartWorkspace() {
             backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background,
           }}
         />
+
+        {/* Blocked interaction overlay for inactive slots during an active drawing session */}
+        {drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i && (
+          <div
+            className="absolute inset-0 z-40 cursor-not-allowed bg-transparent"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            title="Finish or cancel the active drawing session on the current chart first"
+          />
+        )}
 
         {/* Vertical Cut Selection Line */}
         {replayCoord.isSelectingCutPoint && isActive && replayCoord.cutPointHoverX !== null && (
