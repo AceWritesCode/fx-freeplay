@@ -1433,11 +1433,6 @@ export function ChartWorkspace() {
         setCustomUnit={setCustomUnit}
         handleAddCustomTimeframe={handleAddCustomTimeframe}
         customTimeframes={customTimeframes}
-        isReplayActive={isReplayActive}
-        setIsReplayActive={setIsReplayActive}
-        isSelectingCutPoint={replayCoord.isSelectingCutPoint}
-        setIsSelectingCutPoint={replayCoord.setIsSelectingCutPoint}
-        replayCurrentTimestamp={replayCurrentTimestamp}
         isLayoutDropdownOpen={isLayoutDropdownOpen}
         setIsLayoutDropdownOpen={setIsLayoutDropdownOpen}
         layoutType={layoutType}
@@ -1445,10 +1440,6 @@ export function ChartWorkspace() {
         handleSelectLayout={handleSelectLayout}
         onOpenThemeModal={() => setIsSettingsOpen(true)}
         onOpenDataManagementModal={() => setIsDataManagementOpen(true)}
-        importMode="folder"
-        savedFolderHandle={savedFolderHandle}
-        isVerifyingFolder={workspaceCoord.isVerifyingFolder}
-        handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
         syncSymbol={syncSymbol}
         syncInterval={syncInterval}
         syncCrosshair={syncCrosshair}

@@ -3,9 +3,7 @@ import {
   LineChart, 
   ChevronDown, 
   Settings, 
-  Scissors, 
   LayoutGrid,
-  RefreshCw,
   Info,
   Database
 } from 'lucide-react';
@@ -29,11 +27,6 @@ interface HeaderProps {
   setCustomUnit: (v: 'minutes' | 'hours' | 'days' | 'weeks' | 'months') => void;
   handleAddCustomTimeframe: (val: number, unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months') => void;
   customTimeframes: { label: string; value: string; minutes: number }[];
-  isReplayActive: boolean;
-  setIsReplayActive: (v: boolean) => void;
-  isSelectingCutPoint: boolean;
-  setIsSelectingCutPoint: (v: boolean) => void;
-  replayCurrentTimestamp: number | null;
   isLayoutDropdownOpen: boolean;
   setIsLayoutDropdownOpen: (v: boolean) => void;
   layoutType: string;
@@ -41,10 +34,6 @@ interface HeaderProps {
   handleSelectLayout: (type: string) => void;
   onOpenThemeModal: () => void;
   onOpenDataManagementModal?: () => void;
-  importMode: 'single' | 'folder';
-  savedFolderHandle: any;
-  isVerifyingFolder: boolean;
-  handleRestoreSavedFolder: () => void;
   syncSymbol: boolean;
   syncInterval: boolean;
   syncCrosshair: boolean;
@@ -73,11 +62,6 @@ export const Header: React.FC<HeaderProps> = (props) => {
     setCustomUnit,
     handleAddCustomTimeframe,
     customTimeframes,
-    isReplayActive,
-    setIsReplayActive,
-    isSelectingCutPoint,
-    setIsSelectingCutPoint,
-    replayCurrentTimestamp,
     isLayoutDropdownOpen,
     setIsLayoutDropdownOpen,
     layoutType,
@@ -85,10 +69,6 @@ export const Header: React.FC<HeaderProps> = (props) => {
     handleSelectLayout,
     onOpenThemeModal,
     onOpenDataManagementModal,
-    importMode,
-    savedFolderHandle,
-    isVerifyingFolder,
-    handleRestoreSavedFolder,
     syncSymbol,
     syncInterval,
     syncCrosshair,
@@ -337,43 +317,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
       {/* Right Side: Replay, Layout, Settings */}
       <div className="flex items-center gap-2">
-        {hasData && importMode === 'folder' && savedFolderHandle && (
-          <button
-            onClick={handleRestoreSavedFolder}
-            disabled={isVerifyingFolder}
-            title="Refresh all folder data (re-read CSV files)"
-            className="p-2 rounded-lg border border-gray-850 bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-colors duration-150 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
-          </button>
-        )}
 
-        {hasData && (
-          <button
-            onClick={() => {
-              if (isReplayActive) {
-                setIsReplayActive(false);
-                setIsSelectingCutPoint(false);
-              } else {
-                setIsReplayActive(true);
-                setIsSelectingCutPoint(true);
-              }
-            }}
-            className={`px-3.5 py-1.5 rounded-lg border transition-all text-xs font-bold flex items-center gap-2 cursor-pointer ${
-              isReplayActive
-                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/15'
-                : isSelectingCutPoint
-                ? 'border-indigo-500/40 text-indigo-400 bg-indigo-650/10'
-                : 'border-gray-800 bg-[#1e222d] text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            <Scissors className="w-3.5 h-3.5" />
-            <span>Replay</span>
-            {isReplayActive && replayCurrentTimestamp && (
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-            )}
-          </button>
-        )}
 
         {hasData && (
           <div className="relative">

@@ -46,6 +46,10 @@ export interface ChartSettings {
   magnetWeakSensitivity: number;   // 0-20
   magnetNormalSensitivity: number; // 20-60
   magnetStrongSensitivity: number; // 60-100 (100 = always snap)
+
+  // Replay Speed Range Settings (seconds per bar)
+  replayMaxDuration: number; // Slowest speed (default: 3.0)
+  replayMinDuration: number; // Fastest speed (default: 0.1)
 }
 
 export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
@@ -88,6 +92,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
+    replayMaxDuration: 3.0,
+    replayMinDuration: 0.1,
   },
   obsidian: {
     showBody: true,
@@ -128,6 +134,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
+    replayMaxDuration: 3.0,
+    replayMinDuration: 0.1,
   },
   matrix: {
     showBody: true,
@@ -168,5 +176,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
+    replayMaxDuration: 3.0,
+    replayMinDuration: 0.1,
   },
 };

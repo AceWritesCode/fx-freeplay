@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { formatDateFeedback } from '@/components/ThemeSettingsModal';
 
-const SPEED_STEPS = [3, 2, 1, 0.5, 0.1];
+import { calculateSpeedSteps, getClosestStepIndex } from '@/utils/replayUtils';
 
 interface WorkspaceFooterProps {
   isReplayActive: boolean;
@@ -139,25 +139,34 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
             <div className="w-px h-5 bg-gray-800" />
 
             {/* Speed Slider with Snap Mechanism */}
-            <div className="flex items-center gap-2.5">
-              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Speed:</span>
-              <input
-                type="range"
-                min="0"
-                max="4"
-                step="1"
-                value={SPEED_STEPS.indexOf(replaySpeed)}
-                onChange={(e) => {
-                  const idx = Number(e.target.value);
-                  const speedVal = SPEED_STEPS[idx];
-                  console.log(`[DEBUG] Replay Footer Speed - Slider changed to index ${idx} -> speed ${speedVal}s/b`);
-                  onSpeedChange(speedVal);
-                }}
-                className="w-24 h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
-                title={`Playback speed: ${replaySpeed} seconds per bar`}
-              />
-              <span className="text-[11px] font-mono font-bold text-indigo-400 w-12 text-right">{replaySpeed}s/b</span>
-            </div>
+            {(() => {
+              const speedSteps = calculateSpeedSteps(
+                settings?.replayMaxDuration ?? 3.0,
+                settings?.replayMinDuration ?? 0.1
+              );
+              const activeIdx = getClosestStepIndex(speedSteps, replaySpeed);
+              return (
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Speed:</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max={speedSteps.length - 1}
+                    step="1"
+                    value={activeIdx}
+                    onChange={(e) => {
+                      const idx = Number(e.target.value);
+                      const speedVal = speedSteps[idx];
+                      console.log(`[DEBUG] Replay Footer Speed - Slider changed to index ${idx} -> speed ${speedVal}s/b`);
+                      onSpeedChange(speedVal);
+                    }}
+                    className="w-24 h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+                    title={`Playback speed: ${replaySpeed} seconds per bar`}
+                  />
+                  <span className="text-[11px] font-mono font-bold text-indigo-400 w-14 text-right">{replaySpeed}s/b</span>
+                </div>
+              );
+            })()}
 
             <div className="w-px h-5 bg-gray-800" />
 
