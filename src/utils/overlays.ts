@@ -241,20 +241,8 @@ export function getInteractiveOverlayOptions(
       const overlayId = event.overlay?.id;
       if (!overlayId) return;
 
-      const syncMatch = overlayId.match(/^sync_(.+)_from_(\d+)$/);
-      if (syncMatch) {
-        // Removing a sync_* visual copy must NEVER delete the stored original or call cross-chart removeOverlay.
-        return;
-      }
-
-      // User deleted an ORIGINAL drawing on the active chart canvas
-      const currentSymbol = chartInstanceRef.current?._symbol || 
-        useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
-
-      if (currentSymbol) {
-        useDrawingStore.getState().removeSymbolDrawing(currentSymbol, overlayId);
-        runWorkspaceReconciliation(chartInstancesRef);
-      }
+      useDrawingStore.getState().removeSymbolDrawingById(overlayId);
+      runWorkspaceReconciliation(chartInstancesRef);
     },
     onMouseEnter: (event: any) => {
       const overrideOpts = {
@@ -496,12 +484,8 @@ export function getInteractiveOverlayOptions(
     onClick: (event: any) => {
       const id = event.overlay.id;
       if (event.chart._activeTool === 'eraser') {
-        const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
-        if (currentSymbol) {
-          const syncMatch = id?.match(/^sync_(.+)_from_(\d+)$/);
-          const originalId = syncMatch ? syncMatch[1] : id;
-          useDrawingStore.getState().removeSymbolDrawing(currentSymbol, originalId);
-        }
+        useDrawingStore.getState().removeSymbolDrawingById(id);
+        runWorkspaceReconciliation(chartInstancesRef);
         return true;
       }
       event.chart._clickedOnOverlay = true;

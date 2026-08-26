@@ -32,6 +32,7 @@ interface DrawingState {
   clearSymbolDrawings: (symbol: string) => void;
   getSymbolDrawings: (symbol: string) => DrawingItem[];
   findSymbolByDrawingId: (id: string) => { symbol: string; drawing: DrawingItem } | null;
+  removeSymbolDrawingById: (id: string) => void;
 
   // General & Legacy Store Actions
   setDrawings: (drawings: DrawingInstance[]) => void;
@@ -198,14 +199,28 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
 
   findSymbolByDrawingId: (id) => {
     if (!id) return null;
+    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+    const targetId = syncMatch ? syncMatch[1] : id;
+
     const drawingsBySymbol = get().drawingsBySymbol;
     for (const symbol in drawingsBySymbol) {
-      const drawing = drawingsBySymbol[symbol]?.find((d) => d.id === id);
+      const drawing = drawingsBySymbol[symbol]?.find((d) => d.id === targetId);
       if (drawing) {
         return { symbol, drawing };
       }
     }
     return null;
+  },
+
+  removeSymbolDrawingById: (id) => {
+    if (!id) return;
+    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+    const originalId = syncMatch ? syncMatch[1] : id;
+
+    const resolved = get().findSymbolByDrawingId(originalId);
+    if (resolved) {
+      get().removeSymbolDrawing(resolved.symbol, originalId);
+    }
   },
 
   // Legacy Actions (Preserved for compatibility)

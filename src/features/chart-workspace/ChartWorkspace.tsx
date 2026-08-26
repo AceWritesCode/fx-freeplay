@@ -2031,14 +2031,9 @@ export function ChartWorkspace() {
           }
         }}
         onDelete={() => {
-          const currentSymbol = slots[activeChartIndex]?.symbol;
-          if (currentSymbol) {
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-              useDrawingStore.getState().removeSymbolDrawing(currentSymbol, originalId);
-            });
-          }
+          selectedOverlayIds.forEach((id) => {
+            useDrawingStore.getState().removeSymbolDrawingById(id);
+          });
           setSelectedOverlayIds([]);
           runWorkspaceReconciliation(chartInstancesRef);
         }}
