@@ -32,6 +32,9 @@ export interface DataManagementState {
   selectAllRecordsOnPage: () => void;
   clearSelection: () => void;
   refreshOverview: () => Promise<void>;
+  deleteRecord: (recordId: string) => Promise<void>;
+  deleteSelectedRecords: () => Promise<void>;
+  clearActiveCategory: () => Promise<void>;
 }
 
 export const useDataManagementStore = create<DataManagementState>((set, get) => ({
@@ -154,5 +157,50 @@ export const useDataManagementStore = create<DataManagementState>((set, get) => 
 
   clearSelection: () => {
     set({ selectedRecordIds: [] });
+  },
+
+  deleteRecord: async (recordId: string) => {
+    const catId = get().activeCategoryId;
+    if (!catId) return;
+    try {
+      await dataManagementRepository.deleteRecord(catId, recordId);
+      set((state) => ({
+        selectedRecordIds: state.selectedRecordIds.filter((id) => id !== recordId),
+      }));
+      await get().loadCategoryRecords();
+      await get().refreshOverview();
+    } catch (err: any) {
+      console.error(`[useDataManagementStore] Failed to delete record ${recordId}:`, err);
+      set({ error: err.message || 'Failed to delete record' });
+    }
+  },
+
+  deleteSelectedRecords: async () => {
+    const catId = get().activeCategoryId;
+    const ids = get().selectedRecordIds;
+    if (!catId || ids.length === 0) return;
+    try {
+      await dataManagementRepository.deleteCategoryRecords(catId, ids);
+      set({ selectedRecordIds: [] });
+      await get().loadCategoryRecords();
+      await get().refreshOverview();
+    } catch (err: any) {
+      console.error(`[useDataManagementStore] Failed to delete selected records:`, err);
+      set({ error: err.message || 'Failed to delete selected records' });
+    }
+  },
+
+  clearActiveCategory: async () => {
+    const catId = get().activeCategoryId;
+    if (!catId) return;
+    try {
+      await dataManagementRepository.clearCategory(catId);
+      set({ selectedRecordIds: [], records: [], totalRecordCount: 0 });
+      await get().loadCategoryRecords();
+      await get().refreshOverview();
+    } catch (err: any) {
+      console.error(`[useDataManagementStore] Failed to clear category ${catId}:`, err);
+      set({ error: err.message || 'Failed to clear category' });
+    }
   },
 }));

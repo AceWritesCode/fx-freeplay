@@ -43,8 +43,11 @@ function getCategoryIcon(type: CategoryStorageSummary['type']) {
   }
 }
 
+import { CategoryDetailView } from './CategoryDetailView';
+
 export const DataManagementDashboard: React.FC = () => {
   const {
+    activeCategoryId,
     overview,
     isLoadingOverview,
     error,
@@ -55,6 +58,10 @@ export const DataManagementDashboard: React.FC = () => {
   useEffect(() => {
     loadOverview();
   }, [loadOverview]);
+
+  if (activeCategoryId) {
+    return <CategoryDetailView />;
+  }
 
   const totalStorageBytes = overview.reduce((sum, item) => sum + item.estimatedSizeBytes, 0);
 

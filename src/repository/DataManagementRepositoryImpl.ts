@@ -255,6 +255,63 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
           });
         }
       }
+    } else if (categoryId === 'watchlist') {
+      const val = await executeTx<any[]>(STORES.WATCHLIST, 'readonly', (store) => store.get('watchlist_symbols'));
+      if (Array.isArray(val)) {
+        val.forEach((item: any) => {
+          if (searchQuery && !item.name?.toLowerCase().includes(searchQuery.toLowerCase())) return;
+          const sizeBytes = JSON.stringify(item).length;
+          items.push({
+            id: item.name,
+            category: 'watchlist',
+            title: item.name,
+            subtitle: 'Watchlist Symbol',
+            sizeBytes,
+            metadata: { name: item.name },
+          });
+        });
+      }
+    } else if (categoryId === 'drawing_templates') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('fx_templates_') || key.startsWith('fx_folders_') || key === 'fx_custom_theme_presets' || key === 'fx_recent_colors')) {
+          if (searchQuery && !key.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+          const val = localStorage.getItem(key);
+          const sizeBytes = val ? val.length : 0;
+          items.push({
+            id: key,
+            category: 'drawing_templates',
+            title: key,
+            subtitle: key.startsWith('fx_templates_') ? 'Drawing Tool Template' : 'LocalStorage Preset',
+            sizeBytes,
+            metadata: { key },
+          });
+        }
+      }
+    } else if (categoryId === 'workspace_layout') {
+      const val = await executeTx<any>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.get('active_layout'));
+      if (val) {
+        items.push({
+          id: 'active_layout',
+          category: 'workspace_layout',
+          title: `Active Layout (${val.layoutType || '1'})`,
+          subtitle: `${val.slots?.length || 0} Slots Configured`,
+          sizeBytes: JSON.stringify(val).length,
+          metadata: val,
+        });
+      }
+    } else if (categoryId === 'settings') {
+      const val = await executeTx<any>(STORES.SETTINGS, 'readonly', (store) => store.get('app_settings'));
+      if (val) {
+        items.push({
+          id: 'app_settings',
+          category: 'settings',
+          title: 'Global Application Settings',
+          subtitle: `Timezone: ${val.timezone || 'UTC'} • Theme: ${val.theme || 'dark'}`,
+          sizeBytes: JSON.stringify(val).length,
+          metadata: val,
+        });
+      }
     }
 
     const start = (page - 1) * pageSize;
@@ -266,21 +323,89 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
     };
   }
 
-  // Stubbed mutation methods (To be expanded in Checkpoints 4 & 5)
-  async deleteRecord(_categoryId: string, _recordId: string): Promise<void> {
-    throw new Error('deleteRecord not implemented in Checkpoint 1 (Inspection layer only)');
+  async deleteRecord(categoryId: string, recordId: string): Promise<void> {
+    if (categoryId === 'market_bars') {
+      await executeTx(STORES.MARKET_BARS, 'readwrite', (store) => store.delete(recordId));
+    } else if (categoryId === 'drawings') {
+      const [symbol, drawingId] = recordId.split('::');
+      if (symbol && drawingId) {
+        const key = symbol.toUpperCase();
+        const existing = (await executeTx<any[]>(STORES.DRAWINGS, 'readonly', (store) => store.get(key))) || [];
+        const updated = existing.filter((d: any) => d.id !== drawingId);
+        await executeTx(STORES.DRAWINGS, 'readwrite', (store) => store.put(updated, key));
+        // Synchronize in-memory useDrawingStore
+        try {
+          const { useDrawingStore } = await import('@/store');
+          useDrawingStore.getState().removeSymbolDrawing(key, drawingId);
+        } catch (e) {
+          console.warn('[DataManagementRepository] Store sync warning:', e);
+        }
+      }
+    } else if (categoryId === 'watchlist') {
+      const existingWatchlist = (await executeTx<any[]>(STORES.WATCHLIST, 'readonly', (store) => store.get('watchlist_symbols'))) || [];
+      const updatedWatchlist = existingWatchlist.filter((item: any) => item.name !== recordId);
+      await executeTx(STORES.WATCHLIST, 'readwrite', (store) => store.put(updatedWatchlist, 'watchlist_symbols'));
+      await executeTx(STORES.WATCHLIST, 'readwrite', (store) => store.delete(`profile:${recordId}`));
+      try {
+        const { useWatchlistStore } = await import('@/store');
+        useWatchlistStore.setState((state) => ({
+          watchlistSymbols: state.watchlistSymbols.filter((s) => s.name !== recordId),
+        }));
+      } catch (e) {
+        console.warn('[DataManagementRepository] Store sync warning:', e);
+      }
+    } else if (categoryId === 'drawing_templates') {
+      localStorage.removeItem(recordId);
+    } else if (categoryId === 'workspace_layout') {
+      await executeTx(STORES.WORKSPACE_LAYOUT, 'readwrite', (store) => store.delete(recordId));
+    } else if (categoryId === 'settings') {
+      await executeTx(STORES.SETTINGS, 'readwrite', (store) => store.delete(recordId));
+    }
   }
 
-  async deleteCategoryRecords(_categoryId: string, _recordIds: string[]): Promise<void> {
-    throw new Error('deleteCategoryRecords not implemented in Checkpoint 1 (Inspection layer only)');
+  async deleteCategoryRecords(categoryId: string, recordIds: string[]): Promise<void> {
+    for (const recordId of recordIds) {
+      await this.deleteRecord(categoryId, recordId);
+    }
   }
 
-  async clearCategory(_categoryId: string): Promise<void> {
-    throw new Error('clearCategory not implemented in Checkpoint 1 (Inspection layer only)');
+  async clearCategory(categoryId: string): Promise<void> {
+    if (categoryId === 'market_bars') {
+      await executeTx(STORES.MARKET_BARS, 'readwrite', (store) => store.clear());
+    } else if (categoryId === 'drawings') {
+      await executeTx(STORES.DRAWINGS, 'readwrite', (store) => store.clear());
+      try {
+        const { useDrawingStore } = await import('@/store');
+        useDrawingStore.setState({ drawingsBySymbol: {}, drawings: [] });
+      } catch (e) {
+        console.warn('[DataManagementRepository] Store sync warning:', e);
+      }
+    } else if (categoryId === 'watchlist') {
+      await executeTx(STORES.WATCHLIST, 'readwrite', (store) => store.clear());
+      try {
+        const { useWatchlistStore } = await import('@/store');
+        useWatchlistStore.setState({ watchlistSymbols: [], activeWatchlistSymbol: null });
+      } catch (e) {
+        console.warn('[DataManagementRepository] Store sync warning:', e);
+      }
+    } else if (categoryId === 'workspace_layout') {
+      await executeTx(STORES.WORKSPACE_LAYOUT, 'readwrite', (store) => store.clear());
+    } else if (categoryId === 'settings') {
+      await executeTx(STORES.SETTINGS, 'readwrite', (store) => store.clear());
+    } else if (categoryId === 'drawing_templates') {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('fx_templates_') || key.startsWith('fx_folders_') || key === 'fx_custom_theme_presets' || key === 'fx_recent_colors')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    }
   }
 
   async performFactoryReset(): Promise<void> {
-    throw new Error('performFactoryReset not implemented in Checkpoint 1 (Inspection layer only)');
+    throw new Error('performFactoryReset not implemented in Checkpoint 4 (Factory Reset is Checkpoint 5)');
   }
 }
 
