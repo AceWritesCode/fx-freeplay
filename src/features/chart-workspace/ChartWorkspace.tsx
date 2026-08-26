@@ -423,6 +423,57 @@ export function ChartWorkspace() {
     });
   }, [selectedOverlayIds, setSelectedOverlayIds, drawingCoord.activeTool]);
 
+  // Deselection transition effect: when a selected drawing is deselected, compare its chart state against stored record and commit changes
+  const prevSelectedOverlayIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const prevSelected = prevSelectedOverlayIdsRef.current;
+    const currentSelected = selectedOverlayIds;
+
+    const deselectedIds = prevSelected.filter((id) => !currentSelected.includes(id));
+    prevSelectedOverlayIdsRef.current = currentSelected;
+
+    if (deselectedIds.length > 0) {
+      const activeSymbol = slots[activeChartIndex]?.symbol;
+      const activeChart = chartInstancesRef.current[activeChartIndex];
+
+      if (activeSymbol && activeChart) {
+        let storeUpdated = false;
+
+        deselectedIds.forEach((id) => {
+          // Storage-First rule: Only original drawings (not sync_* copies) update storage
+          if (!id.startsWith('sync_')) {
+            const chartOverlay = activeChart.getOverlays().find((o: any) => o.id === id);
+            const storedDrawing = useDrawingStore
+              .getState()
+              .getSymbolDrawings(activeSymbol)
+              .find((d) => d.id === id);
+
+            if (chartOverlay && storedDrawing) {
+              const pointsChanged = JSON.stringify(chartOverlay.points) !== JSON.stringify(storedDrawing.points);
+              const lockChanged = chartOverlay.lock !== storedDrawing.lock;
+              const visibleChanged = chartOverlay.visible !== (storedDrawing.visible !== false);
+              const extendDataChanged = JSON.stringify(chartOverlay.extendData) !== JSON.stringify(storedDrawing.extendData || {});
+
+              if (pointsChanged || lockChanged || visibleChanged || extendDataChanged) {
+                useDrawingStore.getState().updateSymbolDrawing(activeSymbol, id, {
+                  points: JSON.parse(JSON.stringify(chartOverlay.points || [])),
+                  lock: chartOverlay.lock,
+                  visible: chartOverlay.visible !== false,
+                  extendData: JSON.parse(JSON.stringify(chartOverlay.extendData || {})),
+                });
+                storeUpdated = true;
+              }
+            }
+          }
+        });
+
+        if (storeUpdated) {
+          runWorkspaceReconciliation(chartInstancesRef);
+        }
+      }
+    }
+  }, [selectedOverlayIds, activeChartIndex, slots]);
+
   // Update refs when stores change for synchronizations
   useEffect(() => {
     syncCrosshairRef.current = syncCrosshair;
@@ -1840,28 +1891,6 @@ export function ChartWorkspace() {
               updateDefaultSettings(toolName, tplSettings);
             }
           }
-          chartInstancesRef.current.forEach((chart) => {
-            if (!chart) return;
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-              const overlay = chart.getOverlays().find(
-                (o: any) => o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-              );
-              if (overlay) {
-                chart.overrideOverlay({
-                  id: overlay.id,
-                  extendData: {
-                    ...overlay.extendData,
-                    customSettings: {
-                      ...(overlay.extendData?.customSettings || {}),
-                      ...tplSettings,
-                    },
-                  },
-                });
-              }
-            });
-          });
           // Store-first migration: Dispatch style template to useDrawingStore for selected drawings
           const currentSymbol = slots[activeChartIndex]?.symbol;
           if (currentSymbol) {
@@ -1883,48 +1912,11 @@ export function ChartWorkspace() {
             });
           }
 
-          drawingCoord.syncAllDrawings();
+          runWorkspaceReconciliation(chartInstancesRef);
           setSelectedOverlayIds([]);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
         onLock={() => {
-          chartInstancesRef.current.forEach((chart) => {
-            if (!chart) return;
-            selectedOverlayIds.forEach((id) => {
-              const overlay = chart.getOverlays().find((o: any) => o.id === id);
-              if (overlay) {
-                const nextLock = !overlay.lock;
-                chart.overrideOverlay({
-                  id,
-                  lock: nextLock,
-                  styles: {
-                    point: nextLock
-                      ? {
-                          radius: 0,
-                          activeRadius: 0,
-                          color: 'transparent',
-                          borderColor: 'transparent',
-                          borderSize: 0,
-                          activeColor: 'transparent',
-                          activeBorderColor: 'transparent',
-                          activeBorderSize: 0,
-                        }
-                      : {
-                          radius: 4.5,
-                          activeRadius: 5.5,
-                          color: '#ffffff',
-                          borderColor: '#2196F3',
-                          borderSize: 1.5,
-                          activeColor: '#ffffff',
-                          activeBorderColor: '#2196F3',
-                          activeBorderSize: 2,
-                        },
-                  },
-                });
-              }
-            });
-            chart.resize();
-          });
           // Store-first migration: Dispatch lock state to useDrawingStore for selected drawings
           const currentSymbol = slots[activeChartIndex]?.symbol;
           if (currentSymbol) {
@@ -1940,7 +1932,7 @@ export function ChartWorkspace() {
             });
           }
 
-          drawingCoord.syncAllDrawings();
+          runWorkspaceReconciliation(chartInstancesRef);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
         onUpdateSettings={(settingsUpdate) => {
@@ -1963,29 +1955,7 @@ export function ChartWorkspace() {
               updateDefaultSettings(toolName, settingsUpdate);
             }
           }
-          chartInstancesRef.current.forEach((chart) => {
-            if (!chart) return;
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
 
-              const overlay = chart.getOverlays().find(
-                (o: any) => o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-              );
-              if (overlay) {
-                chart.overrideOverlay({
-                  id: overlay.id,
-                  extendData: {
-                    ...overlay.extendData,
-                    customSettings: {
-                      ...(overlay.extendData?.customSettings || {}),
-                      ...settingsUpdate,
-                    },
-                  },
-                });
-              }
-            });
-          });
           // Store-first migration: Dispatch settings update to useDrawingStore for selected drawings
           const currentSymbol = slots[activeChartIndex]?.symbol;
           if (currentSymbol) {
@@ -2007,7 +1977,7 @@ export function ChartWorkspace() {
             });
           }
 
-          drawingCoord.syncAllDrawings();
+          runWorkspaceReconciliation(chartInstancesRef);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
         onSettingsClick={() => {

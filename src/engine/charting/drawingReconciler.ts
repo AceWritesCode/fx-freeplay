@@ -109,7 +109,21 @@ export function reconcileWorkspace(
       const existingOv = currentOverlays.find((o: any) => o.id === overlayId);
 
       if (existingOv) {
-        // Check if points, lock, visible, or extendData changed
+        // Protect overlays actively being dragged/edited or currently selected on the primary slot
+        const isActivelyEditing =
+          (chart._activeDraggingIndex !== undefined && chart._activeDraggingIndex !== null) ||
+          (existingOv.extendData?.draggedIndex !== undefined && existingOv.extendData?.draggedIndex !== null);
+
+        const isSelectedOnPrimary =
+          slotPlan.isPrimarySlot &&
+          Array.isArray(chart._selectedOverlayIds) &&
+          chart._selectedOverlayIds.includes(overlayId);
+
+        if (isActivelyEditing || isSelectedOnPrimary) {
+          return;
+        }
+
+        // Check if points, lock, visible, or extendData changed in store
         const pointsChanged = JSON.stringify(existingOv.points) !== JSON.stringify(d.points);
         const lockChanged = existingOv.lock !== d.lock;
         const visibleChanged = existingOv.visible !== (d.visible !== false);

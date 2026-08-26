@@ -4,22 +4,9 @@ import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
 
-export function syncSyncedCopyToOriginal(chart: any, overlayId: string, overrideOptions: any) {
-  const syncMatch = overlayId?.match(/^sync_(.+)_from_(\d+)$/);
-  if (syncMatch) {
-    const originalId = syncMatch[1];
-    const sourceIndex = parseInt(syncMatch[2]);
-    const sourceChart = chart._chartInstancesRef?.current?.[sourceIndex];
-    if (sourceChart) {
-      sourceChart.overrideOverlay({
-        id: originalId,
-        ...overrideOptions
-      });
-      if (sourceChart._onHoverChange) {
-        sourceChart._onHoverChange();
-      }
-    }
-  }
+export function syncSyncedCopyToOriginal(_chart: any, _overlayId: string, _overrideOptions: any) {
+  // Deprecated legacy function: storage is the single source of truth under storage-first architecture.
+  return;
 }
 
 export function registerCustomOverlays() {
@@ -270,7 +257,6 @@ export function getInteractiveOverlayOptions(
         id: event.overlay.id,
         ...overrideOpts
       });
-      syncSyncedCopyToOriginal(event.chart, event.overlay.id, overrideOpts);
 
       event.chart.resize();
       if (event.chart._onHoverChange) {
@@ -289,7 +275,6 @@ export function getInteractiveOverlayOptions(
         id: event.overlay.id,
         ...overrideOpts
       });
-      syncSyncedCopyToOriginal(event.chart, event.overlay.id, overrideOpts);
 
       event.chart.resize();
       if (event.chart._onHoverChange) {
@@ -338,7 +323,6 @@ export function getInteractiveOverlayOptions(
         id: event.overlay.id,
         ...overrideOpts
       });
-      syncSyncedCopyToOriginal(event.chart, event.overlay.id, overrideOpts);
 
       if (event.chart._initMultiMove) {
         event.chart._initMultiMove(event);
@@ -383,9 +367,6 @@ export function getInteractiveOverlayOptions(
         if (event.chart._handleMultiMove) {
           event.chart._handleMultiMove(event);
         }
-        if (event.chart._onDrawingSync) {
-          event.chart._onDrawingSync();
-        }
         return;
       }
 
@@ -393,22 +374,13 @@ export function getInteractiveOverlayOptions(
       const registeredTool = ToolRegistry.get(toolName);
       if (registeredTool && registeredTool.onPressedMoving) {
         const result = registeredTool.onPressedMoving(event, draggedIndex);
-        if (result) {
-          if (typeof result === 'object' && result.points) {
-            // ToolMutationResult path: framework owns overrideOverlay and sync-back.
-            // The tool is responsible only for geometry; synchronization stays here.
-            event.chart.overrideOverlay({
-              id: event.overlay.id,
-              points: result.points
-            });
-            syncSyncedCopyToOriginal(event.chart, event.overlay.id, { points: result.points });
-          }
-          // For both ToolMutationResult and legacy boolean=true, trigger forward sync.
-          if (event.chart._onDrawingSync) {
-            event.chart._onDrawingSync();
-          }
-          return;
+        if (result && typeof result === 'object' && result.points) {
+          event.chart.overrideOverlay({
+            id: event.overlay.id,
+            points: result.points
+          });
         }
+        return;
       }
 
       if (toolName === 'trendLine') {
@@ -448,10 +420,6 @@ export function getInteractiveOverlayOptions(
                     id: event.overlay.id,
                     points: newPoints
                   });
-                  syncSyncedCopyToOriginal(event.chart, event.overlay.id, { points: newPoints });
-                  if (event.chart._onDrawingSync) {
-                    event.chart._onDrawingSync();
-                  }
                   return;
                 }
               }
@@ -482,11 +450,7 @@ export function getInteractiveOverlayOptions(
             id: event.overlay.id,
             points: newPoints
           });
-          syncSyncedCopyToOriginal(event.chart, event.overlay.id, { points: newPoints });
         }
-      }
-      if (event.chart._onDrawingSync) {
-        event.chart._onDrawingSync();
       }
     },
     onPressedMoveEnd: (event: any) => {
@@ -503,21 +467,20 @@ export function getInteractiveOverlayOptions(
         id: event.overlay.id,
         ...overrideOpts
       });
-      syncSyncedCopyToOriginal(event.chart, event.overlay.id, overrideOpts);
 
-      // Store-first migration: Dispatch updated points and extendData to useDrawingStore on drag end
-      const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
-      if (currentSymbol && event.overlay) {
-        const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
-        const originalId = syncMatch ? syncMatch[1] : event.overlay.id;
-        useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
-          points: JSON.parse(JSON.stringify(event.overlay.points || [])),
-          extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
-        });
-      }
+      // Storage-First rule: Only an original drawing (not a sync_* copy) updates storage
+      const overlayId = event.overlay?.id;
+      if (overlayId && !overlayId.startsWith('sync_')) {
+        const currentSymbol = chartInstanceRef.current?._symbol || 
+          useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
 
-      if (event.chart._onDrawingSync) {
-        event.chart._onDrawingSync();
+        if (currentSymbol) {
+          useDrawingStore.getState().updateSymbolDrawing(currentSymbol, overlayId, {
+            points: JSON.parse(JSON.stringify(event.overlay.points || [])),
+            extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+          });
+          runWorkspaceReconciliation(chartInstancesRef);
+        }
       }
     },
     onClick: (event: any) => {
