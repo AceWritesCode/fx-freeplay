@@ -158,12 +158,17 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
           return;
         }
 
+        // Immutable creator slot metadata
+        const creatorSlotIndex = typeof d.extendData?.sourceSlotIndex === 'number'
+          ? d.extendData.sourceSlotIndex
+          : 0;
+
         if (isSingleChart) {
           // Single-chart layout: render canonical drawings relevant to visible symbol as original overlays (no sync copies)
           desiredOverlays.set(d.id, {
             originalId: d.id,
             overlayId: d.id,
-            sourceSlotIndex: 0,
+            sourceSlotIndex: creatorSlotIndex,
             targetSlotIndex: 0,
             symbol: slotSymbol,
             isSyncedCopy: false,
@@ -176,7 +181,7 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
             desiredOverlays.set(d.id, {
               originalId: d.id,
               overlayId: d.id,
-              sourceSlotIndex: ownerSlotIndex,
+              sourceSlotIndex: creatorSlotIndex,
               targetSlotIndex: slotIndex,
               symbol: slotSymbol,
               isSyncedCopy: false,
@@ -184,11 +189,11 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
             });
           } else if (isDrawingSyncEnabled) {
             // Sync ON -> Non-owner slot renders synced copy projection
-            const syncOverlayId = `sync_${d.id}_from_${ownerSlotIndex}`;
+            const syncOverlayId = `sync_${d.id}_from_${creatorSlotIndex}`;
             desiredOverlays.set(syncOverlayId, {
               originalId: d.id,
               overlayId: syncOverlayId,
-              sourceSlotIndex: ownerSlotIndex,
+              sourceSlotIndex: creatorSlotIndex,
               targetSlotIndex: slotIndex,
               symbol: slotSymbol,
               isSyncedCopy: true,
