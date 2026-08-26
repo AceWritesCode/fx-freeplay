@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore } from '@/store';
+import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore, useDrawingStore } from '@/store';
 import { TIMEZONE_OPTIONS } from '@/config';
 import {
   initRepositories,
@@ -185,6 +185,9 @@ export function useWorkspaceCoordinator(
               activeWatchlistSymbol: savedActiveSymbol,
               savedFolderHandles,
             });
+            // Pre-load drawings for ALL imported watchlist symbols into useDrawingStore upfront (Checkpoint G)
+            const watchlistSymbolNames = savedWatchlist.map((s) => s.name);
+            await useDrawingStore.getState().loadAllSymbolDrawings(watchlistSymbolNames);
           }
 
           // Restore market data for all saved slots
@@ -926,6 +929,7 @@ export function useWorkspaceCoordinator(
       const watchlistItems = validSymbols.map((name) => ({ name }));
       setWatchlistSymbols(watchlistItems);
       await watchlistRepository.saveWatchlistSymbols(watchlistItems);
+      await useDrawingStore.getState().loadAllSymbolDrawings(validSymbols);
 
       setSavedFolderHandles(handlesToUse);
       await watchlistRepository.saveFolderHandles(handlesToUse);
@@ -1106,6 +1110,7 @@ export function useWorkspaceCoordinator(
         }
         await marketDataRepository.saveBars(cleanName, '1m', result.data);
         await watchlistRepository.saveWatchlistSymbols(nextList);
+        await useDrawingStore.getState().loadSymbolDrawings(cleanName);
       }
     };
     reader.readAsText(file);

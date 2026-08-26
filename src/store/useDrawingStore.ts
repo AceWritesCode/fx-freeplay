@@ -24,6 +24,7 @@ interface DrawingState {
 
   // IndexedDB Bridge & Symbol-Keyed Store Actions
   loadSymbolDrawings: (symbol: string) => Promise<DrawingItem[]>;
+  loadAllSymbolDrawings: (symbols: string[]) => Promise<Record<string, DrawingItem[]>>;
   setSymbolDrawings: (symbol: string, drawings: DrawingItem[]) => void;
   addSymbolDrawing: (symbol: string, drawing: DrawingItem) => void;
   updateSymbolDrawing: (symbol: string, id: string, updates: Partial<DrawingItem>) => void;
@@ -69,6 +70,26 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
       console.error(`[useDrawingStore] Failed to load drawings for ${key}:`, err);
       return [];
     }
+  },
+
+  loadAllSymbolDrawings: async (symbols: string[]) => {
+    if (!symbols || symbols.length === 0) return {};
+    const nextMap: Record<string, DrawingItem[]> = { ...get().drawingsBySymbol };
+    await Promise.all(
+      symbols.map(async (sym) => {
+        if (!sym) return;
+        const key = sym.toUpperCase();
+        try {
+          const saved = await drawingRepository.getDrawings(key);
+          nextMap[key] = saved || [];
+        } catch (err) {
+          console.error(`[useDrawingStore] Failed to pre-load drawings for ${key}:`, err);
+          nextMap[key] = nextMap[key] || [];
+        }
+      })
+    );
+    set({ drawingsBySymbol: nextMap });
+    return nextMap;
   },
 
   // Symbol-Keyed Actions (Auto-persisted to IndexedDB)
