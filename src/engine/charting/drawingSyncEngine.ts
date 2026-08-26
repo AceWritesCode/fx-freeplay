@@ -72,6 +72,65 @@ export interface WorkspaceSyncPlan {
 }
 
 /**
+ * Checkpoint 1 — Ownership Resolver
+ *
+ * Pure function that dynamically calculates the authoritative owner slot index
+ * for a drawing based on current layout slots, symbol distribution, and sync settings.
+ */
+export function resolveDrawingOwnerSlot(
+  drawing: DrawingItem,
+  visibleSlots: { symbol: string | null; timeframe: string }[],
+  isDrawingSyncEnabled: boolean
+): number | null {
+  const visibleCount = visibleSlots ? visibleSlots.length : 0;
+  if (visibleCount === 0 || !drawing || !drawing.symbol) {
+    return null;
+  }
+
+  const drawingSymbol = drawing.symbol.toUpperCase();
+
+  // Find index of the first visible slot displaying drawingSymbol
+  let firstSlotIndexForSymbol = -1;
+  for (let i = 0; i < visibleCount; i++) {
+    const slotSymbol = visibleSlots[i]?.symbol ? visibleSlots[i].symbol!.toUpperCase() : null;
+    if (slotSymbol === drawingSymbol) {
+      firstSlotIndexForSymbol = i;
+      break;
+    }
+  }
+
+  if (firstSlotIndexForSymbol === -1) {
+    // No visible slot is currently displaying this drawing's symbol
+    return null;
+  }
+
+  if (visibleCount === 1) {
+    // Rule 1: Single-chart layout -> Slot 0 is the dynamic owner
+    return 0;
+  }
+
+  if (isDrawingSyncEnabled) {
+    // Rule 2: Multi-chart + Sync ON -> Use tagged sourceSlotIndex if valid & slot displays same symbol
+    const taggedSlotIndex = typeof drawing.extendData?.sourceSlotIndex === 'number'
+      ? drawing.extendData.sourceSlotIndex
+      : -1;
+
+    if (taggedSlotIndex >= 0 && taggedSlotIndex < visibleCount) {
+      const taggedSlotSymbol = visibleSlots[taggedSlotIndex]?.symbol
+        ? visibleSlots[taggedSlotIndex].symbol!.toUpperCase()
+        : null;
+
+      if (taggedSlotSymbol === drawingSymbol) {
+        return taggedSlotIndex;
+      }
+    }
+  }
+
+  // Rule 3 & Fallback: First visible slot displaying drawing.symbol becomes the dynamic owner
+  return firstSlotIndexForSymbol;
+}
+
+/**
  * Calculates the deterministic workspace sync plan for the current workspace state.
  *
  * Answers: "For the current workspace state, what overlays SHOULD each chart contain?"
