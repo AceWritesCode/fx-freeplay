@@ -35,6 +35,7 @@ export interface DataManagementState {
   deleteRecord: (recordId: string) => Promise<void>;
   deleteSelectedRecords: () => Promise<void>;
   clearActiveCategory: () => Promise<void>;
+  performFactoryReset: () => Promise<void>;
 }
 
 export const useDataManagementStore = create<DataManagementState>((set, get) => ({
@@ -201,6 +202,16 @@ export const useDataManagementStore = create<DataManagementState>((set, get) => 
     } catch (err: any) {
       console.error(`[useDataManagementStore] Failed to clear category ${catId}:`, err);
       set({ error: err.message || 'Failed to clear category' });
+    }
+  },
+
+  performFactoryReset: async () => {
+    try {
+      await dataManagementRepository.performFactoryReset();
+      await get().loadOverview();
+    } catch (err: any) {
+      console.error(`[useDataManagementStore] Failed to perform factory reset:`, err);
+      set({ error: err.message || 'Failed to perform factory reset' });
     }
   },
 }));

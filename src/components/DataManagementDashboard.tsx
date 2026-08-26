@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Database,
   PenTool,
@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { useDataManagementStore } from '@/store';
 import type { CategoryStorageSummary } from '@/repository';
+import { CategoryDetailView } from './CategoryDetailView';
+import { FactoryResetModal } from './FactoryResetModal';
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 B';
@@ -43,9 +45,8 @@ function getCategoryIcon(type: CategoryStorageSummary['type']) {
   }
 }
 
-import { CategoryDetailView } from './CategoryDetailView';
-
 export const DataManagementDashboard: React.FC = () => {
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const {
     activeCategoryId,
     overview,
@@ -163,15 +164,19 @@ export const DataManagementDashboard: React.FC = () => {
             </p>
           </div>
           <button
-            disabled
-            className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/40 rounded-md text-xs font-semibold cursor-not-allowed opacity-75 flex items-center gap-1.5"
-            title="Factory Reset will be enabled in Checkpoint 5"
+            onClick={() => setIsResetModalOpen(true)}
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-md"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            Factory Reset (Checkpoint 5)
+            Factory Reset Application
           </button>
         </div>
       </div>
+
+      <FactoryResetModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+      />
     </div>
   );
 };

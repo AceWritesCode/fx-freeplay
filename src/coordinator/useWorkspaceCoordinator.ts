@@ -64,6 +64,12 @@ const timezoneAdjustedCache = new Map<string, Record<string, KLineData[]>>();
 // Static, in-memory cache for symbol profiles to avoid IndexedDB reads during symbol switching
 const symbolProfileCache = new Map<string, any>();
 
+export function clearWorkspaceCaches() {
+  rawDataCache.clear();
+  timezoneAdjustedCache.clear();
+  symbolProfileCache.clear();
+}
+
 export function useWorkspaceCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
   _chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>,

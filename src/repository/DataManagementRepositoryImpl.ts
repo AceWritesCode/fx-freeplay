@@ -405,7 +405,111 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
   }
 
   async performFactoryReset(): Promise<void> {
-    throw new Error('performFactoryReset not implemented in Checkpoint 4 (Factory Reset is Checkpoint 5)');
+    // 1. Clear all IndexedDB stores in FXFreeplayDB
+    const storeNames = [
+      STORES.MARKET_BARS,
+      STORES.WATCHLIST,
+      STORES.WORKSPACE_LAYOUT,
+      STORES.DRAWINGS,
+      STORES.SETTINGS,
+      STORES.METADATA,
+    ];
+    for (const storeName of storeNames) {
+      try {
+        await executeTx(storeName, 'readwrite', (store) => store.clear());
+      } catch (err) {
+        console.warn(`[DataManagementRepository] Failed to clear store ${storeName}:`, err);
+      }
+    }
+
+    // 2. Clear app-owned LocalStorage keys
+    const appPrefixes = [
+      'fx_',
+      'layout_',
+      'tv_clone_',
+      'active_watchlist_symbol',
+      'active_timeframe',
+    ];
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && appPrefixes.some((prefix) => key.startsWith(prefix) || key === prefix)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+    // 3. Reset in-memory Zustand stores to factory default state
+    try {
+      const {
+        useDrawingStore,
+        useWatchlistStore,
+        useLayoutStore,
+        useSettingsStore,
+        useReplayStore,
+        useDataManagementStore,
+      } = await import('@/store');
+
+      useDrawingStore.setState({
+        drawingsBySymbol: {},
+        drawings: [],
+        folders: [],
+        selectedOverlayIds: [],
+      });
+
+      useWatchlistStore.setState({
+        watchlistSymbols: [],
+        activeWatchlistSymbol: null,
+        savedFolderHandle: null,
+        savedFolderHandles: [],
+        symbolFilesMap: {},
+        importMode: 'single',
+      });
+
+      useLayoutStore.setState({
+        layoutType: '1',
+        slots: [{ symbol: '', timeframe: '1m' }],
+        layoutSizes: { '1': [100] },
+        syncSymbol: false,
+        syncInterval: false,
+        syncCrosshair: true,
+        syncTime: true,
+        syncDateRange: false,
+        syncDrawings: true,
+      });
+
+      const { PRESET_SETTINGS } = await import('@/config');
+      useSettingsStore.setState({
+        settings: PRESET_SETTINGS.classic,
+        customTimeframes: [],
+      });
+
+      useReplayStore.getState().resetReplay();
+
+      useDataManagementStore.setState({
+        overview: [],
+        activeCategoryId: null,
+        records: [],
+        totalRecordCount: 0,
+        page: 1,
+        pageSize: 20,
+        searchQuery: '',
+        selectedRecordIds: [],
+        isLoadingOverview: false,
+        isLoadingRecords: false,
+        error: null,
+      });
+    } catch (err) {
+      console.warn('[DataManagementRepository] Failed to reset Zustand stores:', err);
+    }
+
+    // 4. Clear in-memory market data caches
+    try {
+      const { clearWorkspaceCaches } = await import('@/coordinator/useWorkspaceCoordinator');
+      clearWorkspaceCaches();
+    } catch (err) {
+      console.warn('[DataManagementRepository] Failed to clear workspace caches:', err);
+    }
   }
 }
 
