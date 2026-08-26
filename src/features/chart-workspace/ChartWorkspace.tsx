@@ -497,6 +497,10 @@ export function ChartWorkspace() {
   useEffect(() => {
     layoutTypeRef.current = layoutType;
   }, [layoutType]);
+  const drawingTargetChartIndexRef = useRef<number | null>(drawingCoord.drawingTargetChartIndex);
+  useEffect(() => {
+    drawingTargetChartIndexRef.current = drawingCoord.drawingTargetChartIndex;
+  }, [drawingCoord.drawingTargetChartIndex]);
 
   // Universal Storage-First Drawing Reconciliation Pipeline (Checkpoint F)
   const drawingsBySymbol = useDrawingStore((s) => s.drawingsBySymbol);
@@ -599,14 +603,20 @@ export function ChartWorkspace() {
             chartInstancesRef.current[i] = chart;
             applySettingsToChart(chart, settings);
             
-            const markUserInteraction = () => {
-              if (drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i) {
+            const markUserInteraction = (e: Event) => {
+              if (drawingTargetChartIndexRef.current !== null && drawingTargetChartIndexRef.current !== i) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 return;
               }
               userInteractingSlotRef.current = i;
               handleSelectSlot(i);
             };
             container.addEventListener('mousedown', markUserInteraction, { capture: true });
+            container.addEventListener('pointerdown', markUserInteraction, { capture: true });
+            container.addEventListener('click', markUserInteraction, { capture: true });
+            container.addEventListener('mouseup', markUserInteraction, { capture: true });
             container.addEventListener('wheel', markUserInteraction, { capture: true });
 
             chart.setMaxOffsetLeftDistance(10000);
@@ -1388,6 +1398,18 @@ export function ChartWorkspace() {
               e.stopPropagation();
             }}
             onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseUp={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerUp={(e) => {
               e.preventDefault();
               e.stopPropagation();
             }}
