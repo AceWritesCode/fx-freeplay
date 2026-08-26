@@ -16,6 +16,7 @@ import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
+import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -245,6 +246,7 @@ export function ChartWorkspace() {
   const [rightPanelWidth] = useState<number>(300);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isDataManagementOpen, setIsDataManagementOpen] = useState<boolean>(false);
   const [isTfDropdownOpen, setIsTfDropdownOpen] = useState<boolean>(false);
   const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState<boolean>(false);
   const [customValue, setCustomValue] = useState<number>(10);
@@ -1442,6 +1444,7 @@ export function ChartWorkspace() {
         LAYOUT_OPTIONS={layoutsList}
         handleSelectLayout={handleSelectLayout}
         onOpenThemeModal={() => setIsSettingsOpen(true)}
+        onOpenDataManagementModal={() => setIsDataManagementOpen(true)}
         importMode="folder"
         savedFolderHandle={savedFolderHandle}
         isVerifyingFolder={workspaceCoord.isVerifyingFolder}
@@ -2074,6 +2077,22 @@ export function ChartWorkspace() {
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
       />
+
+      {/* Data Management Dashboard Modal */}
+      {isDataManagementOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#181a20] border border-[#2a2e39] rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto relative p-2">
+            <button
+              onClick={() => setIsDataManagementOpen(false)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white bg-[#2a2e39] hover:bg-[#363a45] rounded-md transition-colors z-10"
+              title="Close Data Management"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <DataManagementDashboard />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

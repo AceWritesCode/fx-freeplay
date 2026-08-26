@@ -6,7 +6,8 @@ import {
   Scissors, 
   LayoutGrid,
   RefreshCw,
-  Info
+  Info,
+  Database
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
 
@@ -39,6 +40,7 @@ interface HeaderProps {
   LAYOUT_OPTIONS: { type: string; label: string; icon: React.ComponentType<any> | React.ReactNode }[];
   handleSelectLayout: (type: string) => void;
   onOpenThemeModal: () => void;
+  onOpenDataManagementModal?: () => void;
   importMode: 'single' | 'folder';
   savedFolderHandle: any;
   isVerifyingFolder: boolean;
@@ -82,6 +84,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
     LAYOUT_OPTIONS,
     handleSelectLayout,
     onOpenThemeModal,
+    onOpenDataManagementModal,
     importMode,
     savedFolderHandle,
     isVerifyingFolder,
@@ -554,6 +557,16 @@ export const Header: React.FC<HeaderProps> = (props) => {
               </>
             )}
           </div>
+        )}
+
+        {onOpenDataManagementModal && (
+          <button
+            onClick={onOpenDataManagementModal}
+            className="p-2 rounded-lg border border-gray-850 bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
+            title="Storage & Data Management"
+          >
+            <Database className="w-4 h-4 text-blue-400" />
+          </button>
         )}
 
         <button
