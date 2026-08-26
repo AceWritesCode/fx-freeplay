@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { DrawingInstance, FolderItem } from './types';
+import { drawingRepository } from '@/repository';
 
 export interface DrawingItem {
   id: string;
@@ -21,7 +22,8 @@ interface DrawingState {
   folders: FolderItem[];
   selectedOverlayIds: string[];
 
-  // Symbol-Keyed Store Actions
+  // IndexedDB Bridge & Symbol-Keyed Store Actions
+  loadSymbolDrawings: (symbol: string) => Promise<DrawingItem[]>;
   setSymbolDrawings: (symbol: string, drawings: DrawingItem[]) => void;
   addSymbolDrawing: (symbol: string, drawing: DrawingItem) => void;
   updateSymbolDrawing: (symbol: string, id: string, updates: Partial<DrawingItem>) => void;
@@ -49,7 +51,27 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
   folders: [],
   selectedOverlayIds: [],
 
-  // Symbol-Keyed Actions
+  // Load from IndexedDB into store state
+  loadSymbolDrawings: async (symbol: string) => {
+    if (!symbol) return [];
+    const key = symbol.toUpperCase();
+    try {
+      const saved = await drawingRepository.getDrawings(key);
+      const items = saved || [];
+      set((state) => ({
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [key]: items,
+        },
+      }));
+      return items;
+    } catch (err) {
+      console.error(`[useDrawingStore] Failed to load drawings for ${key}:`, err);
+      return [];
+    }
+  },
+
+  // Symbol-Keyed Actions (Auto-persisted to IndexedDB)
   setSymbolDrawings: (symbol, drawings) => {
     if (!symbol) return;
     const key = symbol.toUpperCase();
@@ -59,56 +81,62 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
         [key]: drawings,
       },
     }));
+    drawingRepository.saveDrawings(key, drawings);
   },
 
   addSymbolDrawing: (symbol, drawing) => {
     if (!symbol || !drawing) return;
     const key = symbol.toUpperCase();
+    let updatedList: DrawingItem[] = [];
     set((state) => {
       const existing = state.drawingsBySymbol[key] || [];
       if (existing.some((d) => d.id === drawing.id)) {
-        return {
-          drawingsBySymbol: {
-            ...state.drawingsBySymbol,
-            [key]: existing.map((d) => (d.id === drawing.id ? { ...d, ...drawing } : d)),
-          },
-        };
+        updatedList = existing.map((d) => (d.id === drawing.id ? { ...d, ...drawing } : d));
+      } else {
+        updatedList = [...existing, drawing];
       }
       return {
         drawingsBySymbol: {
           ...state.drawingsBySymbol,
-          [key]: [...existing, drawing],
+          [key]: updatedList,
         },
       };
     });
+    drawingRepository.saveDrawings(key, updatedList);
   },
 
   updateSymbolDrawing: (symbol, id, updates) => {
     if (!symbol || !id) return;
     const key = symbol.toUpperCase();
+    let updatedList: DrawingItem[] = [];
     set((state) => {
       const existing = state.drawingsBySymbol[key] || [];
+      updatedList = existing.map((d) => (d.id === id ? { ...d, ...updates } : d));
       return {
         drawingsBySymbol: {
           ...state.drawingsBySymbol,
-          [key]: existing.map((d) => (d.id === id ? { ...d, ...updates } : d)),
+          [key]: updatedList,
         },
       };
     });
+    drawingRepository.saveDrawings(key, updatedList);
   },
 
   removeSymbolDrawing: (symbol, id) => {
     if (!symbol || !id) return;
     const key = symbol.toUpperCase();
+    let updatedList: DrawingItem[] = [];
     set((state) => {
       const existing = state.drawingsBySymbol[key] || [];
+      updatedList = existing.filter((d) => d.id !== id);
       return {
         drawingsBySymbol: {
           ...state.drawingsBySymbol,
-          [key]: existing.filter((d) => d.id !== id),
+          [key]: updatedList,
         },
       };
     });
+    drawingRepository.saveDrawings(key, updatedList);
   },
 
   clearSymbolDrawings: (symbol) => {
@@ -120,6 +148,7 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
         [key]: [],
       },
     }));
+    drawingRepository.clearDrawings(key);
   },
 
   getSymbolDrawings: (symbol) => {
