@@ -1,49 +1,71 @@
-import { useDrawingStore, type DrawingItem } from '@/store';
+import { useDrawingStore } from '@/store';
+import {
+  calculateWorkspaceSyncPlan,
+  type SyncEngineInput,
+  type WorkspaceSyncPlan,
+} from './drawingSyncEngine';
+import { DrawingChartAdapter } from './drawingChartAdapter';
 
 /**
- * Pure, standalone reconciliation function.
- * Declaratively updates KLineCharts slot overlay instances based on authoritative
- * store state in useDrawingStore for the specified symbol.
+ * drawingReconciler.ts
  *
- * DOES NOT modify existing handlers or legacy syncAllDrawings() pathways.
+ * Bridge connecting the pure DrawingSyncEngine to KLineCharts view slots.
+ *
+ * ARCHITECTURAL DIRECTION:
+ *   STORE -> SYNC ENGINE (PLAN) -> RECONCILER -> CHART ADAPTER -> KLINECHARTS
+ *
+ * RECONCILER GUARANTEES:
+ * 1. STRICTLY TOP-DOWN: Never mutates useDrawingStore or infers deletion from missing chart overlays.
+ * 2. VIEW ADAPTER DRIVEN: Uses DrawingChartAdapter for ALL KLineCharts operations.
+ * 3. CONDITIONAL REPAINT: Invalidates candle_pane ONLY on slots where overlays were created, updated, or removed.
+ * 4. PURE VIEW SYNCHRONIZATION: Does NOT invoke business rules or calculate desired overlays directly.
  */
-export function reconcileChartsFromStore(
-  symbol: string,
+
+/**
+ * Reconciles the workspace's visible chart slots to match the calculated
+ * WorkspaceSyncPlan derived from authoritative useDrawingStore state.
+ *
+ * @param slots Visible layout slots with assigned symbols and timeframes
+ * @param chartInstancesRef Reference to KLineCharts chart instances
+ * @param activeIndex Currently active chart slot index
+ * @param isDrawingSyncEnabled Global drawing sync toggle flag
+ */
+export function reconcileWorkspace(
   slots: { symbol: string | null; timeframe: string }[],
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
-  activeIndex: number = 0
+  activeIndex: number = 0,
+  isDrawingSyncEnabled: boolean = true
 ): void {
-  if (!symbol) return;
-  const storeSymbolKey = symbol.toUpperCase();
-  const drawings: DrawingItem[] = useDrawingStore.getState().getSymbolDrawings(storeSymbolKey);
+  if (!slots || slots.length === 0 || !chartInstancesRef || !chartInstancesRef.current) {
+    return;
+  }
 
-  const visibleCount = slots.length;
+  // 1. Read authoritative drawing storage
+  const drawingsBySymbol = useDrawingStore.getState().drawingsBySymbol;
 
-  for (let i = 0; i < visibleCount; i++) {
-    const chart = chartInstancesRef.current[i];
-    if (!chart) continue;
+  // 2. Prepare immutable engine input context
+  const engineInput: SyncEngineInput = {
+    drawingsBySymbol,
+    visibleSlots: slots,
+    activeIndex,
+    isDrawingSyncEnabled,
+  };
 
-    const slotSymbol = slots[i]?.symbol;
-    if (!slotSymbol || slotSymbol.toUpperCase() !== storeSymbolKey) {
-      continue;
-    }
+  // 3. Calculate deterministic workspace sync plan
+  const syncPlan: WorkspaceSyncPlan = calculateWorkspaceSyncPlan(engineInput);
 
-    const currentOverlays = (chart as any).getOverlays();
-    const isPrimarySlot = i === activeIndex;
+  // 4. Declaratively reconcile each slot plan to the corresponding chart instance
+  syncPlan.slotPlans.forEach((slotPlan) => {
+    const chart = chartInstancesRef.current[slotPlan.slotIndex];
+    if (!chart) return;
 
-    // Desired overlays set for this slot
-    const desiredOverlayIds = new Set<string>();
-    const desiredOverlaysMap = new Map<string, DrawingItem>();
+    // Read current chart overlays using DrawingChartAdapter ONLY
+    const currentOverlays = DrawingChartAdapter.getOverlays(chart);
+    const desiredOverlays = slotPlan.desiredOverlays;
 
-    drawings.forEach((d) => {
-      const targetId = isPrimarySlot ? d.id : `sync_${d.id}_from_${activeIndex}`;
-      desiredOverlayIds.add(targetId);
-      desiredOverlaysMap.set(targetId, d);
-    });
+    let slotModified = false;
 
-    let slotNeedsInvalidate = false;
-
-    // 1. Remove stale drawing overlays
+    // Step A: Remove stale overlays (overlays currently on chart but not in desiredOverlays map)
     currentOverlays.forEach((ov: any) => {
       // Ignore system indicator/price line overlays
       if (
@@ -55,38 +77,40 @@ export function reconcileChartsFromStore(
         return;
       }
 
-      if (!desiredOverlayIds.has(ov.id)) {
-        (chart as any).removeOverlay({ id: ov.id });
-        slotNeedsInvalidate = true;
+      if (!desiredOverlays.has(ov.id)) {
+        DrawingChartAdapter.removeOverlay(chart, ov.id);
+        slotModified = true;
       }
     });
 
-    // 2. Create or update desired drawing overlays
-    drawings.forEach((d) => {
-      const targetId = isPrimarySlot ? d.id : `sync_${d.id}_from_${activeIndex}`;
-      const existingOv = currentOverlays.find((o: any) => o.id === targetId);
+    // Step B: Create missing overlays or update modified overlays
+    desiredOverlays.forEach((desiredItem, overlayId) => {
+      const d = desiredItem.drawing;
+      const existingOv = currentOverlays.find((o: any) => o.id === overlayId);
 
       if (existingOv) {
+        // Check if points, lock, visible, or extendData changed
         const pointsChanged = JSON.stringify(existingOv.points) !== JSON.stringify(d.points);
         const lockChanged = existingOv.lock !== d.lock;
         const visibleChanged = existingOv.visible !== (d.visible !== false);
         const extendDataChanged = JSON.stringify(existingOv.extendData) !== JSON.stringify(d.extendData || {});
 
         if (pointsChanged || lockChanged || visibleChanged || extendDataChanged) {
-          (chart as any).overrideOverlay({
-            id: targetId,
+          DrawingChartAdapter.overrideOverlay(chart, {
+            id: overlayId,
             points: JSON.parse(JSON.stringify(d.points)),
             lock: d.lock,
             visible: d.visible !== false,
             extendData: JSON.parse(JSON.stringify(d.extendData || {})),
             styles: d.styles,
           });
-          slotNeedsInvalidate = true;
+          slotModified = true;
         }
       } else {
-        (chart as any).createOverlay({
+        // Create missing overlay instance on target chart slot
+        DrawingChartAdapter.createOverlay(chart, {
           name: d.name,
-          id: targetId,
+          id: overlayId,
           paneId: d.paneId || 'candle_pane',
           points: JSON.parse(JSON.stringify(d.points)),
           lock: d.lock,
@@ -94,22 +118,25 @@ export function reconcileChartsFromStore(
           extendData: JSON.parse(JSON.stringify(d.extendData || {})),
           styles: d.styles,
         });
-        slotNeedsInvalidate = true;
+        slotModified = true;
       }
     });
 
-    // 3. Force canvas repaint pass if overlays were modified or removed
-    if (slotNeedsInvalidate) {
-      const pane = (chart as any).getDrawPaneById?.('candle_pane');
-      if (pane) {
-        if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
-          pane.getWidget().invalidate();
-        } else if (typeof pane.requestInvalidate === 'function') {
-          pane.requestInvalidate();
-        } else if (typeof pane.invalidate === 'function') {
-          pane.invalidate();
-        }
-      }
+    // Step C: Conditionally invalidate candle_pane widget if overlays were created, updated, or removed
+    if (slotModified) {
+      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
     }
-  }
+  });
+}
+
+/**
+ * Legacy compatibility alias for existing reconcileChartsFromStore calls.
+ */
+export function reconcileChartsFromStore(
+  _symbol: string,
+  slots: { symbol: string | null; timeframe: string }[],
+  chartInstancesRef: React.MutableRefObject<(any | null)[]>,
+  activeIndex: number = 0
+): void {
+  reconcileWorkspace(slots, chartInstancesRef, activeIndex, true);
 }
