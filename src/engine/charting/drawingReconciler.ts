@@ -21,6 +21,15 @@ import { DrawingChartAdapter } from './drawingChartAdapter';
  * 4. PURE VIEW SYNCHRONIZATION: Does NOT invoke business rules or calculate desired overlays directly.
  */
 
+let isReconcilingDrawingsFlag = false;
+
+/**
+ * Returns true if drawingReconciler is currently performing programmatic overlay updates/removals.
+ */
+export function isReconcilingDrawings(): boolean {
+  return isReconcilingDrawingsFlag;
+}
+
 /**
  * Reconciles the workspace's visible chart slots to match the calculated
  * WorkspaceSyncPlan derived from authoritative useDrawingStore state.
@@ -40,24 +49,26 @@ export function reconcileWorkspace(
     return;
   }
 
-  // 1. Read authoritative drawing storage
-  const drawingsBySymbol = useDrawingStore.getState().drawingsBySymbol;
+  isReconcilingDrawingsFlag = true;
+  try {
+    // 1. Read authoritative drawing storage
+    const drawingsBySymbol = useDrawingStore.getState().drawingsBySymbol;
 
-  // 2. Prepare immutable engine input context
-  const engineInput: SyncEngineInput = {
-    drawingsBySymbol,
-    visibleSlots: slots,
-    activeIndex,
-    isDrawingSyncEnabled,
-  };
+    // 2. Prepare immutable engine input context
+    const engineInput: SyncEngineInput = {
+      drawingsBySymbol,
+      visibleSlots: slots,
+      activeIndex,
+      isDrawingSyncEnabled,
+    };
 
-  // 3. Calculate deterministic workspace sync plan
-  const syncPlan: WorkspaceSyncPlan = calculateWorkspaceSyncPlan(engineInput);
+    // 3. Calculate deterministic workspace sync plan
+    const syncPlan: WorkspaceSyncPlan = calculateWorkspaceSyncPlan(engineInput);
 
-  // 4. Declaratively reconcile each slot plan to the corresponding chart instance
-  syncPlan.slotPlans.forEach((slotPlan) => {
-    const chart = chartInstancesRef.current[slotPlan.slotIndex];
-    if (!chart) return;
+    // 4. Declaratively reconcile each slot plan to the corresponding chart instance
+    syncPlan.slotPlans.forEach((slotPlan) => {
+      const chart = chartInstancesRef.current[slotPlan.slotIndex];
+      if (!chart) return;
 
     // Read current chart overlays using DrawingChartAdapter ONLY
     const currentOverlays = DrawingChartAdapter.getOverlays(chart);
@@ -127,6 +138,9 @@ export function reconcileWorkspace(
       DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
     }
   });
+  } finally {
+    isReconcilingDrawingsFlag = false;
+  }
 }
 
 /**

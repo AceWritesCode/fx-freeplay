@@ -109,23 +109,27 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
         });
       } else {
         // Target slot (slotIndex !== validActiveIndex)
-        if (isDrawingSyncEnabled && activeSlotSymbol && slotSymbol === activeSlotSymbol) {
-          // RULE 2: Same symbol + sync ON -> Target slot receives synced copies of active slot's drawings
-          const activeSymbolDrawings = drawingsBySymbol[activeSlotSymbol] || [];
-          activeSymbolDrawings.forEach((d) => {
-            const syncOverlayId = `sync_${d.id}_from_${validActiveIndex}`;
-            desiredOverlays.set(syncOverlayId, {
-              originalId: d.id,
-              overlayId: syncOverlayId,
-              sourceSlotIndex: validActiveIndex,
-              targetSlotIndex: slotIndex,
-              symbol: slotSymbol,
-              isSyncedCopy: true,
-              drawing: d,
+        if (activeSlotSymbol && slotSymbol === activeSlotSymbol) {
+          // Same symbol as active chart slot
+          if (isDrawingSyncEnabled) {
+            // RULE 2: Same symbol + sync ON -> Target slot receives synced copies of active slot's drawings
+            const activeSymbolDrawings = drawingsBySymbol[activeSlotSymbol] || [];
+            activeSymbolDrawings.forEach((d) => {
+              const syncOverlayId = `sync_${d.id}_from_${validActiveIndex}`;
+              desiredOverlays.set(syncOverlayId, {
+                originalId: d.id,
+                overlayId: syncOverlayId,
+                sourceSlotIndex: validActiveIndex,
+                targetSlotIndex: slotIndex,
+                symbol: slotSymbol,
+                isSyncedCopy: true,
+                drawing: d,
+              });
             });
-          });
+          }
+          // RULE 3: Same symbol + sync OFF -> Target slot receives NO drawings from active chart (desiredOverlays remains empty)
         } else {
-          // RULE 3 & 4: Different symbols OR Sync OFF -> Target slot receives drawings from its OWN symbol container
+          // RULE 4: Different symbol than active chart slot -> Target slot receives drawings from its OWN symbol container
           const ownSymbolDrawings = drawingsBySymbol[slotSymbol] || [];
           ownSymbolDrawings.forEach((d) => {
             desiredOverlays.set(d.id, {

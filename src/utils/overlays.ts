@@ -1,5 +1,5 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle } from '@/engine/charting';
+import { snapPointToCandle, isReconcilingDrawings } from '@/engine/charting';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
@@ -237,6 +237,9 @@ export function getInteractiveOverlayOptions(
       return true;
     },
     onRemoved: (event: any) => {
+      if (isReconcilingDrawings()) {
+        return;
+      }
       const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
       if (syncMatch) {
         const originalId = syncMatch[1];

@@ -3,6 +3,7 @@ import { useLayoutStore, useSettingsStore } from '@/store';
 import { drawingRepository } from '@/repository';
 import { getInteractiveOverlayOptions } from '@/utils/overlays';
 import { getLayoutChartCount } from '@/domain/market';
+import { isReconcilingDrawings } from '@/engine/charting';
 
 export function useDrawingCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
@@ -285,6 +286,9 @@ export function useDrawingCoordinator(
             visible: orig.visible !== false,
             styles: orig.styles,
             onRemoved: (event: any) => {
+              if (isReconcilingDrawings()) {
+                return;
+              }
               const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
               if (syncMatch) {
                 const originalId = syncMatch[1];
