@@ -1857,6 +1857,27 @@ export function ChartWorkspace() {
               }
             });
           });
+          // Store-first migration: Dispatch style template to useDrawingStore for selected drawings
+          const currentSymbol = slots[activeChartIndex]?.symbol;
+          if (currentSymbol) {
+            selectedOverlayIds.forEach((id) => {
+              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : id;
+              const currentDrawing = useDrawingStore.getState().getSymbolDrawings(currentSymbol).find((d) => d.id === originalId);
+              if (currentDrawing) {
+                useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
+                  extendData: {
+                    ...(currentDrawing.extendData || {}),
+                    customSettings: {
+                      ...(currentDrawing.extendData?.customSettings || {}),
+                      ...tplSettings,
+                    },
+                  },
+                });
+              }
+            });
+          }
+
           drawingCoord.syncAllDrawings();
           setSelectedOverlayIds([]);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
@@ -1899,6 +1920,21 @@ export function ChartWorkspace() {
             });
             chart.resize();
           });
+          // Store-first migration: Dispatch lock state to useDrawingStore for selected drawings
+          const currentSymbol = slots[activeChartIndex]?.symbol;
+          if (currentSymbol) {
+            selectedOverlayIds.forEach((id) => {
+              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : id;
+              const currentDrawing = useDrawingStore.getState().getSymbolDrawings(currentSymbol).find((d) => d.id === originalId);
+              if (currentDrawing) {
+                useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
+                  lock: !currentDrawing.lock,
+                });
+              }
+            });
+          }
+
           drawingCoord.syncAllDrawings();
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
@@ -1945,6 +1981,27 @@ export function ChartWorkspace() {
               }
             });
           });
+          // Store-first migration: Dispatch settings update to useDrawingStore for selected drawings
+          const currentSymbol = slots[activeChartIndex]?.symbol;
+          if (currentSymbol) {
+            selectedOverlayIds.forEach((id) => {
+              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : id;
+              const currentDrawing = useDrawingStore.getState().getSymbolDrawings(currentSymbol).find((d) => d.id === originalId);
+              if (currentDrawing) {
+                useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
+                  extendData: {
+                    ...(currentDrawing.extendData || {}),
+                    customSettings: {
+                      ...(currentDrawing.extendData?.customSettings || {}),
+                      ...settingsUpdate,
+                    },
+                  },
+                });
+              }
+            });
+          }
+
           drawingCoord.syncAllDrawings();
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}

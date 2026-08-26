@@ -496,6 +496,17 @@ export function getInteractiveOverlayOptions(
       });
       syncSyncedCopyToOriginal(event.chart, event.overlay.id, overrideOpts);
 
+      // Store-first migration: Dispatch updated points and extendData to useDrawingStore on drag end
+      const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
+      if (currentSymbol && event.overlay) {
+        const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+        const originalId = syncMatch ? syncMatch[1] : event.overlay.id;
+        useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
+          points: JSON.parse(JSON.stringify(event.overlay.points || [])),
+          extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+        });
+      }
+
       if (event.chart._onDrawingSync) {
         event.chart._onDrawingSync();
       }
