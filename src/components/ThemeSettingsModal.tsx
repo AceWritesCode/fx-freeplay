@@ -134,7 +134,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs font-sans">
-      <div className="w-[580px] h-[480px] bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
