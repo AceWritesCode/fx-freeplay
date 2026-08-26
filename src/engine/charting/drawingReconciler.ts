@@ -88,10 +88,14 @@ export function reconcileWorkspace(
         return;
       }
 
+      // Synced projections are NEVER user drawing sessions
+      const isSyncCopy = typeof ov.id === 'string' && ov.id.startsWith('sync_');
+
       // Ignore overlays currently in-progress / being drawn by the user
-      const isActivelyDrawing =
-        (typeof ov.currentStep === 'number' && typeof ov.totalStep === 'number' && ov.currentStep < ov.totalStep) ||
-        (chart._activeDrawingId && ov.id === chart._activeDrawingId);
+      const isActivelyDrawing = !isSyncCopy && (
+        (chart._activeDrawingId && ov.id === chart._activeDrawingId) ||
+        (typeof ov.currentStep === 'number' && typeof ov.totalStep === 'number' && ov.currentStep < ov.totalStep && (!ov.points || ov.points.length === 0))
+      );
 
       if (isActivelyDrawing) {
         return;
