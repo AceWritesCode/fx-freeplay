@@ -433,43 +433,43 @@ export function ChartWorkspace() {
     prevSelectedOverlayIdsRef.current = currentSelected;
 
     if (deselectedIds.length > 0) {
-      const activeSymbol = slots[activeChartIndex]?.symbol;
-      const activeChart = chartInstancesRef.current[activeChartIndex];
+      let storeUpdated = false;
 
-      if (activeSymbol && activeChart) {
-        let storeUpdated = false;
+      deselectedIds.forEach((id) => {
+        // Storage-First rule: Only original drawings (not sync_* copies) update storage
+        if (!id.startsWith('sync_')) {
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(id);
+          if (resolved) {
+            const { symbol: drawingSymbol, drawing: storedDrawing } = resolved;
+            
+            for (let i = 0; i < chartInstancesRef.current.length; i++) {
+              const chart = chartInstancesRef.current[i];
+              if (chart) {
+                const chartOverlay = chart.getOverlays().find((o: any) => o.id === id);
+                if (chartOverlay && storedDrawing) {
+                  const pointsChanged = JSON.stringify(chartOverlay.points) !== JSON.stringify(storedDrawing.points);
+                  const lockChanged = chartOverlay.lock !== storedDrawing.lock;
+                  const visibleChanged = chartOverlay.visible !== (storedDrawing.visible !== false);
+                  const extendDataChanged = JSON.stringify(chartOverlay.extendData) !== JSON.stringify(storedDrawing.extendData || {});
 
-        deselectedIds.forEach((id) => {
-          // Storage-First rule: Only original drawings (not sync_* copies) update storage
-          if (!id.startsWith('sync_')) {
-            const chartOverlay = activeChart.getOverlays().find((o: any) => o.id === id);
-            const storedDrawing = useDrawingStore
-              .getState()
-              .getSymbolDrawings(activeSymbol)
-              .find((d) => d.id === id);
-
-            if (chartOverlay && storedDrawing) {
-              const pointsChanged = JSON.stringify(chartOverlay.points) !== JSON.stringify(storedDrawing.points);
-              const lockChanged = chartOverlay.lock !== storedDrawing.lock;
-              const visibleChanged = chartOverlay.visible !== (storedDrawing.visible !== false);
-              const extendDataChanged = JSON.stringify(chartOverlay.extendData) !== JSON.stringify(storedDrawing.extendData || {});
-
-              if (pointsChanged || lockChanged || visibleChanged || extendDataChanged) {
-                useDrawingStore.getState().updateSymbolDrawing(activeSymbol, id, {
-                  points: JSON.parse(JSON.stringify(chartOverlay.points || [])),
-                  lock: chartOverlay.lock,
-                  visible: chartOverlay.visible !== false,
-                  extendData: JSON.parse(JSON.stringify(chartOverlay.extendData || {})),
-                });
-                storeUpdated = true;
+                  if (pointsChanged || lockChanged || visibleChanged || extendDataChanged) {
+                    useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, id, {
+                      points: JSON.parse(JSON.stringify(chartOverlay.points || [])),
+                      lock: chartOverlay.lock,
+                      visible: chartOverlay.visible !== false,
+                      extendData: JSON.parse(JSON.stringify(chartOverlay.extendData || {})),
+                    });
+                    storeUpdated = true;
+                  }
+                }
               }
             }
           }
-        });
-
-        if (storeUpdated) {
-          runWorkspaceReconciliation(chartInstancesRef);
         }
+      });
+
+      if (storeUpdated) {
+        runWorkspaceReconciliation(chartInstancesRef);
       }
     }
   }, [selectedOverlayIds, activeChartIndex, slots]);
@@ -1942,25 +1942,23 @@ export function ChartWorkspace() {
             }
           }
           // Store-first migration: Dispatch style template to useDrawingStore for selected drawings
-          const currentSymbol = slots[activeChartIndex]?.symbol;
-          if (currentSymbol) {
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-              const currentDrawing = useDrawingStore.getState().getSymbolDrawings(currentSymbol).find((d) => d.id === originalId);
-              if (currentDrawing) {
-                useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
-                  extendData: {
-                    ...(currentDrawing.extendData || {}),
-                    customSettings: {
-                      ...(currentDrawing.extendData?.customSettings || {}),
-                      ...tplSettings,
-                    },
+          selectedOverlayIds.forEach((id) => {
+            const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+            const originalId = syncMatch ? syncMatch[1] : id;
+            const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+            if (resolved) {
+              const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                extendData: {
+                  ...(currentDrawing.extendData || {}),
+                  customSettings: {
+                    ...(currentDrawing.extendData?.customSettings || {}),
+                    ...tplSettings,
                   },
-                });
-              }
-            });
-          }
+                },
+              });
+            }
+          });
 
           runWorkspaceReconciliation(chartInstancesRef);
           setSelectedOverlayIds([]);
@@ -1968,19 +1966,17 @@ export function ChartWorkspace() {
         }}
         onLock={() => {
           // Store-first migration: Dispatch lock state to useDrawingStore for selected drawings
-          const currentSymbol = slots[activeChartIndex]?.symbol;
-          if (currentSymbol) {
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-              const currentDrawing = useDrawingStore.getState().getSymbolDrawings(currentSymbol).find((d) => d.id === originalId);
-              if (currentDrawing) {
-                useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
-                  lock: !currentDrawing.lock,
-                });
-              }
-            });
-          }
+          selectedOverlayIds.forEach((id) => {
+            const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+            const originalId = syncMatch ? syncMatch[1] : id;
+            const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+            if (resolved) {
+              const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                lock: !currentDrawing.lock,
+              });
+            }
+          });
 
           runWorkspaceReconciliation(chartInstancesRef);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
@@ -2007,25 +2003,23 @@ export function ChartWorkspace() {
           }
 
           // Store-first migration: Dispatch settings update to useDrawingStore for selected drawings
-          const currentSymbol = slots[activeChartIndex]?.symbol;
-          if (currentSymbol) {
-            selectedOverlayIds.forEach((id) => {
-              const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : id;
-              const currentDrawing = useDrawingStore.getState().getSymbolDrawings(currentSymbol).find((d) => d.id === originalId);
-              if (currentDrawing) {
-                useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
-                  extendData: {
-                    ...(currentDrawing.extendData || {}),
-                    customSettings: {
-                      ...(currentDrawing.extendData?.customSettings || {}),
-                      ...settingsUpdate,
-                    },
+          selectedOverlayIds.forEach((id) => {
+            const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
+            const originalId = syncMatch ? syncMatch[1] : id;
+            const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+            if (resolved) {
+              const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                extendData: {
+                  ...(currentDrawing.extendData || {}),
+                  customSettings: {
+                    ...(currentDrawing.extendData?.customSettings || {}),
+                    ...settingsUpdate,
                   },
-                });
-              }
-            });
-          }
+                },
+              });
+            }
+          });
 
           runWorkspaceReconciliation(chartInstancesRef);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);

@@ -481,11 +481,11 @@ export function getInteractiveOverlayOptions(
       // Storage-First rule: Only an original drawing (not a sync_* copy) updates storage
       const overlayId = event.overlay?.id;
       if (overlayId && !overlayId.startsWith('sync_')) {
-        const currentSymbol = chartInstanceRef.current?._symbol || 
-          useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
+        const resolved = useDrawingStore.getState().findSymbolByDrawingId(overlayId);
+        const targetSymbol = resolved?.symbol || event.chart?._symbol;
 
-        if (currentSymbol) {
-          useDrawingStore.getState().updateSymbolDrawing(currentSymbol, overlayId, {
+        if (targetSymbol) {
+          useDrawingStore.getState().updateSymbolDrawing(targetSymbol, overlayId, {
             points: JSON.parse(JSON.stringify(event.overlay.points || [])),
             extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
           });
