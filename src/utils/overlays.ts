@@ -200,11 +200,14 @@ export function getInteractiveOverlayOptions(
         }
       }
       // Store-first migration: Save newly created drawing object directly to useDrawingStore upfront
-      const currentSymbol = chartInstanceRef.current?._symbol || useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
+      const actualChart = event.chart || chartInstanceRef.current;
+      const actualChartIndex = typeof actualChart?._chartIndex === 'number'
+        ? actualChart._chartIndex
+        : useLayoutStore.getState().activeChartIndex;
+      const currentSymbol = actualChart?._symbol || useLayoutStore.getState().slots?.[actualChartIndex]?.symbol;
+
       if (currentSymbol && event.overlay) {
-        const sourceSlotIndex = typeof chartInstanceRef.current?._chartIndex === 'number'
-          ? chartInstanceRef.current._chartIndex
-          : useLayoutStore.getState().activeChartIndex;
+        const sourceSlotIndex = actualChartIndex;
 
         const drawingObj = {
           id: event.overlay.id,

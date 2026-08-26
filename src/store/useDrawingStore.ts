@@ -132,7 +132,25 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     let updatedList: DrawingItem[] = [];
     set((state) => {
       const existing = state.drawingsBySymbol[key] || [];
-      updatedList = existing.map((d) => (d.id === id ? { ...d, ...updates } : d));
+      updatedList = existing.map((d) => {
+        if (d.id === id) {
+          const mergedExtendData = updates.extendData
+            ? {
+                ...d.extendData,
+                ...updates.extendData,
+                // IMMUTABLE INVARIANT: sourceSlotIndex can never be altered or lost after creation
+                sourceSlotIndex: d.extendData?.sourceSlotIndex ?? updates.extendData?.sourceSlotIndex ?? 0,
+              }
+            : d.extendData;
+
+          return {
+            ...d,
+            ...updates,
+            extendData: mergedExtendData,
+          };
+        }
+        return d;
+      });
       return {
         drawingsBySymbol: {
           ...state.drawingsBySymbol,
