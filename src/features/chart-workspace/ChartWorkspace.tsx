@@ -1411,6 +1411,9 @@ export function ChartWorkspace() {
         workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
       }
     }
+    if (key === 'syncDrawings') {
+      runWorkspaceReconciliation(chartInstancesRef);
+    }
   };
 
   return (

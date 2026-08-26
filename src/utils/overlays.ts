@@ -1,5 +1,5 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle, isReconcilingDrawings } from '@/engine/charting';
+import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation } from '@/engine/charting';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
@@ -167,7 +167,7 @@ export function getInteractiveOverlayOptions(
   chartInstanceRef: any,
   chartInstancesRef: any,
   isShiftPressedRef: any,
-  syncAllDrawings: () => void,
+  _syncAllDrawings: () => void,
   setActiveTool: (tool: string | null) => void
 ) {
   let defaultSettings = {};
@@ -234,25 +234,30 @@ export function getInteractiveOverlayOptions(
         chartInstanceRef.current._setSelectedOverlayIds([event.overlay.id]);
       }
 
-      setTimeout(() => syncAllDrawings(), 50);
+      setTimeout(() => runWorkspaceReconciliation(chartInstancesRef), 50);
       return true;
     },
     onRemoved: (event: any) => {
       if (isReconcilingDrawings()) {
         return;
       }
-      const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+      const overlayId = event.overlay?.id;
+      if (!overlayId) return;
+
+      const syncMatch = overlayId.match(/^sync_(.+)_from_(\d+)$/);
       if (syncMatch) {
-        const originalId = syncMatch[1];
-        const sourceIndex = parseInt(syncMatch[2]);
-        const sourceChart = chartInstancesRef.current[sourceIndex];
-        if (sourceChart) {
-          sourceChart.removeOverlay({ id: originalId });
-        }
-      } else {
-        console.log(`[DRAW DELETED]\nsourceId: ${event.overlay.id}\ntype: ${event.overlay.name}\nsourceChart: chart-${event.chart?._chartIndex ?? 0}`);
+        // Removing a sync_* visual copy must NEVER delete the stored original or call cross-chart removeOverlay.
+        return;
       }
-      setTimeout(() => syncAllDrawings(), 50);
+
+      // User deleted an ORIGINAL drawing on the active chart canvas
+      const currentSymbol = chartInstanceRef.current?._symbol || 
+        useLayoutStore.getState().slots?.[chartInstanceRef.current?._chartIndex ?? 0]?.symbol;
+
+      if (currentSymbol) {
+        useDrawingStore.getState().removeSymbolDrawing(currentSymbol, overlayId);
+        runWorkspaceReconciliation(chartInstancesRef);
+      }
     },
     onMouseEnter: (event: any) => {
       const overrideOpts = {
