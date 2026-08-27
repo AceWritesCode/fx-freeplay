@@ -133,8 +133,11 @@ export class DrawingChartAdapter {
         }
       }
 
-      // 2. Force KLineCharts canvas layout redraw pass synchronously
-      if (typeof chart.resize === 'function') {
+      // 2. Unconditional KLineCharts viewport & canvas repaint pass (bypasses container size equality check)
+      if (chart._chartStore && typeof chart._chartStore.getChart === 'function') {
+        chart._chartStore.getChart()?.adjustPaneViewport?.(true, true);
+      } else if (typeof chart.resize === 'function') {
+        // 3. Fallback layout resize
         chart.resize();
       }
     } catch (_) {}
