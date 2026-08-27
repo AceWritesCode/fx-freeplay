@@ -212,6 +212,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               }`}
             >
               <Play className="w-4.5 h-4.5 mr-2.5" />
+              <span>Bar Replay</span>
             </button>
           </div>
 
