@@ -38,6 +38,7 @@ import {
   syncDateRange as executeDateRangeSync,
   runWorkspaceReconciliation,
   reconcileWorkspace,
+  mirrorLiveOverlayUpdate,
 } from '@/engine/charting';
 
 import {
@@ -1449,26 +1450,23 @@ export function ChartWorkspace() {
                 const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
                 const originalId = syncMatch ? syncMatch[1] : ov.id;
 
-                chartInstancesRef.current.forEach((c) => {
-                  if (!c) return;
-                  const targetOverlay = c.getOverlays().find(
-                    (o: any) => o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-                  );
-                  if (targetOverlay) {
-                    c.overrideOverlay({
-                      id: targetOverlay.id,
-                      extendData: {
-                        ...(targetOverlay.extendData || {}),
-                        customSettings: {
-                          ...(targetOverlay.extendData?.customSettings || {}),
-                          text: newText,
-                        },
-                      },
-                    });
-                  }
-                  c.resize();
-                });
-                drawingCoord.syncAllDrawings();
+                const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+                if (resolved) {
+                  const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+                  const mergedExtendData = {
+                    ...(currentDrawing.extendData || {}),
+                    customSettings: {
+                      ...(currentDrawing.extendData?.customSettings || {}),
+                      text: newText,
+                    },
+                  };
+                  useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                    extendData: mergedExtendData,
+                  });
+                  mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
+                }
+
+                runWorkspaceReconciliation(chartInstancesRef);
                 drawingCoord.setDrawingTrigger((prev) => prev + 1);
               }}
               syncAllDrawings={drawingCoord.syncAllDrawings}
@@ -1956,15 +1954,20 @@ export function ChartWorkspace() {
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
-                extendData: {
-                  ...(currentDrawing.extendData || {}),
-                  customSettings: {
-                    ...(currentDrawing.extendData?.customSettings || {}),
-                    ...tplSettings,
-                  },
+              const mergedExtendData = {
+                ...(currentDrawing.extendData || {}),
+                customSettings: {
+                  ...(currentDrawing.extendData?.customSettings || {}),
+                  ...tplSettings,
                 },
+              };
+              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                extendData: mergedExtendData,
               });
+              const activeChart = chartInstancesRef.current[activeChartIndex];
+              if (activeChart) {
+                mirrorLiveOverlayUpdate(activeChart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
+              }
             }
           });
 
@@ -1980,9 +1983,14 @@ export function ChartWorkspace() {
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+              const nextLock = !currentDrawing.lock;
               useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
-                lock: !currentDrawing.lock,
+                lock: nextLock,
               });
+              const activeChart = chartInstancesRef.current[activeChartIndex];
+              if (activeChart) {
+                mirrorLiveOverlayUpdate(activeChart, originalId, { extendData: currentDrawing.extendData }, chartInstancesRef);
+              }
             }
           });
 
@@ -2017,15 +2025,20 @@ export function ChartWorkspace() {
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
-                extendData: {
-                  ...(currentDrawing.extendData || {}),
-                  customSettings: {
-                    ...(currentDrawing.extendData?.customSettings || {}),
-                    ...settingsUpdate,
-                  },
+              const mergedExtendData = {
+                ...(currentDrawing.extendData || {}),
+                customSettings: {
+                  ...(currentDrawing.extendData?.customSettings || {}),
+                  ...settingsUpdate,
                 },
+              };
+              useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                extendData: mergedExtendData,
               });
+              const activeChart = chartInstancesRef.current[activeChartIndex];
+              if (activeChart) {
+                mirrorLiveOverlayUpdate(activeChart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
+              }
             }
           });
 
@@ -2061,31 +2074,28 @@ export function ChartWorkspace() {
           const syncMatch = drawingSettingsOverlayId.match(/^sync_(.+)_from_(\d+)$/);
           const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
 
-          chartInstancesRef.current.forEach((chart) => {
-            if (!chart) return;
-            const overlay = chart.getOverlays().find(
-              (o: any) => o.id === originalId || o.id?.startsWith(`sync_${originalId}_from_`)
-            );
-            if (overlay) {
-              updateDefaultSettings(overlay.name, updatedSettings);
-              const overrideOptions: any = {
-                id: overlay.id,
-                extendData: {
-                  ...overlay.extendData,
-                  customSettings: {
-                    ...(overlay.extendData?.customSettings || {}),
-                    ...updatedSettings,
-                  },
-                },
-              };
-              if (updatedPoints && updatedPoints.length > 0) {
-                overrideOptions.points = updatedPoints;
-              }
-              chart.overrideOverlay(overrideOptions);
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          if (resolved) {
+            const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+            updateDefaultSettings(currentDrawing.name, updatedSettings);
+            const mergedExtendData = {
+              ...(currentDrawing.extendData || {}),
+              customSettings: {
+                ...(currentDrawing.extendData?.customSettings || {}),
+                ...updatedSettings,
+              },
+            };
+            useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+              extendData: mergedExtendData,
+              ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
+            });
+            const activeChart = chartInstancesRef.current[activeChartIndex];
+            if (activeChart) {
+              mirrorLiveOverlayUpdate(activeChart, originalId, { points: updatedPoints, extendData: mergedExtendData }, chartInstancesRef);
             }
-            chart.resize();
-          });
-          drawingCoord.syncAllDrawings();
+          }
+
+          runWorkspaceReconciliation(chartInstancesRef);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
       />
