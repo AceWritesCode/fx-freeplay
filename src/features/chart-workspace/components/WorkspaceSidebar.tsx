@@ -2,7 +2,6 @@ import React, { useRef } from 'react';
 import { 
   Folder, 
   List, 
-  RefreshCw, 
   Plus, 
   X, 
   AlertCircle
@@ -18,9 +17,6 @@ interface WorkspaceSidebarProps {
   onResizeEnd: () => void;
   watchlistSymbols: any[];
   importMode: 'single' | 'folder';
-  savedFolderHandle: any;
-  isVerifyingFolder: boolean;
-  handleRestoreSavedFolder: () => void;
   loadSymbolFromFolder: (sym: string) => void;
   activeSymbol: string | null;
   onRemoveSymbol: (sym: string) => void;
@@ -45,9 +41,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     onResizeEnd,
     watchlistSymbols,
     importMode,
-    savedFolderHandle,
-    isVerifyingFolder,
-    handleRestoreSavedFolder,
     loadSymbolFromFolder,
     activeSymbol,
     onRemoveSymbol,
@@ -153,24 +146,13 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  {/* Refresh folder button (visible in folder mode when savedFolderHandle is present) */}
-                  {importMode === 'folder' && savedFolderHandle && (
-                    <button
-                      onClick={handleRestoreSavedFolder}
-                      disabled={isVerifyingFolder}
-                      title="Refresh folder data"
-                      className="p-1 rounded-md text-gray-500 hover:text-indigo-350 hover:bg-indigo-600/10 transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingFolder ? 'animate-spin' : ''}`} />
-                    </button>
-                  )}
                   {/* + Add symbol icon button */}
                   <button
                     onClick={() => {
                       onAddSymbolFolder?.();
                     }}
                     title="Add symbol folder"
-                    className="p-1 rounded-md text-gray-500 hover:text-indigo-350 hover:bg-indigo-600/10 transition-colors"
+                    className="p-1 rounded-md text-gray-500 hover:text-indigo-350 hover:bg-indigo-600/10 transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -207,8 +189,8 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                         transition-all duration-150 group/item
                         ${
                           isSelected
-                            ? 'bg-indigo-500/15 border-l-2 border-indigo-500 text-white font-semibold pl-2.5 pr-3 py-2 rounded-r-xl rounded-l-sm'
-                            : 'bg-transparent border-l-2 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200 pl-2.5 pr-3 py-2 rounded-xl'
+                            ? 'bg-indigo-500/15 border-l-2 border-indigo-500 text-white font-semibold pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
+                            : 'bg-transparent border-l-2 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200 pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
                         }
                       `}
                     >

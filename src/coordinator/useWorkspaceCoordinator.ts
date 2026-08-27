@@ -126,8 +126,7 @@ export function useWorkspaceCoordinator(
   const [allTimeframesData, setAllTimeframesData] = useState<Record<string, KLineData[]>>({ '1m': [] });
   const [isLoadingSymbol, setIsLoadingSymbol] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<ImportProgressState | null>(null);
-  const [isVerifyingFolder, setIsVerifyingFolder] = useState<boolean>(false);
-  const [isRestoreError, setIsRestoreError] = useState<boolean>(false);
+
   const [parseFeedback, setParseFeedback] = useState<any | null>(null);
   const [showStats, setShowStats] = useState<boolean>(false);
   const [customAlert, setCustomAlert] = useState<{ title: string; message: string } | null>(null);
@@ -467,16 +466,19 @@ export function useWorkspaceCoordinator(
       workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
 
       const visibleCount = getLayoutChartCount(layoutStore.layoutType);
-      const affectedIndices = (layoutStore.syncSymbol || layoutStore.syncInterval)
-        ? Array.from({ length: visibleCount }, (_, i) => i)
-        : [activeChartIndex];
+      const affectedIndices = isSymbolSwitch
+        ? (layoutStore.syncSymbol ? Array.from({ length: visibleCount }, (_, i) => i) : [activeChartIndex])
+        : (layoutStore.syncInterval ? Array.from({ length: visibleCount }, (_, i) => i) : [activeChartIndex]);
 
       for (const idx of affectedIndices) {
         const chart = chartInstancesRef.current[idx];
         const slotSym = newSlots[idx]?.symbol || currentSymbol;
+        const slotTf = newSlots[idx]?.timeframe || tf;
         if (!chart || !slotSym) continue;
 
-        let slotData = (idx === activeChartIndex && targetData) ? targetData : await getOrImportTimeframeData(slotSym, tf);
+        let slotData = (idx === activeChartIndex && targetData)
+          ? targetData
+          : await getOrImportTimeframeData(slotSym, slotTf);
         if (!slotData || slotData.length === 0) continue;
 
         const visibleData = activeReplay && alignedTimestamp !== null
@@ -493,7 +495,7 @@ export function useWorkspaceCoordinator(
           },
         });
         chart.resetData();
-        chart.setPeriod(parseTimeframeToPeriod(tf));
+        chart.setPeriod(parseTimeframeToPeriod(slotTf));
 
         const scrollIndex = activeReplay && alignedTimestamp !== null
           ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
@@ -1044,30 +1046,7 @@ export function useWorkspaceCoordinator(
     }
   };
 
-  const handleRestoreSavedFolder = async () => {
-    try {
-      setIsVerifyingFolder(true);
-      const cachedHandles = await watchlistRepository.getFolderHandles();
-      let handles = cachedHandles || [];
-      if (handles.length > 0) {
-        for (const h of handles) {
-          const perm = await (h as any).queryPermission({ mode: 'readwrite' });
-          if (perm !== 'granted') {
-            const request = await (h as any).requestPermission({ mode: 'readwrite' });
-            if (request !== 'granted') {
-              throw new Error('Permission denied');
-            }
-          }
-        }
-        await handleSelectFoldersAPI(handles, true);
-      }
-    } catch (err) {
-      console.warn('[DEBUG] Failed to restore saved directory handle:', err);
-      setIsRestoreError(true);
-    } finally {
-      setIsVerifyingFolder(false);
-    }
-  };
+
 
   const handleClearFolderHandles = async () => {
     try {
@@ -1208,8 +1187,6 @@ export function useWorkspaceCoordinator(
     isLoadingSymbol,
     importProgress,
     resetImportProgress: () => setImportProgress(null),
-    isVerifyingFolder,
-    isRestoreError,
     parseFeedback,
     setParseFeedback,
     showStats,
@@ -1220,7 +1197,6 @@ export function useWorkspaceCoordinator(
     setWatchlistToast,
     getRawDataFromCache,
     handleSelectFolderAPI,
-    handleRestoreSavedFolder,
     handleClearFolderHandles,
     loadDataForSlot,
     handleSelectChartSlot,
