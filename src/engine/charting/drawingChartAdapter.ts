@@ -71,7 +71,6 @@ export class DrawingChartAdapter {
       chart.createOverlay({
         paneId: 'candle_pane',
         ...options,
-        lock: true,
       });
     }
   }
@@ -118,10 +117,10 @@ export class DrawingChartAdapter {
   /**
    * Forces an immediate repaint pass on a KLineCharts chart's HTML5 canvas widget.
    */
-  static invalidatePane(chart: any, paneId: string = 'candle_pane'): void {
+  static invalidatePane(chart: any, _paneId: string = 'candle_pane'): void {
     if (!chart) return;
     try {
-      // 1. Mark canvas pane widgets dirty
+      // 1. Invalidate all KLineCharts canvas pane widgets directly
       if (chart._chartStore && typeof chart._chartStore.getPaneStore === 'function') {
         const panes = chart._chartStore.getPaneStore().getPanes();
         if (Array.isArray(panes)) {
@@ -133,11 +132,10 @@ export class DrawingChartAdapter {
         }
       }
 
-      // 2. Execute KLineCharts internal overlay canvas repaint pass unconditionally
-      if (typeof chart.updatePane === 'function') {
-        chart.updatePane(2, paneId); // 2 = UpdateLevel.Overlay
+      // 2. Trigger KLineCharts layout redraw pass by setting current offset distance
+      if (typeof chart.getOffsetRightDistance === 'function' && typeof chart.setOffsetRightDistance === 'function') {
+        chart.setOffsetRightDistance(chart.getOffsetRightDistance());
       } else if (typeof chart.resize === 'function') {
-        // 3. Fallback layout resize
         chart.resize();
       }
     } catch (_) {}
