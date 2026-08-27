@@ -389,7 +389,7 @@ export const CategoryDetailView: React.FC = () => {
       {/* Destructive Confirmation Modal */}
       {confirmModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className={`bg-[#1e222d] border border-[#2a2e39] rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl transition-all ${isDeleting ? 'opacity-70 pointer-events-none' : ''}`}>
+          <div className="bg-[#1e222d] border border-[#2a2e39] rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
             <div className="flex items-center gap-2.5 text-red-400 font-semibold text-sm">
               <AlertTriangle className="w-5 h-5 flex-shrink-0" />
               Confirm Destructive Action
