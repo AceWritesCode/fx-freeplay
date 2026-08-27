@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Database, Trash2, Folder, FolderOpen, Play } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Play } from 'lucide-react';
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS } from '@/config';
@@ -46,18 +46,18 @@ interface ThemeSettingsModalProps {
   onSelectFolder?: () => void;
 }
 
-type TabType = 'Symbol' | 'Canvas' | 'Scales' | 'Timezone' | 'Replay' | 'UpdateData';
+type TabType = 'Symbol' | 'Canvas' | 'Scales' | 'Timezone' | 'Replay';
 
 export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   isOpen,
   onClose,
   settings,
   onSettingsSave,
-  hasData,
-  onClearDatabase,
-  assetName = 'No Asset Loaded',
-  savedFolderHandles = [],
-  onSelectFolder,
+  hasData: _hasData,
+  onClearDatabase: _onClearDatabase,
+  assetName: _assetName = 'No Asset Loaded',
+  savedFolderHandles: _savedFolderHandles = [],
+  onSelectFolder: _onSelectFolder,
 }) => {
   if (!isOpen) return null;
 
@@ -80,8 +80,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const [saveNameError, setSaveNameError] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('');
 
-  // Custom confirmation dialog state
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
 
   const handleFieldChange = (key: keyof ChartSettings, value: any) => {
     setFormState(prev => ({
@@ -213,19 +212,6 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               }`}
             >
               <Play className="w-4.5 h-4.5 mr-2.5" />
-              <span>Bar Replay</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('UpdateData')}
-              className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all ${
-                activeTab === 'UpdateData'
-                  ? 'bg-[#1e222d] text-white border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/20'
-              }`}
-            >
-              <Database className="w-4.5 h-4.5 mr-2.5" />
-              <span>Data Management</span>
             </button>
           </div>
 
@@ -782,84 +768,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               </div>
             )}
 
-            {/* Tab: Data Management */}
-            {activeTab === 'UpdateData' && (
-              <div className="flex flex-col h-full gap-5">
-                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                  Data Management
-                </div>
 
-                {!hasData ? (
-                  <div className="flex flex-col items-center justify-center p-8 bg-[#1a1d26]/40 border border-dashed border-gray-800 rounded-xl text-center gap-4">
-                    <Folder className="w-8 h-8 text-gray-600" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-400 mb-1">No Folder Selected</p>
-                      <p className="text-[11px] text-gray-500 max-w-xs">
-                        Select a master folder containing subfolders for each trading pair to populate the watchlist and load charts.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onSelectFolder) onSelectFolder();
-                      }}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/10"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      <span>Select Symbol Directory</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    {/* Active Dataset Section */}
-                    <div className="bg-[#1a1d26]/40 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
-                      <div className="flex justify-between items-center border-b border-gray-800/80 pb-2.5">
-                        <div>
-                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Active Symbol / Watchlist</span>
-                          <span className="text-xs font-bold text-white tracking-wide block mt-0.5">
-                            {assetName}
-                          </span>
-                        </div>
-                        <span className="text-[9px] text-emerald-400 font-bold tracking-wide uppercase px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                          Connected
-                        </span>
-                      </div>
-
-                      {savedFolderHandles && savedFolderHandles.length > 0 && (
-                        <div className="bg-[#131722]/50 border border-gray-800/40 rounded-xl p-3 flex flex-col gap-1.5">
-                          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">Connected Directories</span>
-                          <span className="text-[11px] text-gray-300 font-medium truncate">
-                            {savedFolderHandles.map((h: any) => h.name).join(', ')}
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (onSelectFolder) onSelectFolder();
-                          }}
-                          className="flex-1 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5" />
-                          <span>Change Folder</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowClearConfirm(true)}
-                          className="flex-1 py-2 bg-red-950/10 hover:bg-red-950/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete Data</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
           </div>
         </div>
@@ -960,40 +869,6 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           </div>
 
         </div>
-
-        {/* Custom Confirmation Modal */}
-        {showClearConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-[#1e222d] border border-red-500/20 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 text-center flex flex-col gap-4 animate-in zoom-in-95 duration-150">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-1">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-sm font-bold tracking-wider uppercase text-white">Delete Symbol Data?</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                This will permanently delete the active symbol's timeframe data, drawings, and profile from local storage. This action cannot be undone.
-              </p>
-              <div className="flex items-center gap-3 justify-center mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowClearConfirm(false)}
-                  className="px-4 py-2 border border-gray-800 hover:bg-gray-800 hover:text-white rounded-xl text-xs font-semibold text-gray-400 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowClearConfirm(false);
-                    if (onClearDatabase) onClearDatabase();
-                  }}
-                  className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/25 transition-all cursor-pointer"
-                >
-                  Delete Data
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
       </div>
     </div>
