@@ -488,8 +488,7 @@ export function ChartWorkspace() {
   }, [syncDateRange]);
   useEffect(() => {
     syncDrawingsRef.current = syncDrawings;
-    drawingCoord.syncAllDrawings();
-  }, [syncDrawings, drawingCoord]);
+  }, [syncDrawings]);
   useEffect(() => {
     activeChartIndexRef.current = activeChartIndex;
   }, [activeChartIndex]);
@@ -1517,9 +1516,6 @@ export function ChartWorkspace() {
         setSlots(newSlots);
         workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
       }
-    }
-    if (key === 'syncDrawings') {
-      reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, val);
     }
   };
 
