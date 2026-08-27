@@ -1871,7 +1871,7 @@ export function ChartWorkspace() {
           isVerifyingFolder={workspaceCoord.isVerifyingFolder}
           handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
           loadSymbolFromFolder={handleWatchlistSymbolSwitch}
-          activeSymbol={activeWatchlistSymbol}
+          activeSymbol={slots[activeChartIndex]?.symbol || activeWatchlistSymbol}
           onRemoveSymbol={setPendingRemoveSymbol}
           onAddSymbolFolder={workspaceCoord.handleWatchlistAddFolder}
           chartInstancesRef={chartInstancesRef}

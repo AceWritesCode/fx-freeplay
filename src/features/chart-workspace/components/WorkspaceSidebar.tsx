@@ -207,8 +207,8 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                         transition-all duration-150 group/item
                         ${
                           isSelected
-                            ? 'bg-indigo-650 border border-indigo-500 text-white shadow-md'
-                            : 'bg-transparent border border-transparent text-gray-400 hover:bg-gray-800/50 hover:text-white'
+                            ? 'bg-indigo-500/15 border-l-2 border-indigo-500 text-white font-semibold pl-2.5 pr-3 py-2 rounded-r-xl rounded-l-sm'
+                            : 'bg-transparent border-l-2 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200 pl-2.5 pr-3 py-2 rounded-xl'
                         }
                       `}
                     >
