@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trash2,
   Upload,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
+import { DrawingChartAdapter } from '@/engine/charting';
 import {
   detectPricePrecision,
 } from '@/utils/dataUtils';
@@ -236,7 +237,6 @@ export function ChartWorkspace() {
   const {
     watchlistSymbols,
     activeWatchlistSymbol,
-    savedFolderHandle,
     savedFolderHandles,
   } = useWatchlistStore();
 
@@ -416,16 +416,39 @@ export function ChartWorkspace() {
     workspaceCoord.setWatchlistToast = setWatchlistToast;
   }, [workspaceCoord]);
 
+  // Synchronous selection update handler that updates ref properties, Zustand store, and canvas repaints in one frame
+  const handleSelectOverlayIds = useCallback(
+    (idsOrFn: string[] | ((prev: string[]) => string[])) => {
+      const current = useDrawingStore.getState().selectedOverlayIds;
+      const nextIds = typeof idsOrFn === 'function' ? idsOrFn(current) : idsOrFn;
+
+      chartInstancesRef.current.forEach((chart) => {
+        if (chart) {
+          chart._selectedOverlayIds = nextIds;
+        }
+      });
+
+      setSelectedOverlayIds(nextIds);
+
+      chartInstancesRef.current.forEach((chart) => {
+        if (chart) {
+          DrawingChartAdapter.invalidatePane(chart);
+        }
+      });
+    },
+    [setSelectedOverlayIds]
+  );
+
   // Keep chart selection & active tool state synced to chart instances
   useEffect(() => {
     chartInstancesRef.current.forEach((chart) => {
       if (chart) {
         chart._selectedOverlayIds = selectedOverlayIds;
-        chart._setSelectedOverlayIds = setSelectedOverlayIds;
+        chart._setSelectedOverlayIds = handleSelectOverlayIds;
         chart._activeTool = drawingCoord.activeTool;
       }
     });
-  }, [selectedOverlayIds, setSelectedOverlayIds, drawingCoord.activeTool]);
+  }, [selectedOverlayIds, handleSelectOverlayIds, drawingCoord.activeTool]);
 
   // Deselection transition effect: when a selected drawing is deselected, compare its chart state against stored record and commit changes
   const prevSelectedOverlayIdsRef = useRef<string[]>([]);
@@ -510,7 +533,6 @@ export function ChartWorkspace() {
   const drawingsBySymbol = useDrawingStore((s) => s.drawingsBySymbol);
 
   useEffect(() => {
-    setSelectedOverlayIds([]);
     runWorkspaceReconciliation(chartInstancesRef);
   }, [drawingsBySymbol, slots, activeChartIndex, syncDrawings]);
 
@@ -662,7 +684,7 @@ export function ChartWorkspace() {
             };
             (chart as any)._chartIndex = i;
             (chart as any)._selectedOverlayIds = selectedOverlayIds;
-            (chart as any)._setSelectedOverlayIds = setSelectedOverlayIds;
+            (chart as any)._setSelectedOverlayIds = handleSelectOverlayIds;
             (chart as any)._isCtrlPressedRef = isCtrlPressedRef;
             (chart as any)._isShiftPressedRef = isShiftPressedRef;
             (chart as any)._chartInstancesRef = chartInstancesRef;
@@ -795,7 +817,14 @@ export function ChartWorkspace() {
               e.clientY >= rect.top &&
               e.clientY <= rect.bottom;
 
-            if (clickInside) {
+            const isUIInteraction =
+              e.target instanceof HTMLElement &&
+              (!!e.target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect]') ||
+               e.target.tagName === 'BUTTON' ||
+               e.target.tagName === 'INPUT' ||
+               e.target.tagName === 'SELECT');
+
+            if (clickInside && !isUIInteraction) {
               setTimeout(() => {
                 if (!chart._clickedOnOverlay) {
                   setSelectedOverlayIds([]);
@@ -854,7 +883,6 @@ export function ChartWorkspace() {
         selectedOverlayIds.includes(`sync_${ov.id}_from_${activeIndex}`)
       );
       
-      const hoveredOverlay = interactiveOverlays.find((ov: any) => ov.extendData?.isHovered);
       const isMouseDown = chart._isMouseDown || false;
       const activeDraggingOverlay = interactiveOverlays.find(
         (ov: any) => ov.extendData?.draggedIndex !== undefined && ov.extendData?.draggedIndex !== null
@@ -896,31 +924,47 @@ export function ChartWorkspace() {
 
       const isAnchorHit = minDistance < 12;
 
-      // 2. If no anchor hit, fall back to body hit-testing for selected or hovered overlays
-      const targetOverlay = hoveredOverlay || selectedOverlays[0];
+      // 2. Perform body hit-testing for shape overlays (rectangle, longPosition, shortPosition)
+      let hoveredShapeOverlay: any = null;
       let isInsideBody = false;
 
-      if (!isAnchorHit && targetOverlay && targetOverlay.points && targetOverlay.points.length >= 6 && ['longPosition', 'shortPosition'].includes(targetOverlay.name)) {
-        const pts = chart.convertToPixel(targetOverlay.points, { paneId: 'candle_pane' });
+      interactiveOverlays.forEach((ov: any) => {
+        if (ov.points && ['rectangle', 'longPosition', 'shortPosition'].includes(ov.name)) {
+          const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          if (pts && pts.length >= 2) {
+            const xCoords = pts.map((p: any) => p?.x).filter((v: any) => typeof v === 'number');
+            const yCoords = pts.map((p: any) => p?.y).filter((v: any) => typeof v === 'number');
+            if (xCoords.length >= 2 && yCoords.length >= 2) {
+              const minX = Math.min(...xCoords);
+              const maxX = Math.max(...xCoords);
+              const minY = Math.min(...yCoords);
+              const maxY = Math.max(...yCoords);
 
-        const pTL = pts[0];
-        const pTR = pts[1];
-        const pBR = pts[2];
-        const pBL = pts[3];
-        const pML = pts[4];
-        const pMR = pts[5];
-
-        if (pTL && pTR && pBR && pBL) {
-          const left = Math.min(pTL.x, pBL.x, pML.x);
-          const right = Math.max(pTR.x, pBR.x, pMR.x);
-          const top = Math.min(pTL.y, pTR.y, pBL.y, pBR.y);
-          const bottom = Math.max(pTL.y, pTR.y, pBL.y, pBR.y);
-
-          if (xVal >= left && xVal <= right && yVal >= top && yVal <= bottom) {
-            isInsideBody = true;
+              if (xVal >= minX && xVal <= maxX && yVal >= minY && yVal <= maxY) {
+                hoveredShapeOverlay = ov;
+                isInsideBody = true;
+              }
+            }
           }
         }
-      }
+      });
+
+      // Maintain isHovered state cleanly without layout resets
+      interactiveOverlays.forEach((ov: any) => {
+        if (['rectangle', 'longPosition', 'shortPosition'].includes(ov.name)) {
+          const isCurrentlyHovered = ov.id === hoveredShapeOverlay?.id;
+          if (ov.extendData?.isHovered !== isCurrentlyHovered) {
+            chart.overrideOverlay({
+              id: ov.id,
+              extendData: {
+                ...(ov.extendData || {}),
+                isHovered: isCurrentlyHovered
+              }
+            });
+            DrawingChartAdapter.invalidatePane(chart);
+          }
+        }
+      });
 
       // 3. Apply the interaction state locally on the chart
       if (isAnchorHit && targetOverlayForAnchor) {
@@ -957,45 +1001,18 @@ export function ChartWorkspace() {
         return;
       }
 
-      if (targetOverlay && targetOverlay.points && targetOverlay.points.length >= 6 && ['longPosition', 'shortPosition'].includes(targetOverlay.name)) {
-        // Clean up hoveredAnchorIndex since we are not near any anchor
-        const currentHoveredIdx = targetOverlay.extendData?.hoveredAnchorIndex;
-        if (currentHoveredIdx !== null && currentHoveredIdx !== undefined) {
+      // Clean up hoveredAnchorIndexes when not near anchors
+      interactiveOverlays.forEach((ov: any) => {
+        if (ov.extendData?.hoveredAnchorIndex !== undefined && ov.extendData?.hoveredAnchorIndex !== null) {
           chart.overrideOverlay({
-            id: targetOverlay.id,
+            id: ov.id,
             extendData: {
-              ...(targetOverlay.extendData || {}),
+              ...(ov.extendData || {}),
               hoveredAnchorIndex: null
             }
           });
         }
-
-        // Clean up hoveredAnchorIndex on all other overlays
-        interactiveOverlays.forEach((ov: any) => {
-          if (ov.id !== targetOverlay.id && ov.extendData?.hoveredAnchorIndex !== null && ov.extendData?.hoveredAnchorIndex !== undefined) {
-            chart.overrideOverlay({
-              id: ov.id,
-              extendData: {
-                ...(ov.extendData || {}),
-                hoveredAnchorIndex: null
-              }
-            });
-          }
-        });
-      } else {
-        // No overlay body hovered or selected: clean up all hoveredAnchorIndexes
-        interactiveOverlays.forEach((ov: any) => {
-          if (ov.extendData?.hoveredAnchorIndex !== undefined && ov.extendData?.hoveredAnchorIndex !== null) {
-            chart.overrideOverlay({
-              id: ov.id,
-              extendData: {
-                ...(ov.extendData || {}),
-                hoveredAnchorIndex: null
-              }
-            });
-          }
-        });
-      }
+      });
 
       const finalCursor = isInsideBody ? 'grab' : 'default';
       if (container.style.cursor !== finalCursor) {
@@ -1867,9 +1884,6 @@ export function ChartWorkspace() {
           }}
           watchlistSymbols={watchlistSymbols}
           importMode="folder"
-          savedFolderHandle={savedFolderHandle}
-          isVerifyingFolder={workspaceCoord.isVerifyingFolder}
-          handleRestoreSavedFolder={workspaceCoord.handleRestoreSavedFolder}
           loadSymbolFromFolder={handleWatchlistSymbolSwitch}
           activeSymbol={slots[activeChartIndex]?.symbol || activeWatchlistSymbol}
           onRemoveSymbol={setPendingRemoveSymbol}

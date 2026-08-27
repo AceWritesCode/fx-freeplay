@@ -1,5 +1,5 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate } from '@/engine/charting';
+import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter } from '@/engine/charting';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
@@ -227,8 +227,14 @@ export function getInteractiveOverlayOptions(
       setActiveTool(null);
       
       // Auto-select the newly created drawing so the floating toolbar appears immediately
-      if (chartInstanceRef.current && chartInstanceRef.current._setSelectedOverlayIds) {
-        chartInstanceRef.current._setSelectedOverlayIds([event.overlay.id]);
+      if (actualChart) {
+        actualChart._clickedOnOverlay = true;
+      }
+      chartInstancesRef.current.forEach((c: any) => {
+        if (c) c._clickedOnOverlay = true;
+      });
+      if (actualChart && actualChart._setSelectedOverlayIds) {
+        actualChart._setSelectedOverlayIds([event.overlay.id]);
       }
 
       setTimeout(() => runWorkspaceReconciliation(chartInstancesRef), 50);
@@ -256,7 +262,7 @@ export function getInteractiveOverlayOptions(
         ...overrideOpts
       });
 
-      event.chart.resize();
+      DrawingChartAdapter.invalidatePane(event.chart);
       if (event.chart._onHoverChange) {
         event.chart._onHoverChange();
       }
@@ -274,17 +280,31 @@ export function getInteractiveOverlayOptions(
         ...overrideOpts
       });
 
-      event.chart.resize();
+      DrawingChartAdapter.invalidatePane(event.chart);
       if (event.chart._onHoverChange) {
         event.chart._onHoverChange();
       }
       return true;
     },
     onPressedMoveStart: (event: any) => {
-      if (event.overlay?.id && typeof event.overlay.id === 'string' && event.overlay.id.startsWith('sync_')) {
-        return false;
+      const actualChart = event.chart || chartInstanceRef.current;
+      if (actualChart) {
+        actualChart._clickedOnOverlay = true;
       }
-      event.chart._clickedOnOverlay = true;
+      chartInstancesRef.current.forEach((c: any) => {
+        if (c) c._clickedOnOverlay = true;
+      });
+
+      const rawId = event.overlay.id;
+      const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
+      const id = syncMatch ? syncMatch[1] : rawId;
+
+      if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
+        const currentSelected = actualChart._selectedOverlayIds || [];
+        if (!currentSelected.includes(id)) {
+          actualChart._setSelectedOverlayIds([id]);
+        }
+      }
       const hoveredIdx = event.overlay.extendData?.hoveredAnchorIndex;
       let isHandle = false;
       let closestIndex = 0;
@@ -330,10 +350,6 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
-      if (event.overlay?.id && typeof event.overlay.id === 'string' && event.overlay.id.startsWith('sync_')) {
-        return;
-      }
-
       const activeDraggingIndex = chartInstanceRef.current?._activeDraggingIndex;
       const draggedIndex = activeDraggingIndex !== undefined
         ? activeDraggingIndex
@@ -481,11 +497,6 @@ export function getInteractiveOverlayOptions(
 
       // Storage-First rule: Only an original drawing (not a sync_* copy) updates storage
       const overlayId = event.overlay?.id;
-      if (overlayId && typeof overlayId === 'string' && overlayId.startsWith('sync_')) {
-        runWorkspaceReconciliation(chartInstancesRef);
-        return;
-      }
-
       if (overlayId && !overlayId.startsWith('sync_')) {
         const resolved = useDrawingStore.getState().findSymbolByDrawingId(overlayId);
         const targetSymbol = resolved?.symbol || event.chart?._symbol;
@@ -504,23 +515,29 @@ export function getInteractiveOverlayOptions(
       const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
       const id = syncMatch ? syncMatch[1] : rawId;
 
-      if (event.chart._activeTool === 'eraser') {
+      const actualChart = event.chart || chartInstanceRef.current;
+      if (actualChart?._activeTool === 'eraser') {
         useDrawingStore.getState().removeSymbolDrawingById(id);
         runWorkspaceReconciliation(chartInstancesRef);
         return true;
       }
-      event.chart._clickedOnOverlay = true;
-      if (event.chart._setSelectedOverlayIds) {
-        const isCtrl = event.chart._isCtrlPressedRef?.current || false;
-        const currentSelected = event.chart._selectedOverlayIds || [];
+      if (actualChart) {
+        actualChart._clickedOnOverlay = true;
+      }
+      chartInstancesRef.current.forEach((c: any) => {
+        if (c) c._clickedOnOverlay = true;
+      });
+      if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
+        const isCtrl = actualChart._isCtrlPressedRef?.current || false;
+        const currentSelected = actualChart._selectedOverlayIds || [];
         if (isCtrl) {
           if (currentSelected.includes(id)) {
-            event.chart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
+            actualChart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
           } else {
-            event.chart._setSelectedOverlayIds([...currentSelected, id]);
+            actualChart._setSelectedOverlayIds([...currentSelected, id]);
           }
         } else {
-          event.chart._setSelectedOverlayIds([id]);
+          actualChart._setSelectedOverlayIds([id]);
         }
       }
       return true;

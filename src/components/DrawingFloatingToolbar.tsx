@@ -381,6 +381,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   return (
     <div
       ref={toolbarRef}
+      data-floating-ui="true"
+      onMouseDown={(e) => e.stopPropagation()}
       style={{ 
         transform: `translate(${position.x}px, ${position.y}px)`,
         position: 'absolute',
@@ -388,7 +390,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         left: 0,
         zIndex: 50
       }}
-      className="flex items-stretch bg-white dark:bg-[#1e222d] rounded-lg shadow-lg shadow-black/20 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 pointer-events-auto select-none"
+      className="drawing-floating-toolbar flex items-stretch bg-white dark:bg-[#1e222d] rounded-lg shadow-lg shadow-black/20 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 pointer-events-auto select-none"
     >
       {/* Drag Handle */}
       <div

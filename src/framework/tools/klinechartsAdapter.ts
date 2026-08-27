@@ -15,8 +15,9 @@ export function initializeToolFramework() {
           if (!overlay.extendData) {
             overlay.extendData = {};
           }
-          const isSelected = chart._selectedOverlayIds?.includes(overlay.id) ||
-                             chart._selectedOverlayIds?.includes(`sync_${overlay.id}_from_${chart?._chartIndex}`);
+          const isSelected = typeof overlay.id === 'string' &&
+                             !overlay.id.startsWith('sync_') &&
+                             chart._selectedOverlayIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
         return originalCreatePointFigures(params);
@@ -31,8 +32,9 @@ export function initializeToolFramework() {
           if (!overlay.extendData) {
             overlay.extendData = {};
           }
-          const isSelected = chart._selectedOverlayIds?.includes(overlay.id) ||
-                             chart._selectedOverlayIds?.includes(`sync_${overlay.id}_from_${chart?._chartIndex}`);
+          const isSelected = typeof overlay.id === 'string' &&
+                             !overlay.id.startsWith('sync_') &&
+                             chart._selectedOverlayIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
         return originalCreateYAxisFigures(params);
@@ -47,8 +49,9 @@ export function initializeToolFramework() {
           if (!overlay.extendData) {
             overlay.extendData = {};
           }
-          const isSelected = chart._selectedOverlayIds?.includes(overlay.id) ||
-                             chart._selectedOverlayIds?.includes(`sync_${overlay.id}_from_${chart?._chartIndex}`);
+          const isSelected = typeof overlay.id === 'string' &&
+                             !overlay.id.startsWith('sync_') &&
+                             chart._selectedOverlayIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
         return originalCreateXAxisFigures(params);
