@@ -258,18 +258,19 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
     } else if (categoryId === 'watchlist') {
       const val = await executeTx<any[]>(STORES.WATCHLIST, 'readonly', (store) => store.get('watchlist_symbols'));
       if (Array.isArray(val)) {
-        val.forEach((item: any) => {
-          if (searchQuery && !item.name?.toLowerCase().includes(searchQuery.toLowerCase())) return;
-          const sizeBytes = JSON.stringify(item).length;
+        for (const item of val) {
+          if (searchQuery && !item.name?.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+          const profile = await executeTx<any>(STORES.WATCHLIST, 'readonly', (store) => store.get(`profile:${item.name}`));
+          const sizeBytes = JSON.stringify(item).length + (profile ? JSON.stringify(profile).length : 0);
           items.push({
             id: item.name,
             category: 'watchlist',
             title: item.name,
-            subtitle: 'Watchlist Symbol',
+            subtitle: profile ? 'Watchlist Symbol • Custom Profile' : 'Watchlist Symbol',
             sizeBytes,
-            metadata: { name: item.name },
+            metadata: { name: item.name, symbol: item.name, profile: profile || null },
           });
-        });
+        }
       }
     } else if (categoryId === 'drawing_templates') {
       for (let i = 0; i < localStorage.length; i++) {
@@ -278,13 +279,17 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
           if (searchQuery && !key.toLowerCase().includes(searchQuery.toLowerCase())) continue;
           const val = localStorage.getItem(key);
           const sizeBytes = val ? val.length : 0;
+          let parsedVal: any = val;
+          try {
+            parsedVal = val ? JSON.parse(val) : val;
+          } catch (e) {}
           items.push({
             id: key,
             category: 'drawing_templates',
             title: key,
             subtitle: key.startsWith('fx_templates_') ? 'Drawing Tool Template' : 'LocalStorage Preset',
             sizeBytes,
-            metadata: { key },
+            metadata: { key, value: parsedVal },
           });
         }
       }
