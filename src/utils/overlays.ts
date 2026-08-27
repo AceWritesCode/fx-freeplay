@@ -281,6 +281,9 @@ export function getInteractiveOverlayOptions(
       return true;
     },
     onPressedMoveStart: (event: any) => {
+      if (event.overlay?.id && typeof event.overlay.id === 'string' && event.overlay.id.startsWith('sync_')) {
+        return false;
+      }
       event.chart._clickedOnOverlay = true;
       const hoveredIdx = event.overlay.extendData?.hoveredAnchorIndex;
       let isHandle = false;
