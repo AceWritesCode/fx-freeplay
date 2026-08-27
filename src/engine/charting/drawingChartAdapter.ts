@@ -132,10 +132,8 @@ export class DrawingChartAdapter {
         }
       }
 
-      // 2. Trigger KLineCharts layout redraw pass by setting current offset distance
-      if (typeof chart.getOffsetRightDistance === 'function' && typeof chart.setOffsetRightDistance === 'function') {
-        chart.setOffsetRightDistance(chart.getOffsetRightDistance());
-      } else if (typeof chart.resize === 'function') {
+      // 2. Force KLineCharts canvas layout redraw pass synchronously
+      if (typeof chart.resize === 'function') {
         chart.resize();
       }
     } catch (_) {}
