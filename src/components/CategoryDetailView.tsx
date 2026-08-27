@@ -31,65 +31,54 @@ const RecordPayloadViewer: React.FC<{
   onCopy: (text: string, keyLabel: string) => void;
 }> = ({ record, copiedFieldKey, onCopy }) => {
   const payload = record.metadata?.drawing || record.metadata?.value || record.metadata || {};
-
   const entries = Object.entries(payload);
 
   if (entries.length === 0) {
-    return <div className="text-xs text-gray-500 italic p-3">No stored payload properties found.</div>;
+    return <div className="text-xs text-gray-500 italic py-1 font-sans">No stored payload properties found.</div>;
   }
 
   return (
-    <div className="space-y-3">
-      <div className="border border-[#2a2e39] rounded-lg overflow-hidden">
-        <table className="w-full text-left text-xs font-mono">
-          <thead className="bg-[#1e222d] text-gray-400 text-[11px] font-semibold border-b border-[#2a2e39]">
-            <tr>
-              <th className="p-2.5 w-1/3">Key</th>
-              <th className="p-2.5">Stored Value</th>
-              <th className="p-2.5 w-16 text-center">Copy</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#2a2e39] bg-[#181a20]">
-            {entries.map(([key, val]) => {
-              const isComplex = typeof val === 'object' && val !== null;
-              const stringVal = isComplex ? JSON.stringify(val, null, 2) : String(val);
-              const copyKey = `${record.id}_${key}`;
+    <div className="space-y-1.5 py-1">
+      {entries.map(([key, val]) => {
+        const isComplex = typeof val === 'object' && val !== null;
+        const stringVal = isComplex ? JSON.stringify(val, null, 2) : String(val);
+        const copyKey = `${record.id}_${key}`;
 
-              return (
-                <tr key={key} className="hover:bg-[#1e222d]/60 transition-colors">
-                  <td className="p-2.5 text-blue-300 font-medium align-top break-all">
-                    {key}
-                  </td>
-                  <td className="p-2.5 text-gray-300 align-top">
-                    {isComplex ? (
-                      <pre className="bg-[#131722] p-2.5 rounded border border-white/5 text-[11px] text-gray-300 font-mono overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
-                        {stringVal}
-                      </pre>
-                    ) : (
-                      <span className="break-all font-mono text-gray-200">
-                        {val === null ? <span className="text-gray-500 italic">null</span> : stringVal}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-2.5 text-center align-top">
-                    <button
-                      onClick={() => onCopy(stringVal, copyKey)}
-                      className="p-1 text-gray-400 hover:text-white bg-[#1e222d] hover:bg-[#2a2e39] rounded border border-white/5 transition-colors cursor-pointer"
-                      title={`Copy ${key} value`}
-                    >
-                      {copiedFieldKey === copyKey ? (
-                        <Check className="w-3 h-3 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+        return (
+          <div
+            key={key}
+            className="flex items-start justify-between gap-4 py-1.5 px-3 rounded bg-[#1c1f2b]/60 hover:bg-[#1c1f2b] transition-colors border border-white/[0.03]"
+          >
+            <div className="flex items-start gap-4 flex-1 min-w-0">
+              <span className="w-36 flex-shrink-0 text-blue-300 font-medium text-[11px] truncate" title={key}>
+                {key}
+              </span>
+              <div className="flex-1 min-w-0">
+                {isComplex ? (
+                  <pre className="bg-[#11131a] p-2 rounded border border-white/5 text-[11px] text-gray-300 font-mono overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+                    {stringVal}
+                  </pre>
+                ) : (
+                  <span className="text-[11px] font-mono text-gray-200 break-all">
+                    {val === null ? <span className="text-gray-500 italic">null</span> : stringVal}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => onCopy(stringVal, copyKey)}
+              className="p-1 text-gray-400 hover:text-white hover:bg-[#2a2e39] rounded transition-colors flex-shrink-0 cursor-pointer"
+              title={`Copy ${key} value`}
+            >
+              {copiedFieldKey === copyKey ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -314,45 +303,37 @@ export const CategoryDetailView: React.FC = () => {
 
                     {/* Inline Expandable Data Inspection Panel */}
                     {!isMarketData && isExpanded && (
-                      <tr className="bg-[#181a20]">
-                        <td colSpan={5} className="p-4 border-t border-b border-[#2a2e39]">
-                          <div className="bg-[#131722] border border-[#2a2e39] rounded-lg p-4 space-y-3 select-text transition-all duration-300">
-                            {/* Panel Header */}
-                            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                              <div className="flex items-center gap-2">
-                                <Code className="w-4 h-4 text-blue-400" />
-                                <span className="font-semibold text-white text-xs">
-                                  Stored Data Inspection — {r.title}
-                                </span>
-                                <span className="text-[10px] font-mono text-gray-400 bg-[#1e222d] px-2 py-0.5 rounded border border-white/5">
-                                  {r.id}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => {
-                                    const targetPayload = r.metadata?.drawing || r.metadata?.value || r.metadata;
-                                    copyToClipboard(JSON.stringify(targetPayload, null, 2), `full_${r.id}`);
-                                  }}
-                                  className="px-2.5 py-1 bg-[#1e222d] hover:bg-[#2a2e39] text-gray-300 hover:text-white rounded text-[11px] font-medium border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
-                                >
-                                  {copiedFieldKey === `full_${r.id}` ? (
-                                    <>
-                                      <Check className="w-3 h-3 text-emerald-400" />
-                                      <span className="text-emerald-400">Copied JSON!</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3 h-3 text-gray-400" />
-                                      <span>Copy Record JSON</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
+                      <tr className="bg-[#14161e]/90">
+                        <td colSpan={5} className="px-6 py-3 border-b border-[#2a2e39]/60">
+                          <div className="space-y-2 select-text pl-4 border-l-2 border-blue-500/40 my-1 transition-all duration-300">
+                            {/* Simple Top Action Bar */}
+                            <div className="flex items-center justify-between pb-1 text-[11px] text-gray-400 font-sans">
+                              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
+                                <Code className="w-3.5 h-3.5 text-blue-400" />
+                                Stored Record Payload
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const targetPayload = r.metadata?.drawing || r.metadata?.value || r.metadata;
+                                  copyToClipboard(JSON.stringify(targetPayload, null, 2), `full_${r.id}`);
+                                }}
+                                className="px-2 py-0.5 bg-[#252936] hover:bg-[#323646] text-gray-300 hover:text-white rounded text-[11px] font-sans border border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                {copiedFieldKey === `full_${r.id}` ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-emerald-400">Copied JSON!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3 text-gray-400" />
+                                    <span>Copy Record JSON</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
 
-                            {/* Key-Value Pair Payload Inspection Viewer */}
+                            {/* Clean Key-Value Pair Rows (No nested card, no nested table) */}
                             <RecordPayloadViewer record={r} copiedFieldKey={copiedFieldKey} onCopy={copyToClipboard} />
                           </div>
                         </td>
