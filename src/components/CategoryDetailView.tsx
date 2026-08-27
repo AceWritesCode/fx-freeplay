@@ -107,6 +107,8 @@ export const CategoryDetailView: React.FC = () => {
 
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [copiedFieldKey, setCopiedFieldKey] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     type: 'single' | 'selected' | 'clear';
@@ -127,15 +129,24 @@ export const CategoryDetailView: React.FC = () => {
   };
 
   const handleConfirmAction = async () => {
-    if (!confirmModal) return;
-    if (confirmModal.type === 'single' && confirmModal.recordId) {
-      await deleteRecord(confirmModal.recordId);
-    } else if (confirmModal.type === 'selected') {
-      await deleteSelectedRecords();
-    } else if (confirmModal.type === 'clear') {
-      await clearActiveCategory();
+    if (!confirmModal || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      if (confirmModal.type === 'single' && confirmModal.recordId) {
+        await deleteRecord(confirmModal.recordId);
+      } else if (confirmModal.type === 'selected') {
+        await deleteSelectedRecords();
+      } else if (confirmModal.type === 'clear') {
+        await clearActiveCategory();
+      }
+      setIsDeleting(false);
+      setConfirmModal(null);
+    } catch (err: any) {
+      console.error('[CategoryDetailView] Delete action failed:', err);
+      setIsDeleting(false);
+      setDeleteError(err?.message || 'Failed to complete deletion. Please try again.');
     }
-    setConfirmModal(null);
   };
 
   return (
@@ -378,7 +389,7 @@ export const CategoryDetailView: React.FC = () => {
       {/* Destructive Confirmation Modal */}
       {confirmModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-[#1e222d] border border-[#2a2e39] rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+          <div className={`bg-[#1e222d] border border-[#2a2e39] rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl transition-all ${isDeleting ? 'opacity-70 pointer-events-none' : ''}`}>
             <div className="flex items-center gap-2.5 text-red-400 font-semibold text-sm">
               <AlertTriangle className="w-5 h-5 flex-shrink-0" />
               Confirm Destructive Action
@@ -386,18 +397,40 @@ export const CategoryDetailView: React.FC = () => {
             <p className="text-xs text-gray-300">
               Are you sure you want to delete {confirmModal.title || 'this selection'}? This action is permanent and cannot be undone.
             </p>
+
+            {deleteError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
-                onClick={() => setConfirmModal(null)}
-                className="px-3.5 py-1.5 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 rounded-md text-xs font-medium cursor-pointer"
+                onClick={() => {
+                  if (!isDeleting) {
+                    setConfirmModal(null);
+                    setDeleteError(null);
+                  }
+                }}
+                disabled={isDeleting}
+                className="px-3.5 py-1.5 bg-[#2a2e39] hover:bg-[#363a45] disabled:opacity-40 text-gray-300 rounded-md text-xs font-medium cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmAction}
-                className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold cursor-pointer"
+                disabled={isDeleting}
+                className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white rounded-md text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
               >
-                Delete Permanently
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                    <span>Deleting…</span>
+                  </>
+                ) : (
+                  <span>Delete Permanently</span>
+                )}
               </button>
             </div>
           </div>

@@ -13,6 +13,7 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
 }) => {
   const [confirmInput, setConfirmInput] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
   const { performFactoryReset } = useDataManagementStore();
 
   if (!isOpen) return null;
@@ -22,25 +23,27 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
   const handleReset = async () => {
     if (!isConfirmed || isResetting) return;
     setIsResetting(true);
+    setResetError(null);
     try {
       await performFactoryReset();
       setIsResetting(false);
       onClose();
       // Smooth page reload to re-initialize fresh app state cleanly
       window.location.reload();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Factory Reset failed:', err);
       setIsResetting(false);
+      setResetError(err?.message || 'Failed to perform factory reset. Please try again.');
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#1e222d] border border-red-500/50 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl relative text-gray-200">
+      <div className={`bg-[#1e222d] border border-red-500/50 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl relative text-gray-200 transition-all ${isResetting ? 'opacity-70 pointer-events-none' : ''}`}>
         <button
           onClick={onClose}
           disabled={isResetting}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -54,6 +57,13 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
             <p className="text-xs text-red-400 font-medium">Irreversible Destructive Action</p>
           </div>
         </div>
+
+        {resetError && (
+          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>{resetError}</span>
+          </div>
+        )}
 
         <div className="text-xs text-gray-300 space-y-2 bg-[#252936] p-3.5 rounded-md border border-[#363a45]">
           <p className="font-semibold text-white">This operation will permanently delete:</p>
@@ -88,24 +98,24 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
           <button
             onClick={onClose}
             disabled={isResetting}
-            className="px-4 py-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 rounded-md text-xs font-medium transition-colors"
+            className="px-4 py-2 bg-[#2a2e39] hover:bg-[#363a45] disabled:opacity-40 text-gray-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleReset}
             disabled={!isConfirmed || isResetting}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/30 disabled:text-red-400/50 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/30 disabled:text-red-400/50 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
           >
             {isResetting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Resetting Application...
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Deleting…</span>
               </>
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />
-                Factory Reset Application
+                <span>Factory Reset Application</span>
               </>
             )}
           </button>
