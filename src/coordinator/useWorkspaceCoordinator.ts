@@ -457,16 +457,17 @@ export function useWorkspaceCoordinator(
       workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
 
       const visibleCount = getLayoutChartCount(layoutStore.layoutType);
-      const affectedIndices = (layoutStore.syncSymbol || layoutStore.syncInterval)
+      const affectedIndices = layoutStore.syncInterval
         ? Array.from({ length: visibleCount }, (_, i) => i)
         : [activeChartIndex];
 
       for (const idx of affectedIndices) {
         const chart = chartInstancesRef.current[idx];
         const slotSym = newSlots[idx]?.symbol || currentSymbol;
+        const slotTf = newSlots[idx]?.timeframe || tf;
         if (!chart || !slotSym) continue;
 
-        let slotData = (idx === activeChartIndex && targetData) ? targetData : await getOrImportTimeframeData(slotSym, tf);
+        let slotData = (idx === activeChartIndex && targetData) ? targetData : await getOrImportTimeframeData(slotSym, slotTf);
         if (!slotData || slotData.length === 0) continue;
 
         const visibleData = activeReplay && alignedTimestamp !== null
@@ -483,7 +484,7 @@ export function useWorkspaceCoordinator(
           },
         });
         chart.resetData();
-        chart.setPeriod(parseTimeframeToPeriod(tf));
+        chart.setPeriod(parseTimeframeToPeriod(slotTf));
 
         const scrollIndex = activeReplay && alignedTimestamp !== null
           ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
