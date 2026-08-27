@@ -6,6 +6,8 @@ import {
   AlertCircle,
   X,
   FolderOpen,
+  Database,
+  AlertTriangle,
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
@@ -488,7 +490,8 @@ export function ChartWorkspace() {
   }, [syncDateRange]);
   useEffect(() => {
     syncDrawingsRef.current = syncDrawings;
-  }, [syncDrawings]);
+    drawingCoord.syncAllDrawings();
+  }, [syncDrawings, drawingCoord]);
   useEffect(() => {
     activeChartIndexRef.current = activeChartIndex;
   }, [activeChartIndex]);
@@ -1517,6 +1520,9 @@ export function ChartWorkspace() {
         workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
       }
     }
+    if (key === 'syncDrawings') {
+      reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, val);
+    }
   };
 
   return (
@@ -1679,7 +1685,102 @@ export function ChartWorkspace() {
         />
 
         <main className="flex-1 h-full relative overflow-hidden bg-[#131722] p-1 flex">
-          {!hasData && (
+          {workspaceCoord.importProgress ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#131722]/95 backdrop-blur-sm p-6 text-center select-none transition-all duration-300">
+              <div className="max-w-md w-full bg-[#1e222d] border border-white/10 rounded-xl p-6 shadow-2xl flex flex-col items-center gap-5">
+                {workspaceCoord.importProgress.status === 'error' ? (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-red-400" />
+                    </div>
+                    <div className="flex flex-col gap-1.5 w-full">
+                      <h2 className="text-base font-bold text-white tracking-tight">Import Failed</h2>
+                      <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-left whitespace-pre-wrap font-mono max-h-36 overflow-y-auto">
+                        {workspaceCoord.importProgress.errorMessage}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 w-full pt-1">
+                      <button
+                        onClick={() => workspaceCoord.resetImportProgress()}
+                        className="flex-1 py-2 px-3 bg-[#2a2e3d] hover:bg-[#363a4a] text-gray-300 rounded-lg text-xs font-semibold border border-white/10 transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
+                        className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/15 border border-indigo-500 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>Select Folder</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                      <Database className="w-6 h-6 text-indigo-400 animate-pulse" />
+                    </div>
+                    <div className="flex flex-col gap-1 w-full">
+                      <h2 className="text-base font-bold text-white tracking-tight">Loading Market Data</h2>
+                      <p className="text-xs text-gray-400">
+                        {workspaceCoord.importProgress.currentActivity}
+                      </p>
+                    </div>
+
+                    {/* Real Progress Bar */}
+                    <div className="w-full flex flex-col gap-2">
+                      <div className="w-full bg-[#131722] rounded-full h-2 overflow-hidden border border-white/5 relative">
+                        {workspaceCoord.importProgress.status === 'scanning' ? (
+                          <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full animate-pulse w-full" />
+                        ) : (
+                          <div
+                            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${
+                                workspaceCoord.importProgress.totalCount > 0
+                                  ? Math.min(
+                                      100,
+                                      Math.round(
+                                        (workspaceCoord.importProgress.processedCount /
+                                          workspaceCoord.importProgress.totalCount) *
+                                          100
+                                      )
+                                    )
+                                  : 0
+                              }%`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-gray-400 font-medium px-0.5">
+                        <span>
+                          {workspaceCoord.importProgress.status === 'scanning'
+                            ? 'Scanning files...'
+                            : workspaceCoord.importProgress.status === 'validating'
+                            ? 'Validating files...'
+                            : workspaceCoord.importProgress.status === 'preparing'
+                            ? 'Preparing chart...'
+                            : `Processing ${workspaceCoord.importProgress.processedCount} / ${workspaceCoord.importProgress.totalCount}`}
+                        </span>
+                        <span>
+                          {workspaceCoord.importProgress.totalCount > 0 && workspaceCoord.importProgress.status !== 'scanning'
+                            ? `${Math.min(
+                                100,
+                                Math.round(
+                                  (workspaceCoord.importProgress.processedCount /
+                                    workspaceCoord.importProgress.totalCount) *
+                                    100
+                                )
+                              )}%`
+                            : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : !hasData ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#131722]/95 backdrop-blur-sm p-6 text-center select-none">
               <div className="max-w-md flex flex-col items-center gap-6">
                 <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center animate-pulse">
@@ -1702,7 +1803,7 @@ export function ChartWorkspace() {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
           <div className="h-full w-full relative group">
             <ChartGrid
               layoutType={layoutType}
@@ -1713,8 +1814,8 @@ export function ChartWorkspace() {
               startResize={startResize}
               renderSlot={renderSlot}
             />
-            {/* Canvas-only loading spinner overlay */}
-            {workspaceCoord.isLoadingSymbol && (
+            {/* Canvas-only loading spinner overlay for existing chart symbol switches */}
+            {hasData && workspaceCoord.isLoadingSymbol && (
               <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#131722]/70 select-none pointer-events-auto">
                 <div className="w-8 h-8 rounded-full border-[3px] border-indigo-500/20 border-t-indigo-400 animate-spin" />
               </div>

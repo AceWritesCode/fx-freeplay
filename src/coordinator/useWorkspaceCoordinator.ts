@@ -64,6 +64,15 @@ const timezoneAdjustedCache = new Map<string, Record<string, KLineData[]>>();
 // Static, in-memory cache for symbol profiles to avoid IndexedDB reads during symbol switching
 const symbolProfileCache = new Map<string, any>();
 
+export interface ImportProgressState {
+  status: 'idle' | 'scanning' | 'validating' | 'importing' | 'preparing' | 'error';
+  currentActivity: string;
+  processedCount: number;
+  totalCount: number;
+  currentSymbol?: string;
+  errorMessage?: string;
+}
+
 export function clearWorkspaceCaches() {
   rawDataCache.clear();
   timezoneAdjustedCache.clear();
@@ -116,6 +125,7 @@ export function useWorkspaceCoordinator(
   const isSwitchingTimeframeRef = useRef<boolean>(false);
   const [allTimeframesData, setAllTimeframesData] = useState<Record<string, KLineData[]>>({ '1m': [] });
   const [isLoadingSymbol, setIsLoadingSymbol] = useState<boolean>(false);
+  const [importProgress, setImportProgress] = useState<ImportProgressState | null>(null);
   const [isVerifyingFolder, setIsVerifyingFolder] = useState<boolean>(false);
   const [isRestoreError, setIsRestoreError] = useState<boolean>(false);
   const [parseFeedback, setParseFeedback] = useState<any | null>(null);
@@ -457,17 +467,16 @@ export function useWorkspaceCoordinator(
       workspaceLayoutRepository.saveLayoutConfig({ slots: newSlots });
 
       const visibleCount = getLayoutChartCount(layoutStore.layoutType);
-      const affectedIndices = layoutStore.syncInterval
+      const affectedIndices = (layoutStore.syncSymbol || layoutStore.syncInterval)
         ? Array.from({ length: visibleCount }, (_, i) => i)
         : [activeChartIndex];
 
       for (const idx of affectedIndices) {
         const chart = chartInstancesRef.current[idx];
         const slotSym = newSlots[idx]?.symbol || currentSymbol;
-        const slotTf = newSlots[idx]?.timeframe || tf;
         if (!chart || !slotSym) continue;
 
-        let slotData = (idx === activeChartIndex && targetData) ? targetData : await getOrImportTimeframeData(slotSym, slotTf);
+        let slotData = (idx === activeChartIndex && targetData) ? targetData : await getOrImportTimeframeData(slotSym, tf);
         if (!slotData || slotData.length === 0) continue;
 
         const visibleData = activeReplay && alignedTimestamp !== null
@@ -484,7 +493,7 @@ export function useWorkspaceCoordinator(
           },
         });
         chart.resetData();
-        chart.setPeriod(parseTimeframeToPeriod(slotTf));
+        chart.setPeriod(parseTimeframeToPeriod(tf));
 
         const scrollIndex = activeReplay && alignedTimestamp !== null
           ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
@@ -843,6 +852,13 @@ export function useWorkspaceCoordinator(
   const handleSelectFoldersAPI = async (handlesToUse: any[], autoImport = false) => {
     try {
       setIsLoadingSymbol(true);
+      setImportProgress({
+        status: 'scanning',
+        currentActivity: 'Scanning directory for MT5 CSV candlestick files...',
+        processedCount: 0,
+        totalCount: 0,
+      });
+
       const mergedSymbolMap: Record<string, Record<string, File>> = {};
       const mergedProfileMap: Record<string, File> = {};
 
@@ -865,20 +881,39 @@ export function useWorkspaceCoordinator(
 
       const symbolsList = Object.keys(mergedSymbolMap).sort();
       if (symbolsList.length === 0) {
-        setCustomAlert({
-          title: 'No CSV Files Detected',
-          message: 'No valid timeframe CSV files found. Please ensure files match standard timeframe names (e.g. m1, h4, d1).',
+        setImportProgress({
+          status: 'error',
+          currentActivity: 'No Files Found',
+          errorMessage: 'No valid timeframe CSV files found in selected directory. Please ensure files match standard timeframe names (e.g. m1, h4, d1).',
+          processedCount: 0,
+          totalCount: 0,
         });
         setIsLoadingSymbol(false);
         return;
       }
 
       // Validate all discovered symbols
+      setImportProgress({
+        status: 'validating',
+        currentActivity: `Validating ${symbolsList.length} symbol folders...`,
+        processedCount: 0,
+        totalCount: symbolsList.length,
+      });
+
       const validSymbols: string[] = [];
       const validationErrors: string[] = [];
       const parsedProfiles: Record<string, any> = {};
 
-      for (const sym of symbolsList) {
+      for (let i = 0; i < symbolsList.length; i++) {
+        const sym = symbolsList[i];
+        setImportProgress({
+          status: 'validating',
+          currentActivity: `Validating ${sym}...`,
+          processedCount: i,
+          totalCount: symbolsList.length,
+          currentSymbol: sym,
+        });
+
         const profileFile = mergedProfileMap[sym];
         const tfFiles = mergedSymbolMap[sym];
 
@@ -892,9 +927,12 @@ export function useWorkspaceCoordinator(
       }
 
       if (validSymbols.length === 0) {
-        setCustomAlert({
-          title: 'Import Validation Failed',
-          message: `None of the symbol folders passed validation:\n\n${validationErrors.join('\n')}`,
+        setImportProgress({
+          status: 'error',
+          currentActivity: 'Validation Failed',
+          errorMessage: `None of the symbol folders passed validation:\n\n${validationErrors.join('\n')}`,
+          processedCount: 0,
+          totalCount: symbolsList.length,
         });
         setIsLoadingSymbol(false);
         return;
@@ -907,8 +945,24 @@ export function useWorkspaceCoordinator(
         });
       }
 
-      // Commit the valid symbols' data and profiles to persistent storage
+      // Commit valid symbols' data and profiles to persistent storage
+      let completedSymbols = 0;
+      setImportProgress({
+        status: 'importing',
+        currentActivity: `Importing ${validSymbols.length} market symbols...`,
+        processedCount: 0,
+        totalCount: validSymbols.length,
+      });
+
       for (const sym of validSymbols) {
+        setImportProgress({
+          status: 'importing',
+          currentActivity: `Processing market data for ${sym}...`,
+          processedCount: completedSymbols,
+          totalCount: validSymbols.length,
+          currentSymbol: sym,
+        });
+
         const profile = parsedProfiles[sym];
         await watchlistRepository.saveSymbolProfile(sym, profile);
         symbolProfileCache.set(sym, profile);
@@ -929,9 +983,25 @@ export function useWorkspaceCoordinator(
           }
         });
         await Promise.all(importPromises);
+        completedSymbols++;
+
+        setImportProgress({
+          status: 'importing',
+          currentActivity: `Imported ${sym} (${completedSymbols} of ${validSymbols.length})`,
+          processedCount: completedSymbols,
+          totalCount: validSymbols.length,
+          currentSymbol: sym,
+        });
       }
 
       setSymbolFilesMap(mergedSymbolMap);
+
+      setImportProgress({
+        status: 'preparing',
+        currentActivity: 'Preparing chart workspace...',
+        processedCount: validSymbols.length,
+        totalCount: validSymbols.length,
+      });
 
       const watchlistItems = validSymbols.map((name) => ({ name }));
       setWatchlistSymbols(watchlistItems);
@@ -945,8 +1015,17 @@ export function useWorkspaceCoordinator(
         const target = validSymbols[0];
         await handleWatchlistSymbolSwitch(target, undefined, mergedSymbolMap);
       }
-    } catch (err) {
+
+      setImportProgress(null);
+    } catch (err: any) {
       console.error('[DEBUG] Failed to import folder:', err);
+      setImportProgress({
+        status: 'error',
+        currentActivity: 'Import Failed',
+        errorMessage: err?.message || 'An unexpected error occurred while importing market data.',
+        processedCount: 0,
+        totalCount: 0,
+      });
     } finally {
       setIsLoadingSymbol(false);
     }
@@ -1127,6 +1206,8 @@ export function useWorkspaceCoordinator(
     allTimeframesData,
     setAllTimeframesData,
     isLoadingSymbol,
+    importProgress,
+    resetImportProgress: () => setImportProgress(null),
     isVerifyingFolder,
     isRestoreError,
     parseFeedback,
