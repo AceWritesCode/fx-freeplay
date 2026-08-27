@@ -327,6 +327,10 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
+      if (event.overlay?.id && typeof event.overlay.id === 'string' && event.overlay.id.startsWith('sync_')) {
+        return;
+      }
+
       const activeDraggingIndex = chartInstanceRef.current?._activeDraggingIndex;
       const draggedIndex = activeDraggingIndex !== undefined
         ? activeDraggingIndex
@@ -474,6 +478,11 @@ export function getInteractiveOverlayOptions(
 
       // Storage-First rule: Only an original drawing (not a sync_* copy) updates storage
       const overlayId = event.overlay?.id;
+      if (overlayId && typeof overlayId === 'string' && overlayId.startsWith('sync_')) {
+        runWorkspaceReconciliation(chartInstancesRef);
+        return;
+      }
+
       if (overlayId && !overlayId.startsWith('sync_')) {
         const resolved = useDrawingStore.getState().findSymbolByDrawingId(overlayId);
         const targetSymbol = resolved?.symbol || event.chart?._symbol;

@@ -71,6 +71,7 @@ export class DrawingChartAdapter {
       chart.createOverlay({
         paneId: 'candle_pane',
         ...options,
+        lock: true,
       });
     }
   }
