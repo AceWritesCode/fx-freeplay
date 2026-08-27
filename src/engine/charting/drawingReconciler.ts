@@ -194,3 +194,98 @@ export function runWorkspaceReconciliation(
   const { slots, activeChartIndex, syncDrawings } = useLayoutStore.getState();
   reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, syncDrawings);
 }
+
+/**
+ * Checkpoint 1 — Generic Live Mirror Engine Helper
+ *
+ * Propagates live transient overlay updates (points, styles, extendData) from a source
+ * chart slot to all other visible chart slots displaying the same symbol.
+ *
+ * Used during active dragging (onPressedMoving) and live in-progress drawing creation.
+ * ZERO data is written to Zustand or IndexedDB during this transient mirroring pass.
+ */
+export function mirrorLiveOverlayUpdate(
+  sourceChart: any,
+  overlayId: string,
+  updates: { points?: any[]; styles?: any; extendData?: any },
+  chartInstancesRef?: React.MutableRefObject<(any | null)[]>
+): void {
+  if (!sourceChart || !overlayId) return;
+
+  const layoutState = useLayoutStore.getState();
+  const { slots, syncDrawings } = layoutState;
+  const visibleCount = slots ? slots.length : 0;
+
+  // Requirement 1: Work ONLY when multi-chart layout is active & Drawing Sync is ON
+  if (visibleCount <= 1 || !syncDrawings) {
+    return;
+  }
+
+  // Identify source slot index
+  const sourceSlotIndex = typeof sourceChart._chartIndex === 'number'
+    ? sourceChart._chartIndex
+    : layoutState.activeChartIndex;
+
+  // Identify source chart symbol
+  const sourceSymbol = sourceChart._symbol || slots[sourceSlotIndex]?.symbol;
+  if (!sourceSymbol) return;
+
+  const sourceSymbolKey = sourceSymbol.toUpperCase();
+
+  // Identify canonical original ID (strip any sync_ prefix if called on a projection)
+  const syncMatch = overlayId.match(/^sync_(.+)_from_(\d+)$/);
+  const originalId = syncMatch ? syncMatch[1] : overlayId;
+  const creatorSlotIndex = syncMatch ? parseInt(syncMatch[2], 10) : sourceSlotIndex;
+
+  // Target sync overlay ID format for matching slots
+  const targetSyncOverlayId = `sync_${originalId}_from_${creatorSlotIndex}`;
+
+  // Read chartInstances reference
+  const charts = chartInstancesRef?.current || [];
+
+  // Dynamically iterate over ALL visible chart slots (never hardcode chart numbers)
+  for (let slotIndex = 0; slotIndex < visibleCount; slotIndex++) {
+    // Skip the source chart slot itself
+    if (slotIndex === sourceSlotIndex) continue;
+
+    const targetSlot = slots[slotIndex];
+    const targetSymbolKey = targetSlot?.symbol ? targetSlot.symbol.toUpperCase() : null;
+
+    // Requirement: Find every other visible chart currently displaying the same symbol
+    if (targetSymbolKey !== sourceSymbolKey) continue;
+
+    const targetChart = charts[slotIndex];
+    if (!targetChart) continue;
+
+    // Locate corresponding projection on target chart
+    const existingOv = DrawingChartAdapter.getOverlayById(targetChart, targetSyncOverlayId);
+
+    if (existingOv) {
+      // Projection exists: update it with latest live points/styles/extendData
+      DrawingChartAdapter.overrideOverlay(targetChart, {
+        id: targetSyncOverlayId,
+        ...(updates.points ? { points: JSON.parse(JSON.stringify(updates.points)) } : {}),
+        ...(updates.styles ? { styles: updates.styles } : {}),
+        ...(updates.extendData ? { extendData: JSON.parse(JSON.stringify(updates.extendData)) } : {}),
+      });
+    } else {
+      // Projection does not exist yet (e.g. first-time drawing creation in progress): create read-only projection
+      const sourceOv = DrawingChartAdapter.getOverlayById(sourceChart, overlayId);
+      if (sourceOv) {
+        DrawingChartAdapter.createOverlay(targetChart, {
+          name: sourceOv.name,
+          id: targetSyncOverlayId,
+          paneId: sourceOv.paneId || 'candle_pane',
+          points: JSON.parse(JSON.stringify(updates.points || sourceOv.points || [])),
+          lock: sourceOv.lock,
+          visible: sourceOv.visible !== false,
+          extendData: JSON.parse(JSON.stringify(updates.extendData || sourceOv.extendData || {})),
+          styles: updates.styles || sourceOv.styles,
+        });
+      }
+    }
+
+    // Immediately invalidate/repaint target chart canvas
+    DrawingChartAdapter.invalidatePane(targetChart);
+  }
+}
