@@ -29,16 +29,50 @@ export interface ChartOverlayOptions {
   [key: string]: any;
 }
 
+import { getInteractiveOverlayOptions } from '@/utils/overlays';
+
 export class DrawingChartAdapter {
   /**
    * Creates an overlay instance on a KLineCharts chart slot.
    */
   static createOverlay(chart: any, options: ChartOverlayOptions): void {
     if (!chart || !options || !options.id) return;
-    chart.createOverlay({
-      paneId: 'candle_pane',
-      ...options,
-    });
+
+    const isOriginal = typeof options.id === 'string' && !options.id.startsWith('sync_');
+
+    if (isOriginal) {
+      const interactiveOptions = getInteractiveOverlayOptions(
+        options.name,
+        { current: chart },
+        { current: [chart] },
+        { current: false },
+        () => {},
+        () => {}
+      );
+
+      chart.createOverlay({
+        paneId: 'candle_pane',
+        ...interactiveOptions,
+        ...options,
+        extendData: {
+          ...(interactiveOptions.extendData || {}),
+          ...(options.extendData || {}),
+        },
+        onDrawEnd: interactiveOptions.onDrawEnd,
+        onRemoved: interactiveOptions.onRemoved,
+        onMouseEnter: interactiveOptions.onMouseEnter,
+        onMouseLeave: interactiveOptions.onMouseLeave,
+        onClick: interactiveOptions.onClick,
+        onPressedMoveStart: interactiveOptions.onPressedMoveStart,
+        onPressedMoving: interactiveOptions.onPressedMoving,
+        onPressedMoveEnd: interactiveOptions.onPressedMoveEnd,
+      });
+    } else {
+      chart.createOverlay({
+        paneId: 'candle_pane',
+        ...options,
+      });
+    }
   }
 
   /**
