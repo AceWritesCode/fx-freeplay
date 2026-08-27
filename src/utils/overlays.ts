@@ -1,5 +1,5 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation } from '@/engine/charting';
+import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate } from '@/engine/charting';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
@@ -359,7 +359,7 @@ export function getInteractiveOverlayOptions(
             id: event.overlay.id,
             points: newPoints
           });
-          syncSyncedCopyToOriginal(event.chart, event.overlay.id, { points: newPoints });
+          mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
         }
 
         if (event.chart._handleMultiMove) {
@@ -377,6 +377,7 @@ export function getInteractiveOverlayOptions(
             id: event.overlay.id,
             points: result.points
           });
+          mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: result.points }, chartInstancesRef);
         }
         return;
       }
@@ -418,6 +419,7 @@ export function getInteractiveOverlayOptions(
                     id: event.overlay.id,
                     points: newPoints
                   });
+                  mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
                   return;
                 }
               }
@@ -448,7 +450,11 @@ export function getInteractiveOverlayOptions(
             id: event.overlay.id,
             points: newPoints
           });
+          mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
         }
+      } else if (event.overlay && event.overlay.points) {
+        // Live in-progress drawing creation point updates
+        mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: event.overlay.points }, chartInstancesRef);
       }
     },
     onPressedMoveEnd: (event: any) => {
