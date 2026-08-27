@@ -11,12 +11,60 @@ import {
   Trash2,
   AlertTriangle,
   ChevronRight,
-  Loader2,
+  X,
 } from 'lucide-react';
 import { useDataManagementStore } from '@/store';
 import type { CategoryStorageSummary } from '@/repository';
 import { CategoryDetailView } from './CategoryDetailView';
 import { FactoryResetModal } from './FactoryResetModal';
+
+interface DataManagementDashboardProps {
+  onClose?: () => void;
+}
+
+const DEFAULT_CATEGORIES: Array<{
+  id: string;
+  name: string;
+  description: string;
+  type: CategoryStorageSummary['type'];
+}> = [
+  {
+    id: 'market_bars',
+    name: 'Market Data (CSV Bars)',
+    description: 'Imported OHLCV candle datasets grouped by symbol and timeframe.',
+    type: 'market_data',
+  },
+  {
+    id: 'drawings',
+    name: 'Chart Drawings',
+    description: 'User-created chart drawing objects saved per symbol.',
+    type: 'drawings',
+  },
+  {
+    id: 'watchlist',
+    name: 'Watchlist & Profiles',
+    description: 'Imported symbol watchlists, active symbol state, and symbol metadata profiles.',
+    type: 'watchlist',
+  },
+  {
+    id: 'workspace_layout',
+    name: 'Workspace Layouts',
+    description: 'Saved window grid layouts, slot symbol configurations, and sync settings.',
+    type: 'workspace_layout',
+  },
+  {
+    id: 'settings',
+    name: 'Application Preferences',
+    description: 'Global chart settings, price precision, timezone, and theme preferences.',
+    type: 'settings',
+  },
+  {
+    id: 'drawing_templates',
+    name: 'Drawing Templates & Presets',
+    description: 'Custom toolbar defaults, folder configurations, and theme style presets.',
+    type: 'drawing_templates',
+  },
+];
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 B';
@@ -45,7 +93,7 @@ function getCategoryIcon(type: CategoryStorageSummary['type']) {
   }
 }
 
-export const DataManagementDashboard: React.FC = () => {
+export const DataManagementDashboard: React.FC<DataManagementDashboardProps> = ({ onClose }) => {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const {
     activeCategoryId,
@@ -64,6 +112,8 @@ export const DataManagementDashboard: React.FC = () => {
     return <CategoryDetailView />;
   }
 
+  const overviewMap = new Map(overview.map((item) => [item.id, item]));
+  const isOverviewReady = overview.length > 0;
   const totalStorageBytes = overview.reduce((sum, item) => sum + item.estimatedSizeBytes, 0);
 
   return (
@@ -81,17 +131,34 @@ export const DataManagementDashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <span className="text-xs text-gray-400 block">Total Footprint</span>
-            <span className="text-sm font-semibold text-white">{formatBytes(totalStorageBytes)}</span>
+            <span className="text-[11px] text-gray-400 block tracking-wider uppercase font-medium">Total Footprint</span>
+            {!isOverviewReady && isLoadingOverview ? (
+              <div className="h-5 w-16 bg-[#2a2e39] animate-pulse rounded mt-0.5 inline-block" />
+            ) : (
+              <span className="text-sm font-semibold text-white transition-opacity duration-300">
+                {formatBytes(totalStorageBytes)}
+              </span>
+            )}
           </div>
-          <button
-            onClick={() => loadOverview()}
-            disabled={isLoadingOverview}
-            className="p-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 hover:text-white rounded-md transition-colors disabled:opacity-50"
-            title="Refresh Storage Metrics"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoadingOverview ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-1.5 pl-2 border-l border-white/10">
+            <button
+              onClick={() => loadOverview()}
+              disabled={isLoadingOverview}
+              className="p-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 hover:text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center"
+              title="Refresh Storage Metrics"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingOverview ? 'animate-spin' : ''}`} />
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 hover:text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                title="Close Data Management"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -103,53 +170,59 @@ export const DataManagementDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Loading Skeleton */}
-      {isLoadingOverview && overview.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          <p className="text-sm">Analyzing persistence storage metrics...</p>
-        </div>
-      ) : (
-        /* Storage Category Cards Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {overview.map((category) => (
+      {/* Storage Category Cards Grid (Richer Dashboard Loading State) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {DEFAULT_CATEGORIES.map((def) => {
+          const item = overviewMap.get(def.id);
+          const isItemLoading = !item && isLoadingOverview;
+
+          return (
             <div
-              key={category.id}
+              key={def.id}
               className="bg-[#1e222d] border border-[#2a2e39] rounded-lg p-4 flex flex-col justify-between hover:border-[#3a3e4b] transition-all group"
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="p-2 bg-[#2a2e39] rounded-lg">
-                    {getCategoryIcon(category.type)}
+                    {getCategoryIcon(def.type)}
                   </div>
-                  <span className="px-2.5 py-1 bg-[#2a2e39] text-gray-300 text-xs font-mono rounded-full">
-                    {formatBytes(category.estimatedSizeBytes)}
-                  </span>
+                  {item ? (
+                    <span className="px-2.5 py-1 bg-[#2a2e39] text-gray-300 text-xs font-mono rounded-full transition-all duration-300">
+                      {formatBytes(item.estimatedSizeBytes)}
+                    </span>
+                  ) : (
+                    <div className="h-6 w-16 bg-[#2a2e39] animate-pulse rounded-full" />
+                  )}
                 </div>
                 <h3 className="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">
-                  {category.name}
+                  {def.name}
                 </h3>
                 <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                  {category.description}
+                  {def.description}
                 </p>
               </div>
 
               <div className="mt-4 pt-3 border-t border-[#2a2e39] flex items-center justify-between">
-                <span className="text-xs text-gray-400 font-medium">
-                  {category.recordCount.toLocaleString()} {category.recordCount === 1 ? 'record' : 'records'}
-                </span>
+                {item ? (
+                  <span className="text-xs text-gray-400 font-medium transition-all duration-300">
+                    {item.recordCount.toLocaleString()} {item.recordCount === 1 ? 'record' : 'records'}
+                  </span>
+                ) : (
+                  <div className="h-4 w-20 bg-[#2a2e39] animate-pulse rounded" />
+                )}
                 <button
-                  onClick={() => setActiveCategory(category.id)}
-                  className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                  onClick={() => setActiveCategory(def.id)}
+                  disabled={isItemLoading}
+                  className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Inspect & Manage
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       {/* Danger Zone Section */}
       <div className="mt-8 border border-red-500/30 bg-red-500/5 rounded-lg p-5">
@@ -165,7 +238,7 @@ export const DataManagementDashboard: React.FC = () => {
           </div>
           <button
             onClick={() => setIsResetModalOpen(true)}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-md"
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             Factory Reset Application

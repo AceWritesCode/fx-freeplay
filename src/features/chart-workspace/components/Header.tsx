@@ -509,7 +509,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
             className="p-2 rounded-lg bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
             title="Storage & Data Management"
           >
-            <Database className="w-4 h-4 text-blue-400" />
+            <Database className="w-4 h-4" />
           </button>
         )}
 
