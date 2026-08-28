@@ -318,9 +318,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         </div>
                         
                         {/* Color Swatch Preview Bar */}
-                        <div className="w-full h-5 rounded-md border border-white/10 flex overflow-hidden shadow-inner mb-2" style={{ backgroundColor: theme.previewBg }}>
-                          <div className="w-1/3 h-full border-r border-white/10" style={{ backgroundColor: theme.previewCard }} />
-                          <div className="w-1/3 h-full border-r border-white/10 flex items-center justify-center">
+                        <div className="w-full h-5 rounded-md border border-border-def flex overflow-hidden shadow-inner mb-2" style={{ backgroundColor: theme.previewBg }}>
+                          <div className="w-1/3 h-full border-r border-border-sub" style={{ backgroundColor: theme.previewCard }} />
+                          <div className="w-1/3 h-full border-r border-border-sub flex items-center justify-center">
                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: theme.previewAccent }} />
                           </div>
                           <div className="w-1/3 h-full flex items-center justify-center font-bold text-[9px]" style={{ color: theme.previewText }}>

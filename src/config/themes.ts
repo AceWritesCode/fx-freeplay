@@ -59,7 +59,7 @@ export const DEFAULT_CUSTOM_THEME: CustomThemePalette = {
   textPrimary: '#ffffff',
   textSecondary: '#b2b5be',
   textMuted: '#6b7280',
-  borderDefault: '#2a2e39',
+  borderDefault: '#363c4e',
   accentPrimary: '#6366f1',
   statusSuccess: '#089981',
   statusWarning: '#FF6D00',
@@ -82,8 +82,8 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     textMuted: '#6b7280',
     textInverse: '#ffffff',
 
-    borderDefault: '#2a2e39',
-    borderSubdued: '#363a45',
+    borderDefault: '#363c4e',
+    borderSubdued: '#282d3b',
     borderFocus: '#6366f1',
 
     accentPrimary: '#6366f1',
@@ -112,8 +112,8 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     textMuted: '#525252',
     textInverse: '#ffffff',
 
-    borderDefault: '#262626',
-    borderSubdued: '#171717',
+    borderDefault: '#383838',
+    borderSubdued: '#222222',
     borderFocus: '#3b82f6',
 
     accentPrimary: '#3b82f6',
@@ -142,8 +142,8 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     textMuted: '#94a3b8',
     textInverse: '#ffffff',
 
-    borderDefault: '#e2e8f0',
-    borderSubdued: '#f1f5f9',
+    borderDefault: '#cbd5e1',
+    borderSubdued: '#e2e8f0',
     borderFocus: '#2563eb',
 
     accentPrimary: '#2563eb',

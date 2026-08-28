@@ -653,7 +653,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             {isForecastMenuOpen && (
               <div
                 ref={forecastMenuRef}
-                className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[200px] text-gray-300 select-none"
+                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[200px] text-txt-secondary select-none"
                 style={{
                   left: `${forecastMenuPos.x + 6}px`,
                   top: `${forecastMenuPos.y}px`,
@@ -777,7 +777,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         {isMagnetMenuOpen && (
           <div
             ref={magnetMenuRef}
-            className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1.5 text-sm min-w-[170px]"
+            className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1.5 text-sm min-w-[170px] text-txt-secondary select-none"
             style={{
               left: `${magnetMenuPos.x + 6}px`,
               top: `${magnetMenuPos.y}px`,

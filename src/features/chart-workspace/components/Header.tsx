@@ -270,11 +270,11 @@ export const Header: React.FC<HeaderProps> = (props) => {
                   </div>
                 )}
 
-                <div className="h-px bg-gray-850/80 my-0.5" />
+                <div className="h-px bg-border-sub my-0.5" />
 
                 {/* Add Custom Interval Form */}
                 <div className="flex flex-col gap-1.5">
-                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">Add Custom Interval</div>
+                  <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider">Add Custom Interval</div>
                   <div className="flex items-center gap-1.5">
                     <input
                       type="number"
@@ -282,13 +282,13 @@ export const Header: React.FC<HeaderProps> = (props) => {
                       max="1000"
                       value={customValue}
                       onChange={(e) => setCustomValue(parseInt(e.target.value) || 1)}
-                      className="w-16 px-2.5 py-1.5 bg-gray-950 border border-gray-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 text-center font-semibold"
+                      className="w-16 px-2.5 py-1.5 bg-app-bg border border-border-def rounded-lg text-xs text-txt-primary focus:outline-none focus:border-border-focus text-center font-semibold"
                     />
                     
                     <select
                       value={customUnit}
                       onChange={(e: any) => setCustomUnit(e.target.value)}
-                      className="flex-1 px-2.5 py-1.5 bg-gray-950 border border-gray-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+                      className="flex-1 px-2.5 py-1.5 bg-app-bg border border-border-def rounded-lg text-xs text-txt-primary focus:outline-none focus:border-border-focus font-semibold"
                     >
                       <option value="minutes">Minutes</option>
                       <option value="hours">Hours</option>
@@ -303,7 +303,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
                       handleAddCustomTimeframe(customValue, customUnit);
                       setIsTfDropdownOpen(false);
                     }}
-                    className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-all shadow-md shadow-indigo-600/10 cursor-pointer"
+                    className="w-full py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-bold rounded-lg transition-all shadow-md cursor-pointer"
                   >
                     Add Option
                   </button>
@@ -323,8 +323,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
             <button
               onClick={() => setIsLayoutDropdownOpen(!isLayoutDropdownOpen)}
               title="Select layout"
-              className={`p-2 rounded-lg border border-gray-800 bg-[#1e222d] hover:bg-gray-800 transition-colors duration-150 flex items-center justify-center cursor-pointer ${
-                isLayoutDropdownOpen ? 'text-indigo-400 border-indigo-500/50' : 'text-gray-400 hover:text-white'
+              className={`p-2 rounded-lg border bg-surface hover:bg-surface-hover transition-colors duration-150 flex items-center justify-center cursor-pointer ${
+                isLayoutDropdownOpen ? 'text-accent border-accent' : 'border-border-def text-txt-muted hover:text-txt-primary'
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -336,10 +336,10 @@ export const Header: React.FC<HeaderProps> = (props) => {
                   className="fixed inset-0 z-40"
                   onClick={() => setIsLayoutDropdownOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 z-50 w-72 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 z-50 w-72 bg-surface border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="flex flex-col gap-4">
                     <div>
-                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2.5">
+                      <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-2.5">
                         Select Layout
                       </div>
                       <div className="grid grid-cols-5 gap-2">
@@ -356,8 +356,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
                               title={lay.label}
                               className={`p-1.5 rounded border transition-all duration-150 flex items-center justify-center cursor-pointer ${
                                 isSelected
-                                  ? 'bg-indigo-650/10 border-indigo-500 text-indigo-400'
-                                  : 'border-gray-800 hover:border-gray-700 text-gray-400 hover:text-gray-200'
+                                  ? 'bg-accent-muted border-accent text-accent'
+                                  : 'border-border-sub hover:border-border-def text-txt-muted hover:text-txt-primary'
                               }`}
                             >
                               {iconEl}
@@ -367,7 +367,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
                       </div>
                     </div>
 
-                    <div className="h-px bg-gray-800" />
+                    <div className="h-px bg-border-sub" />
 
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">
