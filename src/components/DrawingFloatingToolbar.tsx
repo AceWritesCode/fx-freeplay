@@ -1,8 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Bell, Baseline, X, ChevronDown } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 import { SearchableDropdown } from './DrawingSettingsDialog';
+
+interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  active?: boolean;
+  danger?: boolean;
+  title?: string;
+  children: React.ReactNode;
+}
+
+const ToolbarButton: React.FC<ToolbarButtonProps> = ({
+  active,
+  danger,
+  title,
+  children,
+  className = '',
+  ...props
+}) => {
+  return (
+    <button
+      type="button"
+      title={title}
+      className={`
+        relative flex items-center justify-center w-8 h-8 rounded transition-colors cursor-pointer select-none text-gray-700 dark:text-gray-300
+        ${
+          danger
+            ? 'hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-900/20'
+            : active
+            ? 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20'
+            : 'hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+        }
+        ${className}
+      `}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
 
 interface DrawingFloatingToolbarProps {
   selectedOverlayIds: string[];
@@ -13,11 +50,10 @@ interface DrawingFloatingToolbarProps {
   onDelete?: () => void;
   onSettingsClick?: () => void;
   onApplyTemplate?: (settings: any) => void;
-  onCreateLimitOrder?: (overlay: any) => void;
 }
 
 export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (props) => {
-  const { selectedOverlayIds, onUpdateSettings, getOverlay, onLock, onDelete, onSettingsClick, onApplyTemplate, onCreateLimitOrder } = props;
+  const { selectedOverlayIds, onUpdateSettings, getOverlay, onLock, onDelete, onSettingsClick, onApplyTemplate } = props;
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -160,10 +196,13 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   // Initialize position in the center top when it first appears
   useEffect(() => {
     if (selectedOverlayIds.length > 0 && position.x === 0 && position.y === 0) {
-      const containerWidth = document.querySelector('main')?.clientWidth || window.innerWidth;
-      setPosition({ x: containerWidth / 2 - 150, y: 60 }); // Roughly centered horizontally, top aligned
+      const container = toolbarRef.current?.offsetParent as HTMLElement || document.querySelector('main') || document.body;
+      const containerWidth = container.clientWidth || window.innerWidth;
+      const toolbarWidth = toolbarRef.current?.offsetWidth || (isRiskReward ? 440 : 280);
+      const targetX = Math.max(10, Math.min(containerWidth - toolbarWidth - 10, (containerWidth - toolbarWidth) / 2));
+      setPosition({ x: targetX, y: 60 });
     }
-  }, [selectedOverlayIds.length, position.x, position.y]);
+  }, [selectedOverlayIds.length, position.x, position.y, isRiskReward]);
 
   // Global pointer event listeners for dragging
   useEffect(() => {
@@ -171,9 +210,14 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
       if (!isDragging) return;
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
+      const container = toolbarRef.current?.offsetParent as HTMLElement || document.body;
+      const containerWidth = container.clientWidth || window.innerWidth;
+      const toolbarWidth = toolbarRef.current?.offsetWidth || 300;
+      const clampedX = Math.max(10, Math.min(containerWidth - toolbarWidth - 10, dragStartRef.current.initialX + dx));
+      const clampedY = Math.max(10, dragStartRef.current.initialY + dy);
       setPosition({
-        x: dragStartRef.current.initialX + dx,
-        y: Math.max(10, dragStartRef.current.initialY + dy) // prevent going completely off top screen
+        x: clampedX,
+        y: clampedY
       });
     };
 
@@ -223,13 +267,13 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
   const templatesDropdown = (
     <div className="relative">
-      <button 
+      <ToolbarButton 
+        active={isTemplateDropdownOpen}
         onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
-        className={`p-2 rounded transition-colors group relative ${isTemplateDropdownOpen ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
         title="Templates"
       >
-        <LayoutTemplate className="w-4 h-4 group-hover:text-indigo-500" />
-      </button>
+        <LayoutTemplate className="w-4 h-4" />
+      </ToolbarButton>
       
       {isTemplateDropdownOpen && (
         <div className="absolute left-0 top-full mt-2 bg-white dark:bg-[#1c2030] border border-gray-200 dark:border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold flex flex-col text-gray-700 dark:text-gray-200">
@@ -413,22 +457,22 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
       </div>
 
       {/* Toolbar Content */}
-      <div className="flex items-center px-1">
+      <div className="flex items-center p-1 gap-0.5">
         {/* Templates */}
         {templatesDropdown}
 
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-0.5" />
 
         {/* Line Color */}
         <div className="relative">
-          <button 
+          <ToolbarButton 
+            active={activeDropdown === 'color'}
             onClick={() => setActiveDropdown(activeDropdown === 'color' ? null : 'color')}
-            className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'color' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
             title="Line color"
           >
             <Palette className="w-4 h-4" />
-            <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
-          </button>
+            <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
+          </ToolbarButton>
           
           {activeDropdown === 'color' && (
             <div className="absolute top-full mt-2 left-0 z-50">
@@ -442,14 +486,14 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
         {/* Text Color */}
         <div className="relative">
-          <button 
+          <ToolbarButton 
+            active={activeDropdown === 'textColor'}
             onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
-            className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'textColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
             title="Text color"
           >
             <Baseline className="w-4 h-4" />
-            <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
-          </button>
+            <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
+          </ToolbarButton>
           
           {activeDropdown === 'textColor' && (
             <div className="absolute top-full mt-2 left-0 z-50">
@@ -464,18 +508,18 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         {/* Profit Background Color */}
         {isRiskReward && (
           <div className="relative">
-            <button 
+            <ToolbarButton 
+              active={activeDropdown === 'profitColor'}
               onClick={() => setActiveDropdown(activeDropdown === 'profitColor' ? null : 'profitColor')}
-              className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'profitColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
               title="Target background color"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
-                <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-current">
+                <path stroke="currentColor" strokeWidth="1.5" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
                 <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
                 <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
               </svg>
-              <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: profitColor }} />
-            </button>
+              <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: profitColor }} />
+            </ToolbarButton>
             
             {activeDropdown === 'profitColor' && (
               <div className="absolute top-full mt-2 left-0 z-50">
@@ -491,18 +535,18 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         {/* Loss Background Color */}
         {isRiskReward && (
           <div className="relative">
-            <button 
+            <ToolbarButton 
+              active={activeDropdown === 'lossColor'}
               onClick={() => setActiveDropdown(activeDropdown === 'lossColor' ? null : 'lossColor')}
-              className={`p-2 rounded transition-colors group relative mx-1 ${activeDropdown === 'lossColor' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
               title="Stop background color"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-gray-700 dark:text-gray-300">
-                <path stroke="currentColor" strokeWidth="1.2" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-4 h-4 fill-none text-current">
+                <path stroke="currentColor" strokeWidth="1.5" d="M13.5 6.5l-3-3-7 7 7.59 7.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L13.5 6.5zm0 0v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
                 <path fill="currentColor" d="M0 16.5C0 15 2.5 12 2.5 12S5 15 5 16.5 4 19 2.5 19 0 18 0 16.5z"></path>
                 <circle fill="currentColor" cx="9.5" cy="9.5" r="1.5"></circle>
               </svg>
-              <div className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lossColor }} />
-            </button>
+              <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lossColor }} />
+            </ToolbarButton>
             
             {activeDropdown === 'lossColor' && (
               <div className="absolute top-full mt-2 left-0 z-50">
@@ -516,10 +560,10 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* Line Width */}
-        <div className="relative mx-1">
+        <div className="relative">
           <button 
             onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
-            className={`flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors group ${activeDropdown === 'width' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-gray-700 dark:text-gray-300 hover:text-indigo-500 ${activeDropdown === 'width' ? 'bg-gray-100 dark:bg-gray-800 text-indigo-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
             title="Line width"
           >
             <Minus className="w-4 h-4 stroke-[3px]" />
@@ -544,9 +588,9 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
         {/* Line Style */}
         <div className="relative">
-          <button 
+          <ToolbarButton 
+            active={activeDropdown === 'style'}
             onClick={() => setActiveDropdown(activeDropdown === 'style' ? null : 'style')}
-            className={`p-2 rounded transition-colors group ${activeDropdown === 'style' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
             title="Line style"
           >
             {lineStyle === 'solid' && (
@@ -564,7 +608,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 <line x1="0" y1="8" x2="16" y2="8" />
               </svg>
             )}
-          </button>
+          </ToolbarButton>
           
           {activeDropdown === 'style' && (
             <div className="absolute top-full mt-2 left-0 w-28 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
@@ -581,72 +625,44 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           )}
         </div>
 
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-0.5" />
 
-        {/* Create Limit Order */}
-        {isRiskReward && (
-          <button 
-            onClick={() => {
-              if (onCreateLimitOrder && firstOverlay) onCreateLimitOrder(firstOverlay);
-            }}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-indigo-500 cursor-pointer" 
-            title="Create Limit Order"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
-              <path d="M22 6H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10v1H6a2 2 0 0 1-2-2V7c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v8h-1V7a1 1 0 0 0-1-1m-6 6.77-3.41-2.48-.6.81 4 2.9 4-2.9-.58-.8zm-4 2.47L8.59 17.7l-.6-.8L12 14 16 16.9l-.59.81zM21 17v3h-3v1h3v3h1v-3h3v-1h-3v-3z"></path>
-            </svg>
-          </button>
-        )}
+
 
         {/* Settings */}
-        <button 
+        <ToolbarButton 
           onClick={onSettingsClick}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group cursor-pointer text-gray-700 dark:text-gray-300 hover:text-indigo-500" 
           title="Settings"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4" fill="currentColor">
-            <path fillRule="evenodd" d="M18 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"></path>
-            <path fillRule="evenodd" d="M8.5 5h11l5 9-5 9h-11l-5-9 5-9Zm-3.86 9L9.1 6h9.82l4.45 8-4.45 8H9.1l-4.45-8Z"></path>
-          </svg>
-        </button>
+          <Settings className="w-4 h-4" />
+        </ToolbarButton>
 
-        {/* Add Alert */}
-        {!isRiskReward && (
-          <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group" title="Add Alert">
-            <Bell className="w-4 h-4" />
-          </button>
-        )}
+
 
         {/* Lock */}
-        <button 
+        <ToolbarButton 
+          active={isLocked}
           onClick={onLock}
-          className={`p-2 rounded transition-colors group text-gray-755 dark:text-gray-355 hover:text-indigo-500 ${isLocked ? 'text-indigo-500 bg-indigo-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
           title={isLocked ? "Unlock" : "Lock"}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
-            <path fill="currentColor" fillRule="evenodd" d="M14 6a3 3 0 0 0-3 3v3h8.5a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 6 21.5v-7A2.5 2.5 0 0 1 8.5 12H10V9a4 4 0 0 1 8 0h-1a3 3 0 0 0-3-3zm-1 11a1 1 0 1 1 2 0v2a1 1 0 1 1-2 0v-2zm-6-2.5c0-.83.67-1.5 1.5-1.5h11c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-11A1.5 1.5 0 0 1 7 21.5v-7z"></path>
-          </svg>
-        </button>
+          {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+        </ToolbarButton>
 
         {/* Remove */}
-        <button 
+        <ToolbarButton 
+          danger
           onClick={onDelete}
-          className="p-2 hover:bg-red-55 dark:hover:bg-red-900/20 rounded transition-colors group text-gray-700 dark:text-gray-300 hover:text-red-500 cursor-pointer" 
           title="Remove"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className="w-4 h-4">
-            <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5 .46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z"></path>
-          </svg>
-        </button>
+          <Trash2 className="w-4 h-4" />
+        </ToolbarButton>
 
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-0.5" />
 
         {/* More */}
-        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors group text-gray-755 dark:text-gray-355" title="More">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none">
-            <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M7.5 13a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM19 14.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z"></path>
-          </svg>
-        </button>
+        <ToolbarButton title="More">
+          <MoreHorizontal className="w-4 h-4" />
+        </ToolbarButton>
       </div>
 
       {/* Save Template Modal */}

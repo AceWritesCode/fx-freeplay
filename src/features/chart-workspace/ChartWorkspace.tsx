@@ -2098,10 +2098,19 @@ export function ChartWorkspace() {
               useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
                 lock: nextLock,
               });
-              const activeChart = chartInstancesRef.current[activeChartIndex];
-              if (activeChart) {
-                mirrorLiveOverlayUpdate(activeChart, originalId, { extendData: currentDrawing.extendData }, chartInstancesRef);
-              }
+
+              // Apply lock directly on all live chart instances
+              chartInstancesRef.current.forEach((chart) => {
+                if (chart) {
+                  try {
+                    chart.overrideOverlay({ id: originalId, lock: nextLock });
+                  } catch (_) {}
+                  try {
+                    chart.overrideOverlay({ id: `sync_${originalId}_from_${chart._chartIndex}`, lock: nextLock });
+                  } catch (_) {}
+                  DrawingChartAdapter.invalidatePane(chart);
+                }
+              });
             }
           });
 
