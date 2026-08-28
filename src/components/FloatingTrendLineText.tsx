@@ -232,6 +232,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
         color: textColor,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
+        lineHeight: '1.2',
       }}
     >
       {isEditing ? (
@@ -245,29 +246,42 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           }}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
-          placeholder="Add text..."
-          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 px-1.5 py-0.5 text-white cursor-text font-inherit select-text whitespace-nowrap"
+          placeholder="+ add text"
+          className={`px-1.5 py-0.5 rounded cursor-text outline-none focus:outline-none focus:ring-0 border font-inherit select-text whitespace-nowrap ${
+            text === '' 
+              ? 'text-[#2196F3] bg-indigo-500/10 border-dashed border-[#2196F3]/50'
+              : 'bg-transparent border-transparent'
+          }`}
           style={{
             fontSize: `${fontSize}px`,
             color: textColor,
-            width: `${Math.max(80, inputText.length * (fontSize * 0.6) + 16)}px`
+            fontWeight: isBold ? 'bold' : 'normal',
+            fontStyle: isItalic ? 'italic' : 'normal',
+            lineHeight: '1.2',
+            margin: 0,
+            boxSizing: 'border-box',
+            width: `${Math.max(80, (inputText || '+ add text').length * (fontSize * 0.6) + 16)}px`
           }}
         />
       ) : (
         <div
           onClick={handleStartEdit}
-          className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center gap-1 select-none font-semibold whitespace-nowrap ${
+          className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center select-none whitespace-nowrap border ${
             text === '' 
-              ? 'text-[#2196F3] hover:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 border border-dashed border-[#2196F3]/30 hover:border-indigo-400/50'
-              : 'hover:bg-gray-800/20'
+              ? 'text-[#2196F3] hover:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 border-dashed border-[#2196F3]/30 hover:border-indigo-400/50'
+              : 'border-transparent hover:bg-gray-800/20'
           }`}
+          style={{
+            fontSize: `${fontSize}px`,
+            color: textColor,
+            fontWeight: isBold ? 'bold' : 'normal',
+            fontStyle: isItalic ? 'italic' : 'normal',
+            lineHeight: '1.2',
+            margin: 0,
+            boxSizing: 'border-box',
+          }}
         >
-          {text === '' ? (
-            <>
-              <span>+</span>
-              <span>Add text</span>
-            </>
-          ) : text}
+          {text === '' ? '+ add text' : text}
         </div>
       )}
     </div>

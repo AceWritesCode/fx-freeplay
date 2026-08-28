@@ -214,6 +214,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [isItalic, setIsItalic] = useState(false);
   const [textValign, setTextValign] = useState('middle');
   const [textHalign, setTextHalign] = useState('right');
+  const [textPlacement, setTextPlacement] = useState<'inside' | 'outside'>('inside');
 
   // Coordinates Tab States
   const [points, setPoints] = useState<any[]>([]);
@@ -234,7 +235,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
   
   // Custom dropdowns for style selectors
-  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | 'textPlacement' | null>(null);
 
   const prec = pricePrecision !== undefined ? pricePrecision : 4;
 
@@ -292,6 +293,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setIsItalic(!!customSettings.italic);
     setTextValign(customSettings.textPosition?.vertical || 'middle');
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
+    setTextPlacement(customSettings.textPlacement || 'inside');
 
     // Visibility settings
     if (customSettings.visibility) {
@@ -444,6 +446,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         vertical: textValign,
         horizontal: textHalign
       },
+      textPlacement,
       visibility,
       alwaysShowStats,
       showLines,
@@ -515,7 +518,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     });
 
     onSave(updatedSettings, updatedPoints);
-  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
+  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
   // Helper to ensure selectedGroup updates if mode changes or templates are deleted
   useEffect(() => {
@@ -716,6 +719,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setIsItalic(!!settings.italic);
     setTextValign(settings.textPosition?.vertical || 'middle');
     setTextHalign(settings.textPosition?.horizontal || 'right');
+    setTextPlacement(settings.textPlacement || 'inside');
     if (settings.visibility) setVisibility(settings.visibility);
     setIsTemplateDropdownOpen(false);
 
@@ -748,6 +752,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         vertical: settings.textPosition?.vertical || 'middle',
         horizontal: settings.textPosition?.horizontal || 'right'
       },
+      textPlacement: settings.textPlacement || 'inside',
       visibility: settings.visibility || visibility
     };
 
@@ -1450,6 +1455,36 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                   )}
                 </div>
 
+              </div>
+            </div>
+
+            {/* Text Placement Row */}
+            <div className="flex items-center justify-between min-h-[36px]">
+              <span className="text-gray-400 font-medium">Text placement</span>
+              <div className="relative">
+                <button
+                  onClick={() => { setActiveSelect(activeSelect === 'textPlacement' ? null : 'textPlacement'); setActiveColorPicker(null); }}
+                  className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95"
+                >
+                  <span>{textPlacement}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                </button>
+                {activeSelect === 'textPlacement' && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                    <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-28 overflow-hidden">
+                      {['inside', 'outside'].map(p => (
+                        <button
+                          key={p}
+                          onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
+                          className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] capitalize ${textPlacement === p ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

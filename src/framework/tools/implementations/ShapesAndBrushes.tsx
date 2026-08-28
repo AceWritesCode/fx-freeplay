@@ -379,56 +379,6 @@ export const RectangleTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // Rectangle text rendering
-      const text = customSettings.text || '';
-      if (text) {
-        const textColor = customSettings.textColor || lineColor;
-        const fontSize = customSettings.fontSize || 14;
-        const fontBold = !!customSettings.bold;
-        const fontItalic = !!customSettings.italic;
-        const textHalign = customSettings.textPosition?.horizontal || 'center';
-        const textValign = customSettings.textPosition?.vertical || 'middle';
-
-        let textX = x + w / 2;
-        let align: 'left' | 'center' | 'right' = 'center';
-        if (textHalign === 'left') {
-          textX = x + 8;
-          align = 'left';
-        } else if (textHalign === 'right') {
-          textX = x + w - 8;
-          align = 'right';
-        }
-
-        let textY = y + h / 2;
-        let baseline: 'top' | 'middle' | 'bottom' = 'middle';
-        if (textValign === 'top') {
-          textY = y + 8;
-          baseline = 'top';
-        } else if (textValign === 'bottom') {
-          textY = y + h - 8;
-          baseline = 'bottom';
-        }
-
-        figures.push({
-          type: 'text',
-          attrs: {
-            x: textX,
-            y: textY,
-            text: text,
-            align: align,
-            baseline: baseline,
-          },
-          styles: {
-            color: textColor,
-            size: fontSize,
-            family: 'sans-serif',
-            weight: fontBold ? 'bold' : 'normal',
-            style: fontItalic ? 'italic' : 'normal',
-          },
-          ignoreEvent: true
-        });
-      }
-
       // 8 Grab Handles if selected or hovered
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;

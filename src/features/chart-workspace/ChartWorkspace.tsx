@@ -19,6 +19,7 @@ import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
+import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 
 import { Header } from './components/Header';
@@ -439,6 +440,15 @@ export function ChartWorkspace() {
     [setSelectedOverlayIds]
   );
 
+  // Keep chart instance styling automatically synchronized with useSettingsStore settings
+  useEffect(() => {
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        applySettingsToChart(chart, settings);
+      }
+    });
+  }, [settings]);
+
   // Keep chart selection & active tool state synced to chart instances
   useEffect(() => {
     chartInstancesRef.current.forEach((chart) => {
@@ -628,6 +638,7 @@ export function ChartWorkspace() {
           });
           if (chart) {
             chartInstancesRef.current[i] = chart;
+            (chart as any)._magnetMode = drawingCoord.magnetMode;
             applySettingsToChart(chart, settings);
             
             const markUserInteraction = (e: Event) => {
@@ -1455,42 +1466,61 @@ export function ChartWorkspace() {
           <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
 
-        {/* Floating text inputs for all TrendLines */}
+        {/* Floating text inputs for TrendLines and Rectangles */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const allTrendLines = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine') : [];
-          return allTrendLines.map((ov: any) => (
-            <FloatingTrendLineText
-              key={ov.id}
-              chart={chart}
-              overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
-              onTextChange={(newText) => {
-                const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-                const originalId = syncMatch ? syncMatch[1] : ov.id;
+          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle') : [];
+          return allTextOverlays.map((ov: any) => {
+            const handleTextChange = (newText: string) => {
+              const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : ov.id;
 
-                const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
-                if (resolved) {
-                  const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-                  const mergedExtendData = {
-                    ...(currentDrawing.extendData || {}),
-                    customSettings: {
-                      ...(currentDrawing.extendData?.customSettings || {}),
-                      text: newText,
-                    },
-                  };
-                  useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
-                    extendData: mergedExtendData,
-                  });
-                  mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
-                }
+              const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+              if (resolved) {
+                const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+                const mergedExtendData = {
+                  ...(currentDrawing.extendData || {}),
+                  customSettings: {
+                    ...(currentDrawing.extendData?.customSettings || {}),
+                    text: newText,
+                  },
+                };
+                useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                  extendData: mergedExtendData,
+                });
+                mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
+              }
 
-                runWorkspaceReconciliation(chartInstancesRef);
-                drawingCoord.setDrawingTrigger((prev) => prev + 1);
-              }}
-              syncAllDrawings={drawingCoord.syncAllDrawings}
-            />
-          ));
+              runWorkspaceReconciliation(chartInstancesRef);
+              drawingCoord.setDrawingTrigger((prev) => prev + 1);
+            };
+
+            if (ov.name === 'trendLine') {
+              return (
+                <FloatingTrendLineText
+                  key={ov.id}
+                  chart={chart}
+                  overlay={ov}
+                  isSelected={selectedOverlayIds.includes(ov.id)}
+                  onTextChange={handleTextChange}
+                  syncAllDrawings={drawingCoord.syncAllDrawings}
+                />
+              );
+            }
+            if (ov.name === 'rectangle') {
+              return (
+                <FloatingRectangleText
+                  key={ov.id}
+                  chart={chart}
+                  overlay={ov}
+                  isSelected={selectedOverlayIds.includes(ov.id)}
+                  onTextChange={handleTextChange}
+                  syncAllDrawings={drawingCoord.syncAllDrawings}
+                />
+              );
+            }
+            return null;
+          });
         })()}
       </div>
     );
@@ -1659,6 +1689,7 @@ export function ChartWorkspace() {
           hasData={hasData}
           activeTool={drawingCoord.activeTool}
           setActiveTool={drawingCoord.setActiveTool}
+          cancelDrawingSession={drawingCoord.cancelDrawingSession}
           selectedCursorId={selectedCursorId}
           setSelectedCursorId={setSelectedCursorId}
           isCursorMenuOpen={isCursorMenuOpen}
