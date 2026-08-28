@@ -43,8 +43,12 @@ export interface CustomThemePalette {
   bgModal: string;
   textPrimary: string;
   textSecondary: string;
+  textMuted: string;
   borderDefault: string;
   accentPrimary: string;
+  statusSuccess: string;
+  statusWarning: string;
+  statusError: string;
 }
 
 export const DEFAULT_CUSTOM_THEME: CustomThemePalette = {
@@ -54,8 +58,12 @@ export const DEFAULT_CUSTOM_THEME: CustomThemePalette = {
   bgModal: '#1e222d',
   textPrimary: '#ffffff',
   textSecondary: '#b2b5be',
+  textMuted: '#6b7280',
   borderDefault: '#2a2e39',
   accentPrimary: '#6366f1',
+  statusSuccess: '#089981',
+  statusWarning: '#FF6D00',
+  statusError: '#F23645',
 };
 
 // Built-in theme token mappings
@@ -152,6 +160,27 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
 };
 
 /**
+ * Converts hex color string to rgba format with specified alpha opacity.
+ */
+function hexToRgba(hex: string, alpha: number): string {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+    return `rgba(99, 102, 241, ${alpha})`;
+  }
+  const cleanHex = hex.replace('#', '');
+  let r = 0, g = 0, b = 0;
+  if (cleanHex.length === 3) {
+    r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    b = parseInt(cleanHex[2] + cleanHex[2], 16);
+  } else if (cleanHex.length >= 6) {
+    r = parseInt(cleanHex.substring(0, 2), 16);
+    g = parseInt(cleanHex.substring(2, 4), 16);
+    b = parseInt(cleanHex.substring(4, 6), 16);
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * Resolves full ThemeTokens object for any given mode or custom palette configuration.
  */
 export const getThemeTokens = (
@@ -166,11 +195,11 @@ export const getThemeTokens = (
       bgSurface: custom.bgSurface,
       bgSurfaceElevated: custom.bgSurfaceElevated,
       bgModal: custom.bgModal,
-      bgOverlay: 'rgba(0, 0, 0, 0.7)',
+      bgOverlay: 'rgba(0, 0, 0, 0.75)',
 
       textPrimary: custom.textPrimary,
       textSecondary: custom.textSecondary,
-      textMuted: '#71717a',
+      textMuted: custom.textMuted || '#6b7280',
       textInverse: '#ffffff',
 
       borderDefault: custom.borderDefault,
@@ -179,14 +208,14 @@ export const getThemeTokens = (
 
       accentPrimary: custom.accentPrimary,
       accentHover: custom.accentPrimary,
-      accentMuted: 'rgba(99, 102, 241, 0.15)',
+      accentMuted: hexToRgba(custom.accentPrimary, 0.18),
       surfaceHover: custom.bgSurfaceElevated,
       surfaceActive: custom.bgSurfaceElevated,
 
-      statusSuccess: '#089981',
-      statusError: '#F23645',
-      statusWarning: '#FF6D00',
-      statusInfo: '#2962FF',
+      statusSuccess: custom.statusSuccess || '#089981',
+      statusError: custom.statusError || '#F23645',
+      statusWarning: custom.statusWarning || '#FF6D00',
+      statusInfo: custom.accentPrimary,
     };
   }
 
