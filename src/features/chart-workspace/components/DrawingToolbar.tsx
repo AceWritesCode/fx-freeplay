@@ -228,7 +228,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
   ]);
 
   return (
-    <aside className="w-[52px] bg-[#1e222d] border-r border-gray-950 flex flex-col items-start pl-[4px] py-3 gap-3.5 z-40">
+    <aside className="w-[52px] bg-surface border-r border-border-def flex flex-col items-start pl-[4px] py-3 gap-3.5 z-40">
       
       {/* Grouped Cursor Tools: Select / Crosshair */}
       {(() => {
@@ -287,7 +287,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             {isCursorMenuOpen && (
               <div
                 ref={cursorMenuRef}
-                className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-txt-secondary select-none"
                 style={{
                   left: `${cursorMenuPos.x + 6}px`,
                   top: `${cursorMenuPos.y}px`,
@@ -322,8 +322,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             }}
                             className={`group flex items-center justify-between px-3.5 py-2 w-full text-left transition-colors ${
                               isSelected
-                                ? 'bg-[#2a2e39] text-white font-medium'
-                                : 'hover:bg-gray-800/60 text-gray-300'
+                                ? 'bg-surface-elevated text-txt-primary font-medium'
+                                : 'hover:bg-surface-hover text-txt-secondary'
                             }`}
                           >
                             <div className="flex items-center gap-3">
@@ -407,7 +407,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             {isLineMenuOpen && (
               <div
                 ref={lineMenuRef}
-                className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-txt-secondary select-none"
                 style={{
                   left: `${lineMenuPos.x + 6}px`,
                   top: `${lineMenuPos.y}px`,
@@ -520,7 +520,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             {isShapeMenuOpen && (
               <div
                 ref={shapeMenuRef}
-                className="fixed z-[100] bg-[#1c2030] border border-gray-700/80 rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-gray-300 select-none"
+                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[260px] text-txt-secondary select-none"
                 style={{
                   left: `${shapeMenuPos.x + 6}px`,
                   top: `${shapeMenuPos.y}px`,

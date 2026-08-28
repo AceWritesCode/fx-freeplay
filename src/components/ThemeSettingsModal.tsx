@@ -132,15 +132,15 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs font-sans">
-      <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg backdrop-blur-xs font-sans">
+      <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-modal-bg border border-border-def rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/80">
-          <h2 className="text-sm font-semibold text-white tracking-wide uppercase">Settings</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-sub">
+          <h2 className="text-sm font-semibold text-txt-primary tracking-wide uppercase">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors duration-150 p-1 hover:bg-gray-800 rounded-lg"
+            className="text-txt-muted hover:text-txt-primary transition-colors duration-150 p-1 hover:bg-surface-hover rounded-lg"
           >
             <X className="w-4 h-4" />
           </button>
@@ -150,13 +150,13 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         <div className="flex flex-1 overflow-hidden">
           
           {/* Left Sidebar (Tabs) */}
-          <div className="w-44 bg-[#1a1d26] border-r border-gray-800/80 py-3 flex flex-col gap-1 select-none">
+          <div className="w-44 bg-surface border-r border-border-sub py-3 flex flex-col gap-1 select-none">
             <button
               onClick={() => setActiveTab('Symbol')}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all ${
                 activeTab === 'Symbol'
-                  ? 'bg-[#1e222d] text-white border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/20'
+                  ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
               }`}
             >
               <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 mr-2.5 fill-current">

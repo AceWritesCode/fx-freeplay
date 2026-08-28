@@ -36,23 +36,23 @@
 }
 
 @theme {
-  --color-bg-app: var(--bg-app);
-  --color-bg-slot: var(--bg-slot);
-  --color-bg-surface: var(--bg-surface);
-  --color-bg-surface-elevated: var(--bg-surface-elevated);
-  --color-bg-modal: var(--bg-modal);
-  --color-bg-overlay: var(--bg-overlay);
+  --color-app-bg: var(--bg-app);
+  --color-slot-bg: var(--bg-slot);
+  --color-surface: var(--bg-surface);
+  --color-surface-elevated: var(--bg-surface-elevated);
+  --color-modal-bg: var(--bg-modal);
+  --color-overlay-bg: var(--bg-overlay);
 
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-  --color-text-inverse: var(--text-inverse);
+  --color-txt-primary: var(--text-primary);
+  --color-txt-secondary: var(--text-secondary);
+  --color-txt-muted: var(--text-muted);
+  --color-txt-inverse: var(--text-inverse);
 
-  --color-border-default: var(--border-default);
-  --color-border-subdued: var(--border-subdued);
+  --color-border-def: var(--border-default);
+  --color-border-sub: var(--border-subdued);
   --color-border-focus: var(--border-focus);
 
-  --color-accent-primary: var(--accent-primary);
+  --color-accent: var(--accent-primary);
   --color-accent-hover: var(--accent-hover);
   --color-accent-muted: var(--accent-muted);
   --color-surface-hover: var(--surface-hover);
@@ -62,6 +62,17 @@
   --color-status-error: var(--status-error);
   --color-status-warning: var(--status-warning);
   --color-status-info: var(--status-info);
+
+  /* Legacy aliases for backward compatibility */
+  --color-bg-app: var(--bg-app);
+  --color-bg-slot: var(--bg-slot);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-elevated: var(--bg-surface-elevated);
+  --color-bg-modal: var(--bg-modal);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-default: var(--border-default);
 }
 
 html, body, #root {

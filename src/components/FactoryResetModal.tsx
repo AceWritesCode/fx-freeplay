@@ -38,8 +38,8 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#1e222d] border border-red-500/50 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl relative text-gray-200">
+    <div className="fixed inset-0 z-50 bg-overlay-bg backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-modal-bg border border-status-error/50 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl relative text-txt-secondary">
         <button
           onClick={onClose}
           disabled={isResetting}

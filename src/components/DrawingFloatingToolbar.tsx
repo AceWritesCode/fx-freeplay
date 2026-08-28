@@ -434,12 +434,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         left: 0,
         zIndex: 50
       }}
-      className="drawing-floating-toolbar flex items-stretch bg-white dark:bg-[#1e222d] rounded-lg shadow-lg shadow-black/20 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 pointer-events-auto select-none"
+      className="drawing-floating-toolbar flex items-stretch bg-surface rounded-lg shadow-lg shadow-black/20 border border-border-def text-txt-secondary pointer-events-auto select-none"
     >
       {/* Drag Handle */}
       <div
         onPointerDown={handlePointerDown}
-        className="flex items-center justify-center px-2 cursor-grab active:cursor-grabbing border-r border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-l-lg transition-colors"
+        className="flex items-center justify-center px-2 cursor-grab active:cursor-grabbing border-r border-border-sub hover:bg-surface-hover rounded-l-lg transition-colors"
         title="Drag toolbar"
       >
         {isRiskReward ? (

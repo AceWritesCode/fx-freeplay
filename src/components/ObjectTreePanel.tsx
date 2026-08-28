@@ -1153,11 +1153,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#1c2030] text-gray-300 font-sans select-none">
+    <div className="flex-1 flex flex-col h-full bg-surface text-txt-secondary font-sans select-none">
       
       {/* ── Segmented Controls Tab switcher ── */}
-      <div className="px-3 py-2 border-b border-gray-800/70 bg-[#1e222d]">
-        <div className="flex bg-[#121420] p-0.5 rounded-lg border border-gray-800/40">
+      <div className="px-3 py-2 border-b border-border-def bg-surface">
+        <div className="flex bg-app-bg p-0.5 rounded-lg border border-border-sub">
           <button
             type="button"
             role="tab"
@@ -1165,8 +1165,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             onClick={() => setActiveTab('objectTree')}
             className={`flex-1 text-center py-1.5 text-xs font-semibold rounded-md transition-all ${
               activeTab === 'objectTree'
-                ? 'bg-[#2a2e39] text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                ? 'bg-surface-elevated text-txt-primary shadow-sm'
+                : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
             }`}
           >
             Object tree
@@ -1178,8 +1178,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             onClick={() => setActiveTab('dataWindow')}
             className={`flex-1 text-center py-1.5 text-xs font-semibold rounded-md transition-all ${
               activeTab === 'dataWindow'
-                ? 'bg-[#2a2e39] text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                ? 'bg-surface-elevated text-txt-primary shadow-sm'
+                : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
             }`}
           >
             Data window
