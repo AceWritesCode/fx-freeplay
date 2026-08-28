@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLayoutStore, useSettingsStore, useDrawingStore } from '@/store';
 import { getInteractiveOverlayOptions } from '@/utils/overlays';
 import { runWorkspaceReconciliation } from '@/engine/charting';
@@ -22,17 +22,18 @@ export function useDrawingCoordinator(
   const [drawingTrigger, setDrawingTrigger] = useState<number>(0);
 
   const cancelDrawingSession = () => {
-    if (drawingTargetChartIndex !== null) {
-      const targetChart = chartInstancesRef.current[drawingTargetChartIndex];
-      if (targetChart) {
-        if (targetChart._activeDrawingId) {
-          targetChart.removeOverlay({ id: targetChart._activeDrawingId });
-          targetChart._activeDrawingId = null;
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        if (chart._activeDrawingId) {
+          chart.removeOverlay({ id: chart._activeDrawingId });
+          chart._activeDrawingId = null;
         }
-        targetChart.setScrollEnabled(true);
-        targetChart.setZoomEnabled(true);
+        chart._activeTool = null;
+        chart.setScrollEnabled(true);
+        chart.setZoomEnabled(true);
       }
-    }
+    });
+
     setActiveTool(null);
     setDrawingTargetChartIndex(null);
   };
@@ -52,16 +53,30 @@ export function useDrawingCoordinator(
   };
 
   // Snapping and magnet modes (supports legacy normal, normal_magnet, weak_magnet, strong_magnet keys)
-  const [magnetMode, setMagnetMode] = useState<'normal' | 'normal_magnet' | 'weak_magnet' | 'strong_magnet'>('normal');
+  const [magnetMode, setMagnetMode] = useState<'normal' | 'normal_magnet' | 'weak_magnet' | 'strong_magnet'>(() => {
+    try {
+      const saved = localStorage.getItem('fx_magnet_mode');
+      if (saved === 'normal' || saved === 'normal_magnet' || saved === 'weak_magnet' || saved === 'strong_magnet') {
+        return saved;
+      }
+    } catch (_) {}
+    return 'normal';
+  });
 
   const handleToggleMagnet = () => {
     const nextMode: typeof magnetMode = magnetMode === 'normal' ? 'normal_magnet' : 'normal';
     setMagnetMode(nextMode);
+    try {
+      localStorage.setItem('fx_magnet_mode', nextMode);
+    } catch (_) {}
     applyMagnetModeToCharts(nextMode);
   };
 
   const selectMagnetMode = (mode: 'normal_magnet' | 'weak_magnet' | 'strong_magnet') => {
     setMagnetMode(mode);
+    try {
+      localStorage.setItem('fx_magnet_mode', mode);
+    } catch (_) {}
     applyMagnetModeToCharts(mode);
   };
 
@@ -99,6 +114,11 @@ export function useDrawingCoordinator(
       }
     });
   };
+
+  // Re-apply magnet mode whenever slots change or chart instances are initialized
+  useEffect(() => {
+    applyMagnetModeToCharts(magnetMode);
+  }, [magnetMode, slots, drawingTrigger]);
 
   const createOverlayWithHandlers = (chart: any, overlayData: any) => {
     const interactiveOptions = getInteractiveOverlayOptions(
