@@ -1287,18 +1287,18 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                       }}
                       className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg border cursor-pointer transition-all ${
                         isSelected
-                          ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
+                          ? 'bg-accent-muted border-accent/30 text-txt-primary'
                           : activeChart?._activeFolderId === folder.id
-                          ? 'bg-green-600/5 border-green-500/30 text-white'
+                          ? 'bg-status-success/10 border-status-success/30 text-txt-primary'
                           : dragOverFolderId === folder.id
-                          ? 'bg-indigo-600/20 border-indigo-500/50 text-white'
-                          : 'border-transparent hover:bg-[#1f2334] text-gray-300'
+                          ? 'bg-accent-muted border-accent/50 text-txt-primary'
+                          : 'border-transparent hover:bg-surface-hover text-txt-secondary'
                       }`}
                     >
                       {/* Colored divider line representing the drop position for folder reordering */}
                       {dragOverItemId === folder.id && (
                         <div
-                          className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                          className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
                             dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
                           }`}
                         />
@@ -1313,17 +1313,17 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                               prev.map(f => (f.id === folder.id ? { ...f, isCollapsed: !f.isCollapsed } : f))
                             );
                           }}
-                          className="p-0.5 rounded hover:bg-gray-800 text-gray-500 hover:text-white"
+                          className="p-0.5 rounded hover:bg-surface-hover text-txt-muted hover:text-txt-primary"
                         >
                           {folder.isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
 
-                        <span className="text-indigo-400 flex-shrink-0">
+                        <span className="text-accent flex-shrink-0">
                           {folder.isCollapsed ? <Folder className="w-4 h-4" /> : <FolderOpen className="w-4 h-4" />}
                         </span>
 
                         {activeChart?._activeFolderId === folder.id && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse flex-shrink-0" title="Active folder for new drawings" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse flex-shrink-0" title="Active folder for new drawings" />
                         )}
 
                         {renamingId === folder.id ? (
@@ -1338,7 +1338,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                               if (e.key === 'Escape') setRenamingId(null);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-[#121420] border border-indigo-500 rounded px-1.5 py-0.5 text-xs text-white outline-none w-28 font-normal"
+                            className="bg-app-bg border border-accent rounded px-1.5 py-0.5 text-xs text-txt-primary outline-none w-28 font-normal"
                           />
                         ) : (
                           <span
@@ -1457,16 +1457,16 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                 onMouseLeave={() => handleMouseLeaveItem(d.id)}
                                 className={`group relative flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
                                   isSelected
-                                    ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
+                                    ? 'bg-accent-muted border-accent/30 text-txt-primary'
                                     : isHovered
-                                    ? 'bg-[#2a2e39] border-gray-700/30 text-white'
-                                    : 'border-transparent hover:bg-[#2a2e39]/50 text-gray-300'
+                                    ? 'bg-surface-elevated border-border-def text-txt-primary'
+                                    : 'border-transparent hover:bg-surface-hover text-txt-secondary'
                                 }`}
                               >
                                 {/* Colored divider line representing the drop position */}
                                 {isDragOverThis && (
                                   <div
-                                    className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                                    className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
                                       dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
                                     }`}
                                   />
@@ -1489,7 +1489,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                         if (e.key === 'Escape') setRenamingId(null);
                                       }}
                                       onClick={(e) => e.stopPropagation()}
-                                      className="bg-[#121420] border border-indigo-500 rounded px-1.5 py-0.5 text-xs text-white outline-none w-28 font-normal"
+                                      className="bg-app-bg border border-accent rounded px-1.5 py-0.5 text-xs text-txt-primary outline-none w-28 font-normal"
                                     />
                                   ) : (
                                     <span
@@ -1513,7 +1513,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                       e.stopPropagation();
                                       handleStartRename(d.id, getDrawingLabel(d));
                                     }}
-                                    className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#121420] transition-colors"
+                                    className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
                                   >
                                     <Edit2 className="w-3 h-3" />
                                   </button>
@@ -1526,8 +1526,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                     }}
                                     className={`p-1 rounded transition-colors ${
                                       isLocked
-                                        ? 'text-indigo-400 hover:text-indigo-300 bg-indigo-500/10'
-                                        : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                                        ? 'text-accent hover:text-accent/80 bg-accent-muted'
+                                        : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                                     }`}
                                   >
                                     {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
@@ -1676,16 +1676,16 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                     onMouseLeave={() => handleMouseLeaveItem(d.id)}
                     className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-indigo-600/10 border-indigo-500/30 text-white'
+                        ? 'bg-accent-muted border-accent/30 text-txt-primary'
                         : isHovered
-                        ? 'bg-[#2a2e39] border-gray-700/30 text-white'
-                        : 'border-transparent hover:bg-[#2a2e39]/50 text-gray-300'
+                        ? 'bg-surface-elevated border-border-def text-txt-primary'
+                        : 'border-transparent hover:bg-surface-hover text-txt-secondary'
                     }`}
                   >
                     {/* Colored divider line representing the drop position */}
                     {isDragOverThis && (
                       <div
-                        className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                        className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
                           dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
                         }`}
                       />
@@ -1707,7 +1707,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                             if (e.key === 'Escape') setRenamingId(null);
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="bg-[#121420] border border-indigo-500 rounded px-1.5 py-0.5 text-xs text-white outline-none w-28 font-normal"
+                          className="bg-app-bg border border-accent rounded px-1.5 py-0.5 text-xs text-txt-primary outline-none w-28 font-normal"
                         />
                       ) : (
                         <span
@@ -1731,7 +1731,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           e.stopPropagation();
                           handleStartRename(d.id, getDrawingLabel(d));
                         }}
-                        className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#121420] transition-colors"
+                        className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
@@ -1744,8 +1744,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         }}
                         className={`p-1 rounded transition-colors ${
                           isLocked
-                            ? 'text-indigo-400 hover:text-indigo-300 bg-indigo-500/10'
-                            : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                            ? 'text-accent hover:text-accent/80 bg-accent-muted'
+                            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                         }`}
                       >
                         {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}

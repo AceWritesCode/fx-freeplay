@@ -252,7 +252,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
@@ -274,7 +274,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isCursorMenuOpen
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
@@ -327,7 +327,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
+                              <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'}`}>
                                 <ToolIcon />
                               </span>
                               <span className="text-xs">{tool.name}</span>
@@ -372,7 +372,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
@@ -394,7 +394,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isLineMenuOpen
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
@@ -440,7 +440,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
+                            <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'}`}>
                               <ToolIcon className="w-6 h-6 text-current" />
                             </span>
                             <span className="text-xs">{tool.name}</span>
@@ -485,7 +485,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
@@ -507,7 +507,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isShapeMenuOpen
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
@@ -568,7 +568,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'}`}>
+                              <span className={`w-7 h-7 flex items-center justify-center rounded ${isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'}`}>
                                 <ToolIcon className="w-6 h-6 text-current" />
                               </span>
                               <span className="text-xs">{tool.name}</span>
@@ -620,7 +620,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
@@ -640,7 +640,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isForecastMenuOpen
-                  ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
@@ -684,7 +684,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                     >
                       <div className="flex items-center gap-3">
                         <span className={`w-7 h-7 flex items-center justify-center rounded ${
-                          isSelected ? 'text-indigo-400' : 'text-gray-400 group-hover:text-white'
+                          isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'
                         }`}>
                           <ToolIcon className="w-6 h-6 text-current" />
                         </span>
@@ -716,8 +716,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
                 isActive
-                  ? 'bg-indigo-600/25 text-indigo-400'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  ? 'bg-accent-muted text-accent'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
             >
@@ -733,7 +733,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           closeAllMenus();
           handleClearDrawings();
         }}
-        className="p-1.5 rounded-md border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center"
+        className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center"
         style={{ width: '34px', height: '34px' }}
       >
         <Trash2 style={{ width: '22px', height: '22px' }} className="text-current" />
@@ -758,8 +758,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           }}
           className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
             magnetMode !== 'normal'
-              ? 'bg-indigo-600/25 text-indigo-400'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+              ? 'bg-accent-muted text-accent'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
           }`}
           style={{ width: '34px', height: '34px' }}
         >

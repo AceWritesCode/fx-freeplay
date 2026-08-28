@@ -110,7 +110,7 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     textPrimary: '#ffffff',
     textSecondary: '#a3a3a3',
     textMuted: '#525252',
-    textInverse: '#000000',
+    textInverse: '#ffffff',
 
     borderDefault: '#262626',
     borderSubdued: '#171717',

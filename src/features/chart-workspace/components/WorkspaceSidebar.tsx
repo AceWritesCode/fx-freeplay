@@ -138,9 +138,9 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-sub">
                 <div className="flex items-center gap-2">
                   <List className="w-3.5 h-3.5 text-accent" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-txt-primary">Watchlist</span>
                   {watchlistSymbols.length > 0 && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent-muted text-accent border border-accent/30 rounded-full">
                       {watchlistSymbols.length}
                     </span>
                   )}
@@ -152,7 +152,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                       onAddSymbolFolder?.();
                     }}
                     title="Add symbol folder"
-                    className="p-1 rounded-md text-gray-500 hover:text-indigo-350 hover:bg-indigo-600/10 transition-colors cursor-pointer"
+                    className="p-1 rounded-md text-txt-muted hover:text-accent hover:bg-accent-muted transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -163,13 +163,12 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               <div className="flex-1 overflow-y-auto py-2 px-3 flex flex-col gap-1 select-none">
                 
 
-
                 {/* Watchlist Toast Notification */}
                 {watchlistToast && (
                   <div className={`mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
                     watchlistToast.type === 'error'
-                      ? 'bg-red-500/10 border border-red-500/25 text-red-400'
-                      : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-300'
+                      ? 'bg-status-error/10 border border-status-error/25 text-status-error'
+                      : 'bg-accent-muted border border-accent/25 text-accent'
                   }`}>
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>{watchlistToast.msg}</span>
@@ -189,16 +188,16 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                         transition-all duration-150 group/item
                         ${
                           isSelected
-                            ? 'bg-indigo-500/15 border-l-2 border-indigo-500 text-white font-semibold pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
-                            : 'bg-transparent border-l-2 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200 pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
+                            ? 'bg-accent-muted border-l-2 border-accent text-txt-primary font-semibold pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
+                            : 'bg-transparent border-l-2 border-transparent text-txt-muted hover:bg-surface-hover hover:text-txt-primary pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
                         }
                       `}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         {importMode === 'folder' ? (
-                          <Folder className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-400' : 'text-gray-500 group-hover/item:text-gray-400'}`} />
+                          <Folder className={`w-3.5 h-3.5 ${isSelected ? 'text-accent' : 'text-txt-muted group-hover/item:text-txt-primary'}`} />
                         ) : (
-                          <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-indigo-400' : 'bg-gray-750 group-hover:bg-gray-500'}`} />
+                          <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-accent' : 'bg-surface-active group-hover:bg-txt-muted'}`} />
                         )}
                         <span className="truncate text-xs font-semibold">{item.name}</span>
                       </div>

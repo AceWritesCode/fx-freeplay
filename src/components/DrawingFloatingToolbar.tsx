@@ -719,8 +719,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                     onClick={() => setSaveMode('light')}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                       saveMode === 'light'
-                        ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-md shadow-indigo-500/10'
-                        : 'border-[#2a2e45] bg-[#121420] text-gray-400 hover:text-white hover:border-[#3a3f5e]'
+                        ? 'bg-accent-muted border-accent text-accent shadow-md'
+                        : 'border-border-def bg-surface text-txt-muted hover:text-txt-primary hover:border-border-focus'
                     }`}
                   >
                     Light
@@ -730,8 +730,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                     onClick={() => setSaveMode('dark')}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                       saveMode === 'dark'
-                        ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-md shadow-indigo-500/10'
-                        : 'border-[#2a2e45] bg-[#121420] text-gray-400 hover:text-white hover:border-[#3a3f5e]'
+                        ? 'bg-accent-muted border-accent text-accent shadow-md'
+                        : 'border-border-def bg-surface text-txt-muted hover:text-txt-primary hover:border-border-focus'
                     }`}
                   >
                     Dark
@@ -745,7 +745,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               <button
                 type="button"
                 onClick={() => setIsSaveModalOpen(false)}
-                className="px-4 py-1.5 border border-[#2a2e45] hover:bg-gray-800 text-gray-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                className="px-4 py-1.5 border border-border-def hover:bg-surface-hover text-txt-secondary rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -801,7 +801,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                   setIsSaveModalOpen(false);
                   setSelectedGroup(groupToSave);
                 }}
-                className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-lg shadow-indigo-600/20"
+                className="px-5 py-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-txt-inverse rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-lg"
               >
                 Save
               </button>
