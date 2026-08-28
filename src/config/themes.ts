@@ -90,13 +90,13 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     statusInfo: '#2962FF',
   },
 
-  // AMOLED Dark Theme (True Black #000000 + Neutral High Contrast)
+  // AMOLED Dark Theme (True Black #000000 + OLED High Contrast)
   amoled: {
     bgApp: '#000000',
     bgSlot: '#000000',
-    bgSurface: '#0d0d0d',
-    bgSurfaceElevated: '#1a1a1a',
-    bgModal: '#0d0d0d',
+    bgSurface: '#0a0a0a',
+    bgSurfaceElevated: '#171717',
+    bgModal: '#0a0a0a',
     bgOverlay: 'rgba(0, 0, 0, 0.85)',
 
     textPrimary: '#ffffff',
@@ -106,12 +106,12 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
 
     borderDefault: '#262626',
     borderSubdued: '#171717',
-    borderFocus: '#ffffff',
+    borderFocus: '#3b82f6',
 
-    accentPrimary: '#ffffff',
-    accentHover: '#e5e5e5',
-    accentMuted: 'rgba(255, 255, 255, 0.12)',
-    surfaceHover: '#1a1a1a',
+    accentPrimary: '#3b82f6',
+    accentHover: '#2563eb',
+    accentMuted: 'rgba(59, 130, 246, 0.15)',
+    surfaceHover: '#171717',
     surfaceActive: '#262626',
 
     statusSuccess: '#10b981',
