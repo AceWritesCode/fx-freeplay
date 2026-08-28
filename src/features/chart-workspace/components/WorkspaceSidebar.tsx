@@ -95,24 +95,24 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     <div 
       ref={sidebarRef}
       style={{ width: isSidebarVisible ? `var(--right-panel-width, ${rightPanelWidth}px)` : '44px' }}
-      className="h-full border-l border-gray-950 bg-[#1e222d] flex relative z-10 flex-shrink-0 transition-[width] duration-150"
+      className="h-full border-l border-border-def bg-surface flex relative z-10 flex-shrink-0 transition-[width] duration-150"
     >
       {/* Resizer bar */}
       {isSidebarVisible && (
         <div
           onMouseDown={handleMouseDownResize}
-          className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-50 hover:bg-indigo-500/50 transition-all ${
-            isResizingRightPanel ? 'bg-indigo-650' : 'bg-transparent'
+          className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-50 hover:bg-accent/50 transition-all ${
+            isResizingRightPanel ? 'bg-accent' : 'bg-transparent'
           }`}
         />
       )}
 
       {/* Tabs list on the left side of sidebar */}
-      <div className="w-11 border-r border-gray-950 flex flex-col items-center py-3 gap-3 flex-shrink-0 bg-[#1e222d]">
+      <div className="w-11 border-r border-border-def flex flex-col items-center py-3 gap-3 flex-shrink-0 bg-surface">
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'watchlist' ? null : 'watchlist')}
           className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'watchlist' ? 'bg-indigo-600/10 text-indigo-400' : 'text-gray-500 hover:text-gray-300'
+            activeRightTab === 'watchlist' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
           }`}
           title="Watchlist Panel"
         >
@@ -121,7 +121,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
           className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'objectTree' ? 'bg-indigo-600/10 text-indigo-400' : 'text-gray-500 hover:text-gray-300'
+            activeRightTab === 'objectTree' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
           }`}
           title="Object Tree Panel"
         >
@@ -131,13 +131,13 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
 
       {/* Main Tab content container */}
       {isSidebarVisible && (
-        <div className="flex-1 h-full flex flex-col min-w-0 bg-[#1c1f28] overflow-hidden">
+        <div className="flex-1 h-full flex flex-col min-w-0 bg-surface overflow-hidden">
           {activeRightTab === 'watchlist' ? (
             <div className="flex-1 h-full flex flex-col min-w-0">
               {/* Panel header */}
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-950/40">
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-sub">
                 <div className="flex items-center gap-2">
-                  <List className="w-3.5 h-3.5 text-indigo-400" />
+                  <List className="w-3.5 h-3.5 text-accent" />
                   <span className="text-xs font-bold uppercase tracking-widest text-white">Watchlist</span>
                   {watchlistSymbols.length > 0 && (
                     <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-full">

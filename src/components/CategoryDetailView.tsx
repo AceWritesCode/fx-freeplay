@@ -195,13 +195,13 @@ export const CategoryDetailView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search records by title or ID..."
-            className="w-full pl-9 pr-4 py-2 bg-[#1e222d] border border-[#2a2e39] focus:border-blue-500 rounded-md text-xs text-white placeholder-gray-500 outline-none transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-surface border border-border-def focus:border-accent rounded-md text-xs text-txt-primary placeholder-txt-muted outline-none transition-colors"
           />
         </div>
 
         {selectedRecordIds.length > 0 && (
-          <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 px-3.5 py-1.5 rounded-md">
-            <span className="text-xs text-blue-300 font-medium">
+          <div className="flex items-center gap-3 bg-accent-muted border border-accent/30 px-3.5 py-1.5 rounded-md">
+            <span className="text-xs text-accent font-medium">
               {selectedRecordIds.length} {selectedRecordIds.length === 1 ? 'record' : 'records'} selected
             </span>
             <button
@@ -211,7 +211,7 @@ export const CategoryDetailView: React.FC = () => {
                   title: `Delete ${selectedRecordIds.length} Selected Records`,
                 })
               }
-              className="px-2.5 py-1 bg-red-500 text-white rounded text-xs font-semibold hover:bg-red-600 transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-1 bg-status-error text-txt-inverse rounded text-xs font-semibold hover:bg-status-error/90 transition-colors flex items-center gap-1 cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
               Delete Selected
@@ -222,31 +222,31 @@ export const CategoryDetailView: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center gap-2">
+        <div className="p-4 bg-status-error/10 border border-status-error/30 rounded-lg text-status-error text-sm flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Records Table */}
-      <div className="bg-[#1e222d] border border-[#2a2e39] rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border-def rounded-lg overflow-hidden">
         {isLoadingRecords ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <div className="flex flex-col items-center justify-center py-16 text-txt-muted gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
             <p className="text-sm">Fetching category records...</p>
           </div>
         ) : records.length === 0 ? (
-          <div className="py-16 text-center text-gray-400 text-sm">
+          <div className="py-16 text-center text-txt-muted text-sm">
             No records found for this category matching search filter.
           </div>
         ) : (
-          <table className="w-full text-left text-xs text-gray-300">
-            <thead className="bg-[#2a2e39] text-gray-400 font-semibold border-b border-[#363a45]">
+          <table className="w-full text-left text-xs text-txt-secondary">
+            <thead className="bg-surface-elevated text-txt-muted font-semibold border-b border-border-sub">
               <tr>
                 <th className="p-3 w-10 text-center">
-                  <button onClick={selectAllRecordsOnPage} className="text-gray-400 hover:text-white cursor-pointer">
+                  <button onClick={selectAllRecordsOnPage} className="text-txt-muted hover:text-txt-primary cursor-pointer">
                     {isAllPageSelected ? (
-                      <CheckSquare className="w-4 h-4 text-blue-400" />
+                      <CheckSquare className="w-4 h-4 text-accent" />
                     ) : (
                       <Square className="w-4 h-4" />
                     )}
@@ -258,26 +258,26 @@ export const CategoryDetailView: React.FC = () => {
                 <th className="p-3 w-28 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#2a2e39]">
+            <tbody className="divide-y divide-border-def">
               {records.map((r) => {
                 const isSelected = selectedRecordIds.includes(r.id);
                 const isExpanded = expandedRecordId === r.id;
 
                 return (
                   <React.Fragment key={r.id}>
-                    <tr className={`hover:bg-[#252936] transition-colors ${isSelected ? 'bg-blue-500/5' : ''} ${isExpanded ? 'bg-[#252936]' : ''}`}>
+                    <tr className={`hover:bg-surface-hover transition-colors ${isSelected ? 'bg-accent-muted' : ''} ${isExpanded ? 'bg-surface-hover' : ''}`}>
                       <td className="p-3 text-center">
-                        <button onClick={() => toggleRecordSelection(r.id)} className="text-gray-400 hover:text-white cursor-pointer">
+                        <button onClick={() => toggleRecordSelection(r.id)} className="text-txt-muted hover:text-txt-primary cursor-pointer">
                           {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-blue-400" />
+                            <CheckSquare className="w-4 h-4 text-accent" />
                           ) : (
                             <Square className="w-4 h-4" />
                           )}
                         </button>
                       </td>
-                      <td className="p-3 font-semibold text-white">{r.title}</td>
-                      <td className="p-3 text-gray-400">{r.subtitle}</td>
-                      <td className="p-3 text-right font-mono text-gray-300">{formatBytes(r.sizeBytes)}</td>
+                      <td className="p-3 font-semibold text-txt-primary">{r.title}</td>
+                      <td className="p-3 text-txt-muted">{r.subtitle}</td>
+                      <td className="p-3 text-right font-mono text-txt-secondary">{formatBytes(r.sizeBytes)}</td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           {!isMarketData && (

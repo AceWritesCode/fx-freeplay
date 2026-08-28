@@ -179,36 +179,36 @@ export const DataManagementDashboard: React.FC<DataManagementDashboardProps> = (
           return (
             <div
               key={def.id}
-              className="bg-[#1e222d] border border-[#2a2e39] rounded-lg p-4 flex flex-col justify-between hover:border-[#3a3e4b] transition-all group"
+              className="bg-surface border border-border-def rounded-lg p-4 flex flex-col justify-between hover:border-border-sub transition-all group"
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <div className="p-2 bg-[#2a2e39] rounded-lg">
+                  <div className="p-2 bg-surface-elevated rounded-lg">
                     {getCategoryIcon(def.type)}
                   </div>
                   {item ? (
-                    <span className="px-2.5 py-1 bg-[#2a2e39] text-gray-300 text-xs font-mono rounded-full transition-all duration-300">
+                    <span className="px-2.5 py-1 bg-surface-elevated text-txt-secondary text-xs font-mono rounded-full transition-all duration-300">
                       {formatBytes(item.estimatedSizeBytes)}
                     </span>
                   ) : (
-                    <div className="h-6 w-16 bg-[#2a2e39] animate-pulse rounded-full" />
+                    <div className="h-6 w-16 bg-surface-elevated animate-pulse rounded-full" />
                   )}
                 </div>
-                <h3 className="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">
+                <h3 className="text-sm font-semibold text-txt-primary group-hover:text-accent transition-colors">
                   {def.name}
                 </h3>
-                <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                <p className="text-xs text-txt-muted mt-1 line-clamp-2">
                   {def.description}
                 </p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#2a2e39] flex items-center justify-between">
+              <div className="mt-4 pt-3 border-t border-border-def flex items-center justify-between">
                 {item ? (
-                  <span className="text-xs text-gray-400 font-medium transition-all duration-300">
+                  <span className="text-xs text-txt-muted font-medium transition-all duration-300">
                     {item.recordCount.toLocaleString()} {item.recordCount === 1 ? 'record' : 'records'}
                   </span>
                 ) : (
-                  <div className="h-4 w-20 bg-[#2a2e39] animate-pulse rounded" />
+                  <div className="h-4 w-20 bg-surface-elevated animate-pulse rounded" />
                 )}
                 <button
                   onClick={() => setActiveCategory(def.id)}

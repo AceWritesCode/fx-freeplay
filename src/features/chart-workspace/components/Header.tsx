@@ -79,34 +79,33 @@ export const Header: React.FC<HeaderProps> = (props) => {
   } = props;
 
   return (
-    <header className="h-12 bg-[#1e222d] border-b border-gray-950 flex items-center justify-between px-4 z-20">
-      
-      {/* Left Side: Asset Name & Status Indicators */}
+    <header className="h-12 bg-surface border-b border-border-def px-4 flex items-center justify-between select-none z-30">
+      {/* Left: Brand & Symbol */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 text-indigo-400">
+        <div className="flex items-center gap-2 text-indigo-400 font-bold tracking-wider">
           <LineChart className="w-5 h-5" />
-          <span className="font-semibold text-xs tracking-wider uppercase text-white">FX Freeplay</span>
+          <span className="text-sm font-black text-txt-primary tracking-tight">FX FREEPLAY</span>
         </div>
-        <div className="h-4 w-px bg-gray-800" />
-        <span className="text-sm font-semibold text-white truncate max-w-[120px] sm:max-w-xs">{assetName}</span>
+        <div className="h-4 w-px bg-border-sub" />
+        <span className="text-sm font-semibold text-txt-primary truncate max-w-[120px] sm:max-w-xs">{assetName}</span>
 
         {hasData && parseFeedback && (
           <button
             onClick={() => setShowStats(!showStats)}
             className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
               parseFeedback.skippedCount > 0
-                ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400 hover:bg-yellow-500/20'
-                : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
+                ? 'bg-status-warning/10 border-status-warning/20 text-status-warning hover:bg-status-warning/20'
+                : 'bg-status-success/10 border-status-success/20 text-status-success hover:bg-status-success/20'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${parseFeedback.skippedCount > 0 ? 'bg-yellow-400' : 'bg-green-400'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${parseFeedback.skippedCount > 0 ? 'bg-status-warning' : 'bg-status-success'}`} />
             <span>{parseFeedback.skippedCount > 0 ? 'Warnings' : 'Import OK'}</span>
           </button>
         )}
       </div>
 
       {/* Center: Timeframes */}
-      <div className="relative flex items-center bg-gray-950/40 p-0.5 rounded-lg border border-gray-800/80">
+      <div className="relative flex items-center bg-app-bg p-0.5 rounded-lg border border-border-sub">
         {HEADER_TIMEFRAMES.map((tfValue) => {
           const isPresetActive = activeTimeframe === tfValue;
           const preset = PRESET_TIMEFRAMES.find(p => p.value === tfValue);
@@ -118,8 +117,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
               onClick={() => onTimeframeSelect(tfValue)}
               className={`px-3 py-1 rounded-md text-xs font-semibold tracking-wide transition-all ${
                 isPresetActive
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-850 disabled:opacity-40 disabled:hover:bg-transparent'
+                  ? 'bg-accent text-txt-inverse shadow-md'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-40 disabled:hover:bg-transparent'
               }`}
             >
               {label}
