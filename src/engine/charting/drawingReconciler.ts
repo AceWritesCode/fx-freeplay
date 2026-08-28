@@ -113,17 +113,12 @@ export function reconcileWorkspace(
       const existingOv = currentOverlays.find((o: any) => o.id === overlayId);
 
       if (existingOv) {
-        // Protect overlays actively being dragged/edited or currently selected on the primary slot
+        // Protect overlays actively being mouse-dragged
         const isActivelyEditing =
           (chart._activeDraggingIndex !== undefined && chart._activeDraggingIndex !== null) ||
           (existingOv.extendData?.draggedIndex !== undefined && existingOv.extendData?.draggedIndex !== null);
 
-        const isSelectedOnPrimary =
-          slotPlan.isPrimarySlot &&
-          Array.isArray(chart._selectedOverlayIds) &&
-          chart._selectedOverlayIds.includes(overlayId);
-
-        if (isActivelyEditing || isSelectedOnPrimary) {
+        if (isActivelyEditing) {
           return;
         }
 
