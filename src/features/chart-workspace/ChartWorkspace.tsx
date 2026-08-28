@@ -21,6 +21,7 @@ import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
+import { initThemeFromStorage } from '@/utils/themeApplier';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -294,6 +295,11 @@ export function ChartWorkspace() {
   const hasData = slots.some((s) => s.symbol !== null);
   const assetName = slots[activeChartIndex]?.symbol || 'No Asset Loaded';
   const activeTimeframe = slots[activeChartIndex]?.timeframe || '1m';
+
+  // Hydrate UI Theme CSS variables from storage on mount
+  useEffect(() => {
+    initThemeFromStorage();
+  }, []);
 
   function applySettingsToChart(chart: any, s: ChartSettings) {
     chart._showPriceLine = s.showPriceLine;

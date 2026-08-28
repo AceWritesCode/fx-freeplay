@@ -1,10 +1,23 @@
 import { create } from 'zustand';
 import type { ChartSettings, TimeframeOption } from './types';
-import { PRESET_SETTINGS } from '@/config';
+import type { ThemeMode, CustomThemePalette } from '@/config';
+import {
+  PRESET_SETTINGS,
+  getThemeTokens,
+} from '@/config';
+import {
+  applyThemeToDOM,
+  getStoredThemeMode,
+  storeThemeMode,
+  getStoredCustomTheme,
+  storeCustomTheme,
+} from '@/utils/themeApplier';
 
 interface SettingsState {
   settings: ChartSettings;
   customTimeframes: TimeframeOption[];
+  themeMode: ThemeMode;
+  customTheme: CustomThemePalette;
 
   // Actions
   setSettings: (settings: Partial<ChartSettings>) => void;
@@ -12,14 +25,22 @@ interface SettingsState {
   resetSettings: () => void;
   addCustomTimeframe: (tf: TimeframeOption) => void;
   removeCustomTimeframe: (value: string) => void;
+  setThemeMode: (mode: ThemeMode) => void;
+  setCustomTheme: (custom: Partial<CustomThemePalette>) => void;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   settings: PRESET_SETTINGS.classic,
   customTimeframes: [],
+  themeMode: getStoredThemeMode(),
+  customTheme: getStoredCustomTheme(),
 
-  setInitialState: (settings, customTimeframes) =>
-    set(() => ({ settings, customTimeframes })),
+  setInitialState: (settings, customTimeframes) => {
+    const mode = getStoredThemeMode();
+    const custom = getStoredCustomTheme();
+    applyThemeToDOM(getThemeTokens(mode, custom));
+    set(() => ({ settings, customTimeframes, themeMode: mode, customTheme: custom }));
+  },
 
   setSettings: (newSettings) =>
     set((state) => ({
@@ -41,4 +62,20 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set((state) => ({
       customTimeframes: state.customTimeframes.filter((t) => t.value !== value),
     })),
+
+  setThemeMode: (mode) => {
+    storeThemeMode(mode);
+    const custom = get().customTheme;
+    applyThemeToDOM(getThemeTokens(mode, custom));
+    set(() => ({ themeMode: mode }));
+  },
+
+  setCustomTheme: (newCustom) => {
+    const updatedCustom = { ...get().customTheme, ...newCustom };
+    storeCustomTheme(updatedCustom);
+    if (get().themeMode === 'custom') {
+      applyThemeToDOM(getThemeTokens('custom', updatedCustom));
+    }
+    set(() => ({ customTheme: updatedCustom }));
+  },
 }));

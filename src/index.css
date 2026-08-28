@@ -1,14 +1,77 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;450;600;800&display=swap');
 @import "tailwindcss";
 
+:root {
+  /* Default App & Surfaces (Preserving Current Dark/Violet Identity) */
+  --bg-app: #131722;
+  --bg-slot: #181b26;
+  --bg-surface: #1e222d;
+  --bg-surface-elevated: #2a2e39;
+  --bg-modal: #1e222d;
+  --bg-overlay: rgba(0, 0, 0, 0.65);
+
+  /* Typography */
+  --text-primary: #ffffff;
+  --text-secondary: #b2b5be;
+  --text-muted: #6b7280;
+  --text-inverse: #ffffff;
+
+  /* Borders & Outlines */
+  --border-default: #2a2e39;
+  --border-subdued: #363a45;
+  --border-focus: #6366f1;
+
+  /* Interactive & Accents */
+  --accent-primary: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-muted: rgba(99, 102, 241, 0.15);
+  --surface-hover: #2a2e39;
+  --surface-active: #363a45;
+
+  /* Status Alerts */
+  --status-success: #089981;
+  --status-error: #F23645;
+  --status-warning: #FF6D00;
+  --status-info: #2962FF;
+}
+
+@theme {
+  --color-bg-app: var(--bg-app);
+  --color-bg-slot: var(--bg-slot);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-elevated: var(--bg-surface-elevated);
+  --color-bg-modal: var(--bg-modal);
+  --color-bg-overlay: var(--bg-overlay);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverse: var(--text-inverse);
+
+  --color-border-default: var(--border-default);
+  --color-border-subdued: var(--border-subdued);
+  --color-border-focus: var(--border-focus);
+
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+
+  --color-status-success: var(--status-success);
+  --color-status-error: var(--status-error);
+  --color-status-warning: var(--status-warning);
+  --color-status-info: var(--status-info);
+}
+
 html, body, #root {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #131722;
-  color: #b2b5be;
+  background-color: var(--bg-app);
+  color: var(--text-secondary);
   font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
