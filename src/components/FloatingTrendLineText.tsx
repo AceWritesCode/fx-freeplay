@@ -260,7 +260,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             lineHeight: '1.2',
             margin: 0,
             boxSizing: 'border-box',
-            width: `${Math.max(80, (inputText || '+ add text').length * (fontSize * 0.6) + 16)}px`
+            width: `${Math.max(30, (inputText || '+ add text').length * (fontSize * 0.5) + 12)}px`
           }}
         />
       ) : (
