@@ -857,11 +857,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   };
 
   const PremiumCheckbox = ({ checked, onChange, label }: { checked: boolean; onChange: (val: boolean) => void; label: string }) => (
-    <label className="flex items-center gap-3 cursor-pointer group text-gray-300 hover:text-white select-none py-1.5 w-full">
+    <label className="flex items-center gap-3 cursor-pointer group text-txt-secondary hover:text-txt-primary select-none py-1.5 w-full">
       <div 
         onClick={() => onChange(!checked)}
         className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-          checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-[#2a2e45] bg-[#121420] group-hover:border-[#3d4264]'
+          checked ? 'bg-accent border-accent text-txt-inverse' : 'border-border-def bg-app-bg group-hover:border-border-focus'
         }`}
       >
         {checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -925,18 +925,18 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       <div 
         ref={headerRef}
         onMouseDown={handleMouseDown}
-        className="flex justify-between items-center px-5 py-4 border-b border-[#242838] cursor-move active:cursor-grabbing hover:bg-gray-800/10 transition-colors rounded-t-xl"
+        className="flex justify-between items-center px-5 py-4 border-b border-border-def cursor-move active:cursor-grabbing hover:bg-surface-hover transition-colors rounded-t-xl"
       >
-        <span className="font-semibold text-[13.5px] tracking-wide text-gray-100 capitalize">
+        <span className="font-semibold text-[13.5px] tracking-wide text-txt-primary capitalize">
           {overlay.name === 'trendLine' ? 'Trendline' : overlay.name} Settings
         </span>
-        <button onClick={handleCancel} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
+        <button onClick={handleCancel} className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Tabs navigation */}
-      <div className="flex px-5 border-b border-[#242838] text-[12px] font-semibold gap-5 overflow-x-auto select-none bg-[#171a26]">
+      <div className="flex px-5 border-b border-border-def text-[12px] font-semibold gap-5 overflow-x-auto select-none bg-surface">
         {(
           overlay.name === 'longPosition' || overlay.name === 'shortPosition'
             ? ['style', 'inputs', 'visibility'] as const
@@ -947,8 +947,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             onClick={() => { setActiveTab(tab); setActiveColorPicker(null); setActiveSelect(null); }}
             className={`py-3.5 border-b-2 capitalize transition-colors relative cursor-pointer ${
               activeTab === tab 
-                ? 'border-indigo-500 text-white font-bold' 
-                : 'border-transparent text-gray-400 hover:text-gray-200'
+                ? 'border-accent text-accent font-bold' 
+                : 'border-transparent text-txt-muted hover:text-txt-primary'
             }`}
           >
             {tab}
@@ -965,14 +965,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             
             {/* Line Color/Width/Style Row */}
             <div className="flex items-center justify-between min-h-[36px]">
-              <span className="text-gray-400 font-medium">Line</span>
+              <span className="text-txt-muted font-medium">Line</span>
               <div className="flex gap-2 items-center relative">
                 
                 {/* Color Swatch */}
                 <div className="relative">
                   <button 
                     onClick={() => { setActiveColorPicker(activeColorPicker === 'line' ? null : 'line'); setActiveSelect(null); }}
-                    className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                    className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
                     style={{ backgroundColor: lineColor }}
                   />
                   {activeColorPicker === 'line' && (
@@ -989,19 +989,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 <div className="relative">
                   <button
                     onClick={() => { setActiveSelect(activeSelect === 'lineWidth' ? null : 'lineWidth'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-center border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95"
+                    className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95 text-txt-primary"
                   >
                     <span>{lineWidth}px</span>
                   </button>
                   {activeSelect === 'lineWidth' && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
+                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
                         {[1, 2, 3, 4].map(w => (
                           <button
                             key={w}
                             onClick={() => { setLineWidth(w); setActiveSelect(null); }}
-                            className={`w-full text-center px-3 py-2 hover:bg-gray-800 transition-colors text-[12px] font-mono font-semibold ${lineWidth === w ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                            className={`w-full text-center px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold ${lineWidth === w ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                           >
                             {w}px
                           </button>
@@ -1015,20 +1015,20 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 <div className="relative">
                   <button
                     onClick={() => { setActiveSelect(activeSelect === 'lineStyle' ? null : 'lineStyle'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-center border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 justify-between capitalize cursor-pointer transition-all active:scale-95"
+                    className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 justify-between capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
                   >
                     <span>{lineStyle}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
                   </button>
                   {activeSelect === 'lineStyle' && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
                         {['solid', 'dashed', 'dotted'].map(s => (
                           <button
                             key={s}
                             onClick={() => { setLineStyle(s); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] capitalize ${lineStyle === s ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${lineStyle === s ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                           >
                             {s}
                           </button>
@@ -1044,19 +1044,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             {/* Extend Row */}
             {overlay.name === 'trendLine' && (
               <div className="flex items-center justify-between min-h-[36px]">
-                <span className="text-gray-400 font-medium">Extend</span>
+                <span className="text-txt-muted font-medium">Extend</span>
                 <div className="relative">
                   <button
                     onClick={() => { setActiveSelect(activeSelect === 'extend' ? null : 'extend'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95"
+                    className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95 text-txt-primary"
                   >
                     <span className="capitalize">{extendType === 'none' ? "Don't extend" : `Extend ${extendType}`}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-txt-muted" />
                   </button>
                   {activeSelect === 'extend' && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
+                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
                         {[
                           { val: 'none', label: "Don't extend" },
                           { val: 'left', label: 'Extend left' },
@@ -1066,7 +1066,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                           <button
                             key={item.val}
                             onClick={() => { setExtendType(item.val); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] ${extendType === item.val ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] ${extendType === item.val ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                           >
                             {item.label}
                           </button>
@@ -1371,7 +1371,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               {/* Bold Toggle */}
               <button
                 onClick={() => setIsBold(!isBold)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border border-[#2a2e45] font-bold hover:bg-gray-800 transition-colors cursor-pointer select-none ${isBold ? 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30' : 'text-gray-300'}`}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border-def font-bold hover:bg-surface-hover transition-colors cursor-pointer select-none ${isBold ? 'text-accent bg-accent-muted border-accent/40' : 'text-txt-secondary'}`}
               >
                 B
               </button>
@@ -1379,7 +1379,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               {/* Italic Toggle */}
               <button
                 onClick={() => setIsItalic(!isItalic)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border border-[#2a2e45] italic hover:bg-gray-800 transition-colors cursor-pointer select-none ${isItalic ? 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30' : 'text-gray-300'}`}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border-def italic hover:bg-surface-hover transition-colors cursor-pointer select-none ${isItalic ? 'text-accent bg-accent-muted border-accent/40' : 'text-txt-secondary'}`}
               >
                 I
               </button>
@@ -1392,7 +1392,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Add text..."
-                className="bg-[#121420] border border-[#2a2e45] hover:border-[#323652] rounded-lg p-3 h-24 outline-none text-gray-200 focus:border-indigo-500/50 resize-none font-sans text-[12.5px] w-full transition-colors"
+                className="bg-app-bg border border-border-def hover:border-border-focus rounded-lg p-3 h-24 outline-none text-txt-primary focus:border-border-focus resize-none font-sans text-[12.5px] w-full transition-colors"
               />
             </div>
 
@@ -1917,24 +1917,24 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         <div className="relative">
           <button
             onClick={() => setIsTemplateDropdownOpen(!isTemplateDropdownOpen)}
-            className="flex items-center gap-2 bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-3 py-1.5 font-semibold text-gray-300 hover:text-white cursor-pointer select-none transition-all active:scale-95"
+            className="flex items-center gap-2 bg-app-bg border border-border-def hover:border-border-focus rounded-lg px-3 py-1.5 font-semibold text-txt-secondary hover:text-txt-primary cursor-pointer select-none transition-all active:scale-95"
           >
             <span>Template</span>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
           </button>
           {isTemplateDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsTemplateDropdownOpen(false)} />
-              <div className="absolute left-0 top-full mt-2 bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold animate-in fade-in slide-in-from-top-2 duration-100 overflow-visible flex flex-col">
+              <div className="absolute left-0 top-full mt-2 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold animate-in fade-in slide-in-from-top-2 duration-100 overflow-visible flex flex-col">
                 
                 {/* Mode Tabs */}
-                <div className="flex border-b border-[#242838]">
+                <div className="flex border-b border-border-sub">
                   <button
                     onClick={() => setActiveTemplateMode('light')}
-                    className={`flex-1 text-center py-2 text-xs font-semibold border-r border-[#242838] transition-colors ${
+                    className={`flex-1 text-center py-2 text-xs font-semibold border-r border-border-sub transition-colors ${
                       activeTemplateMode === 'light'
-                        ? 'bg-indigo-600/15 text-indigo-400 font-bold border-b border-indigo-500'
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'bg-accent-muted text-accent font-bold border-b border-accent'
+                        : 'text-txt-muted hover:text-txt-primary'
                     }`}
                   >
                     Light
@@ -1943,8 +1943,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     onClick={() => setActiveTemplateMode('dark')}
                     className={`flex-1 text-center py-2 text-xs font-semibold transition-colors ${
                       activeTemplateMode === 'dark'
-                        ? 'bg-indigo-600/15 text-indigo-400 font-bold border-b border-indigo-500'
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'bg-accent-muted text-accent font-bold border-b border-accent'
+                        : 'text-txt-muted hover:text-txt-primary'
                     }`}
                   >
                     Dark
@@ -1952,7 +1952,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
 
                 {/* Actions Row */}
-                <div className="flex border-b border-[#242838] text-[11px]">
+                <div className="flex border-b border-border-sub text-[11px]">
                   <button
                     onClick={() => {
                       setSaveName('');
@@ -1961,18 +1961,18 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       setIsSaveModalOpen(true);
                       setIsTemplateDropdownOpen(false);
                     }}
-                    className="flex-1 text-center py-2 hover:bg-gray-800 text-indigo-400 hover:text-indigo-300 font-semibold border-r border-[#242838]"
+                    className="flex-1 text-center py-2 text-accent hover:text-accent/80 font-bold border-r border-border-sub hover:bg-surface-hover transition-colors"
                   >
-                    Save templet
+                    + Save As
                   </button>
                   <button
                     onClick={() => {
                       resetToDefault();
                       setIsTemplateDropdownOpen(false);
                     }}
-                    className="flex-1 text-center py-2 hover:bg-gray-800 text-gray-400 hover:text-gray-300 font-semibold"
+                    className="flex-1 text-center py-2 text-txt-muted hover:text-status-error hover:bg-surface-hover transition-colors"
                   >
-                    Restore to default
+                    Reset
                   </button>
                 </div>
 
@@ -2009,14 +2009,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 )}
 
                 {/* Templates List */}
-                <div className="max-h-40 overflow-y-auto py-1 bg-[#1c2030]">
+                <div className="max-h-40 overflow-y-auto py-1 bg-modal-bg">
                   {visibleTemplates.length === 0 ? (
-                    <div className="px-4 py-3 text-xs text-gray-500 text-center italic">No templates</div>
+                    <div className="px-4 py-3 text-xs text-txt-muted text-center italic">No templates</div>
                   ) : (
                     visibleTemplates.map(tpl => (
                       <div
                         key={tpl.id}
-                        className="group flex justify-between items-center px-4 py-1.5 hover:bg-gray-800 text-gray-300 hover:text-white text-xs cursor-pointer"
+                        className="group flex justify-between items-center px-4 py-1.5 hover:bg-surface-hover text-txt-secondary hover:text-txt-primary text-xs cursor-pointer"
                         onClick={() => {
                           applyTemplate(tpl.settings);
                           setIsTemplateDropdownOpen(false);
@@ -2029,7 +2029,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                             e.stopPropagation();
                             deleteTemplate(tpl.id);
                           }}
-                          className="opacity-0 group-hover:opacity-100 hover:bg-red-500/25 p-1 rounded transition-all text-red-400 hover:text-red-300"
+                          className="opacity-0 group-hover:opacity-100 hover:bg-status-error/25 p-1 rounded transition-all text-status-error hover:text-status-error/80"
                           title="Delete template"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -2048,13 +2048,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         <div className="flex gap-2.5">
           <button
             onClick={handleCancel}
-            className="px-4 py-1.5 border border-[#2a2e45] hover:bg-gray-800 text-gray-300 rounded-lg font-semibold cursor-pointer transition-colors"
+            className="px-4 py-1.5 border border-border-def hover:bg-surface-hover text-txt-secondary rounded-lg font-semibold cursor-pointer transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onClose}
-            className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer transition-colors shadow-lg shadow-indigo-600/20"
+            className="px-5 py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg font-semibold cursor-pointer transition-colors shadow-lg"
           >
             Ok
           </button>

@@ -117,34 +117,34 @@ export const DataManagementDashboard: React.FC<DataManagementDashboardProps> = (
   const totalStorageBytes = overview.reduce((sum, item) => sum + item.estimatedSizeBytes, 0);
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 space-y-6 text-gray-200">
+    <div className="w-full max-w-6xl mx-auto p-6 space-y-6 text-txt-secondary">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#2a2e39] pb-4">
+      <div className="flex items-center justify-between border-b border-border-def pb-4">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <HardDrive className="w-6 h-6 text-blue-500" />
+          <h1 className="text-xl font-bold text-txt-primary flex items-center gap-2">
+            <HardDrive className="w-6 h-6 text-accent" />
             Storage & Data Management
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-txt-muted mt-1">
             Inspect, manage, and audit application persistence storage across IndexedDB and LocalStorage.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <span className="text-[11px] text-gray-400 block tracking-wider uppercase font-medium">Total Footprint</span>
+            <span className="text-[11px] text-txt-muted block tracking-wider uppercase font-medium">Total Footprint</span>
             {!isOverviewReady && isLoadingOverview ? (
-              <div className="h-5 w-16 bg-[#2a2e39] animate-pulse rounded mt-0.5 inline-block" />
+              <div className="h-5 w-16 bg-surface-elevated animate-pulse rounded mt-0.5 inline-block" />
             ) : (
-              <span className="text-sm font-semibold text-white transition-opacity duration-300">
+              <span className="text-sm font-semibold text-txt-primary transition-opacity duration-300">
                 {formatBytes(totalStorageBytes)}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 pl-2 border-l border-white/10">
+          <div className="flex items-center gap-1.5 pl-2 border-l border-border-sub">
             <button
               onClick={() => loadOverview()}
               disabled={isLoadingOverview}
-              className="p-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 hover:text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center"
+              className="p-2 bg-surface-elevated hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center border border-border-def"
               title="Refresh Storage Metrics"
             >
               <RefreshCw className={`w-4 h-4 ${isLoadingOverview ? 'animate-spin' : ''}`} />
@@ -152,7 +152,7 @@ export const DataManagementDashboard: React.FC<DataManagementDashboardProps> = (
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 hover:text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                className="p-2 bg-surface-elevated hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-lg transition-colors cursor-pointer flex items-center justify-center border border-border-def"
                 title="Close Data Management"
               >
                 <X className="w-4 h-4" />

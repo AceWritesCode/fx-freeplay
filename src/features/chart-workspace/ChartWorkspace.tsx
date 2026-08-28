@@ -2299,8 +2299,8 @@ export function ChartWorkspace() {
 
       {/* Data Management Dashboard Modal */}
       {isDataManagementOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#181a20] border border-[#2a2e39] rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto relative p-2">
+        <div className="fixed inset-0 z-50 bg-overlay-bg backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto relative p-2">
             <DataManagementDashboard onClose={() => setIsDataManagementOpen(false)} />
           </div>
         </div>

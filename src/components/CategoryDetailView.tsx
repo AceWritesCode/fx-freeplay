@@ -150,21 +150,21 @@ export const CategoryDetailView: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 space-y-6 text-gray-200">
+    <div className="w-full max-w-6xl mx-auto p-6 space-y-6 text-txt-secondary">
       {/* Top Navigation */}
-      <div className="flex items-center justify-between border-b border-[#2a2e39] pb-4">
+      <div className="flex items-center justify-between border-b border-border-def pb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveCategory(null)}
-            className="p-2 bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 hover:text-white rounded-md transition-colors cursor-pointer"
+            className="p-2 bg-surface-elevated hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-md transition-colors cursor-pointer border border-border-def"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white">
+            <h1 className="text-xl font-bold text-txt-primary">
               {activeCategory?.name || 'Category Details'}
             </h1>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-txt-muted mt-0.5">
               {activeCategory?.description}
             </p>
           </div>
