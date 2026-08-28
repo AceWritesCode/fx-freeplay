@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Magnet, 
   Trash2
@@ -98,6 +98,7 @@ interface DrawingToolbarProps {
   hasData: boolean;
   activeTool: string | null;
   setActiveTool: (tool: string | null) => void;
+  cancelDrawingSession: () => void;
   selectedCursorId: string;
   setSelectedCursorId: (id: string) => void;
   isCursorMenuOpen: boolean;
@@ -136,8 +137,8 @@ interface DrawingToolbarProps {
   shapeMenuRef: React.RefObject<HTMLDivElement | null>;
   forecastMenuRef: React.RefObject<HTMLDivElement | null>;
   magnetMenuRef: React.RefObject<HTMLDivElement | null>;
-  chartInstanceRef: any;
-  activeOverlayIdRef: any;
+  chartInstanceRef?: any;
+  activeOverlayIdRef?: any;
 }
 
 export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
@@ -145,6 +146,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     hasData,
     activeTool,
     setActiveTool,
+    cancelDrawingSession,
     selectedCursorId,
     setSelectedCursorId,
     isCursorMenuOpen,
@@ -183,9 +185,47 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     shapeMenuRef,
     forecastMenuRef,
     magnetMenuRef,
-    chartInstanceRef,
-    activeOverlayIdRef,
   } = props;
+
+  const closeAllMenus = (except?: 'cursor' | 'line' | 'shape' | 'forecast' | 'magnet') => {
+    if (except !== 'cursor') setIsCursorMenuOpen(false);
+    if (except !== 'line') setIsLineMenuOpen(false);
+    if (except !== 'shape') setIsShapeMenuOpen(false);
+    if (except !== 'forecast') setIsForecastMenuOpen(false);
+    if (except !== 'magnet') setIsMagnetMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        cursorMenuRef.current?.contains(target) ||
+        lineMenuRef.current?.contains(target) ||
+        shapeMenuRef.current?.contains(target) ||
+        forecastMenuRef.current?.contains(target) ||
+        magnetMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeAllMenus();
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [
+    cursorMenuRef,
+    lineMenuRef,
+    shapeMenuRef,
+    forecastMenuRef,
+    magnetMenuRef,
+    setIsCursorMenuOpen,
+    setIsLineMenuOpen,
+    setIsShapeMenuOpen,
+    setIsForecastMenuOpen,
+    setIsMagnetMenuOpen,
+  ]);
 
   return (
     <aside className="w-[52px] bg-[#1e222d] border-r border-gray-950 flex flex-col items-start pl-[4px] py-3 gap-3.5 z-40">
@@ -203,18 +243,11 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               data-tooltip={activeCursorTool.name}
               disabled={!hasData}
               onClick={() => {
-                if (chartInstanceRef.current) {
-                  if (activeOverlayIdRef.current) {
-                    chartInstanceRef.current.removeOverlay({ id: activeOverlayIdRef.current });
-                    activeOverlayIdRef.current = null;
-                  }
-                  chartInstanceRef.current.setScrollEnabled(true);
-                  chartInstanceRef.current.setZoomEnabled(true);
-                }
+                closeAllMenus();
                 if (activeCursorTool.id === 'eraser') {
                   setActiveTool('eraser');
                 } else {
-                  setActiveTool(null);
+                  cancelDrawingSession();
                 }
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
@@ -235,7 +268,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
                 setCursorMenuPos({ x: rect.right, y: rect.top });
-                setIsCursorMenuOpen(!isCursorMenuOpen);
+                const nextState = !isCursorMenuOpen;
+                closeAllMenus('cursor');
+                setIsCursorMenuOpen(nextState);
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isCursorMenuOpen
@@ -278,20 +313,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             key={tool.id}
                             onClick={() => {
                               setSelectedCursorId(tool.id);
-                              if (chartInstanceRef.current) {
-                                if (activeOverlayIdRef.current) {
-                                  chartInstanceRef.current.removeOverlay({ id: activeOverlayIdRef.current });
-                                  activeOverlayIdRef.current = null;
-                                }
-                                chartInstanceRef.current.setScrollEnabled(true);
-                                chartInstanceRef.current.setZoomEnabled(true);
-                              }
                               if (tool.id === 'eraser') {
                                 setActiveTool('eraser');
                               } else {
-                                setActiveTool(null);
+                                cancelDrawingSession();
                               }
-                              setIsCursorMenuOpen(false);
+                              closeAllMenus();
                             }}
                             className={`group flex items-center justify-between px-3.5 py-2 w-full text-left transition-colors ${
                               isSelected
@@ -339,7 +366,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeLineTool.name}
               disabled={!hasData}
-              onClick={() => handleSelectTool(activeLineTool.id)}
+              onClick={() => {
+                closeAllMenus();
+                handleSelectTool(activeLineTool.id);
+              }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
@@ -358,7 +388,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
                 setLineMenuPos({ x: rect.right, y: rect.top });
-                setIsLineMenuOpen(!isLineMenuOpen);
+                const nextState = !isLineMenuOpen;
+                closeAllMenus('line');
+                setIsLineMenuOpen(nextState);
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isLineMenuOpen
@@ -399,7 +431,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                           onClick={() => {
                             setSelectedLineToolId(tool.id);
                             handleSelectTool(tool.id);
-                            setIsLineMenuOpen(false);
+                            closeAllMenus();
                           }}
                           className={`group flex items-center justify-between px-3.5 py-2 w-full text-left transition-colors ${
                             isSelected
@@ -447,7 +479,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeShapeTool.name}
               disabled={!hasData}
-              onClick={() => handleSelectTool(activeShapeTool.id)}
+              onClick={() => {
+                closeAllMenus();
+                handleSelectTool(activeShapeTool.id);
+              }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
@@ -466,7 +501,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
                 setShapeMenuPos({ x: rect.right, y: rect.top });
-                setIsShapeMenuOpen(!isShapeMenuOpen);
+                const nextState = !isShapeMenuOpen;
+                closeAllMenus('shape');
+                setIsShapeMenuOpen(nextState);
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isShapeMenuOpen
@@ -522,7 +559,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             onClick={() => {
                               setSelectedShapeToolId(tool.id);
                               handleSelectTool(tool.id);
-                              setIsShapeMenuOpen(false);
+                              closeAllMenus();
                             }}
                             className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
                               isSelected
@@ -577,7 +614,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeForecastTool.name}
               disabled={!hasData}
-              onClick={() => handleSelectTool(activeForecastTool.id)}
+              onClick={() => {
+                closeAllMenus();
+                handleSelectTool(activeForecastTool.id);
+              }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-indigo-600/25 text-indigo-400 z-10'
@@ -594,7 +634,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
                 setForecastMenuPos({ x: rect.right, y: rect.top });
-                setIsForecastMenuOpen(!isForecastMenuOpen);
+                const nextState = !isForecastMenuOpen;
+                closeAllMenus('forecast');
+                setIsForecastMenuOpen(nextState);
               }}
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isForecastMenuOpen
@@ -632,7 +674,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                       onClick={() => {
                         setSelectedForecastToolId(tool.id);
                         handleSelectTool(tool.id);
-                        setIsForecastMenuOpen(false);
+                        closeAllMenus();
                       }}
                       className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
                         isSelected
@@ -668,7 +710,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               key={tool.id}
               title={tool.name}
               disabled={!hasData}
-              onClick={() => handleSelectTool(tool.id)}
+              onClick={() => {
+                closeAllMenus();
+                handleSelectTool(tool.id);
+              }}
               className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
                 isActive
                   ? 'bg-indigo-600/25 text-indigo-400'
@@ -684,7 +729,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
       <button
         title="Clear Drawings"
         disabled={!hasData}
-        onClick={handleClearDrawings}
+        onClick={() => {
+          closeAllMenus();
+          handleClearDrawings();
+        }}
         className="p-1.5 rounded-md border border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center"
         style={{ width: '34px', height: '34px' }}
       >
@@ -695,13 +743,18 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         <button
           title="Magnet Mode (Snap to OHLC) — right-click for options"
           disabled={!hasData}
-          onClick={handleToggleMagnet}
+          onClick={() => {
+            closeAllMenus();
+            handleToggleMagnet();
+          }}
           onContextMenu={(e) => {
             e.preventDefault();
             if (!hasData) return;
             const rect = e.currentTarget.getBoundingClientRect();
             setMagnetMenuPos({ x: rect.right, y: rect.top });
-            setIsMagnetMenuOpen(true);
+            const nextState = !isMagnetMenuOpen;
+            closeAllMenus('magnet');
+            setIsMagnetMenuOpen(nextState);
           }}
           className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
             magnetMode !== 'normal'
