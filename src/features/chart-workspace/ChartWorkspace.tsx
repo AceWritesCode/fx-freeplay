@@ -1424,7 +1424,12 @@ export function ChartWorkspace() {
           }}
           className={`w-full h-full ${replayCoord.isSelectingCutPoint && isActive ? 'cursor-cell' : ''}`}
           style={{
-            backgroundColor: settings.backgroundType === 'None' ? 'transparent' : settings.background,
+            background:
+              settings.backgroundType === 'None'
+                ? 'transparent'
+                : settings.backgroundType === 'Gradient'
+                ? `linear-gradient(180deg, ${settings.background} 0%, ${settings.backgroundGradientStop || '#1e222d'} 100%)`
+                : settings.background,
           }}
         />
 

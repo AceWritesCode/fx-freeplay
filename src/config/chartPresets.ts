@@ -19,7 +19,8 @@ export interface ChartSettings {
 
   // Canvas Settings
   background: string;
-  backgroundType: 'Solid' | 'None';
+  backgroundGradientStop: string;
+  backgroundType: 'Solid' | 'Gradient' | 'None';
   gridType: 'Vert and Horiz' | 'Horizontal Only' | 'Vertical Only' | 'None';
   gridColor: string;
   gridStyle: 'dashed' | 'solid';
@@ -71,6 +72,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     priceLineUseCandleColor: true,
     showPriceLineLabel: true,
     background: '#131722',
+    backgroundGradientStop: '#1e222d',
     backgroundType: 'Solid',
     gridType: 'Vert and Horiz',
     gridColor: '#242832',
@@ -113,6 +115,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     priceLineUseCandleColor: true,
     showPriceLineLabel: true,
     background: '#000000',
+    backgroundGradientStop: '#171717',
     backgroundType: 'Solid',
     gridType: 'Vert and Horiz',
     gridColor: '#1a1a1a',
@@ -155,6 +158,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     priceLineUseCandleColor: false,
     showPriceLineLabel: true,
     background: '#0D1B2A',
+    backgroundGradientStop: '#1b263b',
     backgroundType: 'Solid',
     gridType: 'Vert and Horiz',
     gridColor: '#1b263b',

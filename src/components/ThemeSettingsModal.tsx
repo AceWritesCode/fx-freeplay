@@ -600,18 +600,32 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <select
                       value={formState.backgroundType}
                       onChange={(e) => handleFieldChange('backgroundType', e.target.value)}
-                      className="w-24 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
+                      className="w-28 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
                     >
                       <option value="Solid">Solid</option>
+                      <option value="Gradient">Gradient</option>
                       <option value="None">None</option>
                     </select>
-                    <input
-                      type="color"
-                      disabled={formState.backgroundType === 'None'}
-                      value={formState.background}
-                      onChange={(e) => handleFieldChange('background', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
-                    />
+                    
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="color"
+                        disabled={formState.backgroundType === 'None'}
+                        value={formState.background}
+                        onChange={(e) => handleFieldChange('background', e.target.value)}
+                        title="Top / Primary Background Color"
+                        className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      />
+                      {formState.backgroundType === 'Gradient' && (
+                        <input
+                          type="color"
+                          value={formState.backgroundGradientStop || '#1e222d'}
+                          onChange={(e) => handleFieldChange('backgroundGradientStop', e.target.value)}
+                          title="Bottom Gradient Color"
+                          className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
 
