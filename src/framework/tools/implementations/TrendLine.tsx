@@ -193,9 +193,9 @@ export const TrendLineTool: ToolDefinition = {
           const dx = pRight.x - pLeft.x;
           const dy = pRight.y - pLeft.y;
           const len = Math.sqrt(dx * dx + dy * dy);
-          const calculatedWidth = textToShow.length * (fontSize * 0.55) + 12;
+          const calculatedWidth = textToShow.length * (fontSize * 0.5) + 6;
           const textWidth = measuredTextWidth
-            ? Math.min(measuredTextWidth, calculatedWidth + 24)
+            ? Math.min(measuredTextWidth, calculatedWidth + 6)
             : calculatedWidth;
 
           if (len > 0.0001) {
@@ -205,7 +205,7 @@ export const TrendLineTool: ToolDefinition = {
             if (textHalign === 'center') {
               const midX = (pLeft.x + pRight.x) / 2;
               const midY = (pLeft.y + pRight.y) / 2;
-              const gapHalf = textWidth / 2;
+              const gapHalf = (textWidth / 2) + 2;
 
               if (len > textWidth) {
                 drawSegments.push({
@@ -222,7 +222,7 @@ export const TrendLineTool: ToolDefinition = {
                 });
               }
             } else if (textHalign === 'left') {
-              const trimLen = textWidth + 3;
+              const trimLen = textWidth + 2;
               if (len > trimLen) {
                 drawSegments.push({
                   x1: pLeft.x + trimLen * ux,
@@ -232,7 +232,7 @@ export const TrendLineTool: ToolDefinition = {
                 });
               }
             } else if (textHalign === 'right') {
-              const trimLen = textWidth + 3;
+              const trimLen = textWidth + 2;
               if (len > trimLen) {
                 drawSegments.push({
                   x1: pLeft.x,
