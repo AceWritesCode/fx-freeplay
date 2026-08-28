@@ -193,7 +193,10 @@ export const TrendLineTool: ToolDefinition = {
           const dx = pRight.x - pLeft.x;
           const dy = pRight.y - pLeft.y;
           const len = Math.sqrt(dx * dx + dy * dy);
-          const textWidth = measuredTextWidth || (textToShow.length * fontSize * 0.55 + 16);
+          const calculatedWidth = textToShow.length * (fontSize * 0.55) + 12;
+          const textWidth = measuredTextWidth
+            ? Math.min(measuredTextWidth, calculatedWidth + 24)
+            : calculatedWidth;
 
           if (len > 0.0001) {
             const ux = dx / len;
