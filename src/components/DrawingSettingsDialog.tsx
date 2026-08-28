@@ -32,10 +32,10 @@ const DualRangeSlider: React.FC<{
   return (
     <div className={`relative w-[70px] h-5 flex items-center ${disabled ? 'opacity-30 pointer-events-none' : ''}`}>
       {/* Slider Track */}
-      <div className="w-full h-1 bg-[#121420] border border-[#2a2e45] rounded-full relative">
+      <div className="w-full h-1 bg-border-sub border border-border-def rounded-full relative">
         {/* Indigo highlighted range */}
         <div 
-          className="absolute h-full bg-indigo-500 rounded-full"
+          className="absolute h-full bg-accent rounded-full"
           style={{ 
             left: `${minPercent}%`, 
             width: `${maxPercent - minPercent}%` 
@@ -112,18 +112,18 @@ export const SearchableDropdown: React.FC<{
           onChange(e.target.value);
           setIsOpen(true);
         }}
-        className="w-full bg-[#121420] border border-[#2a2e45] hover:border-[#323652] focus:border-indigo-500/50 rounded-lg px-3 py-1.5 text-xs text-white outline-none transition-colors pr-8 h-8"
+        className="w-full bg-app-bg border border-border-def hover:border-border-focus focus:border-border-focus rounded-lg px-3 py-1.5 text-xs text-txt-primary outline-none transition-colors pr-8 h-8"
       />
       
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-white p-1"
+        className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-txt-muted hover:text-txt-primary p-1"
       >
         <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </div>
 
       {isOpen && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-[60] max-h-40 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-gray-850">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-[60] max-h-40 overflow-y-auto py-1">
           {filtered.map(opt => (
             <div
               key={opt}
@@ -131,7 +131,7 @@ export const SearchableDropdown: React.FC<{
                 onChange(opt);
                 setIsOpen(false);
               }}
-              className="group flex justify-between items-center px-3 py-1.5 hover:bg-gray-800 text-gray-300 hover:text-white text-xs cursor-pointer"
+              className="group flex justify-between items-center px-3 py-1.5 hover:bg-surface-hover text-txt-secondary hover:text-txt-primary text-xs cursor-pointer"
             >
               <span className="truncate">{opt}</span>
               <button
@@ -1087,15 +1087,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     id="fillBackground"
                     checked={fillBackground}
                     onChange={(e) => setFillBackground(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                   />
-                  <label htmlFor="fillBackground" className="text-gray-400 font-medium cursor-pointer">Background</label>
+                  <label htmlFor="fillBackground" className="text-txt-muted font-medium cursor-pointer">Background</label>
                 </div>
                 {fillBackground && (
                   <div className="relative">
                     <button 
                       onClick={() => { setActiveColorPicker(activeColorPicker === 'fill' ? null : 'fill'); setActiveSelect(null); }}
-                      className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                      className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
                       style={{ backgroundColor: fillColor }}
                     />
                     {activeColorPicker === 'fill' && (
@@ -1115,11 +1115,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             {(overlay.name === 'longPosition' || overlay.name === 'shortPosition') && (
               <>
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-400 font-medium">Profit Zone</span>
+                  <span className="text-txt-muted font-medium">Profit Zone</span>
                   <div className="relative">
                     <button 
                       onClick={() => { setActiveColorPicker(activeColorPicker === 'profit' ? null : 'profit'); setActiveSelect(null); }}
-                      className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                      className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
                       style={{ backgroundColor: profitColor }}
                     />
                     {activeColorPicker === 'profit' && (
@@ -1134,11 +1134,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-400 font-medium">Loss Zone</span>
+                  <span className="text-txt-muted font-medium">Loss Zone</span>
                   <div className="relative">
                     <button 
                       onClick={() => { setActiveColorPicker(activeColorPicker === 'loss' ? null : 'loss'); setActiveSelect(null); }}
-                      className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                      className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
                       style={{ backgroundColor: lossColor }}
                     />
                     {activeColorPicker === 'loss' && (
@@ -1158,9 +1158,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     id="alwaysShowStats"
                     checked={alwaysShowStats}
                     onChange={(e) => setAlwaysShowStats(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                   />
-                  <label htmlFor="alwaysShowStats" className="text-gray-400 font-medium cursor-pointer">Always Show Stats</label>
+                  <label htmlFor="alwaysShowStats" className="text-txt-muted font-medium cursor-pointer">Always Show Stats</label>
                 </div>
                 <div className="flex items-center gap-2 min-h-[36px]">
                   <input
@@ -1168,14 +1168,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     id="showLines"
                     checked={showLines}
                     onChange={(e) => setShowLines(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                   />
-                  <label htmlFor="showLines" className="text-gray-400 font-medium cursor-pointer">Show Lines</label>
+                  <label htmlFor="showLines" className="text-txt-muted font-medium cursor-pointer">Show Lines</label>
                 </div>
 
                 {/* Activation Visualization Controls */}
-                <div className="pt-3 border-t border-[#242838] space-y-3">
-                  <div className="text-[11.5px] font-semibold text-gray-300 uppercase tracking-wider">Activation Visualization</div>
+                <div className="pt-3 border-t border-border-sub space-y-3">
+                  <div className="text-[11.5px] font-semibold text-txt-secondary uppercase tracking-wider">Activation Visualization</div>
                   
                   {/* Show Activation Line Checkbox */}
                   <div className="flex items-center gap-2 min-h-[32px]">
@@ -1184,21 +1184,21 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       id="showActivationLine"
                       checked={showActivationLine}
                       onChange={(e) => setShowActivationLine(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
-                    <label htmlFor="showActivationLine" className="text-gray-400 font-medium cursor-pointer">Show Activation Line</label>
+                    <label htmlFor="showActivationLine" className="text-txt-muted font-medium cursor-pointer">Show Activation Line</label>
                   </div>
 
                   {/* Activation Line Color / Width / Style Row */}
                   {showActivationLine && (
                     <div className="flex items-center justify-between min-h-[36px] pl-5">
-                      <span className="text-gray-400 font-medium">Activation Line</span>
+                      <span className="text-txt-muted font-medium">Activation Line</span>
                       <div className="flex gap-2 items-center relative">
                         {/* Activation Line Color Swatch */}
                         <div className="relative">
                           <button 
                             onClick={() => { setActiveColorPicker(activeColorPicker === 'actLine' ? null : 'actLine'); setActiveSelect(null); }}
-                            className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                            className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
                             style={{ backgroundColor: activationLineColor }}
                           />
                           {activeColorPicker === 'actLine' && (
@@ -1215,19 +1215,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         <div className="relative">
                           <button
                             onClick={() => { setActiveSelect(activeSelect === 'actLineWidth' ? null : 'actLineWidth'); setActiveColorPicker(null); }}
-                            className="flex items-center justify-center border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95"
+                            className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95 text-txt-primary"
                           >
                             <span>{activationLineWidth}px</span>
                           </button>
                           {activeSelect === 'actLineWidth' && (
                             <>
                               <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                              <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
+                              <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
                                 {[1, 2, 3, 4].map(w => (
                                   <button
                                     key={w}
                                     onClick={() => { setActivationLineWidth(w); setActiveSelect(null); }}
-                                    className={`w-full text-center px-3 py-2 hover:bg-gray-800 transition-colors text-[12px] font-mono font-semibold ${activationLineWidth === w ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                                    className={`w-full text-center px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold ${activationLineWidth === w ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                                   >
                                     {w}px
                                   </button>
@@ -1241,20 +1241,20 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         <div className="relative">
                           <button
                             onClick={() => { setActiveSelect(activeSelect === 'actLineStyle' ? null : 'actLineStyle'); setActiveColorPicker(null); }}
-                            className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-2.5 py-1.5 text-[12px] font-semibold w-24 h-8 cursor-pointer transition-all active:scale-95"
+                            className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-2.5 py-1.5 text-[12px] font-semibold w-24 h-8 cursor-pointer transition-all active:scale-95 text-txt-primary"
                           >
                             <span className="capitalize">{activationLineStyle}</span>
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                            <ChevronDown className="w-4 h-4 text-txt-muted" />
                           </button>
                           {activeSelect === 'actLineStyle' && (
                             <>
                               <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                              <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                              <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
                                 {['solid', 'dashed', 'dotted'].map(s => (
                                   <button
                                     key={s}
                                     onClick={() => { setActivationLineStyle(s); setActiveSelect(null); }}
-                                    className={`w-full text-left px-3 py-1.5 hover:bg-gray-800 transition-colors text-[12px] capitalize ${activationLineStyle === s ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                                    className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover transition-colors text-[12px] capitalize ${activationLineStyle === s ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                                   >
                                     {s}
                                   </button>
@@ -1274,9 +1274,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       id="showActivationHighlight"
                       checked={showActivationHighlight}
                       onChange={(e) => setShowActivationHighlight(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
-                    <label htmlFor="showActivationHighlight" className="text-gray-400 font-medium cursor-pointer">Show Activation Highlight</label>
+                    <label htmlFor="showActivationHighlight" className="text-txt-muted font-medium cursor-pointer">Show Activation Highlight</label>
                   </div>
 
                   {/* Activation Highlight Opacity */}
@@ -1307,9 +1307,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       id="showMarkers"
                       checked={showMarkers}
                       onChange={(e) => setShowMarkers(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
-                    <label htmlFor="showMarkers" className="text-gray-400 font-medium cursor-pointer">Show Markers</label>
+                    <label htmlFor="showMarkers" className="text-txt-muted font-medium cursor-pointer">Show Markers</label>
                   </div>
                 </div>
               </>
@@ -1329,7 +1329,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               <div className="relative">
                 <button 
                   onClick={() => { setActiveColorPicker(activeColorPicker === 'text' ? null : 'text'); setActiveSelect(null); }}
-                  className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                  className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
                   style={{ backgroundColor: textColor }}
                 />
                 {activeColorPicker === 'text' && (
@@ -1346,19 +1346,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               <div className="relative">
                 <button
                   onClick={() => { setActiveSelect(activeSelect === 'fontSize' ? null : 'fontSize'); setActiveColorPicker(null); }}
-                  className="flex items-center justify-center border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95"
+                  className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95 text-txt-primary"
                 >
                   <span>{fontSize}</span>
                 </button>
                 {activeSelect === 'fontSize' && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                    <div className="absolute left-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
+                    <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
                       {[10, 11, 12, 14, 16, 20, 24].map(sz => (
                         <button
                           key={sz}
                           onClick={() => { setFontSize(sz); setActiveSelect(null); }}
-                          className={`w-full text-center px-3 py-2 hover:bg-gray-800 transition-colors text-[12px] font-mono font-semibold ${fontSize === sz ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                          className={`w-full text-center px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold ${fontSize === sz ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                         >
                           {sz}
                         </button>
@@ -1398,27 +1398,27 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
             {/* Text Alignment Row */}
             <div className="flex items-center justify-between min-h-[36px]">
-              <span className="text-gray-400 font-medium">Text alignment</span>
+              <span className="text-txt-muted font-medium">Text alignment</span>
               <div className="flex gap-2">
                 
                 {/* Vertical Alignment */}
                 <div className="relative">
                   <button
                     onClick={() => { setActiveSelect(activeSelect === 'valign' ? null : 'valign'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95"
+                    className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
                   >
                     <span>{textValign}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
                   </button>
                   {activeSelect === 'valign' && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
                         {['top', 'middle', 'bottom'].map(v => (
                           <button
                             key={v}
                             onClick={() => { setTextValign(v); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] capitalize ${textValign === v ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textValign === v ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
                           >
                             {v}
                           </button>
@@ -1432,20 +1432,20 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 <div className="relative">
                   <button
                     onClick={() => { setActiveSelect(activeSelect === 'halign' ? null : 'halign'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95"
+                    className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
                   >
                     <span>{textHalign}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
                   </button>
                   {activeSelect === 'halign' && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
                         {['left', 'center', 'right'].map(h => (
                           <button
                             key={h}
                             onClick={() => { setTextHalign(h); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] capitalize ${textHalign === h ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textHalign === h ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
                           >
                             {h}
                           </button>
@@ -1460,24 +1460,24 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
             {/* Text Placement Row */}
             <div className="flex items-center justify-between min-h-[36px]">
-              <span className="text-gray-400 font-medium">Text placement</span>
+              <span className="text-txt-muted font-medium">Text placement</span>
               <div className="relative">
                 <button
                   onClick={() => { setActiveSelect(activeSelect === 'textPlacement' ? null : 'textPlacement'); setActiveColorPicker(null); }}
-                  className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95"
+                  className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
                 >
                   <span>{textPlacement}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                  <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
                 </button>
                 {activeSelect === 'textPlacement' && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                    <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-28 overflow-hidden">
+                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-28 overflow-hidden">
                       {['inside', 'outside'].map(p => (
                         <button
                           key={p}
                           onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
-                          className={`w-full text-left px-4 py-2 hover:bg-gray-800 transition-colors text-[12px] capitalize ${textPlacement === p ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                          className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textPlacement === p ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
                         >
                           {p}
                         </button>
@@ -1510,17 +1510,17 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             <div className="space-y-4">
               {/* Entry Price Section */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Entry Price</span>
+                <span className="text-[11px] font-bold text-txt-muted uppercase tracking-wider">Entry Price</span>
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-300 font-medium">Price</span>
-                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                  <span className="text-txt-secondary font-medium">Price</span>
+                  <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-border-focus transition-colors">
                     <button
                       type="button"
                       onClick={() => {
                         const newVal = Math.max(0, entryPrice - tickSize);
                         handleEntryPriceChange(newVal.toFixed(prec));
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -1529,7 +1529,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       step={tickSize}
                       value={points[entryIdx].price}
                       onChange={(e) => handleEntryPriceChange(e.target.value)}
-                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      className="w-[96px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                     />
                     <button
                       type="button"
@@ -1537,7 +1537,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const newVal = entryPrice + tickSize;
                         handleEntryPriceChange(newVal.toFixed(prec));
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1545,23 +1545,23 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
               </div>
 
-              <div className="border-t border-[#242838] my-3" />
+              <div className="border-t border-border-sub my-3" />
 
               {/* Profit Level Section */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Profit Level (Take Profit)</span>
+                <span className="text-[11px] font-bold text-status-success uppercase tracking-wider">Profit Level (Take Profit)</span>
                 
                 {/* Profit Price Input */}
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-300 font-medium">Price</span>
-                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                  <span className="text-txt-secondary font-medium">Price</span>
+                  <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-border-focus transition-colors">
                     <button
                       type="button"
                       onClick={() => {
                         const newVal = Math.max(0, profitPrice - tickSize);
                         handleProfitPriceChange(newVal.toFixed(prec));
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -1570,7 +1570,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       step={tickSize}
                       value={points[profitIdx].price}
                       onChange={(e) => handleProfitPriceChange(e.target.value)}
-                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      className="w-[96px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                     />
                     <button
                       type="button"
@@ -1578,7 +1578,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const newVal = profitPrice + tickSize;
                         handleProfitPriceChange(newVal.toFixed(prec));
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1587,15 +1587,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
                 {/* Profit Ticks Input */}
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-300 font-medium">Ticks / Points</span>
-                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                  <span className="text-txt-secondary font-medium">Ticks / Points</span>
+                  <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-border-focus transition-colors">
                     <button
                       type="button"
                       onClick={() => {
                         const newVal = Math.max(0, profitTicks - 1);
                         handleProfitTicksChange(newVal);
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -1606,7 +1606,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const val = Math.max(0, parseInt(e.target.value) || 0);
                         handleProfitTicksChange(val);
                       }}
-                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      className="w-[96px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                     />
                     <button
                       type="button"
@@ -1614,7 +1614,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const newVal = profitTicks + 1;
                         handleProfitTicksChange(newVal);
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1622,23 +1622,23 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
               </div>
 
-              <div className="border-t border-[#242838] my-3" />
+              <div className="border-t border-border-sub my-3" />
 
               {/* Stop Level Section */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">Stop Level (Stop Loss)</span>
+                <span className="text-[11px] font-bold text-status-error uppercase tracking-wider">Stop Level (Stop Loss)</span>
                 
                 {/* Stop Price Input */}
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-300 font-medium">Price</span>
-                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                  <span className="text-txt-secondary font-medium">Price</span>
+                  <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-border-focus transition-colors">
                     <button
                       type="button"
                       onClick={() => {
                         const newVal = Math.max(0, stopPrice - tickSize);
                         handleStopPriceChange(newVal.toFixed(prec));
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -1647,7 +1647,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                       step={tickSize}
                       value={points[stopIdx].price}
                       onChange={(e) => handleStopPriceChange(e.target.value)}
-                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      className="w-[96px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                     />
                     <button
                       type="button"
@@ -1655,7 +1655,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const newVal = stopPrice + tickSize;
                         handleStopPriceChange(newVal.toFixed(prec));
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1664,15 +1664,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
                 {/* Stop Ticks Input */}
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-300 font-medium">Ticks / Points</span>
-                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                  <span className="text-txt-secondary font-medium">Ticks / Points</span>
+                  <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-border-focus transition-colors">
                     <button
                       type="button"
                       onClick={() => {
                         const newVal = Math.max(0, stopTicks - 1);
                         handleStopTicksChange(newVal);
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -1683,7 +1683,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const val = Math.max(0, parseInt(e.target.value) || 0);
                         handleStopTicksChange(val);
                       }}
-                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      className="w-[96px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                     />
                     <button
                       type="button"
@@ -1691,7 +1691,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const newVal = stopTicks + 1;
                         handleStopTicksChange(newVal);
                       }}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1699,18 +1699,18 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
               </div>
 
-              <div className="border-t border-[#242838] my-3" />
+              <div className="border-t border-border-sub my-3" />
 
               {/* Initial Sizing Section */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Initial Tool Sizing</span>
+                <span className="text-[11px] font-bold text-accent uppercase tracking-wider">Initial Tool Sizing</span>
                 <div className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-300 font-medium">Initial TP/SL Size (% of Viewport)</span>
-                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                  <span className="text-txt-secondary font-medium">Initial TP/SL Size (% of Viewport)</span>
+                  <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-border-focus transition-colors">
                     <button
                       type="button"
                       onClick={() => setInitialSizePercent(prev => Math.max(1, prev - 1))}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -1723,12 +1723,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const val = Math.max(1, Math.min(50, parseInt(e.target.value) || 18));
                         setInitialSizePercent(val);
                       }}
-                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                      className="w-[96px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                     />
                     <button
                       type="button"
                       onClick={() => setInitialSizePercent(prev => Math.min(50, prev + 1))}
-                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                      className="w-8 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1746,11 +1746,11 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             <div className="flex flex-col gap-3.5">
               {points.map((pt, i) => (
                 <div key={i} className="flex items-center justify-between min-h-[36px]">
-                  <span className="text-gray-400 font-medium">#{i+1} (price, bar)</span>
+                  <span className="text-txt-muted font-medium">#{i+1} (price, bar)</span>
                   <div className="flex gap-2.5 items-center">
                     
                     {/* Price Input with Plus/Minus buttons */}
-                    <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[140px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[140px] overflow-hidden focus-within:border-border-focus transition-colors">
                       <button
                         type="button"
                         onClick={() => {
@@ -1759,7 +1759,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                           const newVal = Math.max(0, currentVal - step);
                           handlePointChange(i, 'price', newVal.toFixed(prec));
                         }}
-                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                        className="w-7 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                         title="Decrease Price"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -1769,7 +1769,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         step={1 / Math.pow(10, prec)}
                         value={pt.price}
                         onChange={(e) => handlePointChange(i, 'price', e.target.value)}
-                        className="w-[86px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                        className="w-[86px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                       />
                       <button
                         type="button"
@@ -1779,7 +1779,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                           const newVal = currentVal + step;
                           handlePointChange(i, 'price', newVal.toFixed(prec));
                         }}
-                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                        className="w-7 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                         title="Increase Price"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1787,7 +1787,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     </div>
 
                     {/* Bar Input with Plus/Minus buttons */}
-                    <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[100px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <div className="flex items-center bg-app-bg border border-border-def rounded-lg h-8 w-[100px] overflow-hidden focus-within:border-border-focus transition-colors">
                       <button
                         type="button"
                         onClick={() => {
@@ -1795,7 +1795,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                           const newVal = currentVal - 1; // Decreasing coordinate (moves to future)
                           handlePointChange(i, 'bar', String(newVal));
                         }}
-                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                        className="w-7 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-r border-border-sub"
                         title="Decrease Bar Value"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -1804,7 +1804,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         type="number"
                         value={pt.bar}
                         onChange={(e) => handlePointChange(i, 'bar', e.target.value)}
-                        className="w-[46px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                        className="w-[46px] text-center bg-transparent border-0 text-txt-primary text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
                       />
                       <button
                         type="button"
@@ -1813,7 +1813,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                           const newVal = currentVal + 1; // Increasing coordinate (moves to past)
                           handlePointChange(i, 'bar', String(newVal));
                         }}
-                        className="w-7 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                        className="w-7 h-full flex items-center justify-center text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors border-l border-border-sub"
                         title="Increase Bar Value"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1870,7 +1870,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const val = Math.min(parseInt(e.target.value) || 1, visibility[unit]?.max || 1);
                         handleVisibilityChange(unit, 'min', val);
                       }}
-                      className="bg-[#121420] disabled:opacity-20 border border-[#2a2e45] rounded-lg px-1.5 py-1 w-14 text-center text-[12px] text-gray-200 outline-none focus:border-indigo-500/50 font-mono transition-colors"
+                      className="bg-app-bg disabled:opacity-20 border border-border-def rounded-lg px-1.5 py-1 w-14 text-center text-[12px] text-txt-primary outline-none focus:border-border-focus font-mono transition-colors"
                       min={1}
                       max={visibility[unit]?.max}
                     />
@@ -1895,7 +1895,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const val = Math.max(parseInt(e.target.value) || 1, visibility[unit]?.min || 1);
                         handleVisibilityChange(unit, 'max', val);
                       }}
-                      className="bg-[#121420] disabled:opacity-20 border border-[#2a2e45] rounded-lg px-1.5 py-1 w-14 text-center text-[12px] text-gray-200 outline-none focus:border-indigo-500/50 font-mono transition-colors"
+                      className="bg-app-bg disabled:opacity-20 border border-border-def rounded-lg px-1.5 py-1 w-14 text-center text-[12px] text-txt-primary outline-none focus:border-border-focus font-mono transition-colors"
                       min={visibility[unit]?.min || 1}
                       max={maxLimit}
                     />
@@ -1911,7 +1911,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center px-5 py-4 border-t border-[#242838] text-[12px] bg-[#171a26] rounded-b-xl">
+      <div className="flex justify-between items-center px-5 py-4 border-t border-border-def text-[12px] bg-surface rounded-b-xl">
         
         {/* Templates Dropdown Button */}
         <div className="relative">
@@ -1978,18 +1978,18 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
                 {/* Group Selector Dropdown */}
                 {uniqueGroups.length > 0 && (
-                  <div className="relative px-3 py-2 border-b border-[#242838] bg-[#171a26]">
+                  <div className="relative px-3 py-2 border-b border-border-sub bg-surface">
                     <button
                       onClick={() => setIsSelectGroupDropdownOpen(!isSelectGroupDropdownOpen)}
-                      className="w-full flex items-center justify-between bg-[#121420] border border-[#2a2e45] hover:border-[#3a3f5e] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 hover:text-white transition-all active:scale-98"
+                      className="w-full flex items-center justify-between bg-app-bg border border-border-def hover:border-border-focus rounded-lg px-2.5 py-1.5 text-xs text-txt-secondary hover:text-txt-primary transition-all active:scale-98"
                     >
                       <span>{selectedGroup}</span>
-                      <ChevronDown className="w-3 h-3 text-gray-400" />
+                      <ChevronDown className="w-3 h-3 text-txt-muted" />
                     </button>
                     {isSelectGroupDropdownOpen && (
                       <>
                         <div className="fixed inset-0 z-[60]" onClick={() => setIsSelectGroupDropdownOpen(false)} />
-                        <div className="absolute left-3 right-3 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-[70] py-1 max-h-32 overflow-y-auto">
+                        <div className="absolute left-3 right-3 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-[70] py-1 max-h-32 overflow-y-auto">
                           {uniqueGroups.map(grp => (
                             <button
                               key={grp}
@@ -1997,7 +1997,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                                 setSelectedGroup(grp);
                                 setIsSelectGroupDropdownOpen(false);
                               }}
-                              className="w-full text-left px-3 py-1.5 hover:bg-gray-800 text-gray-300 text-xs truncate"
+                              className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-txt-secondary text-xs truncate"
                             >
                               {grp}
                             </button>
@@ -2064,14 +2064,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
       {/* Save Template Custom Dialog (Popup) */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in duration-150">
-          <div className="bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-overlay-bg backdrop-blur-xs z-[100] flex items-center justify-center animate-in fade-in duration-150">
+          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-150 text-txt-secondary">
             {/* Header */}
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-xs tracking-wider uppercase text-white">Save drawing template</span>
+              <span className="font-semibold text-xs tracking-wider uppercase text-txt-primary">Save drawing template</span>
               <button 
                 onClick={() => setIsSaveModalOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2081,7 +2081,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             <div className="flex flex-col gap-3">
               {/* Name */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-gray-400">Name</label>
+                <label className="text-[11px] font-semibold text-txt-muted">Name</label>
                 <SearchableDropdown
                   value={saveName}
                   onChange={setSaveName}
@@ -2095,7 +2095,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
               {/* Group */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-gray-400">Group</label>
+                <label className="text-[11px] font-semibold text-txt-muted">Group</label>
                 <SearchableDropdown
                   value={saveGroup}
                   onChange={setSaveGroup}
@@ -2109,15 +2109,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
               {/* Mode Select Buttons */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-semibold text-gray-400">Mode</label>
+                <label className="text-[11px] font-semibold text-txt-muted">Mode</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setSaveMode('light')}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                       saveMode === 'light'
-                        ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-md shadow-indigo-500/10'
-                        : 'border-[#2a2e45] bg-[#121420] text-gray-400 hover:text-white hover:border-[#3a3f5e]'
+                        ? 'bg-accent-muted border-accent text-accent font-bold'
+                        : 'border-border-def bg-app-bg text-txt-muted hover:text-txt-primary hover:border-border-focus'
                     }`}
                   >
                     Light
@@ -2127,8 +2127,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     onClick={() => setSaveMode('dark')}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                       saveMode === 'dark'
-                        ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-md shadow-indigo-500/10'
-                        : 'border-[#2a2e45] bg-[#121420] text-gray-400 hover:text-white hover:border-[#3a3f5e]'
+                        ? 'bg-accent-muted border-accent text-accent font-bold'
+                        : 'border-border-def bg-app-bg text-txt-muted hover:text-txt-primary hover:border-border-focus'
                     }`}
                   >
                     Dark
@@ -2142,7 +2142,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSaveModalOpen(false)}
-                className="px-4 py-1.5 border border-[#2a2e45] hover:bg-gray-800 text-gray-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                className="px-4 py-1.5 border border-border-def hover:bg-surface-hover text-txt-secondary rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
