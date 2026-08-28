@@ -197,6 +197,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [lossColor, setLossColor] = useState('rgba(244, 67, 54, 0.12)');
   const [alwaysShowStats, setAlwaysShowStats] = useState(true);
   const [showLines, setShowLines] = useState(false);
+  const [showActivationLine, setShowActivationLine] = useState(true);
+  const [activationLineColor, setActivationLineColor] = useState('#808285');
+  const [activationLineWidth, setActivationLineWidth] = useState(1);
+  const [activationLineStyle, setActivationLineStyle] = useState('dashed');
+  const [showActivationHighlight, setShowActivationHighlight] = useState(true);
+  const [activationHighlightOpacity, setActivationHighlightOpacity] = useState(0.28);
+  const [showMarkers, setShowMarkers] = useState(true);
+  const [initialSizePercent, setInitialSizePercent] = useState(18);
 
   // Text Tab States
   const [text, setText] = useState('');
@@ -226,7 +234,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
   
   // Custom dropdowns for style selectors
-  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | null>(null);
 
   const prec = pricePrecision !== undefined ? pricePrecision : 4;
 
@@ -266,8 +274,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setFillBackground(customSettings.fillBackground !== false);
     setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
     setLossColor(customSettings.lossColor || 'rgba(244, 67, 54, 0.12)');
-    setAlwaysShowStats(customSettings.alwaysShowStats !== false);
     setShowLines(customSettings.showLines === true);
+    setShowActivationLine(customSettings.showActivationLine !== false);
+    setActivationLineColor(customSettings.activationLineColor || '#808285');
+    setActivationLineWidth(customSettings.activationLineWidth || 1);
+    setActivationLineStyle(customSettings.activationLineStyle || 'dashed');
+    setShowActivationHighlight(customSettings.showActivationHighlight !== false);
+    setActivationHighlightOpacity(typeof customSettings.activationHighlightOpacity === 'number' ? customSettings.activationHighlightOpacity : 0.28);
+    setShowMarkers(customSettings.showMarkers !== false);
+    setInitialSizePercent(typeof customSettings.initialSizePercent === 'number' ? customSettings.initialSizePercent : 18);
 
     // Text settings
     setText(customSettings.text || '');
@@ -431,40 +446,76 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       },
       visibility,
       alwaysShowStats,
-      showLines
+      showLines,
+      showActivationLine,
+      activationLineColor,
+      activationLineWidth,
+      activationLineStyle,
+      showActivationHighlight,
+      activationHighlightOpacity,
+      showMarkers,
+      initialSizePercent
     };
 
     const updatedPoints = points.map(pt => {
       let finalTimestamp = pt.timestamp;
-      if (allCandles.length > 0 && pt.bar !== undefined) {
-        // Map from User Coordinate C to array index idx: idx = (L - 1) - C
-        const idx = (allCandles.length - 1) - pt.bar;
-        const candle = allCandles[idx];
-        if (candle) {
-          finalTimestamp = candle.timestamp;
+      let resolvedDataIndex: number | undefined = undefined;
+
+      if (allCandles.length > 0) {
+        if (pt.bar !== undefined) {
+          // Map from User Coordinate C to array index idx: idx = (L - 1) - C
+          const idx = (allCandles.length - 1) - pt.bar;
+          if (idx >= 0 && idx < allCandles.length) {
+            const candle = allCandles[idx];
+            if (candle) {
+              finalTimestamp = candle.timestamp;
+              resolvedDataIndex = idx;
+            }
+          } else if (idx >= allCandles.length) {
+            const lastCandle = allCandles[allCandles.length - 1];
+            if (lastCandle) {
+              // pt.bar is negative in future. Diff index = -pt.bar
+              const indexDiff = -pt.bar;
+              let timeframeMinutes = 1;
+              const tf = timeframe.toLowerCase();
+              if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
+              else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
+              else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
+              
+              finalTimestamp = lastCandle.timestamp + indexDiff * timeframeMinutes * 60 * 1000;
+              resolvedDataIndex = idx;
+            }
+          } else {
+            const firstCandle = allCandles[0];
+            if (firstCandle) {
+              const indexDiff = -idx;
+              let timeframeMinutes = 1;
+              const tf = timeframe.toLowerCase();
+              if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
+              else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
+              else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
+              
+              finalTimestamp = firstCandle.timestamp - indexDiff * timeframeMinutes * 60 * 1000;
+              resolvedDataIndex = idx;
+            }
+          }
         } else {
-          const lastCandle = allCandles[allCandles.length - 1];
-          if (lastCandle) {
-            // pt.bar is negative in future. Diff index = -pt.bar
-            const indexDiff = -pt.bar;
-            let timeframeMinutes = 1;
-            const tf = timeframe.toLowerCase();
-            if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
-            else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
-            else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
-            
-            finalTimestamp = lastCandle.timestamp + indexDiff * timeframeMinutes * 60 * 1000;
+          const idx = allCandles.findIndex(c => c.timestamp === pt.timestamp);
+          if (idx !== -1) {
+            resolvedDataIndex = idx;
           }
         }
       }
+
       return {
         timestamp: finalTimestamp,
-        value: parseFloat(pt.price)
+        value: parseFloat(pt.price),
+        ...(resolvedDataIndex !== undefined ? { dataIndex: resolvedDataIndex } : {})
       };
     });
 
     onSave(updatedSettings, updatedPoints);
-  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility, alwaysShowStats, showLines]);
+  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
   // Helper to ensure selectedGroup updates if mode changes or templates are deleted
   useEffect(() => {
@@ -651,6 +702,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLossColor(settings.lossColor || 'rgba(244, 67, 54, 0.12)');
     setAlwaysShowStats(settings.alwaysShowStats !== false);
     setShowLines(settings.showLines === true);
+    setShowActivationLine(settings.showActivationLine !== false);
+    setActivationLineColor(settings.activationLineColor || '#808285');
+    setActivationLineWidth(settings.activationLineWidth || 1);
+    setActivationLineStyle(settings.activationLineStyle || 'dashed');
+    setShowActivationHighlight(settings.showActivationHighlight !== false);
+    setActivationHighlightOpacity(typeof settings.activationHighlightOpacity === 'number' ? settings.activationHighlightOpacity : 0.28);
+    setShowMarkers(settings.showMarkers !== false);
     setText(settings.text || '');
     setTextColor(settings.textColor || '#2196F3');
     setFontSize(settings.fontSize || 14);
@@ -673,6 +731,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lossColor: settings.lossColor || 'rgba(244, 67, 54, 0.12)',
       alwaysShowStats: settings.alwaysShowStats !== false,
       showLines: settings.showLines === true,
+      showActivationLine: settings.showActivationLine !== false,
+      activationLineColor: settings.activationLineColor || '#808285',
+      activationLineWidth: settings.activationLineWidth || 1,
+      activationLineStyle: settings.activationLineStyle || 'dashed',
+      showActivationHighlight: settings.showActivationHighlight !== false,
+      activationHighlightOpacity: typeof settings.activationHighlightOpacity === 'number' ? settings.activationHighlightOpacity : 0.28,
+      showMarkers: settings.showMarkers !== false,
+      initialSizePercent: typeof settings.initialSizePercent === 'number' ? settings.initialSizePercent : initialSizePercent,
       text: settings.text || '',
       textColor: settings.textColor || '#2196F3',
       fontSize: settings.fontSize || 14,
@@ -687,28 +753,56 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const updatedPoints = points.map(pt => {
       let finalTimestamp = pt.timestamp;
-      if (allCandles.length > 0 && pt.bar !== undefined) {
-        const idx = (allCandles.length - 1) - pt.bar;
-        const candle = allCandles[idx];
-        if (candle) {
-          finalTimestamp = candle.timestamp;
+      let resolvedDataIndex: number | undefined = undefined;
+
+      if (allCandles.length > 0) {
+        if (pt.bar !== undefined) {
+          const idx = (allCandles.length - 1) - pt.bar;
+          if (idx >= 0 && idx < allCandles.length) {
+            const candle = allCandles[idx];
+            if (candle) {
+              finalTimestamp = candle.timestamp;
+              resolvedDataIndex = idx;
+            }
+          } else if (idx >= allCandles.length) {
+            const lastCandle = allCandles[allCandles.length - 1];
+            if (lastCandle) {
+              const indexDiff = -pt.bar;
+              let timeframeMinutes = 1;
+              const tf = timeframe.toLowerCase();
+              if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
+              else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
+              else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
+              
+              finalTimestamp = lastCandle.timestamp + indexDiff * timeframeMinutes * 60 * 1000;
+              resolvedDataIndex = idx;
+            }
+          } else {
+            const firstCandle = allCandles[0];
+            if (firstCandle) {
+              const indexDiff = -idx;
+              let timeframeMinutes = 1;
+              const tf = timeframe.toLowerCase();
+              if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
+              else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
+              else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
+              
+              finalTimestamp = firstCandle.timestamp - indexDiff * timeframeMinutes * 60 * 1000;
+              resolvedDataIndex = idx;
+            }
+          }
         } else {
-          const lastCandle = allCandles[allCandles.length - 1];
-          if (lastCandle) {
-            const indexDiff = -pt.bar;
-            let timeframeMinutes = 1;
-            const tf = timeframe.toLowerCase();
-            if (tf.endsWith('m')) timeframeMinutes = parseInt(tf);
-            else if (tf.endsWith('h')) timeframeMinutes = parseInt(tf) * 60;
-            else if (tf.endsWith('d')) timeframeMinutes = parseInt(tf) * 1440;
-            
-            finalTimestamp = lastCandle.timestamp + indexDiff * timeframeMinutes * 60 * 1000;
+          const idx = allCandles.findIndex(c => c.timestamp === pt.timestamp);
+          if (idx !== -1) {
+            resolvedDataIndex = idx;
           }
         }
       }
+
       return {
         timestamp: finalTimestamp,
-        value: parseFloat(pt.price)
+        value: parseFloat(pt.price),
+        ...(resolvedDataIndex !== undefined ? { dataIndex: resolvedDataIndex } : {})
       };
     });
 
@@ -729,6 +823,14 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setProfitColor('rgba(76, 175, 80, 0.12)');
     setLossColor('rgba(244, 67, 54, 0.12)');
     setAlwaysShowStats(true);
+    setShowLines(false);
+    setShowActivationLine(true);
+    setActivationLineColor('#808285');
+    setActivationLineWidth(1);
+    setActivationLineStyle('dashed');
+    setShowActivationHighlight(true);
+    setActivationHighlightOpacity(0.28);
+    setShowMarkers(true);
     setText('');
     setTextColor('#2196F3');
     setFontSize(14);
@@ -1064,6 +1166,146 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                   />
                   <label htmlFor="showLines" className="text-gray-400 font-medium cursor-pointer">Show Lines</label>
+                </div>
+
+                {/* Activation Visualization Controls */}
+                <div className="pt-3 border-t border-[#242838] space-y-3">
+                  <div className="text-[11.5px] font-semibold text-gray-300 uppercase tracking-wider">Activation Visualization</div>
+                  
+                  {/* Show Activation Line Checkbox */}
+                  <div className="flex items-center gap-2 min-h-[32px]">
+                    <input
+                      type="checkbox"
+                      id="showActivationLine"
+                      checked={showActivationLine}
+                      onChange={(e) => setShowActivationLine(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <label htmlFor="showActivationLine" className="text-gray-400 font-medium cursor-pointer">Show Activation Line</label>
+                  </div>
+
+                  {/* Activation Line Color / Width / Style Row */}
+                  {showActivationLine && (
+                    <div className="flex items-center justify-between min-h-[36px] pl-5">
+                      <span className="text-gray-400 font-medium">Activation Line</span>
+                      <div className="flex gap-2 items-center relative">
+                        {/* Activation Line Color Swatch */}
+                        <div className="relative">
+                          <button 
+                            onClick={() => { setActiveColorPicker(activeColorPicker === 'actLine' ? null : 'actLine'); setActiveSelect(null); }}
+                            className="w-8 h-8 rounded-lg border border-[#2a2e45] hover:border-[#3a3f5e] transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                            style={{ backgroundColor: activationLineColor }}
+                          />
+                          {activeColorPicker === 'actLine' && (
+                            <div className="absolute right-0 top-full mt-2 z-50">
+                              <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                              <div className="relative">
+                                <ColorPicker color={activationLineColor} onChange={(c) => setActivationLineColor(c)} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Activation Line Width */}
+                        <div className="relative">
+                          <button
+                            onClick={() => { setActiveSelect(activeSelect === 'actLineWidth' ? null : 'actLineWidth'); setActiveColorPicker(null); }}
+                            className="flex items-center justify-center border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95"
+                          >
+                            <span>{activationLineWidth}px</span>
+                          </button>
+                          {activeSelect === 'actLineWidth' && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                              <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
+                                {[1, 2, 3, 4].map(w => (
+                                  <button
+                                    key={w}
+                                    onClick={() => { setActivationLineWidth(w); setActiveSelect(null); }}
+                                    className={`w-full text-center px-3 py-2 hover:bg-gray-800 transition-colors text-[12px] font-mono font-semibold ${activationLineWidth === w ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                                  >
+                                    {w}px
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Activation Line Style */}
+                        <div className="relative">
+                          <button
+                            onClick={() => { setActiveSelect(activeSelect === 'actLineStyle' ? null : 'actLineStyle'); setActiveColorPicker(null); }}
+                            className="flex items-center justify-between border border-[#2a2e45] hover:border-[#3a3f5e] bg-[#121420] hover:bg-[#151724] rounded-lg px-2.5 py-1.5 text-[12px] font-semibold w-24 h-8 cursor-pointer transition-all active:scale-95"
+                          >
+                            <span className="capitalize">{activationLineStyle}</span>
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          </button>
+                          {activeSelect === 'actLineStyle' && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                              <div className="absolute right-0 top-full mt-1 bg-[#1c2030] border border-[#2a2e45] rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                                {['solid', 'dashed', 'dotted'].map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => { setActivationLineStyle(s); setActiveSelect(null); }}
+                                    className={`w-full text-left px-3 py-1.5 hover:bg-gray-800 transition-colors text-[12px] capitalize ${activationLineStyle === s ? 'text-indigo-500 bg-indigo-500/5' : 'text-gray-300'}`}
+                                  >
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show Activation Highlight Checkbox */}
+                  <div className="flex items-center gap-2 min-h-[32px]">
+                    <input
+                      type="checkbox"
+                      id="showActivationHighlight"
+                      checked={showActivationHighlight}
+                      onChange={(e) => setShowActivationHighlight(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <label htmlFor="showActivationHighlight" className="text-gray-400 font-medium cursor-pointer">Show Activation Highlight</label>
+                  </div>
+
+                  {/* Activation Highlight Opacity */}
+                  {showActivationHighlight && (
+                    <div className="flex items-center justify-between min-h-[36px] pl-5">
+                      <span className="text-gray-400 font-medium">Highlight Opacity</span>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="0.10"
+                          max="0.60"
+                          step="0.02"
+                          value={activationHighlightOpacity}
+                          onChange={(e) => setActivationHighlightOpacity(parseFloat(e.target.value))}
+                          className="w-28 accent-indigo-500 cursor-pointer"
+                        />
+                        <span className="text-gray-300 font-mono text-[11px] w-10 text-right">
+                          {Math.round(activationHighlightOpacity * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show Markers Checkbox */}
+                  <div className="flex items-center gap-2 min-h-[32px]">
+                    <input
+                      type="checkbox"
+                      id="showMarkers"
+                      checked={showMarkers}
+                      onChange={(e) => setShowMarkers(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-[#2a2e45] bg-[#121420] text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <label htmlFor="showMarkers" className="text-gray-400 font-medium cursor-pointer">Show Markers</label>
+                  </div>
                 </div>
               </>
             )}
@@ -1414,6 +1656,43 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                         const newVal = stopTicks + 1;
                         handleStopTicksChange(newVal);
                       }}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-[#242838] my-3" />
+
+              {/* Initial Sizing Section */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Initial Tool Sizing</span>
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-gray-300 font-medium">Initial TP/SL Size (% of Viewport)</span>
+                  <div className="flex items-center bg-[#121420] border border-[#2a2e45] rounded-lg h-8 w-[160px] overflow-hidden focus-within:border-indigo-500/50 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => setInitialSizePercent(prev => Math.max(1, prev - 1))}
+                      className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-r border-[#2a2e45]/65"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={initialSizePercent}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(50, parseInt(e.target.value) || 18));
+                        setInitialSizePercent(val);
+                      }}
+                      className="w-[96px] text-center bg-transparent border-0 text-white text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setInitialSizePercent(prev => Math.min(50, prev + 1))}
                       className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800/40 active:bg-gray-850 transition-colors border-l border-[#2a2e45]/65"
                     >
                       <Plus className="w-3.5 h-3.5" />
