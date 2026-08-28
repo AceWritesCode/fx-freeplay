@@ -30,6 +30,41 @@ function makeOpaqueColor(colorStr: string): string {
   return colorStr;
 }
 
+function boostColorOpacity(colorStr: string, defaultOpacity: number = 0.28): string {
+  if (!colorStr) return `rgba(76, 175, 80, ${defaultOpacity})`;
+  colorStr = colorStr.trim();
+
+  const rgbaRegex = /^rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/i;
+  const matchRgba = colorStr.match(rgbaRegex);
+  if (matchRgba) {
+    const r = matchRgba[1];
+    const g = matchRgba[2];
+    const b = matchRgba[3];
+    const baseAlpha = parseFloat(matchRgba[4]);
+    const newAlpha = Math.min(0.85, Math.max(defaultOpacity, baseAlpha * 2.5));
+    return `rgba(${r}, ${g}, ${b}, ${newAlpha})`;
+  }
+
+  const rgbRegex = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+  const matchRgb = colorStr.match(rgbRegex);
+  if (matchRgb) {
+    return `rgba(${matchRgb[1]}, ${matchRgb[2]}, ${matchRgb[3]}, ${defaultOpacity})`;
+  }
+
+  if (colorStr.startsWith('#')) {
+    let hex = colorStr.slice(1);
+    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    if (hex.length >= 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${defaultOpacity})`;
+    }
+  }
+
+  return colorStr;
+}
+
 // ─── Long Position Icon ──────────────────────────────────────────────────────
 const LongPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
@@ -152,13 +187,107 @@ const computeDefaultRRPoints = (
   entryDi: number,
   isLong: boolean,
   dataList: any[],
-  tf: string
+  tf: string,
+  chart?: any,
+  initialSizePercent: number = 18
 ) => {
-  let diff = 0.005;
-  if (entryVal < 2.0) diff = 0.005;
-  else if (entryVal < 200.0) diff = 0.50;
-  else if (entryVal >= 500.0 && entryVal < 5000.0) diff = 5.0;
-  else diff = 50.0;
+  let diff: number | null = null;
+  const ratio = (typeof initialSizePercent === 'number' && initialSizePercent > 0 ? Math.min(50, initialSizePercent) : 18) / 100;
+
+  // 1. Primary Method: Convert viewport top/bottom pixels to price using chart.convertFromPixel
+  if (chart && typeof chart.convertFromPixel === 'function') {
+    try {
+      let paneHeight = 400;
+      if (chart._chartStore && typeof chart._chartStore.getPaneStore === 'function') {
+        const pane = chart._chartStore.getPaneStore().getPaneById('candle_pane');
+        if (pane && typeof pane.getBounding === 'function') {
+          const bounding = pane.getBounding();
+          if (bounding && typeof bounding.height === 'number' && bounding.height > 50) {
+            paneHeight = bounding.height;
+          }
+        }
+      }
+
+      const yTop = paneHeight * 0.10;
+      const yBottom = paneHeight * 0.90;
+
+      const converted = chart.convertFromPixel(
+        [
+          { x: 100, y: yTop },
+          { x: 100, y: yBottom }
+        ],
+        { paneId: 'candle_pane' }
+      );
+
+      if (
+        converted &&
+        converted.length >= 2 &&
+        typeof converted[0]?.value === 'number' &&
+        typeof converted[1]?.value === 'number' &&
+        !isNaN(converted[0].value) &&
+        !isNaN(converted[1].value)
+      ) {
+        const priceTop = converted[0].value;
+        const priceBottom = converted[1].value;
+        const visiblePriceSpan = Math.abs(priceTop - priceBottom);
+
+        if (visiblePriceSpan > 0) {
+          // Dynamic initial distance: configured ratio of visible price height per side
+          let calcDiff = visiblePriceSpan * ratio;
+
+          // Clamping Edge Case: Ensure TP and SL remain inside viewport even if entry is near top or bottom edge
+          const minVis = Math.min(priceTop, priceBottom);
+          const maxVis = Math.max(priceTop, priceBottom);
+          const distToTop = Math.max(0, maxVis - entryVal);
+          const distToBottom = Math.max(0, entryVal - minVis);
+          const maxSafeDiff = Math.min(distToTop, distToBottom) * 0.85;
+
+          if (maxSafeDiff > 0 && calcDiff > maxSafeDiff) {
+            calcDiff = maxSafeDiff;
+          }
+
+          if (calcDiff > 0) {
+            diff = calcDiff;
+          }
+        }
+      }
+    } catch (_) {
+      // Ignore conversion errors and fall through to fallback
+    }
+  }
+
+  // 2. Fallback 1: Calculate range from visible candles using chart.getVisibleRange()
+  if (diff === null && chart && typeof chart.getVisibleRange === 'function' && dataList && dataList.length > 0) {
+    try {
+      const vr = chart.getVisibleRange();
+      if (vr && typeof vr.from === 'number' && typeof vr.to === 'number') {
+        const fromIdx = Math.max(0, Math.floor(vr.from));
+        const toIdx = Math.min(dataList.length - 1, Math.ceil(vr.to));
+        let maxHigh = -Infinity;
+        let minLow = Infinity;
+
+        for (let i = fromIdx; i <= toIdx; i++) {
+          const c = dataList[i];
+          if (c && typeof c.high === 'number' && typeof c.low === 'number') {
+            if (c.high > maxHigh) maxHigh = c.high;
+            if (c.low < minLow) minLow = c.low;
+          }
+        }
+
+        if (maxHigh > minLow && isFinite(maxHigh) && isFinite(minLow)) {
+          const visCandleSpan = maxHigh - minLow;
+          diff = visCandleSpan * ratio;
+        }
+      }
+    } catch (_) {
+      // Ignore and fall through to fallback 2
+    }
+  }
+
+  // 3. Fallback 2: Magnitude-based ratio calculation fallback
+  if (diff === null || diff <= 0 || isNaN(diff)) {
+    diff = entryVal * 0.005;
+  }
 
   const tpVal = isLong ? entryVal + diff : entryVal - diff;
   const slVal = isLong ? entryVal - diff : entryVal + diff;
@@ -259,6 +388,121 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
       dashedValue = [2, 2];
     }
 
+    // ─── Trade Activation & Exit Calculation ──────────────────────────────────
+    const dataList = chart?.getDataList?.() || [];
+    const diMin = overlay.points[4]?.dataIndex ?? 0;
+    const diMax = overlay.points[5]?.dataIndex ?? (dataList.length - 1);
+    const startIdx = Math.max(0, diMin);
+
+    let activationCandle: any = null;
+    let activationIndex = -1;
+
+    if (dataList.length > 0 && startIdx < dataList.length) {
+      for (let i = startIdx; i < dataList.length; i++) {
+        const c = dataList[i];
+        if (c && typeof c.low === 'number' && typeof c.high === 'number') {
+          if (c.low <= entryPrice && c.high >= entryPrice) {
+            activationCandle = c;
+            activationIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    let actPt: any = null;
+    let exitPt: any = null;
+    let activeSide: 'TP' | 'SL' | null = null;
+    let isExited = false;
+
+    if (activationCandle && activationIndex >= 0) {
+      const convertedAct = chart.convertToPixel(
+        [{ timestamp: activationCandle.timestamp, value: entryPrice, dataIndex: activationIndex }],
+        { paneId: 'candle_pane' }
+      );
+      if (convertedAct && convertedAct.length > 0 && convertedAct[0]) {
+        actPt = convertedAct[0];
+      }
+
+      // Scan forward from activation to determine exit (TP or SL) up to diMax
+      let exitCandle: any = null;
+      let exitIndex = -1;
+      let exitPrice = entryPrice;
+
+      const maxSearchIdx = Math.min(diMax, dataList.length - 1);
+
+      for (let i = activationIndex; i <= maxSearchIdx; i++) {
+        const c = dataList[i];
+        if (!c || typeof c.low !== 'number' || typeof c.high !== 'number') continue;
+
+        let hitTP = false;
+        let hitSL = false;
+
+        if (isLong) {
+          hitTP = c.high >= targetPrice;
+          hitSL = c.low <= stopPrice;
+        } else {
+          hitTP = c.low <= targetPrice;
+          hitSL = c.high >= stopPrice;
+        }
+
+        if (hitTP || hitSL) {
+          if (hitTP && hitSL) {
+            const distTP = Math.abs(c.open - targetPrice);
+            const distSL = Math.abs(c.open - stopPrice);
+            if (distTP <= distSL) {
+              activeSide = 'TP';
+              exitPrice = targetPrice;
+            } else {
+              activeSide = 'SL';
+              exitPrice = stopPrice;
+            }
+          } else if (hitTP) {
+            activeSide = 'TP';
+            exitPrice = targetPrice;
+          } else {
+            activeSide = 'SL';
+            exitPrice = stopPrice;
+          }
+
+          exitCandle = c;
+          exitIndex = i;
+          isExited = true;
+          break;
+        }
+      }
+
+      // If trade is in progress (no TP/SL exit hit yet up to diMax)
+      if (!isExited) {
+        const currentIdx = Math.max(activationIndex, maxSearchIdx);
+        exitCandle = dataList[currentIdx];
+        exitIndex = currentIdx;
+
+        if (exitCandle) {
+          const rawClose = typeof exitCandle.close === 'number' ? exitCandle.close : entryPrice;
+          const minBound = Math.min(targetPrice, stopPrice);
+          const maxBound = Math.max(targetPrice, stopPrice);
+          const clampedClose = Math.max(minBound, Math.min(maxBound, rawClose));
+          exitPrice = clampedClose;
+          if (isLong) {
+            activeSide = rawClose >= entryPrice ? 'TP' : 'SL';
+          } else {
+            activeSide = rawClose <= entryPrice ? 'TP' : 'SL';
+          }
+        }
+      }
+
+      if (exitCandle && exitIndex >= 0) {
+        const convertedExit = chart.convertToPixel(
+          [{ timestamp: exitCandle.timestamp, value: exitPrice, dataIndex: exitIndex }],
+          { paneId: 'candle_pane' }
+        );
+        if (convertedExit && convertedExit.length > 0 && convertedExit[0]) {
+          exitPt = convertedExit[0];
+        }
+      }
+    }
+
     const figures: any[] = [];
 
     // 1. Take Profit Zone (green)
@@ -279,7 +523,74 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
       styles: { style: 'fill', color: redFill }
     });
 
-    const showLines = customSettings.showLines !== false && customSettings.showLines === true;
+    // ─── Independent Activation & Exit Visualization Settings ─────────────────
+    const showActivationLine = customSettings.showActivationLine !== false;
+    const showActivationHighlight = customSettings.showActivationHighlight !== false;
+    const actLineColor = customSettings.activationLineColor || '#808285';
+    const actLineWidth = customSettings.activationLineWidth || 1;
+    const actLineStyle = customSettings.activationLineStyle || 'dashed';
+    const actHighlightOpacity = typeof customSettings.activationHighlightOpacity === 'number'
+      ? customSettings.activationHighlightOpacity
+      : 0.28;
+
+    // 2b. Active Area Single-Side Higher-Opacity Shading (if activated & showActivationHighlight is enabled)
+    if (showActivationHighlight && actPt && exitPt && activeSide) {
+      if (isExited) {
+        // Exited trade: highlight full TP/SL region from activation X to exit X
+        const activeLeft = Math.max(left, Math.min(right, actPt.x));
+        const activeRight = Math.max(left, Math.min(right, exitPt.x));
+        const activeWidth = activeRight - activeLeft;
+
+        if (activeWidth > 0) {
+          if (activeSide === 'TP') {
+            const activeGreenFill = boostColorOpacity(greenFill, actHighlightOpacity);
+            figures.push({
+              type: 'rect',
+              attrs: { x: activeLeft, y: tpTop, width: activeWidth, height: tpHeight },
+              styles: { style: 'fill', color: activeGreenFill }
+            });
+          } else if (activeSide === 'SL') {
+            const activeRedFill = boostColorOpacity(redFill, actHighlightOpacity);
+            figures.push({
+              type: 'rect',
+              attrs: { x: activeLeft, y: slTop, width: activeWidth, height: slHeight },
+              styles: { style: 'fill', color: activeRedFill }
+            });
+          }
+        }
+      } else {
+        // Active trade (no exit yet): highlight region from activation X to right edge (pMR.x), bounded vertically from entry (y0) to latest price (exitPt.y)
+        const activeLeft = Math.max(left, Math.min(right, actPt.x));
+        const activeRight = right;
+        const activeWidth = activeRight - activeLeft;
+
+        if (activeWidth > 0) {
+          const fillTop = Math.min(y0, exitPt.y);
+          const fillHeight = Math.abs(y0 - exitPt.y);
+
+          if (fillHeight > 0) {
+            if (activeSide === 'TP') {
+              const activeGreenFill = boostColorOpacity(greenFill, actHighlightOpacity);
+              figures.push({
+                type: 'rect',
+                attrs: { x: activeLeft, y: fillTop, width: activeWidth, height: fillHeight },
+                styles: { style: 'fill', color: activeGreenFill }
+              });
+            } else if (activeSide === 'SL') {
+              const activeRedFill = boostColorOpacity(redFill, actHighlightOpacity);
+              figures.push({
+                type: 'rect',
+                attrs: { x: activeLeft, y: fillTop, width: activeWidth, height: fillHeight },
+                styles: { style: 'fill', color: activeRedFill }
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Standard TP/SL/Entry Lines configuration (only rendered when showLines is ON)
+    const showLines = customSettings.showLines === true;
 
     // 3. Entry Price line
     if (showLines) {
@@ -305,6 +616,32 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
         type: 'line',
         attrs: { coordinates: [{ x: left, y: yStop }, { x: right, y: yStop }] },
         styles: { color: redBorder, size: lineWidth, style: style, dashedValue: dashedValue }
+      });
+    }
+
+    // Point B (lineEndPt) connects to exitPt (first TP/SL hit or last candle close at diMax boundary)
+    const lineEndPt = exitPt;
+
+    // 5b. Activation Trade Line (Point A = Activation to Point B = Clamped Close at diMax boundary)
+    if (showActivationLine && actPt && lineEndPt) {
+      let actDashedVal = [4, 3];
+      let actStyleName = 'dashed';
+      if (actLineStyle === 'solid') {
+        actStyleName = 'solid';
+      } else if (actLineStyle === 'dotted') {
+        actStyleName = 'dashed';
+        actDashedVal = [2, 2];
+      }
+
+      figures.push({
+        type: 'line',
+        attrs: {
+          coordinates: [
+            { x: actPt.x, y: y0 },
+            { x: lineEndPt.x, y: lineEndPt.y }
+          ]
+        },
+        styles: { color: actLineColor, size: actLineWidth, style: actStyleName, dashedValue: actDashedVal }
       });
     }
 
@@ -364,6 +701,38 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
           paddingTop: 4,
           paddingBottom: 4
         }
+      });
+    }
+
+    const showMarkers = customSettings.showMarkers !== false;
+
+    // 6. Entry/Activation Circle Marker (if activated & showMarkers is enabled)
+    if (showMarkers && actPt) {
+      figures.push({
+        type: 'circle',
+        attrs: { x: actPt.x, y: y0, r: 4 },
+        styles: {
+          style: 'stroke_fill',
+          color: '#ffffff',
+          borderColor: isLong ? greenBorder : redBorder,
+          borderSize: 2
+        },
+        ignoreEvent: true
+      });
+    }
+
+    // 7. Exit Circle Marker (at Point B lineEndPt, if activated & showMarkers is enabled)
+    if (showMarkers && actPt && lineEndPt) {
+      figures.push({
+        type: 'circle',
+        attrs: { x: lineEndPt.x, y: lineEndPt.y, r: 4 },
+        styles: {
+          style: 'stroke_fill',
+          color: '#ffffff',
+          borderColor: activeSide === 'TP' ? greenBorder : redBorder,
+          borderSize: 2
+        },
+        ignoreEvent: true
       });
     }
 
@@ -463,8 +832,21 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
   const dataList = event.chart.getDataList();
   const tf       = event.chart?._loadedTimeframe || '1m';
 
+  let initialSizePercent = 18;
+  try {
+    const savedDefaults = localStorage.getItem(`fx_default_settings_${overlay.name}`);
+    const defaultSettings = savedDefaults ? JSON.parse(savedDefaults) : {};
+    const mergedSettings = {
+      ...defaultSettings,
+      ...(overlay.extendData?.customSettings || {})
+    };
+    if (typeof mergedSettings.initialSizePercent === 'number' && mergedSettings.initialSizePercent > 0) {
+      initialSizePercent = mergedSettings.initialSizePercent;
+    }
+  } catch (_) {}
+
   const newPoints = computeDefaultRRPoints(
-    p0.value, p0.timestamp, p0.dataIndex ?? 0, isLong, dataList, tf
+    p0.value, p0.timestamp, p0.dataIndex ?? 0, isLong, dataList, tf, event.chart, initialSizePercent
   );
 
   // ── Synchronous call ────────────────────────────────────────────────────
@@ -616,23 +998,39 @@ export const LongPositionTool: ToolDefinition = {
   icon: LongPositionIcon as any,
   group: 'forecast',
   settingsSchema: [
-    { id: 'profitColor',     label: 'Profit Fill Color',  type: 'color',   defaultValue: 'rgba(76, 175, 80, 0.12)' },
-    { id: 'lossColor',       label: 'Loss Fill Color',    type: 'color',   defaultValue: 'rgba(244, 67, 54, 0.12)' },
-    { id: 'lineColor',       label: 'Entry Line Color',   type: 'color',   defaultValue: '#808285' },
-    { id: 'textColor',       label: 'Text Color',         type: 'color',   defaultValue: '#ffffff' },
-    { id: 'showLines',       label: 'Show Lines',         type: 'boolean', defaultValue: false },
-    { id: 'alwaysShowStats', label: 'Always Show Stats',  type: 'boolean', defaultValue: true }
+    { id: 'profitColor',                label: 'Profit Fill Color',           type: 'color',   defaultValue: 'rgba(76, 175, 80, 0.12)' },
+    { id: 'lossColor',                  label: 'Loss Fill Color',             type: 'color',   defaultValue: 'rgba(244, 67, 54, 0.12)' },
+    { id: 'lineColor',                  label: 'Entry Line Color',            type: 'color',   defaultValue: '#808285' },
+    { id: 'textColor',                  label: 'Text Color',                  type: 'color',   defaultValue: '#ffffff' },
+    { id: 'showLines',                  label: 'Show Lines',                  type: 'boolean', defaultValue: false },
+    { id: 'showActivationLine',         label: 'Show Activation Line',        type: 'boolean', defaultValue: true },
+    { id: 'activationLineColor',        label: 'Activation Line Color',       type: 'color',   defaultValue: '#808285' },
+    { id: 'activationLineStyle',        label: 'Activation Line Style',       type: 'select',  defaultValue: 'dashed' },
+    { id: 'activationLineWidth',        label: 'Activation Line Width',       type: 'number',  defaultValue: 1 },
+    { id: 'showActivationHighlight',    label: 'Show Activation Highlight',   type: 'boolean', defaultValue: true },
+    { id: 'activationHighlightOpacity', label: 'Activation Highlight Opacity',type: 'number',  defaultValue: 0.28 },
+    { id: 'showMarkers',                label: 'Show Markers',                type: 'boolean', defaultValue: true },
+    { id: 'initialSizePercent',         label: 'Initial Size (%)',            type: 'number',  defaultValue: 18 },
+    { id: 'alwaysShowStats',            label: 'Always Show Stats',           type: 'boolean', defaultValue: true }
   ],
   defaultTemplates: [{
     id: 'default',
     name: 'Default',
     commonSettings: {
-      profitColor:     'rgba(76, 175, 80, 0.12)',
-      lossColor:       'rgba(244, 67, 54, 0.12)',
-      lineColor:       '#808285',
-      textColor:       '#ffffff',
-      showLines:       false,
-      alwaysShowStats: true
+      profitColor:                'rgba(76, 175, 80, 0.12)',
+      lossColor:                  'rgba(244, 67, 54, 0.12)',
+      lineColor:                  '#808285',
+      textColor:                  '#ffffff',
+      showLines:                  false,
+      showActivationLine:         true,
+      activationLineColor:        '#808285',
+      activationLineStyle:        'dashed',
+      activationLineWidth:        1,
+      showActivationHighlight:    true,
+      activationHighlightOpacity: 0.28,
+      showMarkers:                true,
+      initialSizePercent:         18,
+      alwaysShowStats:            true
     }
   }],
   createOverlayDef:  () => createRiskRewardOverlayDef('longPosition', true),
@@ -646,23 +1044,39 @@ export const ShortPositionTool: ToolDefinition = {
   icon: ShortPositionIcon as any,
   group: 'forecast',
   settingsSchema: [
-    { id: 'profitColor',     label: 'Profit Fill Color',  type: 'color',   defaultValue: 'rgba(76, 175, 80, 0.12)' },
-    { id: 'lossColor',       label: 'Loss Fill Color',    type: 'color',   defaultValue: 'rgba(244, 67, 54, 0.12)' },
-    { id: 'lineColor',       label: 'Entry Line Color',   type: 'color',   defaultValue: '#808285' },
-    { id: 'textColor',       label: 'Text Color',         type: 'color',   defaultValue: '#ffffff' },
-    { id: 'showLines',       label: 'Show Lines',         type: 'boolean', defaultValue: false },
-    { id: 'alwaysShowStats', label: 'Always Show Stats',  type: 'boolean', defaultValue: true }
+    { id: 'profitColor',                label: 'Profit Fill Color',           type: 'color',   defaultValue: 'rgba(76, 175, 80, 0.12)' },
+    { id: 'lossColor',                  label: 'Loss Fill Color',             type: 'color',   defaultValue: 'rgba(244, 67, 54, 0.12)' },
+    { id: 'lineColor',                  label: 'Entry Line Color',            type: 'color',   defaultValue: '#808285' },
+    { id: 'textColor',                  label: 'Text Color',                  type: 'color',   defaultValue: '#ffffff' },
+    { id: 'showLines',                  label: 'Show Lines',                  type: 'boolean', defaultValue: false },
+    { id: 'showActivationLine',         label: 'Show Activation Line',        type: 'boolean', defaultValue: true },
+    { id: 'activationLineColor',        label: 'Activation Line Color',       type: 'color',   defaultValue: '#808285' },
+    { id: 'activationLineStyle',        label: 'Activation Line Style',       type: 'select',  defaultValue: 'dashed' },
+    { id: 'activationLineWidth',        label: 'Activation Line Width',       type: 'number',  defaultValue: 1 },
+    { id: 'showActivationHighlight',    label: 'Show Activation Highlight',   type: 'boolean', defaultValue: true },
+    { id: 'activationHighlightOpacity', label: 'Activation Highlight Opacity',type: 'number',  defaultValue: 0.28 },
+    { id: 'showMarkers',                label: 'Show Markers',                type: 'boolean', defaultValue: true },
+    { id: 'initialSizePercent',         label: 'Initial Size (%)',            type: 'number',  defaultValue: 18 },
+    { id: 'alwaysShowStats',            label: 'Always Show Stats',           type: 'boolean', defaultValue: true }
   ],
   defaultTemplates: [{
     id: 'default',
     name: 'Default',
     commonSettings: {
-      profitColor:     'rgba(76, 175, 80, 0.12)',
-      lossColor:       'rgba(244, 67, 54, 0.12)',
-      lineColor:       '#808285',
-      textColor:       '#ffffff',
-      showLines:       false,
-      alwaysShowStats: true
+      profitColor:                'rgba(76, 175, 80, 0.12)',
+      lossColor:                  'rgba(244, 67, 54, 0.12)',
+      lineColor:                  '#808285',
+      textColor:                  '#ffffff',
+      showLines:                  false,
+      showActivationLine:         true,
+      activationLineColor:        '#808285',
+      activationLineStyle:        'dashed',
+      activationLineWidth:        1,
+      showActivationHighlight:    true,
+      activationHighlightOpacity: 0.28,
+      showMarkers:                true,
+      initialSizePercent:         18,
+      alwaysShowStats:            true
     }
   }],
   createOverlayDef:  () => createRiskRewardOverlayDef('shortPosition', false),
