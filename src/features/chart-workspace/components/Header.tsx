@@ -157,10 +157,10 @@ export const Header: React.FC<HeaderProps> = (props) => {
               />
               
               {/* Premium Dropdown Popover */}
-              <div className="absolute top-full right-0 mt-1.5 z-40 w-72 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl p-3 flex flex-col gap-3 text-left">
+              <div className="absolute top-full right-0 mt-1.5 z-40 w-72 bg-surface border border-border-def rounded-xl shadow-2xl p-3 flex flex-col gap-3 text-left">
                 {/* Minutes Grid */}
                 <div>
-                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Minutes</div>
+                  <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider mb-1.5">Minutes</div>
                   <div className="grid grid-cols-4 gap-1">
                     {['1m', '2m', '3m', '5m', '10m', '15m', '30m', '45m'].map((tfVal) => {
                       const preset = PRESET_TIMEFRAMES.find(p => p.value === tfVal);
@@ -175,8 +175,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
                           }}
                           className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
                             isActive
-                              ? 'bg-indigo-650 text-white shadow-sm'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-850'
+                              ? 'bg-accent text-txt-inverse shadow-sm'
+                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
                           {label}
@@ -505,7 +505,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
         {onOpenDataManagementModal && (
           <button
             onClick={onOpenDataManagementModal}
-            className="p-2 rounded-lg bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
+            className="p-2 rounded-lg bg-surface hover:bg-surface-hover text-txt-muted hover:text-txt-primary transition-all cursor-pointer border border-border-sub"
             title="Storage & Data Management"
           >
             <Database className="w-4 h-4" />
@@ -514,7 +514,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
         <button
           onClick={onOpenThemeModal}
-          className="p-2 rounded-lg bg-[#1e222d] hover:bg-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
+          className="p-2 rounded-lg bg-surface hover:bg-surface-hover text-txt-muted hover:text-txt-primary transition-all cursor-pointer border border-border-sub"
           title="Chart Settings"
         >
           <Settings className="w-4 h-4" />

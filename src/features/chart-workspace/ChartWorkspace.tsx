@@ -1414,8 +1414,8 @@ export function ChartWorkspace() {
       <div
         onClick={() => handleSelectSlot(i)}
         className={`
-          relative w-full h-full bg-[#131722] rounded overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
-          ${showHighlight && isActive ? 'ring-2 ring-indigo-500/40 z-10 shadow-md shadow-indigo-500/5' : showHighlight ? 'border border-gray-800 hover:border-gray-750' : ''}
+          relative w-full h-full bg-slot-bg rounded overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
+          ${showHighlight && isActive ? 'ring-2 ring-accent/40 z-10 shadow-md shadow-accent/5' : showHighlight ? 'border border-border-sub hover:border-border-def' : ''}
         `}
       >
         <div
@@ -1459,13 +1459,13 @@ export function ChartWorkspace() {
         {/* Vertical Cut Selection Line */}
         {replayCoord.isSelectingCutPoint && isActive && replayCoord.cutPointHoverX !== null && (
           <div
-            className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500 pointer-events-none z-30"
+            className="absolute top-0 bottom-0 w-px border-l border-dashed border-status-error pointer-events-none z-30"
             style={{ left: `${replayCoord.cutPointHoverX}px` }}
           />
         )}
 
         {/* Slot Info Badge */}
-        <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#1e222d]/85 backdrop-blur-sm border border-gray-800 pointer-events-none select-none text-[10px] font-bold text-gray-300">
+        <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-surface-elevated/85 backdrop-blur-sm border border-border-sub pointer-events-none select-none text-[10px] font-bold text-txt-primary">
           <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
           <span>{slots[i]?.symbol || 'No Symbol'}</span>
           <span className="text-gray-500">•</span>
@@ -1579,7 +1579,7 @@ export function ChartWorkspace() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#131722] text-[#b2b5be] overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-app-bg text-txt-secondary overflow-hidden select-none">
       <Header
         assetName={assetName}
         hasData={hasData}
@@ -1738,7 +1738,7 @@ export function ChartWorkspace() {
           activeOverlayIdRef={activeOverlayIdRef}
         />
 
-        <main className="flex-1 h-full relative overflow-hidden bg-[#131722] p-1 flex">
+        <main className="flex-1 h-full relative overflow-hidden bg-app-bg p-1 flex">
           {workspaceCoord.importProgress ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#131722]/95 backdrop-blur-sm p-6 text-center select-none transition-all duration-300">
               <div className="max-w-md w-full bg-[#1e222d] border border-white/10 rounded-xl p-6 shadow-2xl flex flex-col items-center gap-5">
