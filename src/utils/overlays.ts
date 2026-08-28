@@ -305,18 +305,14 @@ export function getInteractiveOverlayOptions(
           actualChart._setSelectedOverlayIds([id]);
         }
       }
-      const hoveredIdx = event.overlay.extendData?.hoveredAnchorIndex;
-      let isHandle = false;
+      // Calculate handle proximity directly from current mouse-down position (event.x, event.y).
+      // NEVER rely on stale hoveredAnchorIndex or previous drag state.
+      const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
+      let minDistance = Infinity;
       let closestIndex = 0;
-
-      if (hoveredIdx !== undefined && hoveredIdx !== null) {
-        isHandle = true;
-        closestIndex = hoveredIdx;
-      } else {
-        const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
-        let minDistance = Infinity;
+      if (Array.isArray(pts)) {
         pts.forEach((pt: any, idx: number) => {
-          if (pt) {
+          if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
             const dist = Math.sqrt((pt.x - event.x) ** 2 + (pt.y - event.y) ** 2);
             if (dist < minDistance) {
               minDistance = dist;
@@ -324,18 +320,31 @@ export function getInteractiveOverlayOptions(
             }
           }
         });
-        isHandle = minDistance < 12;
       }
+
+      const isHandle = minDistance < 14;
+      const currentDraggedIndex = isHandle ? closestIndex : null;
+
       if (chartInstanceRef.current) {
-        chartInstanceRef.current._activeDraggingIndex = isHandle ? closestIndex : null;
+        chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
+      }
+      if (event.overlay) {
+        event.overlay.currentPointIndex = isHandle ? closestIndex : -1;
+        delete event.overlay.prevPoints;
       }
 
       const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+      const startMousePixel = { x: event.x, y: event.y };
+      const startPointsPixels = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
+
       const overrideOpts = {
         extendData: { 
           ...(event.overlay.extendData || {}),
-          draggedIndex: isHandle ? closestIndex : null,
+          hoveredAnchorIndex: null, // Clear any stale hover state from previous handle interactions
+          draggedIndex: currentDraggedIndex,
           startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
+          startPointsPixels,
+          startMousePixel,
           startMousePt
         }
       };
@@ -350,10 +359,9 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
-      const activeDraggingIndex = chartInstanceRef.current?._activeDraggingIndex;
-      const draggedIndex = activeDraggingIndex !== undefined
-        ? activeDraggingIndex
-        : event.overlay.extendData?.draggedIndex;
+      const draggedIndex = event.overlay.extendData?.draggedIndex !== undefined
+        ? event.overlay.extendData.draggedIndex
+        : (chartInstanceRef.current?._activeDraggingIndex ?? null);
 
       if (draggedIndex === undefined) {
         return;
@@ -361,28 +369,37 @@ export function getInteractiveOverlayOptions(
 
       if (draggedIndex === null) {
         const startPoints = event.overlay.extendData?.startPoints;
-        const startMousePt = event.overlay.extendData?.startMousePt;
-        const currentMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+        const startMousePixel = event.overlay.extendData?.startMousePixel;
+        const startPointsPixels = event.overlay.extendData?.startPointsPixels;
 
-        if (startPoints && startMousePt && currentMousePt) {
-          const deltaTimestamp = currentMousePt.timestamp - startMousePt.timestamp;
-          const deltaValue = currentMousePt.value - startMousePt.value;
-          const deltaDataIndex = (currentMousePt.dataIndex !== undefined && startMousePt.dataIndex !== undefined)
-            ? currentMousePt.dataIndex - startMousePt.dataIndex
-            : 0;
+        if (startPoints && startMousePixel && startPointsPixels && Array.isArray(startPointsPixels)) {
+          const dx = event.x - startMousePixel.x;
+          const dy = event.y - startMousePixel.y;
 
-          const newPoints = startPoints.map((pt: any) => ({
-            ...pt,
-            timestamp: pt.timestamp + deltaTimestamp,
-            value: pt.value + deltaValue,
-            dataIndex: (pt.dataIndex !== undefined) ? pt.dataIndex + deltaDataIndex : undefined
+          const targetPixels = startPointsPixels.map((pt: any) => ({
+            x: pt.x + dx,
+            y: pt.y + dy
           }));
 
-          event.chart.overrideOverlay({
-            id: event.overlay.id,
-            points: newPoints
-          });
-          mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
+          const convertedPoints = event.chart.convertFromPixel(targetPixels, { paneId: 'candle_pane' });
+
+          if (convertedPoints && convertedPoints.length === startPoints.length) {
+            const newPoints = startPoints.map((pt: any, i: number) => {
+              const conv = convertedPoints[i];
+              return {
+                ...pt,
+                timestamp: conv?.timestamp ?? pt.timestamp,
+                value: conv?.value ?? pt.value,
+                ...(conv?.dataIndex !== undefined ? { dataIndex: conv.dataIndex } : {})
+              };
+            });
+
+            event.chart.overrideOverlay({
+              id: event.overlay.id,
+              points: newPoints
+            });
+            mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
+          }
         }
 
         if (event.chart._handleMultiMove) {
@@ -482,12 +499,21 @@ export function getInteractiveOverlayOptions(
     },
     onPressedMoveEnd: (event: any) => {
       if (chartInstanceRef.current) {
-        chartInstanceRef.current._activeDraggingIndex = undefined;
+        chartInstanceRef.current._activeDraggingIndex = null;
+      }
+      if (event.overlay) {
+        event.overlay.currentPointIndex = -1;
+        delete event.overlay.prevPoints;
       }
       const overrideOpts = {
         extendData: {
           ...(event.overlay.extendData || {}),
-          draggedIndex: null
+          hoveredAnchorIndex: null,
+          draggedIndex: null,
+          startPoints: undefined,
+          startPointsPixels: undefined,
+          startMousePixel: undefined,
+          startMousePt: undefined
         }
       };
       event.chart.overrideOverlay({
