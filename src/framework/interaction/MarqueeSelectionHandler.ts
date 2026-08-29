@@ -178,26 +178,14 @@ export class MarqueeSelectionHandler {
           }
         }
       } else if (startPos) {
-        // Normal click check (without Ctrl drag box)
-        const dx = Math.abs(e.clientX - startPos.x);
-        const dy = Math.abs(e.clientY - startPos.y);
-        const isClick = dx <= 4 && dy <= 4;
-
-        if (isClick && !this._options.activeTool) {
-          const isCtrl = this._options.modifierTracker.isCtrlPressed;
-          if (!isCtrl) {
-            if (this._activeChart._clickedOnOverlay) {
-              this._activeChart._clickedOnOverlay = false;
-            } else {
-              // Clicked on empty space without Ctrl: clear selection
-              this._options.onSelectOverlayIds([]);
-            }
-          } else {
-            if (this._activeChart._clickedOnOverlay) {
-              this._activeChart._clickedOnOverlay = false;
-            }
-          }
-        }
+        // Normal click check (without Ctrl drag box).
+        // We intentionally do NOT touch _clickedOnOverlay or call onSelectOverlayIds here.
+        // KLineCharts fires its onClick callback AFTER the native mouseup, so reading
+        // _clickedOnOverlay here would race with that callback and produce wrong results.
+        // Deselection on empty-space click is handled exclusively by ChartWorkspace's
+        // 50ms-deferred handleMouseUp, which runs after KLineCharts has had time to
+        // fire its onClick and set _clickedOnOverlay = true on the chart instance.
+        // Nothing to do here — just fall through and let ChartWorkspace decide.
       }
     }
 

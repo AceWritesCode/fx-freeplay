@@ -346,6 +346,13 @@ export function getInteractiveOverlayOptions(
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
       }
+      // Always set on event.chart directly — in multi-chart setups, event.chart
+      // may differ from chartInstanceRef.current. The drawingReconciler checks
+      // chart._activeDraggingIndex to decide whether to protect the overlay from
+      // being overwritten, so both references must be consistent.
+      if (event.chart) {
+        event.chart._activeDraggingIndex = currentDraggedIndex;
+      }
       if (event.overlay) {
         event.overlay.currentPointIndex = isHandle ? closestIndex : -1;
         delete event.overlay.prevPoints;
@@ -518,6 +525,10 @@ export function getInteractiveOverlayOptions(
     onPressedMoveEnd: (event: any) => {
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = null;
+      }
+      // Mirror on event.chart to stay symmetric with onPressedMoveStart
+      if (event.chart) {
+        event.chart._activeDraggingIndex = null;
       }
       if (event.overlay) {
         event.overlay.currentPointIndex = -1;
