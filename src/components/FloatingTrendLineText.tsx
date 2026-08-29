@@ -232,8 +232,21 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   return (
     <div
       ref={elRef}
-      onMouseEnter={() => setIsDomHovered(true)}
-      onMouseLeave={() => setIsDomHovered(false)}
+      onMouseEnter={() => {
+        setIsDomHovered(true);
+        if (!overlay?.extendData?.isHovered) {
+          chart?.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...(overlay.extendData || {}),
+              isHovered: true
+            }
+          });
+        }
+      }}
+      onMouseLeave={() => {
+        setIsDomHovered(false);
+      }}
       className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
         fontSize: `${fontSize}px`,

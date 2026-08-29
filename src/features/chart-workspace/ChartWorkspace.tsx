@@ -941,8 +941,8 @@ export function ChartWorkspace() {
 
       const isAnchorHit = minDistance < 12;
 
-      // 2. Perform body hit-testing for shape overlays (rectangle, longPosition, shortPosition)
-      let hoveredShapeOverlay: any = null;
+      // 2. Perform body/line hit-testing for interactive overlays
+      let hoveredInteractiveOverlay: any = null;
       let isInsideBody = false;
 
       interactiveOverlays.forEach((ov: any) => {
@@ -958,9 +958,25 @@ export function ChartWorkspace() {
               const maxY = Math.max(...yCoords);
 
               if (xVal >= minX && xVal <= maxX && yVal >= minY && yVal <= maxY) {
-                hoveredShapeOverlay = ov;
+                hoveredInteractiveOverlay = ov;
                 isInsideBody = true;
               }
+            }
+          }
+        } else if (ov.points && ov.name === 'trendLine' && ov.points.length >= 2) {
+          const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          if (pts && pts[0] && pts[1]) {
+            const p1 = pts[0];
+            const p2 = pts[1];
+            const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+            let dist = Infinity;
+            if (l2 > 0) {
+              let t = ((xVal - p1.x) * (p2.x - p1.x) + (yVal - p1.y) * (p2.y - p1.y)) / l2;
+              t = Math.max(0, Math.min(1, t));
+              dist = Math.sqrt((xVal - (p1.x + t * (p2.x - p1.x))) ** 2 + (yVal - (p1.y + t * (p2.y - p1.y))) ** 2);
+            }
+            if (dist <= 12) {
+              hoveredInteractiveOverlay = ov;
             }
           }
         }
@@ -968,8 +984,8 @@ export function ChartWorkspace() {
 
       // Maintain isHovered state cleanly without layout resets
       interactiveOverlays.forEach((ov: any) => {
-        if (['rectangle', 'longPosition', 'shortPosition'].includes(ov.name)) {
-          const isCurrentlyHovered = ov.id === hoveredShapeOverlay?.id;
+        if (['rectangle', 'longPosition', 'shortPosition', 'trendLine'].includes(ov.name)) {
+          const isCurrentlyHovered = ov.id === hoveredInteractiveOverlay?.id;
           if (ov.extendData?.isHovered !== isCurrentlyHovered) {
             chart.overrideOverlay({
               id: ov.id,
