@@ -331,13 +331,17 @@ export function getInteractiveOverlayOptions(
         });
       }
 
-      const isHandle = minDistance < 14;
+      const isHandle = minDistance < 18;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
       }
+      if (event.chart) {
+        event.chart._activeDraggingIndex = currentDraggedIndex;
+      }
       if (event.overlay) {
+        event.overlay._activeDraggingIndex = currentDraggedIndex;
         event.overlay.currentPointIndex = isHandle ? closestIndex : -1;
         delete event.overlay.prevPoints;
       }
@@ -368,9 +372,13 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
-      const draggedIndex = event.overlay.extendData?.draggedIndex !== undefined
-        ? event.overlay.extendData.draggedIndex
-        : (chartInstanceRef.current?._activeDraggingIndex ?? null);
+      const draggedIndex = event.chart?._activeDraggingIndex !== undefined
+        ? event.chart._activeDraggingIndex
+        : (event.overlay?._activeDraggingIndex !== undefined
+          ? event.overlay._activeDraggingIndex
+          : (event.overlay.extendData?.draggedIndex !== undefined
+            ? event.overlay.extendData.draggedIndex
+            : (chartInstanceRef.current?._activeDraggingIndex ?? null)));
 
       if (draggedIndex === undefined) {
         return;
@@ -510,7 +518,11 @@ export function getInteractiveOverlayOptions(
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = null;
       }
+      if (event.chart) {
+        event.chart._activeDraggingIndex = null;
+      }
       if (event.overlay) {
+        event.overlay._activeDraggingIndex = null;
         event.overlay.currentPointIndex = -1;
         delete event.overlay.prevPoints;
       }
