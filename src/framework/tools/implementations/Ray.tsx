@@ -1,8 +1,8 @@
 import type { ToolDefinition } from '../ToolRegistry';
 import { drawGrabHandles } from '../toolUtils';
 
-// Robust extrapolation calculation extending to the right
-const extrapolateRayToRight = (
+// Robust directional extrapolation calculation from p1 through p2
+const extrapolateRay = (
   p1: { x: number; y: number },
   p2: { x: number; y: number },
   width: number,
@@ -12,13 +12,13 @@ const extrapolateRayToRight = (
   const dy = p2.y - p1.y;
 
   if (Math.abs(dx) < 0.0001) {
-    // Near vertical line, extends downwards/upwards depending on dy
+    // Near vertical ray extending in direction of dy
     return { x: p1.x, y: dy >= 0 ? height + 100 : -100 };
   }
 
   const slope = dy / dx;
-  const targetX = width + 100;
-  const targetY = p1.y + slope * (targetX - p1.x);
+  const targetX = dx > 0 ? width + 100 : -100;
+  const targetY = p2.y + slope * (targetX - p2.x);
   return { x: targetX, y: targetY };
 };
 
@@ -142,8 +142,8 @@ export const RayTool: ToolDefinition = {
         const width = bounding?.width ?? 1000;
         const height = bounding?.height ?? 500;
 
-        // Calculate extrapolated end point always to the right
-        const pExtrapolated = extrapolateRayToRight(coordinates[0], coordinates[1], width, height);
+        // Calculate extrapolated end point in the ray direction
+        const pExtrapolated = extrapolateRay(coordinates[0], coordinates[1], width, height);
 
         figures.push({
           type: 'line',
@@ -157,10 +157,9 @@ export const RayTool: ToolDefinition = {
           ignoreEvent: false
         });
 
-        // Selection / In-progress creation grab handles
-        const isDrawing = typeof overlay?.currentStep === 'number' && typeof overlay?.totalStep === 'number' && overlay.currentStep < overlay.totalStep;
+        // Selection point grab handles
         const isSelected = (overlay?.extendData as any)?.isSelected;
-        if (isSelected || isDrawing) {
+        if (isSelected) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }
