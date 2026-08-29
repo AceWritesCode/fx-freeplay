@@ -157,8 +157,10 @@ export const RayTool: ToolDefinition = {
           ignoreEvent: false
         });
 
-        // Selection point grab handles
-        if ((overlay?.extendData as any)?.isSelected) {
+        // Selection / In-progress creation grab handles
+        const isDrawing = typeof overlay?.currentStep === 'number' && typeof overlay?.totalStep === 'number' && overlay.currentStep < overlay.totalStep;
+        const isSelected = (overlay?.extendData as any)?.isSelected;
+        if (isSelected || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }

@@ -122,25 +122,52 @@ export function reconcileWorkspace(
           return;
         }
 
+        const selectedIds = useDrawingStore.getState().selectedOverlayIds || [];
+        const isSelected = selectedIds.includes(overlayId);
+
+        // Normalize extendData without transient runtime state for change comparison
+        const existingCleanExtendData = { ...(existingOv.extendData || {}) };
+        delete existingCleanExtendData.isSelected;
+        delete existingCleanExtendData.isHovered;
+        delete existingCleanExtendData.isEditingText;
+        delete existingCleanExtendData.textWidth;
+        delete existingCleanExtendData.hoveredAnchorIndex;
+        delete existingCleanExtendData.draggedIndex;
+
+        const storedCleanExtendData = { ...(d.extendData || {}) };
+        delete storedCleanExtendData.isSelected;
+        delete storedCleanExtendData.isHovered;
+        delete storedCleanExtendData.isEditingText;
+        delete storedCleanExtendData.textWidth;
+        delete storedCleanExtendData.hoveredAnchorIndex;
+        delete storedCleanExtendData.draggedIndex;
+
         // Check if points, lock, visible, or extendData changed in store
         const pointsChanged = JSON.stringify(existingOv.points) !== JSON.stringify(d.points);
         const lockChanged = existingOv.lock !== d.lock;
         const visibleChanged = existingOv.visible !== (d.visible !== false);
-        const extendDataChanged = JSON.stringify(existingOv.extendData) !== JSON.stringify(d.extendData || {});
+        const extendDataChanged = JSON.stringify(existingCleanExtendData) !== JSON.stringify(storedCleanExtendData);
+        const selectionChanged = (existingOv.extendData?.isSelected ?? false) !== isSelected;
 
-        if (pointsChanged || lockChanged || visibleChanged || extendDataChanged) {
+        if (pointsChanged || lockChanged || visibleChanged || extendDataChanged || selectionChanged) {
           DrawingChartAdapter.overrideOverlay(chart, {
             id: overlayId,
             points: JSON.parse(JSON.stringify(d.points)),
             lock: d.lock,
             visible: d.visible !== false,
-            extendData: JSON.parse(JSON.stringify(d.extendData || {})),
+            extendData: {
+              ...JSON.parse(JSON.stringify(d.extendData || {})),
+              ...(existingOv.extendData || {}),
+              isSelected,
+            },
             styles: d.styles,
           });
           slotModified = true;
         }
       } else {
         // Create missing overlay instance on target chart slot
+        const selectedIds = useDrawingStore.getState().selectedOverlayIds || [];
+        const isSelected = selectedIds.includes(overlayId);
         DrawingChartAdapter.createOverlay(chart, {
           name: d.name,
           id: overlayId,
@@ -148,7 +175,10 @@ export function reconcileWorkspace(
           points: JSON.parse(JSON.stringify(d.points)),
           lock: d.lock,
           visible: d.visible !== false,
-          extendData: JSON.parse(JSON.stringify(d.extendData || {})),
+          extendData: {
+            ...JSON.parse(JSON.stringify(d.extendData || {})),
+            isSelected,
+          },
           styles: d.styles,
         });
         slotModified = true;

@@ -274,8 +274,9 @@ export const TrendLineTool: ToolDefinition = {
         });
 
 
-        // Selection point grab handles
-        if ((overlay?.extendData as any)?.isSelected) {
+        // Selection / In-progress creation grab handles
+        const isDrawing = typeof overlay?.currentStep === 'number' && typeof overlay?.totalStep === 'number' && overlay.currentStep < overlay.totalStep;
+        if (isSelected || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }

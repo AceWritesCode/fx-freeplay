@@ -853,8 +853,8 @@ export function ChartWorkspace() {
 
             if (clickInside && !isUIInteraction) {
               setTimeout(() => {
-                if (!chart._clickedOnOverlay) {
-                  setSelectedOverlayIds([]);
+                if (!chart._clickedOnOverlay && !chart._activeDrawingId) {
+                  handleSelectOverlayIds([]);
                   if (drawingCoord.activeTool) {
                     drawingCoord.setActiveTool(null);
                     chart.setScrollEnabled(true);
