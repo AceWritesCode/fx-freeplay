@@ -24,13 +24,13 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
       type="button"
       title={title}
       className={`
-        relative flex items-center justify-center w-8 h-8 rounded transition-colors cursor-pointer select-none text-gray-700 dark:text-gray-300
+        relative flex items-center justify-center w-8 h-8 rounded transition-colors cursor-pointer select-none text-txt-secondary
         ${
           danger
-            ? 'hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-900/20'
+            ? 'hover:text-status-error hover:bg-status-error/10'
             : active
-            ? 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20'
-            : 'hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+            ? 'text-accent bg-accent-muted ring-1 ring-accent'
+            : 'hover:text-txt-primary hover:bg-surface-hover'
         }
         ${className}
       `}
@@ -405,7 +405,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                         e.stopPropagation();
                         deleteTemplate(tpl.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-1 rounded transition-all text-red-500 dark:text-red-400 hover:text-red-650"
+                      className="opacity-0 group-hover:opacity-100 hover:bg-status-error/10 p-1 rounded transition-all text-status-error"
                       title="Delete template"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -414,11 +414,10 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 ))
               )}
             </div>
-
           </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
 
   if (selectedOverlayIds.length === 0) return null;
 
@@ -443,7 +442,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         title="Drag toolbar"
       >
         {isRiskReward ? (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 12" width="8" height="12" fill="currentColor" className="text-gray-400">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 12" width="8" height="12" fill="currentColor" className="text-txt-muted">
             <rect width="2" height="2" rx="1"></rect>
             <rect width="2" height="2" rx="1" y="5"></rect>
             <rect width="2" height="2" rx="1" y="10"></rect>
@@ -452,7 +451,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             <rect width="2" height="2" rx="1" x="6" y="10"></rect>
           </svg>
         ) : (
-          <GripVertical className="w-4 h-4 text-gray-400" />
+          <GripVertical className="w-4 h-4 text-txt-muted" />
         )}
       </div>
 
@@ -461,7 +460,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         {/* Templates */}
         {templatesDropdown}
 
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-0.5" />
+        <div className="w-px h-4 bg-border-def mx-0.5" />
 
         {/* Line Color */}
         <div className="relative">

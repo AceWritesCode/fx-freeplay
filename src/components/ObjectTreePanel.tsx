@@ -1200,7 +1200,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleGroupSelected}
                 title="Create a group of drawings"
-                className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800/80 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="p-1.5 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="18" height="18" fill="none">
                   <path fill="currentColor" fillRule="evenodd" clip-rule="evenodd" d="M5.5 6C4.67 6 4 6.67 4 7.5V20.5c0 .83.67 1.5 1.5 1.5H16v-1H5.5a.5.5 0 0 1-.5-.5V12h16v1h1V9.5c0-.83-.67-1.5-1.5-1.5h-8.8L9.86 6.15 9.71 6H5.5zM21 11H5V7.5c0-.28.22-.5.5-.5h3.8l1.85 1.85.14.15h9.21c.28 0 .5.22.5.5V11zm1 11v-3h3v-1h-3v-3h-1v3h-3v1h3v3h1z"></path>
@@ -1213,7 +1213,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleLockSelected}
                 title="Toggle Lock selected"
-                className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800/80 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="p-1.5 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
               >
                 <Lock className="w-4.5 h-4.5" />
               </button>
@@ -1224,7 +1224,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleHideSelected}
                 title="Toggle Hide/Show selected"
-                className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800/80 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="p-1.5 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
               >
                 <Eye className="w-4.5 h-4.5" />
               </button>
@@ -1235,7 +1235,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleDeleteSelected}
                 title="Delete selected"
-                className="p-1.5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="p-1.5 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
               >
                 <Trash2 className="w-4.5 h-4.5" />
               </button>

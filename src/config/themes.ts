@@ -128,7 +128,7 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     statusInfo: '#3b82f6',
   },
 
-  // Light Theme (Clean slate light palette)
+  // Light Theme (Clean slate light palette with high-contrast text and borders)
   light: {
     bgApp: '#f8fafc',
     bgSlot: '#ffffff',
@@ -138,8 +138,8 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
     bgOverlay: 'rgba(15, 23, 42, 0.4)',
 
     textPrimary: '#0f172a',
-    textSecondary: '#475569',
-    textMuted: '#94a3b8',
+    textSecondary: '#334155',
+    textMuted: '#64748b',
     textInverse: '#ffffff',
 
     borderDefault: '#cbd5e1',
@@ -148,7 +148,7 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
 
     accentPrimary: '#2563eb',
     accentHover: '#1d4ed8',
-    accentMuted: 'rgba(37, 99, 235, 0.1)',
+    accentMuted: 'rgba(37, 99, 235, 0.12)',
     surfaceHover: '#f1f5f9',
     surfaceActive: '#e2e8f0',
 

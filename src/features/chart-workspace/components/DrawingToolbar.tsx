@@ -253,7 +253,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
             >
@@ -275,7 +275,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isCursorMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
             >
@@ -334,8 +334,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             </div>
                             
                             <div className="flex items-center gap-3.5">
-                              <span className="text-gray-600 hover:text-yellow-500 transition-colors">
-                                <svg className="w-4 h-4 fill-current text-yellow-500" viewBox="0 0 18 18">
+                              <span className="text-txt-muted hover:text-amber-500 transition-colors">
+                                <svg className="w-4 h-4 fill-current text-amber-500" viewBox="0 0 18 18">
                                   <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
                                 </svg>
                               </span>
@@ -345,7 +345,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                       })}
                     </div>
                     {idx < arr.length - 1 && (
-                      <div className="border-t border-gray-800 my-1"></div>
+                      <div className="border-t border-border-sub my-1"></div>
                     )}
                   </div>
                 ))}
@@ -373,7 +373,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
             >
@@ -395,7 +395,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isLineMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
             >
@@ -414,7 +414,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 }}
               >
                 {/* Header */}
-                <div className="px-3.5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                <div className="px-3.5 py-2 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
                   Lines
                 </div>
 
@@ -448,12 +448,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                           
                           <div className="flex items-center gap-3.5">
                             {tool.hotkey && (
-                              <span className="text-[10px] text-gray-500 font-mono pr-1">
+                              <span className="text-[10px] text-txt-muted font-mono pr-1">
                                 {tool.hotkey}
                               </span>
                             )}
-                            <span className="text-gray-600 hover:text-yellow-500 transition-colors">
-                              <svg className="w-4 h-4 fill-current text-yellow-500" viewBox="0 0 18 18">
+                            <span className="text-txt-muted hover:text-amber-500 transition-colors">
+                              <svg className="w-4 h-4 fill-current text-amber-500" viewBox="0 0 18 18">
                                 <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
                               </svg>
                             </span>
@@ -486,7 +486,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
             >
@@ -508,7 +508,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isShapeMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
             >
@@ -542,7 +542,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 ].map((section, idx, arr) => (
                   <div key={section.title} className="flex flex-col">
                     {/* Section Header */}
-                    <div className="px-3.5 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <div className="px-3.5 py-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
                       {section.title}
                     </div>
 
@@ -788,13 +788,13 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 selectMagnetMode('weak_magnet');
                 setIsMagnetMenuOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
                 magnetMode === 'weak_magnet'
-                  ? 'bg-[#f0f3fa] text-gray-900 font-medium'
-                  : 'text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-accent-muted text-accent font-medium'
+                  : 'text-txt-secondary hover:bg-surface-hover hover:text-txt-primary'
               }`}
             >
-              <WeakMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'weak_magnet' ? 'text-gray-900' : 'text-gray-400'} />
+              <WeakMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'weak_magnet' ? 'text-accent' : 'text-txt-muted'} />
               <span>Weak magnet</span>
             </button>
             <button
@@ -802,13 +802,13 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 selectMagnetMode('normal_magnet');
                 setIsMagnetMenuOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
                 magnetMode === 'normal_magnet'
-                  ? 'bg-[#f0f3fa] text-gray-900 font-medium'
-                  : 'text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-accent-muted text-accent font-medium'
+                  : 'text-txt-secondary hover:bg-surface-hover hover:text-txt-primary'
               }`}
             >
-              <Magnet style={{ width: '20px', height: '20px' }} className={magnetMode === 'normal_magnet' ? 'text-gray-900' : 'text-gray-400'} />
+              <Magnet style={{ width: '20px', height: '20px' }} className={magnetMode === 'normal_magnet' ? 'text-accent' : 'text-txt-muted'} />
               <span>Normal magnet</span>
             </button>
             <button
@@ -816,13 +816,13 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 selectMagnetMode('strong_magnet');
                 setIsMagnetMenuOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
                 magnetMode === 'strong_magnet'
-                  ? 'bg-[#f0f3fa] text-gray-900 font-medium'
-                  : 'text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-accent-muted text-accent font-medium'
+                  : 'text-txt-secondary hover:bg-surface-hover hover:text-txt-primary'
               }`}
             >
-              <StrongMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'strong_magnet' ? 'text-gray-900' : 'text-gray-400'} />
+              <StrongMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'strong_magnet' ? 'text-accent' : 'text-txt-muted'} />
               <span>Strong magnet</span>
             </button>
           </div>

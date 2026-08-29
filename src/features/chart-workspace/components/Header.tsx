@@ -130,7 +130,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
         {!HEADER_TIMEFRAMES.includes(activeTimeframe) && (
           <button
             disabled={!hasData}
-            className="px-3 py-1 rounded-md text-xs font-semibold tracking-wide bg-indigo-600 text-white shadow-md"
+            className="px-3 py-1 rounded-md text-xs font-semibold tracking-wide bg-accent text-txt-inverse shadow-md"
           >
             {activeTimeframe}
           </button>
@@ -141,8 +141,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
           <button
             disabled={!hasData}
             onClick={() => setIsTfDropdownOpen(!isTfDropdownOpen)}
-            className={`p-1.5 ml-0.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-850 transition-colors disabled:opacity-40 ${
-              isTfDropdownOpen ? 'bg-gray-800 text-white' : ''
+            className={`p-1.5 ml-0.5 rounded-md text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors disabled:opacity-40 cursor-pointer ${
+              isTfDropdownOpen ? 'bg-surface-hover text-txt-primary' : ''
             }`}
           >
             <ChevronDown className="w-3.5 h-3.5" />
@@ -173,7 +173,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
                             onTimeframeSelect(tfVal);
                             setIsTfDropdownOpen(false);
                           }}
-                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all cursor-pointer ${
                             isActive
                               ? 'bg-accent text-txt-inverse shadow-sm'
                               : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
@@ -188,7 +188,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                 {/* Hours Grid */}
                 <div>
-                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Hours</div>
+                  <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider mb-1.5">Hours</div>
                   <div className="grid grid-cols-4 gap-1">
                     {['1h', '2h', '3h', '4h', '6h', '12h'].map((tfVal) => {
                       const preset = PRESET_TIMEFRAMES.find(p => p.value === tfVal);
@@ -201,10 +201,10 @@ export const Header: React.FC<HeaderProps> = (props) => {
                             onTimeframeSelect(tfVal);
                             setIsTfDropdownOpen(false);
                           }}
-                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all cursor-pointer ${
                             isActive
-                              ? 'bg-indigo-650 text-white shadow-sm'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-850'
+                              ? 'bg-accent text-txt-inverse shadow-sm'
+                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
                           {label}
@@ -216,7 +216,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                 {/* Days & Above Grid */}
                 <div>
-                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Days & Above</div>
+                  <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider mb-1.5">Days & Above</div>
                   <div className="grid grid-cols-4 gap-1">
                     {['D', 'W', 'M'].map((tfVal) => {
                       const preset = PRESET_TIMEFRAMES.find(p => p.value === tfVal);
@@ -229,10 +229,10 @@ export const Header: React.FC<HeaderProps> = (props) => {
                             onTimeframeSelect(tfVal);
                             setIsTfDropdownOpen(false);
                           }}
-                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                          className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all cursor-pointer ${
                             isActive
-                              ? 'bg-indigo-650 text-white shadow-sm'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-850'
+                              ? 'bg-accent text-txt-inverse shadow-sm'
+                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
                           {label}
@@ -245,7 +245,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
                 {/* Custom Timeframes */}
                 {customTimeframes.length > 0 && (
                   <div>
-                    <div className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1.5">Custom</div>
+                    <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider mb-1.5">Custom</div>
                     <div className="grid grid-cols-4 gap-1">
                       {customTimeframes.map((tf) => {
                         const isActive = activeTimeframe === tf.value;
@@ -256,10 +256,10 @@ export const Header: React.FC<HeaderProps> = (props) => {
                               onTimeframeSelect(tf.value);
                               setIsTfDropdownOpen(false);
                             }}
-                            className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all ${
+                            className={`px-2 py-1 rounded text-xs font-semibold text-center transition-all cursor-pointer ${
                               isActive
-                                ? 'bg-indigo-650 text-white shadow-sm'
-                                : 'text-gray-400 hover:text-white hover:bg-gray-850'
+                                ? 'bg-accent text-txt-inverse shadow-sm'
+                                : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                             }`}
                           >
                             {tf.label}
@@ -370,25 +370,25 @@ export const Header: React.FC<HeaderProps> = (props) => {
                     <div className="h-px bg-border-sub" />
 
                     <div>
-                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">
+                      <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-3">
                         SYNC IN LAYOUT
                       </div>
-                      <div className="flex flex-col gap-3.5 text-xs text-gray-300">
+                      <div className="flex flex-col gap-3.5 text-xs text-txt-secondary">
                         {/* Symbol Sync */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
                             <span>Symbol</span>
-                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
                           </div>
                           <div
                             onClick={() => onSyncSettingChange('syncSymbol', !syncSymbol)}
                             className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncSymbol ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                              syncSymbol ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
                             }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
-                                syncSymbol ? 'translate-x-[16px]' : 'translate-x-0'
+                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                syncSymbol ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
                               }`}
                             />
                           </div>
@@ -396,19 +396,19 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                         {/* Interval Sync */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
                             <span>Interval</span>
-                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
                           </div>
                           <div
                             onClick={() => onSyncSettingChange('syncInterval', !syncInterval)}
                             className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncInterval ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                              syncInterval ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
                             }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
-                                syncInterval ? 'translate-x-[16px]' : 'translate-x-0'
+                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                syncInterval ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
                               }`}
                             />
                           </div>
@@ -416,19 +416,19 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                         {/* Crosshair Sync */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
                             <span>Crosshair</span>
-                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
                           </div>
                           <div
                             onClick={() => onSyncSettingChange('syncCrosshair', !syncCrosshair)}
                             className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncCrosshair ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                              syncCrosshair ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
                             }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
-                                syncCrosshair ? 'translate-x-[16px]' : 'translate-x-0'
+                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                syncCrosshair ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
                               }`}
                             />
                           </div>
@@ -436,19 +436,19 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                         {/* Time Sync */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
                             <span>Time</span>
-                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
                           </div>
                           <div
                             onClick={() => onSyncSettingChange('syncTime', !syncTime)}
                             className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncTime ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                              syncTime ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
                             }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
-                                syncTime ? 'translate-x-[16px]' : 'translate-x-0'
+                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                syncTime ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
                               }`}
                             />
                           </div>
@@ -456,19 +456,19 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                         {/* Date range Sync */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
                             <span>Date range</span>
-                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
                           </div>
                           <div
                             onClick={() => onSyncSettingChange('syncDateRange', !syncDateRange)}
                             className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncDateRange ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                              syncDateRange ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
                             }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
-                                syncDateRange ? 'translate-x-[16px]' : 'translate-x-0'
+                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                syncDateRange ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
                               }`}
                             />
                           </div>
@@ -476,19 +476,19 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
                         {/* Drawings Sync */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-gray-200">
+                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
                             <span>Drawings</span>
-                            <Info className="w-3.5 h-3.5 text-gray-650 hover:text-gray-400 transition-colors cursor-help" />
+                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
                           </div>
                           <div
                             onClick={() => onSyncSettingChange('syncDrawings', !syncDrawings)}
                             className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncDrawings ? 'bg-[#e0e3eb]' : 'bg-[#3c3f4c]'
+                              syncDrawings ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
                             }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full absolute top-[2px] left-[2px] transition-transform duration-200 bg-[#1e222d] ${
-                                syncDrawings ? 'translate-x-[16px]' : 'translate-x-0'
+                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                syncDrawings ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
                               }`}
                             />
                           </div>

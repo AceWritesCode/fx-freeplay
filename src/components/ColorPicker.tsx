@@ -342,7 +342,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
       `}</style>
 
       {/* Left Side: Predefined Grid */}
-      <div className="flex flex-col gap-2 border-r border-gray-200 dark:border-gray-800 pr-6">
+      <div className="flex flex-col gap-2 border-r border-border-def pr-6">
         
         {/* Grayscale Row */}
         <div className="flex gap-1.5">
@@ -350,7 +350,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
             <button
               key={c}
               onClick={() => handleColorChange(c)}
-              className="w-6 h-6 rounded border border-black/10 dark:border-white/10 hover:scale-110 transition-transform flex items-center justify-center"
+              className="w-6 h-6 rounded border border-border-def hover:scale-110 transition-transform flex items-center justify-center cursor-pointer"
               style={{ backgroundColor: c }}
             >
               {extractHex(rgbaColor) === c && (
@@ -362,7 +362,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           ))}
         </div>
 
-        <div className="w-full h-px bg-gray-100 dark:bg-gray-800 my-1" />
+        <div className="w-full h-px bg-border-sub my-1" />
 
         {/* Colorful Grid */}
         <div className="flex flex-col gap-1.5">
@@ -372,7 +372,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                 <button
                   key={c}
                   onClick={() => handleColorChange(c)}
-                  className="w-6 h-6 rounded border border-black/10 dark:border-white/10 hover:scale-110 transition-transform flex items-center justify-center"
+                  className="w-6 h-6 rounded border border-border-def hover:scale-110 transition-transform flex items-center justify-center cursor-pointer"
                   style={{ backgroundColor: c }}
                 >
                   {extractHex(rgbaColor).toLowerCase() === c && (
@@ -386,7 +386,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           ))}
         </div>
 
-        <div className="w-full h-px bg-gray-100 dark:bg-gray-800 my-1" />
+        <div className="w-full h-px bg-border-sub my-1" />
 
         {/* Recent Colors */}
         <div className="flex gap-1.5 min-h-[24px]">
@@ -394,7 +394,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
             <button
               key={`${c}-${i}`}
               onClick={() => c && handleColorChange(c)}
-              className={`w-6 h-6 rounded border ${c ? 'border-black/10 dark:border-white/10 hover:scale-110' : 'border-gray-200 dark:border-gray-800'} transition-transform flex items-center justify-center`}
+              className={`w-6 h-6 rounded border ${c ? 'border-border-def hover:scale-110 cursor-pointer' : 'border-border-sub'} transition-transform flex items-center justify-center`}
               style={c ? { backgroundColor: c } : {}}
               title={c ? "Recent color" : "Empty slot"}
             />
@@ -413,7 +413,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           {hasEyeDropper && (
             <button
               onClick={handleEyedropper}
-              className="absolute left-0 bottom-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-[#131722] dark:hover:bg-[#202738] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:text-indigo-500 transition-colors shadow-sm"
+              className="absolute left-0 bottom-0 w-8 h-8 flex items-center justify-center rounded-full bg-surface-elevated hover:bg-surface-active border border-border-def text-txt-secondary hover:text-accent transition-colors shadow-sm cursor-pointer"
               title="Pick color from screen"
             >
               <Pipette className="w-4 h-4" />
@@ -428,15 +428,15 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           <div className="relative">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 bg-gray-100 dark:bg-[#131722] border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5 outline-none text-gray-800 dark:text-gray-200 font-semibold cursor-pointer select-none min-w-[72px] justify-between h-8 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800"
+              className="flex items-center gap-2 bg-surface-elevated border border-border-def rounded-lg px-2.5 py-1.5 outline-none text-txt-primary font-semibold cursor-pointer select-none min-w-[72px] justify-between h-8 transition-colors hover:bg-surface-active"
             >
               <span>{format}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
             </button>
             {isDropdownOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
-                <div className="absolute left-0 bottom-full mb-1.5 w-24 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg shadow-2xl z-50 py-1 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-100">
+                <div className="absolute left-0 bottom-full mb-1.5 w-24 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-100">
                   {(['HEX', 'RGB', 'HSL'] as const).map((fmt) => (
                     <button
                       key={fmt}
@@ -444,7 +444,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                         handleFormatChange(fmt);
                         setIsDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${format === fmt ? 'text-indigo-500' : 'text-gray-700 dark:text-gray-300'}`}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-surface-hover transition-colors cursor-pointer ${format === fmt ? 'text-accent font-bold' : 'text-txt-secondary'}`}
                     >
                       {fmt}
                     </button>
@@ -455,17 +455,17 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           </div>
 
           {/* Segmented Inputs Container */}
-          <div className="flex flex-1 items-stretch bg-gray-100 dark:bg-[#131722] border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden h-8">
+          <div className="flex flex-1 items-stretch bg-surface-elevated border border-border-def rounded-lg overflow-hidden h-8">
             {format === 'HEX' && (
               <>
-                <div className="flex-1 min-w-0 flex items-center px-2.5 border-r border-gray-200 dark:border-gray-800 h-full">
-                  <span className="text-gray-400 mr-1 select-none font-mono">#</span>
+                <div className="flex-1 min-w-0 flex items-center px-2.5 border-r border-border-def h-full">
+                  <span className="text-txt-muted mr-1 select-none font-mono">#</span>
                   <input 
                     type="text" 
                     data-color-input="true"
                     value={hexInput.replace('#', '')} 
                     onChange={(e) => handleHexInputChange(e.target.value)}
-                    className="bg-transparent w-full h-full outline-none text-gray-800 dark:text-gray-200 font-mono uppercase text-left text-xs"
+                    className="bg-transparent w-full h-full outline-none text-txt-primary font-mono uppercase text-left text-xs"
                     maxLength={7}
                     placeholder="000000"
                   />
@@ -476,11 +476,11 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                     data-color-input="true"
                     value={rgbInput.a} 
                     onChange={(e) => handleRgbInputChange('a', e.target.value)}
-                    className="bg-transparent text-center w-full h-full pr-5 outline-none text-gray-800 dark:text-gray-200 font-mono text-xs"
+                    className="bg-transparent text-center w-full h-full pr-5 outline-none text-txt-primary font-mono text-xs"
                     placeholder="A"
                     maxLength={3}
                   />
-                  <span className="absolute right-2.5 text-[9px] text-gray-400 select-none">%</span>
+                  <span className="absolute right-2.5 text-[9px] text-txt-muted select-none">%</span>
                 </div>
               </>
             )}
@@ -494,7 +494,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                     data-color-input="true"
                     value={rgbInput[key as 'r' | 'g' | 'b']} 
                     onChange={(e) => handleRgbInputChange(key as any, e.target.value)}
-                    className="bg-transparent border-r border-gray-200 dark:border-gray-800 text-center w-full h-full outline-none text-gray-800 dark:text-gray-200 font-mono flex-1 min-w-0 text-xs"
+                    className="bg-transparent border-r border-border-def text-center w-full h-full outline-none text-txt-primary font-mono flex-1 min-w-0 text-xs"
                     placeholder={key.toUpperCase()}
                     maxLength={3}
                   />
@@ -505,11 +505,11 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                     data-color-input="true"
                     value={rgbInput.a} 
                     onChange={(e) => handleRgbInputChange('a', e.target.value)}
-                    className="bg-transparent text-center w-full h-full pr-3.5 outline-none text-gray-800 dark:text-gray-200 font-mono text-xs"
+                    className="bg-transparent text-center w-full h-full pr-3.5 outline-none text-txt-primary font-mono text-xs"
                     placeholder="A"
                     maxLength={3}
                   />
-                  <span className="absolute right-1 text-[9px] text-gray-400 select-none">%</span>
+                  <span className="absolute right-1 text-[9px] text-txt-muted select-none">%</span>
                 </div>
               </>
             )}
@@ -521,22 +521,22 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                   data-color-input="true"
                   value={hslInput.h} 
                   onChange={(e) => handleHslInputChange('h', e.target.value)}
-                  className="bg-transparent border-r border-gray-200 dark:border-gray-800 text-center w-full h-full outline-none text-gray-800 dark:text-gray-200 font-mono flex-1 min-w-0 text-xs"
+                  className="bg-transparent border-r border-border-def text-center w-full h-full outline-none text-txt-primary font-mono flex-1 min-w-0 text-xs"
                   placeholder="H"
                   maxLength={3}
                 />
                 {['s', 'l'].map((key) => (
-                  <div key={key} className="relative flex-1 min-w-0 flex items-center border-r border-gray-200 dark:border-gray-800 h-full">
+                  <div key={key} className="relative flex-1 min-w-0 flex items-center border-r border-border-def h-full">
                     <input 
                       type="text" 
                       data-color-input="true"
                       value={hslInput[key as 's' | 'l']} 
                       onChange={(e) => handleHslInputChange(key as any, e.target.value)}
-                      className="bg-transparent text-center w-full h-full pr-3.5 outline-none text-gray-800 dark:text-gray-200 font-mono text-xs"
+                      className="bg-transparent text-center w-full h-full pr-3.5 outline-none text-txt-primary font-mono text-xs"
                       placeholder={key.toUpperCase()}
                       maxLength={3}
                     />
-                    <span className="absolute right-1 text-[9px] text-gray-400 select-none">%</span>
+                    <span className="absolute right-1 text-[9px] text-txt-muted select-none">%</span>
                   </div>
                 ))}
                 <div className="relative flex-1 min-w-0 flex items-center h-full">
@@ -545,11 +545,11 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
                     data-color-input="true"
                     value={hslInput.a} 
                     onChange={(e) => handleHslInputChange('a', e.target.value)}
-                    className="bg-transparent text-center w-full h-full pr-3.5 outline-none text-gray-800 dark:text-gray-200 font-mono text-xs"
+                    className="bg-transparent text-center w-full h-full pr-3.5 outline-none text-txt-primary font-mono text-xs"
                     placeholder="A"
                     maxLength={3}
                   />
-                  <span className="absolute right-1 text-[9px] text-gray-400 select-none">%</span>
+                  <span className="absolute right-1 text-[9px] text-txt-muted select-none">%</span>
                 </div>
               </>
             )}
@@ -561,7 +561,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
         <div className="flex gap-2">
           <button 
             onClick={saveRecentColor}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            className="flex-1 bg-accent hover:bg-accent-hover text-txt-inverse py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
           >
             Add to Library
           </button>

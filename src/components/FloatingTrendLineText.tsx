@@ -268,8 +268,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           onClick={handleStartEdit}
           className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center select-none whitespace-nowrap border ${
             text === '' 
-              ? 'text-[#2196F3] hover:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 border-dashed border-[#2196F3]/30 hover:border-indigo-400/50'
-              : 'border-transparent hover:bg-gray-800/20'
+              ? 'text-accent hover:text-accent-hover bg-accent-muted/50 hover:bg-accent-muted border-dashed border-accent/30 hover:border-accent/50'
+              : 'border-transparent hover:bg-surface-hover/50'
           }`}
           style={{
             fontSize: `${fontSize}px`,
