@@ -221,3 +221,20 @@ export const getThemeTokens = (
 
   return BUILTIN_THEMES[mode] || BUILTIN_THEMES.dark;
 };
+
+/**
+ * Returns the corresponding chart canvas background color for a given theme mode.
+ */
+export function getThemeChartBackground(mode: ThemeMode, customTheme?: CustomThemePalette): string {
+  switch (mode) {
+    case 'amoled':
+      return '#000000';
+    case 'light':
+      return '#ffffff';
+    case 'custom':
+      return customTheme?.bgApp || '#131722';
+    case 'dark':
+    default:
+      return '#131722';
+  }
+}

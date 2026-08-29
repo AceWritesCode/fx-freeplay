@@ -51,10 +51,14 @@ export interface ChartSettings {
   // Replay Speed Range Settings (seconds per bar)
   replayMaxDuration: number; // Slowest speed (default: 3.0)
   replayMinDuration: number; // Fastest speed (default: 0.1)
+
+  // Theme Sync Settings
+  syncChartBackgroundWithTheme?: boolean; // When true, chart background changes with app theme (default: false)
 }
 
 export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
   classic: {
+    syncChartBackgroundWithTheme: false,
     showBody: true,
     bullColor: '#089981',
     bearColor: '#F23645',
@@ -98,6 +102,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     replayMinDuration: 0.01,
   },
   obsidian: {
+    syncChartBackgroundWithTheme: false,
     showBody: true,
     bullColor: '#00E676',
     bearColor: '#FF3D00',
@@ -141,6 +146,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     replayMinDuration: 0.01,
   },
   matrix: {
+    syncChartBackgroundWithTheme: false,
     showBody: true,
     bullColor: '#00FF66',
     bearColor: '#FF0055',

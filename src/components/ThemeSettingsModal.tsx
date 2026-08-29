@@ -3,7 +3,7 @@ import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCir
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
-import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME } from '@/config';
+import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground } from '@/config';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -349,8 +349,16 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         key={theme.id}
                         type="button"
                         onClick={() => {
-                          setThemeMode(theme.id as ThemeMode);
+                          const newMode = theme.id as ThemeMode;
+                          setThemeMode(newMode);
                           setActiveColorField(null);
+                          if (formState.syncChartBackgroundWithTheme) {
+                            const bg = getThemeChartBackground(newMode, customTheme);
+                            handleFieldChange('background', bg);
+                            if (formState.backgroundType === 'None') {
+                              handleFieldChange('backgroundType', 'Solid');
+                            }
+                          }
                         }}
                         className={`flex flex-col p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
                           isSelected
@@ -386,6 +394,42 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       </button>
                     );
                   })}
+                </div>
+
+                {/* Sync Chart Background Option */}
+                <div className="mt-1 pt-4 border-t border-border-sub flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <label htmlFor="sync-chart-bg" className="font-semibold text-txt-primary text-xs cursor-pointer select-none">
+                          Sync Chart Background with Theme
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-txt-muted mt-0.5">
+                        Automatically update the chart canvas background to match the selected theme.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input
+                        id="sync-chart-bg"
+                        type="checkbox"
+                        checked={formState.syncChartBackgroundWithTheme ?? false}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          handleFieldChange('syncChartBackgroundWithTheme', checked);
+                          if (checked) {
+                            const bg = getThemeChartBackground(themeMode, customTheme);
+                            handleFieldChange('background', bg);
+                            if (formState.backgroundType === 'None') {
+                              handleFieldChange('backgroundType', 'Solid');
+                            }
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-surface-elevated peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent border border-border-def" />
+                    </label>
+                  </div>
                 </div>
 
                 {/* Custom Theme Color Controls (Visible when Custom is active) */}

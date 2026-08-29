@@ -4,6 +4,7 @@ import type { ThemeMode, CustomThemePalette } from '@/config';
 import {
   PRESET_SETTINGS,
   getThemeTokens,
+  getThemeChartBackground,
 } from '@/config';
 import {
   applyThemeToDOM,
@@ -67,7 +68,19 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     storeThemeMode(mode);
     const custom = get().customTheme;
     applyThemeToDOM(getThemeTokens(mode, custom));
-    set(() => ({ themeMode: mode }));
+    if (get().settings.syncChartBackgroundWithTheme) {
+      const bg = getThemeChartBackground(mode, custom);
+      set((state) => ({
+        themeMode: mode,
+        settings: {
+          ...state.settings,
+          background: bg,
+          ...(state.settings.backgroundType === 'None' ? { backgroundType: 'Solid' as const } : {}),
+        },
+      }));
+    } else {
+      set(() => ({ themeMode: mode }));
+    }
   },
 
   setCustomTheme: (newCustom) => {
@@ -75,6 +88,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     storeCustomTheme(updatedCustom);
     if (get().themeMode === 'custom') {
       applyThemeToDOM(getThemeTokens('custom', updatedCustom));
+      if (get().settings.syncChartBackgroundWithTheme) {
+        set((state) => ({
+          customTheme: updatedCustom,
+          settings: {
+            ...state.settings,
+            background: updatedCustom.bgApp,
+            ...(state.settings.backgroundType === 'None' ? { backgroundType: 'Solid' as const } : {}),
+          },
+        }));
+        return;
+      }
     }
     set(() => ({ customTheme: updatedCustom }));
   },
