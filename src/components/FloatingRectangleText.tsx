@@ -35,6 +35,7 @@ interface FloatingRectangleTextProps {
   overlay: any;
   onTextChange: (newText: string) => void;
   isSelected: boolean;
+  isHovered?: boolean;
   syncAllDrawings: () => void;
 }
 
@@ -43,6 +44,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
   overlay,
   onTextChange,
   isSelected,
+  isHovered = false,
   syncAllDrawings
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
@@ -64,14 +66,18 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
   const textValign = customSettings.textPosition?.vertical || 'middle';
   const textPlacement = customSettings.textPlacement || 'inside';
 
-  // Hover & visibility checks
-  const isOverlayHovered = !!overlay?.extendData?.isHovered;
-  const isOverlaySelected = isSelected || !!overlay?.extendData?.isSelected;
+  // Check if shape points are fully registered
+  const isShapeDrawn = overlay?.points && overlay.points.length >= 2;
   const isLineVisible = checkOverlayVisible(overlay, chart);
+  const isHoveredActive = isHovered || isDomHovered;
+  const hasActualText = typeof text === 'string' && text.trim() !== '';
 
-  // Show rules:
-  // Visible if rectangle is visible AND (text is not empty OR currently editing OR hovered OR selected)
-  const shouldShow = isLineVisible && (text !== '' || isEditing || isOverlaySelected || isOverlayHovered || isDomHovered);
+  // 1) When actual text exists: show whenever the rectangle is drawn and visible on this timeframe
+  // 2) When no text exists (placeholder "+ add text"): ONLY show when rectangle is drawn + selected + (hovered or actively editing)
+  const shouldShow = isShapeDrawn && isLineVisible && (
+    hasActualText || 
+    (isSelected && (isHoveredActive || isEditing))
+  );
 
   useEffect(() => {
     let active = true;
@@ -382,7 +388,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
       style={{
         visibility: 'hidden',
         fontSize: `${fontSize}px`,
-        color: text === '' ? '#2196F3' : textColor,
+        color: textColor,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
         lineHeight: '1.2',
@@ -403,7 +409,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
           className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text font-inherit select-text whitespace-nowrap"
           style={{
             fontSize: `${fontSize}px`,
-            color: text === '' ? '#2196F3' : textColor,
+            color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
@@ -419,7 +425,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
           className="bg-transparent border-0 border-none outline-none p-0 m-0 cursor-text select-none whitespace-nowrap"
           style={{
             fontSize: `${fontSize}px`,
-            color: text === '' ? '#2196F3' : textColor,
+            color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',

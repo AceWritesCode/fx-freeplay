@@ -1554,6 +1554,7 @@ export function ChartWorkspace() {
                   chart={chart}
                   overlay={ov}
                   isSelected={selectedOverlayIds.includes(ov.id)}
+                  isHovered={hoveredOverlayId === ov.id}
                   onTextChange={handleTextChange}
                   syncAllDrawings={drawingCoord.syncAllDrawings}
                 />
