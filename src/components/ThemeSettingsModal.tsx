@@ -945,18 +945,19 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     min="0.01"
                     max="1.00"
                     step="0.01"
-                    value={formState.replayMinDuration ?? 0.01}
+                    value={Number((1.01 - (formState.replayMinDuration ?? 0.01)).toFixed(2))}
                     onChange={(e) => {
-                      const val = parseFloat(e.target.value);
+                      const sliderVal = parseFloat(e.target.value);
+                      const durationVal = Number((1.01 - sliderVal).toFixed(2));
                       const maxDur = formState.replayMaxDuration ?? 3.0;
-                      const validatedMin = Math.min(val, maxDur);
+                      const validatedMin = Math.min(Math.max(0.01, durationVal), maxDur);
                       handleFieldChange('replayMinDuration', validatedMin);
                     }}
                     className="w-full h-1.5 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-accent"
                   />
                   <div className="flex justify-between text-[10px] text-txt-muted">
-                    <span>0.01s / bar</span>
                     <span>1.00s / bar</span>
+                    <span>0.01s / bar</span>
                   </div>
                 </div>
               </div>
