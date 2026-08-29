@@ -3,7 +3,7 @@ import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCir
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
-import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground } from '@/config';
+import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens } from '@/config';
 import { getStoredSyncChartBackground, storeSyncChartBackground } from '@/utils/themeApplier';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
@@ -178,6 +178,39 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     onClose();
   };
 
+  const handleEditTheme = (targetMode?: ThemeMode) => {
+    const modeToCopy = targetMode || themeMode;
+    if (modeToCopy === 'custom') return;
+
+    const currentTokens = getThemeTokens(modeToCopy);
+    const newCustomPalette: CustomThemePalette = {
+      bgApp: currentTokens.bgApp,
+      bgSurface: currentTokens.bgSurface,
+      bgSurfaceElevated: currentTokens.bgSurfaceElevated,
+      bgModal: currentTokens.bgModal,
+      textPrimary: currentTokens.textPrimary,
+      textSecondary: currentTokens.textSecondary,
+      textMuted: currentTokens.textMuted,
+      borderDefault: currentTokens.borderDefault,
+      accentPrimary: currentTokens.accentPrimary,
+      statusSuccess: currentTokens.statusSuccess,
+      statusWarning: currentTokens.statusWarning,
+      statusError: currentTokens.statusError,
+    };
+
+    setCustomTheme(newCustomPalette);
+    setThemeMode('custom');
+    setActiveColorField(null);
+
+    if (formState.syncChartBackgroundWithTheme) {
+      const bg = getThemeChartBackground('custom', newCustomPalette);
+      handleFieldChange('background', bg);
+      if (formState.backgroundType === 'None') {
+        handleFieldChange('backgroundType', 'Solid');
+      }
+    }
+  };
+
   const getActiveColorConfig = (): { color: string; title: string; onChange: (newColor: string) => void } | null => {
     if (!activeColorField) return null;
     const { fieldKey, title } = activeColorField;
@@ -275,7 +308,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               }`}
             >
               <Percent className="w-4.5 h-4.5 mr-2.5" />
-              <span>Scales & Lines</span>
+              <span>Scales</span>
             </button>
 
             <button
@@ -299,7 +332,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               }`}
             >
               <Play className="w-4.5 h-4.5 mr-2.5" />
-              <span>Bar Replay</span>
+              <span>Replay</span>
             </button>
           </div>
 
@@ -309,11 +342,24 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             {/* Tab: Theme */}
             {activeTab === 'Theme' && (
               <div className="flex flex-col gap-5 select-none">
-                <div>
-                  <h3 className="text-sm font-semibold text-txt-primary">Application UI Theme</h3>
-                  <p className="text-[11px] text-txt-muted mt-0.5">
-                    Select a built-in interface theme or customize semantic UI colors.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-txt-primary">Application UI Theme</h3>
+                    <p className="text-[11px] text-txt-muted mt-0.5">
+                      Select a built-in interface theme or customize semantic UI colors.
+                    </p>
+                  </div>
+                  {themeMode !== 'custom' && (
+                    <button
+                      type="button"
+                      onClick={() => handleEditTheme()}
+                      className="px-3 py-1.5 text-xs font-semibold text-txt-inverse bg-accent hover:bg-accent-hover rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0"
+                      title="Copy current built-in theme colors into Custom theme and edit them"
+                    >
+                      <Paintbrush className="w-3.5 h-3.5" />
+                      <span>Edit Theme</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* 4 Theme Option Cards */}
@@ -358,9 +404,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   ].map((theme) => {
                     const isSelected = themeMode === theme.id;
                     return (
-                      <button
+                      <div
                         key={theme.id}
-                        type="button"
                         onClick={() => {
                           const newMode = theme.id as ThemeMode;
                           setThemeMode(newMode);
@@ -404,7 +449,21 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         <span className="text-[10.5px] text-txt-muted leading-tight">
                           {theme.desc}
                         </span>
-                      </button>
+
+                        {isSelected && theme.id !== 'custom' && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTheme(theme.id as ThemeMode);
+                            }}
+                            className="mt-2.5 w-full py-1 text-[11px] font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                            title="Copy this theme's colors into Custom theme and edit them"
+                          >
+                            <Paintbrush className="w-3 h-3" />
+                            <span>Edit Theme</span>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
