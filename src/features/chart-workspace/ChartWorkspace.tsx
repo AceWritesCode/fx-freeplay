@@ -434,16 +434,31 @@ export function ChartWorkspace() {
       chartInstancesRef.current.forEach((chart) => {
         if (chart) {
           chart._selectedOverlayIds = nextIds;
+          const overlays = chart.getOverlays();
+          overlays.forEach((ov: any) => {
+            if (
+              ov.id === 'custom_price_line_overlay' ||
+              ov.name === 'customPriceLine' ||
+              ov.id === 'session_breaks_overlay' ||
+              ov.name === 'sessionBreaks'
+            )
+              return;
+            const isSelected = nextIds.includes(ov.id);
+            if (ov.extendData?.isSelected !== isSelected) {
+              chart.overrideOverlay({
+                id: ov.id,
+                extendData: {
+                  ...(ov.extendData || {}),
+                  isSelected,
+                },
+              });
+            }
+          });
+          DrawingChartAdapter.invalidatePane(chart);
         }
       });
 
       setSelectedOverlayIds(nextIds);
-
-      chartInstancesRef.current.forEach((chart) => {
-        if (chart) {
-          DrawingChartAdapter.invalidatePane(chart);
-        }
-      });
     },
     [setSelectedOverlayIds]
   );

@@ -1,5 +1,6 @@
 import { registerOverlay } from 'klinecharts';
 import { ToolRegistry } from './ToolRegistry';
+import { useDrawingStore } from '@/store';
 
 export function initializeToolFramework() {
   const tools = ToolRegistry.getAll();
@@ -10,14 +11,15 @@ export function initializeToolFramework() {
     const originalCreatePointFigures = overlayDef.createPointFigures;
     if (originalCreatePointFigures) {
       overlayDef.createPointFigures = (params: any) => {
-        const { chart, overlay } = params;
-        if (chart && overlay) {
+        const { overlay } = params;
+        if (overlay) {
           if (!overlay.extendData) {
             overlay.extendData = {};
           }
+          const selectedIds = useDrawingStore.getState().selectedOverlayIds;
           const isSelected = typeof overlay.id === 'string' &&
                              !overlay.id.startsWith('sync_') &&
-                             chart._selectedOverlayIds?.includes(overlay.id);
+                             selectedIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
         return originalCreatePointFigures(params);
@@ -27,14 +29,15 @@ export function initializeToolFramework() {
     const originalCreateYAxisFigures = overlayDef.createYAxisFigures;
     if (originalCreateYAxisFigures) {
       overlayDef.createYAxisFigures = (params: any) => {
-        const { chart, overlay } = params;
-        if (chart && overlay) {
+        const { overlay } = params;
+        if (overlay) {
           if (!overlay.extendData) {
             overlay.extendData = {};
           }
+          const selectedIds = useDrawingStore.getState().selectedOverlayIds;
           const isSelected = typeof overlay.id === 'string' &&
                              !overlay.id.startsWith('sync_') &&
-                             chart._selectedOverlayIds?.includes(overlay.id);
+                             selectedIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
         return originalCreateYAxisFigures(params);
@@ -44,14 +47,15 @@ export function initializeToolFramework() {
     const originalCreateXAxisFigures = overlayDef.createXAxisFigures;
     if (originalCreateXAxisFigures) {
       overlayDef.createXAxisFigures = (params: any) => {
-        const { chart, overlay } = params;
-        if (chart && overlay) {
+        const { overlay } = params;
+        if (overlay) {
           if (!overlay.extendData) {
             overlay.extendData = {};
           }
+          const selectedIds = useDrawingStore.getState().selectedOverlayIds;
           const isSelected = typeof overlay.id === 'string' &&
                              !overlay.id.startsWith('sync_') &&
-                             chart._selectedOverlayIds?.includes(overlay.id);
+                             selectedIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
         return originalCreateXAxisFigures(params);

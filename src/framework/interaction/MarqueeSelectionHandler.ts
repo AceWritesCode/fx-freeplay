@@ -99,8 +99,9 @@ export class MarqueeSelectionHandler {
       div = document.createElement('div');
       div.id = 'selection-box-indicator';
       div.style.position = 'absolute';
-      div.style.border = '1.5px dashed var(--color-accent, #ff9800)';
-      div.style.backgroundColor = 'rgba(255, 152, 0, 0.08)';
+      div.style.border = '1.5px dashed var(--accent-primary, #6366f1)';
+      div.style.backgroundColor = 'var(--accent-muted, rgba(99, 102, 241, 0.15))';
+      div.style.borderRadius = '2px';
       div.style.pointerEvents = 'none';
       div.style.zIndex = '50';
       div.style.left = `${startX}px`;
