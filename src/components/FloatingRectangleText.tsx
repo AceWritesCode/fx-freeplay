@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { DrawingChartAdapter } from '@/engine/charting';
 
 const parseTimeframe = (tf: string) => {
   const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
@@ -79,24 +80,45 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
 
       const pts = overlay.points;
       if (!pts || pts.length < 2) {
+        if (elRef.current) elRef.current.style.visibility = 'hidden';
         requestAnimationFrame(updatePosition);
         return;
       }
       const pixelPts = chart.convertToPixel(pts, { paneId: 'candle_pane' });
-      if (!pixelPts || pixelPts.length < 2) {
+      if (!pixelPts || !Array.isArray(pixelPts)) {
+        if (elRef.current) elRef.current.style.visibility = 'hidden';
         requestAnimationFrame(updatePosition);
         return;
       }
-      const p1 = pixelPts[0];
-      const p2 = pixelPts.length >= 8 ? pixelPts[2] : pixelPts[1];
-      if (!p1 || !p2 || (p1.x === 0 && p1.y === 0 && p2.x === 0 && p2.y === 0)) {
+
+      // Filter and collect all valid numeric pixel points
+      const validPixelPts = pixelPts.filter(
+        (p: any) => p && typeof p.x === 'number' && !isNaN(p.x) && typeof p.y === 'number' && !isNaN(p.y)
+      );
+
+      if (validPixelPts.length < 2) {
+        if (elRef.current) elRef.current.style.visibility = 'hidden';
         requestAnimationFrame(updatePosition);
         return;
       }
-      const x = Math.min(p1.x, p2.x);
-      const y = Math.min(p1.y, p2.y);
-      const w = Math.abs(p1.x - p2.x);
-      const h = Math.abs(p1.y - p2.y);
+
+      const xCoords = validPixelPts.map((p: any) => p.x);
+      const yCoords = validPixelPts.map((p: any) => p.y);
+      const minX = Math.min(...xCoords);
+      const maxX = Math.max(...xCoords);
+      const minY = Math.min(...yCoords);
+      const maxY = Math.max(...yCoords);
+
+      const x = minX;
+      const y = minY;
+      const w = maxX - minX;
+      const h = maxY - minY;
+
+      if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || w < 0 || h < 0) {
+        if (elRef.current) elRef.current.style.visibility = 'hidden';
+        requestAnimationFrame(updatePosition);
+        return;
+      }
 
       let tx = x + w / 2;
       let ty = y + h / 2;
@@ -165,6 +187,12 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
           ty = y + h / 2;
           translateY = '-50%';
         }
+      }
+
+      if (isNaN(tx) || isNaN(ty)) {
+        if (elRef.current) elRef.current.style.visibility = 'hidden';
+        requestAnimationFrame(updatePosition);
+        return;
       }
 
       let drawingAreaWidth = 10000;
@@ -245,20 +273,45 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
     }
   }, [text, inputText, isEditing, fontSize, isBold, isItalic]);
 
+  // Guaranteed transient cleanup on unmount or removal
+  useEffect(() => {
+    return () => {
+      try {
+        if (chart && overlay?.id) {
+          chart.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...(overlay.extendData || {}),
+              isHovered: false,
+              isEditingText: false
+            }
+          });
+          DrawingChartAdapter.invalidatePane(chart);
+        }
+      } catch (_) {}
+    };
+  }, [chart, overlay?.id]);
+
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (chart) {
+      chart._clickedOnOverlay = true;
+    }
     backupTextRef.current = text;
     setIsEditing(true);
     setInputText(text);
 
-    chart.overrideOverlay({
-      id: overlay.id,
-      extendData: {
-        ...(overlay.extendData || {}),
-        isEditingText: true
-      }
-    });
+    try {
+      chart.overrideOverlay({
+        id: overlay.id,
+        extendData: {
+          ...(overlay.extendData || {}),
+          isEditingText: true
+        }
+      });
+      DrawingChartAdapter.invalidatePane(chart);
+    } catch (_) {}
 
     setTimeout(() => {
       inputRef.current?.focus();
@@ -268,36 +321,45 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
 
   const handleSave = () => {
     setIsEditing(false);
-    chart.overrideOverlay({
-      id: overlay.id,
-      extendData: {
-        ...(overlay.extendData || {}),
-        isEditingText: false
-      }
-    });
+    try {
+      chart.overrideOverlay({
+        id: overlay.id,
+        extendData: {
+          ...(overlay.extendData || {}),
+          isEditingText: false
+        }
+      });
+      DrawingChartAdapter.invalidatePane(chart);
+    } catch (_) {}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
-      chart.overrideOverlay({
-        id: overlay.id,
-        extendData: {
-          ...(overlay.extendData || {}),
-          isEditingText: false
-        }
-      });
+      try {
+        chart.overrideOverlay({
+          id: overlay.id,
+          extendData: {
+            ...(overlay.extendData || {}),
+            isEditingText: false
+          }
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      } catch (_) {}
     } else if (e.key === 'Escape') {
       setIsEditing(false);
       setInputText(backupTextRef.current);
       onTextChange(backupTextRef.current);
-      chart.overrideOverlay({
-        id: overlay.id,
-        extendData: {
-          ...(overlay.extendData || {}),
-          isEditingText: false
-        }
-      });
+      try {
+        chart.overrideOverlay({
+          id: overlay.id,
+          extendData: {
+            ...(overlay.extendData || {}),
+            isEditingText: false
+          }
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      } catch (_) {}
     }
   };
 
@@ -318,6 +380,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
       onMouseLeave={() => setIsDomHovered(false)}
       className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
+        visibility: 'hidden',
         fontSize: `${fontSize}px`,
         color: text === '' ? '#2196F3' : textColor,
         fontWeight: isBold ? 'bold' : 'normal',
