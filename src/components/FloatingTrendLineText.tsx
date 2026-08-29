@@ -106,11 +106,11 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             const uy = dy / len;
 
             if (textHalign === 'left') {
-              tx = pLeft.x + 3 * ux;
-              ty = pLeft.y + 3 * uy;
+              tx = pLeft.x + 18 * ux;
+              ty = pLeft.y + 18 * uy;
             } else if (textHalign === 'right') {
-              tx = pRight.x - 3 * ux;
-              ty = pRight.y - 3 * uy;
+              tx = pRight.x - 18 * ux;
+              ty = pRight.y - 18 * uy;
             }
           }
 
@@ -271,11 +271,10 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       data-no-deselect="true"
       data-floating-ui="true"
       onMouseDown={(e) => {
+        // Prevent window-level mousedown from triggering empty-canvas click handling
+        e.stopPropagation();
         if (chart) {
           chart._clickedOnOverlay = true;
-        }
-        if (isEditing) {
-          e.stopPropagation();
         }
       }}
       onMouseEnter={() => {
