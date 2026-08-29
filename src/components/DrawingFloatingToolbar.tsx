@@ -607,11 +607,17 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 <line x1="0" y1="8" x2="16" y2="8" />
               </svg>
             )}
+            {lineStyle === 'none' && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="8" cy="8" r="5.5" />
+                <line x1="4" y1="12" x2="12" y2="4" />
+              </svg>
+            )}
           </ToolbarButton>
           
           {activeDropdown === 'style' && (
             <div className="absolute top-full mt-2 left-0 w-28 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
-              {['solid', 'dashed', 'dotted'].map(s => (
+              {(firstOverlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
                 <button
                   key={s}
                   onClick={() => handleUpdate({ lineStyle: s })}

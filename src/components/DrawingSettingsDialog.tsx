@@ -1024,7 +1024,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
                       <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                        {['solid', 'dashed', 'dotted'].map(s => (
+                        {(overlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
                           <button
                             key={s}
                             onClick={() => { setLineStyle(s); setActiveSelect(null); }}

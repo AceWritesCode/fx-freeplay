@@ -369,10 +369,10 @@ export const RectangleTool: ToolDefinition = {
         type: 'rect',
         attrs: { x, y, width: w, height: h },
         styles: {
-          style: 'stroke_fill',
+          style: lineStyle === 'none' ? 'fill' : 'stroke_fill',
           color: fillColor,
-          borderColor: lineColor,
-          borderSize: lineWidth,
+          borderColor: lineStyle === 'none' ? 'transparent' : lineColor,
+          borderSize: lineStyle === 'none' ? 0 : lineWidth,
           borderStyle: style,
           borderDashedValue: dashedValue
         },
