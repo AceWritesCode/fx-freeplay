@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
@@ -150,6 +150,20 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const [savePresetName, setSavePresetName] = useState('');
   const [saveNameError, setSaveNameError] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('');
+  const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
+  const presetDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close custom preset dropdown on click outside
+  React.useEffect(() => {
+    if (!isPresetDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (presetDropdownRef.current && !presetDropdownRef.current.contains(e.target as Node)) {
+        setIsPresetDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPresetDropdownOpen]);
 
   if (!isOpen) return null;
 
@@ -1241,31 +1255,90 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
           {/* Bottom row: preset picker + action buttons */}
           <div className="flex items-center justify-between">
-
             {/* Template presets picker dropdown */}
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-txt-muted uppercase font-semibold">Template</span>
 
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={selectedPreset}
-                  onChange={e => { setSelectedPreset(e.target.value); handleApplyPreset(e.target.value); }}
-                  className="bg-modal-bg border border-border-def rounded px-2.5 py-1 text-xs text-txt-secondary focus:outline-none focus:border-accent cursor-pointer"
+              <div className="flex items-center gap-1.5 relative" ref={presetDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsPresetDropdownOpen(prev => !prev)}
+                  className="bg-modal-bg border border-border-def hover:border-border-focus rounded-lg px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary flex items-center justify-between gap-2 min-w-[155px] cursor-pointer transition-all shadow-xs"
                 >
-                  <option value="" disabled>Load Preset...</option>
-                  <optgroup label="Built-in">
-                    {builtInEntries.map(p => (
-                      <option key={p.key} value={p.key}>{p.label}</option>
-                    ))}
-                  </optgroup>
-                  {customPresetNames.length > 0 && (
-                    <optgroup label="My Presets">
-                      {customPresetNames.map(name => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                  <span className="truncate">
+                    {(() => {
+                      if (!selectedPreset) return 'Load Preset...';
+                      const builtIn = builtInEntries.find(p => p.key === selectedPreset);
+                      if (builtIn) return builtIn.label;
+                      if (customPresets[selectedPreset]) return selectedPreset;
+                      return 'Load Preset...';
+                    })()}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-txt-muted transition-transform duration-150 flex-shrink-0 ${isPresetDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isPresetDropdownOpen && (
+                  <div className="absolute bottom-full left-0 mb-1.5 z-50 bg-modal-bg border border-border-def rounded-xl shadow-2xl py-1 text-xs min-w-[200px] max-h-[220px] overflow-y-auto text-txt-secondary select-none animate-in fade-in zoom-in-95 duration-100 backdrop-blur-xs">
+                    
+                    {/* Built-in Presets */}
+                    <div className="px-3 py-1 text-[10px] font-bold text-txt-muted uppercase tracking-wider bg-surface/50">
+                      Built-in
+                    </div>
+                    {builtInEntries.map(p => {
+                      const isSelected = selectedPreset === p.key;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPreset(p.key);
+                            handleApplyPreset(p.key);
+                            setIsPresetDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition-colors cursor-pointer ${
+                            isSelected
+                              ? 'bg-accent-muted text-accent font-medium'
+                              : 'hover:bg-surface-hover hover:text-txt-primary text-txt-secondary'
+                          }`}
+                        >
+                          <span>{p.label}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-accent flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+
+                    {/* My Presets */}
+                    {customPresetNames.length > 0 && (
+                      <>
+                        <div className="px-3 py-1 text-[10px] font-bold text-txt-muted uppercase tracking-wider bg-surface/50 mt-1 border-t border-border-sub/50 pt-1.5">
+                          My Presets
+                        </div>
+                        {customPresetNames.map(name => {
+                          const isSelected = selectedPreset === name;
+                          return (
+                            <button
+                              key={name}
+                              type="button"
+                              onClick={() => {
+                                setSelectedPreset(name);
+                                handleApplyPreset(name);
+                                setIsPresetDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-accent-muted text-accent font-medium'
+                                  : 'hover:bg-surface-hover hover:text-txt-primary text-txt-secondary'
+                              }`}
+                            >
+                              <span className="truncate">{name}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-accent flex-shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Delete button — only visible when a custom preset is selected */}
                 {selectedPreset && customPresets[selectedPreset] && (
