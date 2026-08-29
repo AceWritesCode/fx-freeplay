@@ -322,6 +322,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
         lineHeight: '1.2',
+        textAlign: textHalign,
       }}
     >
       {isEditing ? (
@@ -343,10 +344,11 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
+            textAlign: textHalign,
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            width: `${Math.max(60, (inputText || '+ add text').length * (fontSize * 0.6))}px`
+            width: `${Math.max(30, (inputText || '+ add text').length * (fontSize * 0.55) + 12)}px`
           }}
         />
       ) : (
@@ -359,6 +361,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
+            textAlign: textHalign,
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',

@@ -314,6 +314,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
         lineHeight: '1.2',
+        textAlign: textHalign,
       }}
     >
       {isEditing ? (
@@ -335,6 +336,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
+            textAlign: textHalign,
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
@@ -351,6 +353,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
+            textAlign: textHalign,
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
