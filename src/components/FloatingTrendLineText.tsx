@@ -35,6 +35,7 @@ interface FloatingTrendLineTextProps {
   overlay: any;
   onTextChange: (newText: string) => void;
   isSelected: boolean;
+  isHovered?: boolean;
   syncAllDrawings: () => void;
 }
 
@@ -43,6 +44,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   overlay,
   onTextChange,
   isSelected,
+  isHovered = false,
   syncAllDrawings
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,8 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
 
   const customSettings = overlay?.extendData?.customSettings || {};
   const text = customSettings.text || '';
-  const textColor = customSettings.textColor || '#2196F3';
+  const lineColor = customSettings.lineColor || '#2196F3';
+  const textColor = customSettings.textColor || lineColor;
   const fontSize = customSettings.fontSize || 14;
   const isBold = !!customSettings.bold;
   const isItalic = !!customSettings.italic;
@@ -65,19 +68,17 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   // Check if line points are fully registered (line completed drawing)
   const isLineDrawn = overlay?.points && overlay.points.length >= 2;
 
-  // Check if overlay is hovered inside klinecharts
-  const isOverlayHovered = !!overlay?.extendData?.isHovered;
-
   // Respect the timeframe visibility setting — hide text when line is hidden
   const isLineVisible = checkOverlayVisible(overlay, chart);
 
+  const isHoveredActive = isHovered || isDomHovered;
   const hasActualText = typeof text === 'string' && text.trim() !== '';
 
   // 1) When actual text exists: show whenever the line is drawn and visible on this timeframe
   // 2) When no text exists (placeholder "+ Add text"): ONLY show when line is drawn + selected + (hovered or actively editing)
   const shouldShow = isLineDrawn && isLineVisible && (
     hasActualText || 
-    (isSelected && (isOverlayHovered || isDomHovered || isEditing))
+    (isSelected && (isHoveredActive || isEditing))
   );
 
   useEffect(() => {
@@ -250,7 +251,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
         fontSize: `${fontSize}px`,
-        color: text === '' ? '#8c8c8c' : textColor,
+        color: textColor,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
         lineHeight: '1.2',
@@ -271,7 +272,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text font-inherit select-text whitespace-nowrap"
           style={{
             fontSize: `${fontSize}px`,
-            color: text === '' ? '#8c8c8c' : textColor,
+            color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
@@ -287,7 +288,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           className="bg-transparent border-0 border-none outline-none p-0 m-0 cursor-text select-none whitespace-nowrap transition-opacity hover:opacity-80"
           style={{
             fontSize: `${fontSize}px`,
-            color: text === '' ? '#8c8c8c' : textColor,
+            color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',

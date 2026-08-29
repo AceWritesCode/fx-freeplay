@@ -280,6 +280,7 @@ export function ChartWorkspace() {
   const [forecastMenuPos, setForecastMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isMagnetMenuOpen, setIsMagnetMenuOpen] = useState<boolean>(false);
   const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [hoveredOverlayId, setHoveredOverlayId] = useState<string | null>(null);
 
   // Dropdown flyout references
   const brokerTfDropdownRef = useRef<HTMLDivElement>(null);
@@ -879,7 +880,12 @@ export function ChartWorkspace() {
         }
       }
 
-      if (activeIndex === -1 || !containerRect) return;
+      if (activeIndex === -1 || !containerRect) {
+        if (hoveredOverlayId !== null) {
+          setHoveredOverlayId(null);
+        }
+        return;
+      }
 
       const chart = chartInstancesRef.current[activeIndex];
       if (!chart) return;
@@ -982,10 +988,15 @@ export function ChartWorkspace() {
         }
       });
 
+      const nextHoveredId = hoveredInteractiveOverlay?.id || null;
+      if (hoveredOverlayId !== nextHoveredId) {
+        setHoveredOverlayId(nextHoveredId);
+      }
+
       // Maintain isHovered state cleanly without layout resets
       interactiveOverlays.forEach((ov: any) => {
         if (['rectangle', 'longPosition', 'shortPosition', 'trendLine'].includes(ov.name)) {
-          const isCurrentlyHovered = ov.id === hoveredInteractiveOverlay?.id;
+          const isCurrentlyHovered = ov.id === nextHoveredId;
           if (ov.extendData?.isHovered !== isCurrentlyHovered) {
             chart.overrideOverlay({
               id: ov.id,
@@ -1530,6 +1541,7 @@ export function ChartWorkspace() {
                   chart={chart}
                   overlay={ov}
                   isSelected={selectedOverlayIds.includes(ov.id)}
+                  isHovered={hoveredOverlayId === ov.id}
                   onTextChange={handleTextChange}
                   syncAllDrawings={drawingCoord.syncAllDrawings}
                 />
