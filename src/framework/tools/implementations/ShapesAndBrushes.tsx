@@ -305,6 +305,11 @@ export const RectangleTool: ToolDefinition = {
       if (chart && !isOverlayVisible(overlay, chart)) {
         return [];
       }
+      if (coordinates.length === 1) {
+        const figures: any[] = [];
+        drawGrabHandles(figures, coordinates, false);
+        return figures;
+      }
       if (coordinates.length < 2) return [];
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
@@ -527,6 +532,11 @@ export const CircleTool: ToolDefinition = {
     createPointFigures: ({ overlay, coordinates, chart }) => {
       if (chart && !isOverlayVisible(overlay, chart)) {
         return [];
+      }
+      if (coordinates.length === 1) {
+        const figures: any[] = [];
+        drawGrabHandles(figures, coordinates, false);
+        return figures;
       }
       if (coordinates.length < 2) return [];
 

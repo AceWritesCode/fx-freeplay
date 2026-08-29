@@ -528,25 +528,14 @@ export function ChartWorkspace() {
                   const pointsChanged = JSON.stringify(chartOverlay.points) !== JSON.stringify(storedDrawing.points);
                   const lockChanged = chartOverlay.lock !== storedDrawing.lock;
                   const visibleChanged = chartOverlay.visible !== (storedDrawing.visible !== false);
-                  const cleanExtendData = JSON.parse(JSON.stringify(chartOverlay.extendData || {}));
-                  delete cleanExtendData.isHovered;
-                  delete cleanExtendData.isEditingText;
-                  delete cleanExtendData.hoveredAnchorIndex;
-                  delete cleanExtendData.draggedIndex;
-                  delete cleanExtendData.startPoints;
-                  delete cleanExtendData.startPointsPixels;
-                  delete cleanExtendData.startMousePixel;
-                  delete cleanExtendData.startMousePt;
-                  delete cleanExtendData.isSelected;
-
-                  const extendDataChanged = JSON.stringify(cleanExtendData) !== JSON.stringify(storedDrawing.extendData || {});
+                  const extendDataChanged = JSON.stringify(chartOverlay.extendData) !== JSON.stringify(storedDrawing.extendData || {});
 
                   if (pointsChanged || lockChanged || visibleChanged || extendDataChanged) {
                     useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, id, {
                       points: JSON.parse(JSON.stringify(chartOverlay.points || [])),
                       lock: chartOverlay.lock,
                       visible: chartOverlay.visible !== false,
-                      extendData: cleanExtendData,
+                      extendData: JSON.parse(JSON.stringify(chartOverlay.extendData || {})),
                     });
                     storeUpdated = true;
                   }

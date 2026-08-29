@@ -158,6 +158,10 @@ export const TrendLineTool: ToolDefinition = {
       }
 
       const figures: any[] = [];
+      if (coordinates.length === 1) {
+        drawGrabHandles(figures, coordinates, false);
+        return figures;
+      }
       if (coordinates.length === 2) {
         const width = bounding?.width ?? 1000;
         const height = bounding?.height ?? 500;
@@ -274,8 +278,9 @@ export const TrendLineTool: ToolDefinition = {
         });
 
 
-        // Selection point grab handles
-        if (isSelected) {
+        // Selection / In-progress creation grab handles
+        const isDrawing = typeof overlay?.currentStep === 'number' && typeof overlay?.totalStep === 'number' && overlay.currentStep < overlay.totalStep;
+        if (isSelected || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }

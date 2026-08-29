@@ -315,33 +315,55 @@ export function getInteractiveOverlayOptions(
         }
       }
       // Calculate handle proximity directly from current mouse-down position (event.x, event.y).
-      // NEVER rely on stale hoveredAnchorIndex or previous drag state.
-      const pts = event.chart.convertToPixel(event.overlay.points, { paneId: 'candle_pane' });
-      let minDistance = Infinity;
-      let closestIndex = 0;
-      if (Array.isArray(pts)) {
-        pts.forEach((pt: any, idx: number) => {
-          if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
-            const dist = Math.sqrt((pt.x - event.x) ** 2 + (pt.y - event.y) ** 2);
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestIndex = idx;
+      const rawPoints = event.overlay.points || [];
+      const pts = rawPoints.map((pt: any) => {
+        if (!pt) return null;
+        const res = event.chart.convertToPixel([pt], { paneId: 'candle_pane' })?.[0];
+        let px = res?.x;
+        let py = res?.y;
+        if (!Number.isFinite(px) && typeof pt.timestamp === 'number') {
+          const dataList = event.chart.getDataList();
+          if (Array.isArray(dataList)) {
+            const idx = dataList.findIndex((d: any) => d.timestamp === pt.timestamp);
+            if (idx >= 0) {
+              const res2 = event.chart.convertToPixel([{ dataIndex: idx, value: pt.value }], { paneId: 'candle_pane' })?.[0];
+              if (res2 && Number.isFinite(res2.x)) px = res2.x;
+              if (res2 && Number.isFinite(res2.y)) py = res2.y;
             }
           }
-        });
-      }
+        }
+        return { x: px, y: py };
+      });
 
-      const isHandle = minDistance < 18;
+      let minDistance = Infinity;
+      let closestIndex = 0;
+      pts.forEach((pt: any, idx: number) => {
+        if (pt) {
+          const hasX = typeof pt.x === 'number' && Number.isFinite(pt.x);
+          const hasY = typeof pt.y === 'number' && Number.isFinite(pt.y);
+          let dist = Infinity;
+          if (hasX && hasY) {
+            dist = Math.sqrt((pt.x - event.x) ** 2 + (pt.y - event.y) ** 2);
+          } else if (hasY && !hasX) {
+            dist = Math.abs(pt.y - event.y);
+          } else if (hasX && !hasY) {
+            dist = Math.abs(pt.x - event.x);
+          }
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestIndex = idx;
+          }
+        }
+      });
+
+      const isHandle = minDistance <= 20;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
+      event.chart._activeDraggingIndex = currentDraggedIndex;
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
       }
-      if (event.chart) {
-        event.chart._activeDraggingIndex = currentDraggedIndex;
-      }
       if (event.overlay) {
-        event.overlay._activeDraggingIndex = currentDraggedIndex;
         event.overlay.currentPointIndex = isHandle ? closestIndex : -1;
         delete event.overlay.prevPoints;
       }
@@ -372,13 +394,10 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
-      const draggedIndex = event.chart?._activeDraggingIndex !== undefined
-        ? event.chart._activeDraggingIndex
-        : (event.overlay?._activeDraggingIndex !== undefined
-          ? event.overlay._activeDraggingIndex
-          : (event.overlay.extendData?.draggedIndex !== undefined
-            ? event.overlay.extendData.draggedIndex
-            : (chartInstanceRef.current?._activeDraggingIndex ?? null)));
+      const draggedIndex =
+        event.chart?._activeDraggingIndex !== undefined && event.chart._activeDraggingIndex !== null
+          ? event.chart._activeDraggingIndex
+          : (chartInstanceRef.current?._activeDraggingIndex ?? event.overlay.extendData?.draggedIndex ?? null);
 
       if (draggedIndex === undefined) {
         return;
@@ -518,11 +537,7 @@ export function getInteractiveOverlayOptions(
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = null;
       }
-      if (event.chart) {
-        event.chart._activeDraggingIndex = null;
-      }
       if (event.overlay) {
-        event.overlay._activeDraggingIndex = null;
         event.overlay.currentPointIndex = -1;
         delete event.overlay.prevPoints;
       }
