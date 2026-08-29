@@ -339,6 +339,12 @@ export function getInteractiveOverlayOptions(
       const isHandle = minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
+      if (isHandle) {
+        console.log(`[Anchor] Anchor point ${closestIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
+      } else {
+        console.log(`[Anchor] Body clicked (no anchor hit, minDistance: ${minDistance.toFixed(1)}px) on "${toolName}" (${event.overlay?.id})`);
+      }
+
       // Set drag index on BOTH chart references before selection fires reconciliation
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
@@ -391,12 +397,22 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
-      const draggedIndex = event.overlay.extendData?.draggedIndex !== undefined
-        ? event.overlay.extendData.draggedIndex
-        : (chartInstanceRef.current?._activeDraggingIndex ?? null);
+      // Read draggedIndex from extendData if it was set by onPressedMoveStart.
+      // Fall back to chart._activeDraggingIndex (set on event.chart directly before selection fires).
+      // Note: draggedIndex can be null (body drag) or a number (anchor index). Both are valid values.
+      // We check 'draggedIndex' key existence rather than !== undefined to catch the null case.
+      let draggedIndex: number | null;
+      const extendData = event.overlay.extendData;
+      if (extendData && 'draggedIndex' in extendData) {
+        draggedIndex = extendData.draggedIndex;
+      } else {
+        draggedIndex = event.chart?._activeDraggingIndex ?? chartInstanceRef.current?._activeDraggingIndex ?? null;
+      }
 
-      if (draggedIndex === undefined) {
-        return;
+      if (draggedIndex !== null) {
+        console.log(`[Anchor] Dragging anchor point ${draggedIndex + 1} on "${toolName}" (${event.overlay?.id})`);
+      } else {
+        console.log(`[Anchor] Dragging body (whole object) on "${toolName}" (${event.overlay?.id})`);
       }
 
       if (draggedIndex === null) {
@@ -454,12 +470,16 @@ export function getInteractiveOverlayOptions(
         return;
       }
 
+      const startPoints = event.overlay.extendData?.startPoints;
+      const initialPoints = (startPoints && Array.isArray(startPoints) && startPoints.length === event.overlay.points?.length)
+        ? startPoints
+        : event.overlay.points;
+
       if (toolName === 'trendLine') {
-        const points = event.overlay.points;
-        if (points && points.length === 2) {
+        if (initialPoints && initialPoints.length === 2) {
           const movingIndex = draggedIndex;
           const baseIndex = draggedIndex === 0 ? 1 : 0;
-          const pBase = points[baseIndex];
+          const pBase = initialPoints[baseIndex];
           const isShift = isShiftPressedRef?.current || false;
           
           if (isShift && pBase) {
@@ -485,7 +505,7 @@ export function getInteractiveOverlayOptions(
 
                 const snappedPoints = event.chart.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
                 if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
-                  const newPoints = [...points];
+                  const newPoints = [...initialPoints];
                   newPoints[movingIndex] = snappedPoints[0];
                   event.chart.overrideOverlay({
                     id: event.overlay.id,
@@ -501,8 +521,7 @@ export function getInteractiveOverlayOptions(
       }
 
       // Default free movement for any handle — apply magnet snap if active
-      const points = event.overlay.points;
-      if (points && draggedIndex !== null) {
+      if (initialPoints && draggedIndex !== null) {
         const rawX = event.x;
         const rawY = event.y;
         const mode: string = event.chart._magnetMode ?? 'normal';
@@ -516,7 +535,7 @@ export function getInteractiveOverlayOptions(
           ? [snappedPt]
           : event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' });
         if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
-          const newPoints = [...points];
+          const newPoints = [...initialPoints];
           newPoints[draggedIndex] = currentPoints[0];
           event.chart.overrideOverlay({
             id: event.overlay.id,

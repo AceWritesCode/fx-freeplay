@@ -938,23 +938,28 @@ export function ChartWorkspace() {
       const xVal = e.clientX - containerRect.left;
       const yVal = e.clientY - containerRect.top;
 
-      interactiveOverlays.forEach((ov: any) => {
-        if (ov.points && ov.points.length >= 6 && ['longPosition', 'shortPosition'].includes(ov.name)) {
+      selectedOverlays.forEach((ov: any) => {
+        if (ov.points && Array.isArray(ov.points)) {
           const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
-          pts.forEach((pt: any, idx: number) => {
-            if (pt) {
-              const dist = Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2);
-              if (dist < minDistance) {
-                minDistance = dist;
-                closestIndex = idx;
-                targetOverlayForAnchor = ov;
+          if (Array.isArray(pts)) {
+            pts.forEach((pt: any, idx: number) => {
+              if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
+                const dist = Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2);
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  closestIndex = idx;
+                  targetOverlayForAnchor = ov;
+                }
               }
-            }
-          });
+            });
+          }
         }
       });
 
-      const isAnchorHit = minDistance < 12;
+      const isAnchorHit = minDistance <= 16;
+      if (isAnchorHit && targetOverlayForAnchor) {
+        console.log(`[Anchor] Hovering over anchor point ${closestIndex + 1} of overlay "${targetOverlayForAnchor.name}" (${targetOverlayForAnchor.id}), distance: ${minDistance.toFixed(1)}px`);
+      }
 
       // 2. Perform body/line hit-testing for interactive overlays
       let hoveredInteractiveOverlay: any = null;
