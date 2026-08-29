@@ -435,8 +435,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                           }}
                           className={`group flex items-center justify-between px-3.5 py-2 w-full text-left transition-colors ${
                             isSelected
-                              ? 'bg-[#2a2e39] text-white font-medium'
-                              : 'hover:bg-gray-800/60 text-gray-300'
+                              ? 'bg-surface-elevated text-txt-primary font-medium'
+                              : 'hover:bg-surface-hover text-txt-secondary'
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -563,8 +563,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             }}
                             className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
                               isSelected
-                                ? 'bg-[#2a2e39] text-white font-medium'
-                                : 'hover:bg-gray-800/60 text-gray-300'
+                                ? 'bg-surface-elevated text-txt-primary font-medium'
+                                : 'hover:bg-surface-hover text-txt-secondary'
                             }`}
                           >
                             <div className="flex items-center gap-3">
@@ -576,12 +576,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             
                             <div className="flex items-center gap-3.5">
                               {tool.hotkey && (
-                                <span className="text-[10px] text-gray-500 font-mono pr-1">
+                                <span className="text-[10px] text-txt-muted font-mono pr-1">
                                   {tool.hotkey}
                                 </span>
                               )}
-                              <span className="text-gray-600 hover:text-yellow-500 transition-colors">
-                                <svg className="w-4 h-4 fill-current text-yellow-500" viewBox="0 0 18 18">
+                              <span className="text-txt-muted hover:text-amber-500 transition-colors">
+                                <svg className="w-4 h-4 fill-current text-amber-500" viewBox="0 0 18 18">
                                   <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
                                 </svg>
                               </span>
@@ -593,7 +593,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
 
                     {/* Divider Line */}
                     {idx < arr.length - 1 && (
-                      <div className="border-t border-gray-800 my-1"></div>
+                      <div className="border-t border-border-sub my-1"></div>
                     )}
                   </div>
                 ))}
@@ -621,7 +621,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '34px', height: '34px' }}
             >
@@ -641,7 +641,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               className={`border rounded-md transition-all flex items-center justify-center ${
                 isForecastMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/60 disabled:opacity-30 disabled:hover:bg-transparent'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
               style={{ width: '12px', height: '34px' }}
             >
@@ -660,7 +660,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 }}
               >
                 {/* Section header */}
-                <div className="px-3.5 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                <div className="px-3.5 py-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
                   Forecasting
                 </div>
                 {(['longPosition', 'shortPosition'] as const).map(toolId => {
@@ -678,8 +678,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                       }}
                       className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
                         isSelected
-                          ? 'bg-[#2a2e39] text-white font-medium'
-                          : 'hover:bg-gray-800/60 text-gray-300'
+                          ? 'bg-surface-elevated text-txt-primary font-medium'
+                          : 'hover:bg-surface-hover text-txt-secondary'
                       }`}
                     >
                       <div className="flex items-center gap-3">

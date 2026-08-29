@@ -1621,31 +1621,31 @@ export function ChartWorkspace() {
 
       {/* Floating CSV Import Stats Card */}
       {hasData && workspaceCoord.parseFeedback && workspaceCoord.showStats && (
-        <div className="fixed top-14 left-4 z-40 w-80 bg-[#1e222d] border border-gray-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-150">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-            <span className="font-semibold text-xs tracking-wider uppercase text-white flex items-center gap-1.5">
-              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+        <div className="fixed top-14 left-4 z-40 w-80 bg-modal-bg border border-border-def rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-150">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-def">
+            <span className="font-semibold text-xs tracking-wider uppercase text-txt-primary flex items-center gap-1.5">
+              <FileSpreadsheet className="w-4 h-4 text-status-success" />
               CSV Dataset Ingested
             </span>
             <button
               onClick={() => workspaceCoord.setShowStats(false)}
-              className="text-gray-400 hover:text-white cursor-pointer"
+              className="text-txt-muted hover:text-txt-primary cursor-pointer"
             >
               <X className="w-4.5 h-4.5" />
             </button>
           </div>
           <div className="p-4 flex flex-col gap-3 text-xs">
             <div className="flex justify-between">
-              <span className="text-gray-400">Total Rows Processed</span>
-              <span className="font-mono text-white font-semibold">{workspaceCoord.parseFeedback.rowCount.toLocaleString()}</span>
+              <span className="text-txt-muted">Total Rows Processed</span>
+              <span className="font-mono text-txt-primary font-semibold">{workspaceCoord.parseFeedback.rowCount.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Valid OHLCV Candlesticks</span>
-              <span className="font-mono text-emerald-400 font-semibold">{workspaceCoord.parseFeedback.parsedCount.toLocaleString()}</span>
+              <span className="text-txt-muted">Valid OHLCV Candlesticks</span>
+              <span className="font-mono text-status-success font-semibold">{workspaceCoord.parseFeedback.parsedCount.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Ignored Header / Invalid Rows</span>
-              <span className="font-mono text-amber-500 font-semibold">{workspaceCoord.parseFeedback.skippedCount.toLocaleString()}</span>
+              <span className="text-txt-muted">Ignored Header / Invalid Rows</span>
+              <span className="font-mono text-status-warning font-semibold">{workspaceCoord.parseFeedback.skippedCount.toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -1661,27 +1661,27 @@ export function ChartWorkspace() {
       >
         {/* Import Preferences Modal */}
         {isBrokerTfDropdownOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg backdrop-blur-xs">
             <div
               ref={brokerTfDropdownRef}
-              className="bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4"
+              className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4 text-txt-secondary"
             >
               <div className="flex justify-between items-center">
-                <span className="font-semibold text-xs tracking-wider uppercase text-white">Import Configuration</span>
+                <span className="font-semibold text-xs tracking-wider uppercase text-txt-primary">Import Configuration</span>
                 <button
                   onClick={() => setIsBrokerTfDropdownOpen(false)}
-                  className="text-gray-400 hover:text-white cursor-pointer"
+                  className="text-txt-muted hover:text-txt-primary cursor-pointer"
                 >
                   <X className="w-4.5 h-4.5" />
                 </button>
               </div>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-gray-400">Timezone Shift</label>
+                  <label className="text-[11px] font-semibold text-txt-muted">Timezone Shift</label>
                   <select
                     value={tempBrokerOffset}
                     onChange={(e) => setTempBrokerOffset(e.target.value)}
-                    className="bg-[#131722] border border-gray-800 text-white rounded p-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="bg-app-bg border border-border-def text-txt-primary rounded p-2 text-xs focus:outline-none focus:border-accent"
                   >
                     <option value="exchange">No Timezone Shift (Local)</option>
                     {TIMEZONE_OPTIONS.map((opt) => (
@@ -1745,29 +1745,29 @@ export function ChartWorkspace() {
 
         <main className="flex-1 h-full relative overflow-hidden bg-app-bg p-1 flex">
           {workspaceCoord.importProgress ? (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#131722]/95 backdrop-blur-sm p-6 text-center select-none transition-all duration-300">
-              <div className="max-w-md w-full bg-[#1e222d] border border-white/10 rounded-xl p-6 shadow-2xl flex flex-col items-center gap-5">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-overlay-bg backdrop-blur-xs p-6 text-center select-none transition-all duration-300">
+              <div className="max-w-md w-full bg-modal-bg border border-border-def rounded-xl p-6 shadow-2xl flex flex-col items-center gap-5">
                 {workspaceCoord.importProgress.status === 'error' ? (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                      <AlertTriangle className="w-6 h-6 text-red-400" />
+                    <div className="w-12 h-12 rounded-full bg-status-error/10 border border-status-error/20 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-status-error" />
                     </div>
                     <div className="flex flex-col gap-1.5 w-full">
-                      <h2 className="text-base font-bold text-white tracking-tight">Import Failed</h2>
-                      <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-left whitespace-pre-wrap font-mono max-h-36 overflow-y-auto">
+                      <h2 className="text-base font-bold text-txt-primary tracking-tight">Import Failed</h2>
+                      <p className="text-xs text-status-error bg-status-error/10 border border-status-error/20 rounded-lg p-3 text-left whitespace-pre-wrap font-mono max-h-36 overflow-y-auto">
                         {workspaceCoord.importProgress.errorMessage}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 w-full pt-1">
                       <button
                         onClick={() => workspaceCoord.resetImportProgress()}
-                        className="flex-1 py-2 px-3 bg-[#2a2e3d] hover:bg-[#363a4a] text-gray-300 rounded-lg text-xs font-semibold border border-white/10 transition-all cursor-pointer"
+                        className="flex-1 py-2 px-3 bg-surface-elevated hover:bg-surface-hover text-txt-secondary rounded-lg text-xs font-semibold border border-border-def transition-all cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
-                        className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/15 border border-indigo-500 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2 px-3 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         <FolderOpen className="w-3.5 h-3.5" />
                         <span>Select Folder</span>
@@ -1776,24 +1776,24 @@ export function ChartWorkspace() {
                   </>
                 ) : (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                      <Database className="w-6 h-6 text-indigo-400 animate-pulse" />
+                    <div className="w-12 h-12 rounded-full bg-accent-muted border border-accent/20 flex items-center justify-center">
+                      <Database className="w-6 h-6 text-accent animate-pulse" />
                     </div>
                     <div className="flex flex-col gap-1 w-full">
-                      <h2 className="text-base font-bold text-white tracking-tight">Loading Market Data</h2>
-                      <p className="text-xs text-gray-400">
+                      <h2 className="text-base font-bold text-txt-primary tracking-tight">Loading Market Data</h2>
+                      <p className="text-xs text-txt-muted">
                         {workspaceCoord.importProgress.currentActivity}
                       </p>
                     </div>
 
                     {/* Real Progress Bar */}
                     <div className="w-full flex flex-col gap-2">
-                      <div className="w-full bg-[#131722] rounded-full h-2 overflow-hidden border border-white/5 relative">
+                      <div className="w-full bg-app-bg rounded-full h-2 overflow-hidden border border-border-sub relative">
                         {workspaceCoord.importProgress.status === 'scanning' ? (
-                          <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full animate-pulse w-full" />
+                          <div className="h-full bg-accent rounded-full animate-pulse w-full" />
                         ) : (
                           <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all duration-300"
+                            className="h-full bg-accent rounded-full transition-all duration-300"
                             style={{
                               width: `${
                                 workspaceCoord.importProgress.totalCount > 0
@@ -1811,7 +1811,7 @@ export function ChartWorkspace() {
                           />
                         )}
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-gray-400 font-medium px-0.5">
+                      <div className="flex items-center justify-between text-[11px] text-txt-muted font-medium px-0.5">
                         <span>
                           {workspaceCoord.importProgress.status === 'scanning'
                             ? 'Scanning files...'
@@ -1840,21 +1840,21 @@ export function ChartWorkspace() {
               </div>
             </div>
           ) : !hasData ? (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#131722]/95 backdrop-blur-sm p-6 text-center select-none">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-app-bg p-6 text-center select-none">
               <div className="max-w-md flex flex-col items-center gap-6">
-                <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center animate-pulse">
-                  <Upload className="w-7 h-7 text-indigo-400" />
+                <div className="w-16 h-16 rounded-full bg-accent-muted border border-accent/20 flex items-center justify-center animate-pulse">
+                  <Upload className="w-7 h-7 text-accent" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <h2 className="text-xl font-bold text-white tracking-tight">Load Forex Market Data</h2>
-                  <p className="text-gray-400 text-xs leading-relaxed px-4">
+                  <h2 className="text-xl font-bold text-txt-primary tracking-tight">Load Forex Market Data</h2>
+                  <p className="text-txt-muted text-xs leading-relaxed px-4">
                     Import MT5 CSV candlesticks to replay, annotate, and test your trading edge.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2.5 w-full">
                   <button
                     onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
-                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/15 border border-indigo-500 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-2.5 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <FolderOpen className="w-4 h-4" />
                     <span>Open Directory (Folder Mode)</span>
@@ -1875,8 +1875,8 @@ export function ChartWorkspace() {
             />
             {/* Canvas-only loading spinner overlay for existing chart symbol switches */}
             {hasData && workspaceCoord.isLoadingSymbol && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#131722]/70 select-none pointer-events-auto">
-                <div className="w-8 h-8 rounded-full border-[3px] border-indigo-500/20 border-t-indigo-400 animate-spin" />
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-overlay-bg backdrop-blur-xs select-none pointer-events-auto">
+                <div className="w-8 h-8 rounded-full border-[3px] border-border-def border-t-accent animate-spin" />
               </div>
             )}
             {hasData && (
@@ -1887,13 +1887,13 @@ export function ChartWorkspace() {
                   absolute bottom-8 left-1/2 -translate-x-1/2 z-20
                   flex items-center gap-1.5
                   px-3.5 py-1.5
-                  bg-[#1e222d]/80 hover:bg-[#2a2e3d]/95
-                  border border-white/10 hover:border-indigo-400/50
-                  text-gray-400 hover:text-indigo-300
+                  bg-surface-elevated/90 hover:bg-surface-hover
+                  border border-border-def hover:border-border-focus
+                  text-txt-secondary hover:text-txt-primary
                   text-[10px] font-semibold tracking-wider uppercase
                   rounded-full
-                  backdrop-blur-sm
-                  shadow-lg shadow-black/40
+                  backdrop-blur-xs
+                  shadow-lg
                   transition-all duration-200
                   opacity-0 group-hover:opacity-100
                   pointer-events-auto
@@ -2001,24 +2001,24 @@ export function ChartWorkspace() {
 
       {/* Watchlist Remove Confirmation Dialog */}
       {pendingRemoveSymbol && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[340px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-overlay-bg backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[340px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+              <div className="w-10 h-10 rounded-full bg-status-error/10 border border-status-error/20 flex items-center justify-center text-status-error">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Delete Symbol Data</h3>
-                <p className="text-gray-400 text-[11px] mt-0.5">This action cannot be undone.</p>
+                <h3 className="text-sm font-bold text-txt-primary">Delete Symbol Data</h3>
+                <p className="text-txt-muted text-[11px] mt-0.5">This action cannot be undone.</p>
               </div>
             </div>
-            <p className="text-gray-300 text-xs leading-normal">
-              Are you sure you want to delete symbol <span className="font-semibold text-white">"{pendingRemoveSymbol}"</span>? This will permanently delete its timeframe data, drawings, and info profile from local storage. Other symbols will not be affected.
+            <p className="text-txt-secondary text-xs leading-normal">
+              Are you sure you want to delete symbol <span className="font-semibold text-txt-primary">"{pendingRemoveSymbol}"</span>? This will permanently delete its timeframe data, drawings, and info profile from local storage. Other symbols will not be affected.
             </p>
             <div className="flex gap-2.5 mt-2">
               <button
                 onClick={() => setPendingRemoveSymbol(null)}
-                className="flex-1 py-2 bg-[#1e222d] border border-gray-800 text-gray-400 text-xs font-semibold rounded hover:text-white transition-colors cursor-pointer"
+                className="flex-1 py-2 bg-surface-elevated border border-border-def text-txt-secondary text-xs font-semibold rounded hover:bg-surface-hover hover:text-txt-primary transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -2028,7 +2028,7 @@ export function ChartWorkspace() {
                   setPendingRemoveSymbol(null);
                   await workspaceCoord.handleWatchlistRemoveConfirm(target);
                 }}
-                className="flex-1 py-2 bg-red-600 hover:bg-red-500 border border-red-500 text-white text-xs font-semibold rounded transition-colors cursor-pointer"
+                className="flex-1 py-2 bg-status-error hover:bg-status-error/90 border border-status-error text-txt-inverse text-xs font-semibold rounded transition-colors cursor-pointer"
               >
                 Delete Symbol
               </button>
@@ -2037,26 +2037,24 @@ export function ChartWorkspace() {
         </div>
       )}
 
-
-
       {/* Custom Alert Overlay Modal */}
       {workspaceCoord.customAlert && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[360px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 text-amber-500">
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-overlay-bg backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[360px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-status-warning">
+              <div className="w-10 h-10 rounded-full bg-status-warning/10 border border-status-warning/20 flex items-center justify-center">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">{workspaceCoord.customAlert.title}</h3>
+                <h3 className="text-sm font-bold text-txt-primary">{workspaceCoord.customAlert.title}</h3>
               </div>
             </div>
-            <p className="text-gray-300 text-xs leading-normal">
+            <p className="text-txt-secondary text-xs leading-normal">
               {workspaceCoord.customAlert.message}
             </p>
             <button
               onClick={() => workspaceCoord.setCustomAlert(null)}
-              className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition-colors cursor-pointer"
+              className="w-full mt-2 py-2 bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold rounded transition-colors cursor-pointer"
             >
               Acknowledge
             </button>

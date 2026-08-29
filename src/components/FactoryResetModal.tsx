@@ -38,36 +38,36 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-overlay-bg backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-overlay-bg backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-modal-bg border border-status-error/50 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl relative text-txt-secondary">
         <button
           onClick={onClose}
           disabled={isResetting}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 text-txt-muted hover:text-txt-primary disabled:opacity-40 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 text-red-400">
-          <div className="p-2.5 bg-red-500/10 rounded-lg border border-red-500/30">
+        <div className="flex items-center gap-3 text-status-error">
+          <div className="p-2.5 bg-status-error/10 rounded-lg border border-status-error/30">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white">Perform Factory Reset</h2>
-            <p className="text-xs text-red-400 font-medium">Irreversible Destructive Action</p>
+            <h2 className="text-base font-bold text-txt-primary">Perform Factory Reset</h2>
+            <p className="text-xs text-status-error font-medium">Irreversible Destructive Action</p>
           </div>
         </div>
 
         {resetError && (
-          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs flex items-center gap-2">
+          <div className="p-3 bg-status-error/10 border border-status-error/30 rounded text-status-error text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
             <span>{resetError}</span>
           </div>
         )}
 
-        <div className="text-xs text-gray-300 space-y-2 bg-[#252936] p-3.5 rounded-md border border-[#363a45]">
-          <p className="font-semibold text-white">This operation will permanently delete:</p>
-          <ul className="list-disc pl-4 space-y-1 text-gray-400">
+        <div className="text-xs text-txt-secondary space-y-2 bg-surface-elevated p-3.5 rounded-md border border-border-def">
+          <p className="font-semibold text-txt-primary">This operation will permanently delete:</p>
+          <ul className="list-disc pl-4 space-y-1 text-txt-muted">
             <li>All imported market data CSV candle datasets (`STORES.MARKET_BARS`)</li>
             <li>All saved chart drawing objects (`STORES.DRAWINGS`)</li>
             <li>All watchlist symbols and profile metadata (`STORES.WATCHLIST`)</li>
@@ -75,14 +75,14 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
             <li>All drawing tool templates, folders, and custom themes (`LocalStorage`)</li>
             <li>All global application preferences and settings (`STORES.SETTINGS`)</li>
           </ul>
-          <p className="text-red-400 pt-1 font-medium">
+          <p className="text-status-error pt-1 font-medium">
             The application will return to a completely fresh installation state.
           </p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-gray-300 font-medium block">
-            Type <span className="font-bold text-white font-mono bg-red-500/20 px-1 py-0.5 rounded border border-red-500/30">RESET</span> below to confirm:
+          <label className="text-xs text-txt-secondary font-medium block">
+            Type <span className="font-bold text-status-error font-mono bg-status-error/10 px-1 py-0.5 rounded border border-status-error/30">RESET</span> below to confirm:
           </label>
           <input
             type="text"
@@ -90,7 +90,7 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
             onChange={(e) => setConfirmInput(e.target.value)}
             disabled={isResetting}
             placeholder="RESET"
-            className="w-full px-3 py-2 bg-[#141722] border border-[#363a45] focus:border-red-500 rounded-md text-xs font-mono text-white placeholder-gray-600 outline-none uppercase transition-colors"
+            className="w-full px-3 py-2 bg-app-bg border border-border-def focus:border-status-error rounded-md text-xs font-mono text-txt-primary placeholder:text-txt-muted outline-none uppercase transition-colors"
           />
         </div>
 
@@ -98,18 +98,18 @@ export const FactoryResetModal: React.FC<FactoryResetModalProps> = ({
           <button
             onClick={onClose}
             disabled={isResetting}
-            className="px-4 py-2 bg-[#2a2e39] hover:bg-[#363a45] disabled:opacity-40 text-gray-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+            className="px-4 py-2 bg-surface-elevated hover:bg-surface-hover disabled:opacity-40 text-txt-secondary rounded-md text-xs font-medium border border-border-def transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleReset}
             disabled={!isConfirmed || isResetting}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/30 disabled:text-red-400/50 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-status-error hover:bg-status-error/90 disabled:bg-status-error/30 disabled:text-status-error/50 text-txt-inverse rounded-md text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
           >
             {isResetting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <Loader2 className="w-4 h-4 animate-spin text-txt-inverse" />
                 <span>Deleting…</span>
               </>
             ) : (

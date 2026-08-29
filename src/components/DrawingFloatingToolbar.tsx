@@ -276,16 +276,16 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
       </ToolbarButton>
       
       {isTemplateDropdownOpen && (
-        <div className="absolute left-0 top-full mt-2 bg-white dark:bg-[#1c2030] border border-gray-200 dark:border-[#2a2e45] rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold flex flex-col text-gray-700 dark:text-gray-200">
+        <div className="absolute left-0 top-full mt-2 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 py-1 w-52 font-semibold flex flex-col text-txt-secondary">
             
             {/* Mode Tabs */}
-            <div className="flex border-b border-gray-200 dark:border-[#242838]">
+            <div className="flex border-b border-border-sub">
               <button
                 onClick={() => setActiveTemplateMode('light')}
-                className={`flex-1 text-center py-2 text-xs font-semibold border-r border-gray-200 dark:border-[#242838] transition-colors ${
+                className={`flex-1 text-center py-2 text-xs font-semibold border-r border-border-sub transition-colors ${
                   activeTemplateMode === 'light'
-                    ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 font-bold border-b border-indigo-500'
-                    : 'text-gray-450 hover:text-gray-650 dark:hover:text-gray-250'
+                    ? 'bg-accent-muted text-accent font-bold border-b border-accent'
+                    : 'text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 Light
@@ -294,8 +294,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 onClick={() => setActiveTemplateMode('dark')}
                 className={`flex-1 text-center py-2 text-xs font-semibold transition-colors ${
                   activeTemplateMode === 'dark'
-                    ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 font-bold border-b border-indigo-500'
-                    : 'text-gray-450 hover:text-gray-650 dark:hover:text-gray-250'
+                    ? 'bg-accent-muted text-accent font-bold border-b border-accent'
+                    : 'text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 Dark
@@ -303,7 +303,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             </div>
 
             {/* Actions Row */}
-            <div className="flex border-b border-gray-200 dark:border-[#242838] text-[11px]">
+            <div className="flex border-b border-border-sub text-[11px]">
               <button
                 onClick={() => {
                   setSaveName('');
@@ -312,7 +312,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                   setIsSaveModalOpen(true);
                   setIsTemplateDropdownOpen(false);
                 }}
-                className="flex-1 text-center py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-indigo-500 hover:text-indigo-650 dark:text-indigo-400 dark:hover:text-indigo-300 font-semibold border-r border-gray-200 dark:border-[#242838]"
+                className="flex-1 text-center py-2 hover:bg-surface-hover text-accent font-semibold border-r border-border-sub"
               >
                 Save templet
               </button>
@@ -344,7 +344,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                   }
                   setIsTemplateDropdownOpen(false);
                 }}
-                className="flex-1 text-center py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-semibold"
+                className="flex-1 text-center py-2 hover:bg-surface-hover text-txt-muted hover:text-txt-primary font-semibold"
               >
                 Restore to default
               </button>
@@ -352,18 +352,18 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
             {/* Group Selector Dropdown */}
             {uniqueGroups.length > 0 && (
-              <div className="relative px-3 py-2 border-b border-gray-200 dark:border-[#242838] bg-gray-50 dark:bg-[#171a26]">
+              <div className="relative px-3 py-2 border-b border-border-sub bg-surface">
                 <button
                   onClick={() => setIsSelectGroupDropdownOpen(!isSelectGroupDropdownOpen)}
-                  className="w-full flex items-center justify-between bg-white dark:bg-[#121420] border border-gray-200 dark:border-[#2a2e45] hover:border-gray-350 dark:hover:border-[#3a3f5e] rounded-lg px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all active:scale-98"
+                  className="w-full flex items-center justify-between bg-app-bg border border-border-def hover:border-border-focus rounded-lg px-2.5 py-1.5 text-xs text-txt-secondary hover:text-txt-primary transition-all active:scale-98"
                 >
                   <span>{selectedGroup}</span>
-                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                  <ChevronDown className="w-3 h-3 text-txt-muted" />
                 </button>
                 {isSelectGroupDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-[60]" onClick={() => setIsSelectGroupDropdownOpen(false)} />
-                    <div className="absolute left-3 right-3 top-full mt-1 bg-white dark:bg-[#1c2030] border border-gray-200 dark:border-[#2a2e45] rounded-lg shadow-2xl z-[70] py-1 max-h-32 overflow-y-auto">
+                    <div className="absolute left-3 right-3 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-[70] py-1 max-h-32 overflow-y-auto">
                       {uniqueGroups.map(grp => (
                         <button
                           key={grp}
@@ -371,7 +371,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                             setSelectedGroup(grp);
                             setIsSelectGroupDropdownOpen(false);
                           }}
-                          className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-750 dark:text-gray-305 text-xs truncate"
+                          className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-txt-secondary text-xs truncate"
                         >
                           {grp}
                         </button>
@@ -383,14 +383,14 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             )}
 
             {/* Templates List */}
-            <div className="max-h-40 overflow-y-auto py-1 bg-white dark:bg-[#1c2030]">
+            <div className="max-h-40 overflow-y-auto py-1 bg-modal-bg">
               {visibleTemplates.length === 0 ? (
-                <div className="px-4 py-3 text-xs text-gray-450 dark:text-gray-500 text-center italic font-normal">No templates</div>
+                <div className="px-4 py-3 text-xs text-txt-muted text-center italic font-normal">No templates</div>
               ) : (
                 visibleTemplates.map(tpl => (
                   <div
                     key={tpl.id}
-                    className="group flex justify-between items-center px-4 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 hover:text-gray-955 dark:hover:text-white text-xs cursor-pointer"
+                    className="group flex justify-between items-center px-4 py-1.5 hover:bg-surface-hover text-txt-secondary hover:text-txt-primary text-xs cursor-pointer"
                     onClick={() => {
                       if (onApplyTemplate) {
                         onApplyTemplate(tpl.settings);
@@ -563,7 +563,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         <div className="relative">
           <button 
             onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
-            className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-gray-700 dark:text-gray-300 hover:text-indigo-500 ${activeDropdown === 'width' ? 'bg-gray-100 dark:bg-gray-800 text-indigo-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`} 
+            className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'width' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
             title="Line width"
           >
             <Minus className="w-4 h-4 stroke-[3px]" />
@@ -571,12 +571,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </button>
           
           {activeDropdown === 'width' && (
-            <div className="absolute top-full mt-2 left-0 w-24 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
+            <div className="absolute top-full mt-2 left-0 w-24 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
               {[1, 2, 3, 4].map(w => (
                 <button
                   key={w}
                   onClick={() => handleUpdate({ lineWidth: w })}
-                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between ${w === lineWidth ? 'text-indigo-500' : ''}`}
+                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === lineWidth ? 'text-accent font-bold' : ''}`}
                 >
                   {w}px
                   <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />
@@ -611,12 +611,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </ToolbarButton>
           
           {activeDropdown === 'style' && (
-            <div className="absolute top-full mt-2 left-0 w-28 bg-white dark:bg-[#1e222d] border border-gray-200 dark:border-gray-800 rounded-lg py-1 flex flex-col shadow-xl z-50">
+            <div className="absolute top-full mt-2 left-0 w-28 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
               {['solid', 'dashed', 'dotted'].map(s => (
                 <button
                   key={s}
                   onClick={() => handleUpdate({ lineStyle: s })}
-                  className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between ${s === lineStyle ? 'text-indigo-500' : ''}`}
+                  className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-surface-hover flex items-center justify-between ${s === lineStyle ? 'text-accent font-bold' : ''}`}
                 >
                   {s}
                 </button>
@@ -625,7 +625,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           )}
         </div>
 
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-0.5" />
+        <div className="w-px h-4 bg-border-def mx-0.5" />
 
 
 
@@ -657,7 +657,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           <Trash2 className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-0.5" />
+        <div className="w-px h-4 bg-border-def mx-0.5" />
 
         {/* More */}
         <ToolbarButton title="More">
@@ -667,14 +667,14 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
       {/* Save Template Modal */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in duration-150">
-          <div className="bg-[#1c2030] border border-[#2a2e45] rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-150 text-left text-gray-200">
+        <div className="fixed inset-0 bg-overlay-bg backdrop-blur-xs z-[100] flex items-center justify-center animate-in fade-in duration-150">
+          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[320px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-150 text-left text-txt-secondary">
             {/* Header */}
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-xs tracking-wider uppercase text-white">Save drawing template</span>
+              <span className="font-semibold text-xs tracking-wider uppercase text-txt-primary">Save drawing template</span>
               <button 
                 onClick={() => setIsSaveModalOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -684,7 +684,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             <div className="flex flex-col gap-3">
               {/* Name */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-gray-400">Name</label>
+                <label className="text-[11px] font-semibold text-txt-muted">Name</label>
                 <SearchableDropdown
                   value={saveName}
                   onChange={setSaveName}
@@ -698,7 +698,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
               {/* Group */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-gray-400">Group</label>
+                <label className="text-[11px] font-semibold text-txt-muted">Group</label>
                 <SearchableDropdown
                   value={saveGroup}
                   onChange={setSaveGroup}
