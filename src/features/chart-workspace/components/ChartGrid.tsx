@@ -29,7 +29,7 @@ export const ChartGrid: React.FC<ChartGridProps> = (props) => {
   switch (layoutType) {
     case '1':
       return (
-        <div ref={layoutContainerRef} className="h-full w-full bg-app-bg p-1.5 gap-0">
+        <div ref={layoutContainerRef} className="h-full w-full bg-app-bg p-0 gap-0">
           <div key="slot_wrapper_0" className="h-full w-full">
             {renderSlot(0)}
           </div>

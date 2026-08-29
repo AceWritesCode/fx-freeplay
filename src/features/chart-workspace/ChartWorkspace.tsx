@@ -1409,13 +1409,14 @@ export function ChartWorkspace() {
   // Render chart slots
   const renderSlot = (i: number) => {
     const isActive = i === activeChartIndex;
-    const showHighlight = layoutType !== '1';
+    const isMultiChart = layoutType !== '1';
     return (
       <div
         onClick={() => handleSelectSlot(i)}
         className={`
-          relative w-full h-full bg-slot-bg rounded overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
-          ${showHighlight && isActive ? 'ring-2 ring-accent/40 z-10 shadow-md shadow-accent/5' : showHighlight ? 'border border-border-sub hover:border-border-def' : ''}
+          relative w-full h-full bg-slot-bg overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
+          ${isMultiChart ? 'rounded' : ''}
+          ${isMultiChart && isActive ? 'ring-2 ring-accent/40 z-10 shadow-md shadow-accent/5' : isMultiChart ? 'border border-border-sub hover:border-border-def' : ''}
         `}
       >
         <div
@@ -1743,7 +1744,7 @@ export function ChartWorkspace() {
           activeOverlayIdRef={activeOverlayIdRef}
         />
 
-        <main className="flex-1 h-full relative overflow-hidden bg-app-bg p-1 flex">
+        <main className={`flex-1 h-full relative overflow-hidden bg-app-bg ${layoutType !== '1' ? 'p-1' : 'p-0'} flex`}>
           {workspaceCoord.importProgress ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-overlay-bg backdrop-blur-xs p-6 text-center select-none transition-all duration-300">
               <div className="max-w-md w-full bg-modal-bg border border-border-def rounded-xl p-6 shadow-2xl flex flex-col items-center gap-5">
