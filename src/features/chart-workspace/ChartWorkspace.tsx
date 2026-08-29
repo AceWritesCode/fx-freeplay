@@ -955,8 +955,8 @@ export function ChartWorkspace() {
         if (ov.points && ['rectangle', 'longPosition', 'shortPosition'].includes(ov.name)) {
           const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
           if (pts && pts.length >= 2) {
-            const xCoords = pts.map((p: any) => p?.x).filter((v: any) => typeof v === 'number');
-            const yCoords = pts.map((p: any) => p?.y).filter((v: any) => typeof v === 'number');
+            const xCoords = pts.map((p: any) => p?.x).filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
+            const yCoords = pts.map((p: any) => p?.y).filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
             if (xCoords.length >= 2 && yCoords.length >= 2) {
               const minX = Math.min(...xCoords);
               const maxX = Math.max(...xCoords);
@@ -971,7 +971,7 @@ export function ChartWorkspace() {
           }
         } else if (ov.points && ov.name === 'trendLine' && ov.points.length >= 2) {
           const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
-          if (pts && pts[0] && pts[1]) {
+          if (pts && pts[0] && pts[1] && Number.isFinite(pts[0].x) && Number.isFinite(pts[0].y) && Number.isFinite(pts[1].x) && Number.isFinite(pts[1].y)) {
             const p1 = pts[0];
             const p2 = pts[1];
             const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;

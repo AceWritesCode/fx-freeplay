@@ -99,7 +99,7 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
 
       // Filter and collect all valid numeric pixel points
       const validPixelPts = pixelPts.filter(
-        (p: any) => p && typeof p.x === 'number' && !isNaN(p.x) && typeof p.y === 'number' && !isNaN(p.y)
+        (p: any) => p && typeof p.x === 'number' && Number.isFinite(p.x) && typeof p.y === 'number' && Number.isFinite(p.y)
       );
 
       if (validPixelPts.length < 2) {
@@ -386,7 +386,6 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
       onMouseLeave={() => setIsDomHovered(false)}
       className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
-        visibility: 'hidden',
         fontSize: `${fontSize}px`,
         color: textColor,
         fontWeight: isBold ? 'bold' : 'normal',
