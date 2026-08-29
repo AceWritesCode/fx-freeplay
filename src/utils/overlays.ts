@@ -314,7 +314,8 @@ export function getInteractiveOverlayOptions(
       // making onPressedMoving fall through to body-drag even when an anchor was hit.
       const rawPoints = event.overlay.points || [];
       const cleanPoints = rawPoints.map((p: any) => ({
-        timestamp: p.timestamp,
+        ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+        ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
         value: p.value,
       }));
       let pts = event.chart.convertToPixel(cleanPoints, { paneId: 'candle_pane' });
@@ -338,6 +339,12 @@ export function getInteractiveOverlayOptions(
 
       const isHandle = minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
+
+      if (isHandle) {
+        console.log(`[Anchor] Anchor point ${closestIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
+      } else {
+        console.log(`[Anchor] Body clicked (no anchor hit, minDistance: ${minDistance.toFixed(1)}px) on "${toolName}" (${event.overlay?.id})`);
+      }
 
       // Set drag index on BOTH chart references before selection fires reconciliation
       if (chartInstanceRef.current) {
@@ -401,6 +408,12 @@ export function getInteractiveOverlayOptions(
         draggedIndex = extendData.draggedIndex;
       } else {
         draggedIndex = event.chart?._activeDraggingIndex ?? chartInstanceRef.current?._activeDraggingIndex ?? null;
+      }
+
+      if (draggedIndex !== null) {
+        console.log(`[Anchor] Dragging anchor point ${draggedIndex + 1} on "${toolName}" (${event.overlay?.id})`);
+      } else {
+        console.log(`[Anchor] Dragging body (whole object) on "${toolName}" (${event.overlay?.id})`);
       }
 
       if (draggedIndex === null) {

@@ -940,7 +940,15 @@ export function ChartWorkspace() {
 
       selectedOverlays.forEach((ov: any) => {
         if (ov.points && Array.isArray(ov.points)) {
-          const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          const cleanPts = ov.points.map((p: any) => ({
+            ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+            ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+            value: p.value,
+          }));
+          let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
+          if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
+            pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          }
           if (Array.isArray(pts)) {
             pts.forEach((pt: any, idx: number) => {
               if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
@@ -957,6 +965,9 @@ export function ChartWorkspace() {
       });
 
       const isAnchorHit = minDistance <= 16;
+      if (isAnchorHit && targetOverlayForAnchor) {
+        console.log(`[Anchor] Hovering over anchor point ${closestIndex + 1} of overlay "${targetOverlayForAnchor.name}" (${targetOverlayForAnchor.id}), distance: ${minDistance.toFixed(1)}px`);
+      }
 
       // 2. Perform body/line hit-testing for interactive overlays
       let hoveredInteractiveOverlay: any = null;
@@ -980,8 +991,16 @@ export function ChartWorkspace() {
               }
             }
           }
-        } else if (ov.points && ov.name === 'trendLine' && ov.points.length >= 2) {
-          const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+        } else if (ov.points && ov.points.length >= 2 && ['trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)) {
+          const cleanPts = ov.points.map((p: any) => ({
+            ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+            ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+            value: p.value,
+          }));
+          let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
+          if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
+            pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          }
           if (pts && pts[0] && pts[1] && Number.isFinite(pts[0].x) && Number.isFinite(pts[0].y) && Number.isFinite(pts[1].x) && Number.isFinite(pts[1].y)) {
             const p1 = pts[0];
             const p2 = pts[1];
@@ -1006,7 +1025,7 @@ export function ChartWorkspace() {
 
       // Maintain isHovered state cleanly without layout resets
       interactiveOverlays.forEach((ov: any) => {
-        if (['rectangle', 'longPosition', 'shortPosition', 'trendLine'].includes(ov.name)) {
+        if (['rectangle', 'longPosition', 'shortPosition', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)) {
           const isCurrentlyHovered = ov.id === nextHoveredId;
           if (ov.extendData?.isHovered !== isCurrentlyHovered) {
             chart.overrideOverlay({
@@ -1049,7 +1068,7 @@ export function ChartWorkspace() {
           });
         }
 
-        const nextCursor = closestIndex !== 5 ? 'move' : 'ew-resize';
+        const nextCursor = 'pointer';
         if (container.style.cursor !== nextCursor) {
           container.style.cursor = nextCursor;
         }
