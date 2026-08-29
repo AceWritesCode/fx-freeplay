@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
@@ -892,8 +892,21 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             {activeTab === 'Replay' && (
               <div className="flex flex-col gap-4">
                 <div>
-                  <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">
-                    Bar Replay Speed Limits
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">
+                    <span>Bar Replay Speed Limits</span>
+                    <div className="relative group/tooltip inline-flex items-center">
+                      <button
+                        type="button"
+                        className="text-txt-muted hover:text-accent transition-colors p-0.5 rounded focus:outline-none cursor-help"
+                        aria-label="Info"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:flex flex-col z-[70] w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                        <span>Sets the overall playback speed boundaries for bar replay. The application calculates 5 logarithmic speed steps between the slowest and fastest limits for smooth speed control on the replay footer slider.</span>
+                        <div className="absolute -bottom-1 left-3 w-2 h-2 bg-modal-bg border-b border-r border-border-def rotate-45" />
+                      </div>
+                    </div>
                   </div>
                   <p className="text-xs text-txt-muted">
                     Configure the maximum (slowest) and minimum (fastest) bar duration boundaries for playback simulation.
@@ -903,9 +916,24 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Slowest Speed (Max Duration per Bar) */}
                 <div className="flex flex-col gap-2 bg-surface p-3.5 rounded-lg border border-border-def">
                   <div className="flex items-center justify-between">
-                    <label className="font-semibold text-txt-primary text-xs">
-                      Slowest Speed (Maximum Duration per Bar)
-                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-semibold text-txt-primary text-xs">
+                        Slowest Speed (Maximum Duration per Bar)
+                      </label>
+                      <div className="relative group/tooltip inline-flex items-center">
+                        <button
+                          type="button"
+                          className="text-txt-muted hover:text-accent transition-colors p-0.5 rounded focus:outline-none cursor-help"
+                          aria-label="Info"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:flex flex-col z-[70] w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                          <span>Controls the time per candle when the replay speed slider is set all the way to the slowest setting. A higher duration (e.g. 3.00s) makes playback slower and gives more time to analyze price action.</span>
+                          <div className="absolute -bottom-1 left-3 w-2 h-2 bg-modal-bg border-b border-r border-border-def rotate-45" />
+                        </div>
+                      </div>
+                    </div>
                     <span className="font-mono text-accent font-bold text-xs">
                       {(formState.replayMaxDuration ?? 3.0).toFixed(2)} s/bar
                     </span>
@@ -933,9 +961,24 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Fastest Speed (Min Duration per Bar) */}
                 <div className="flex flex-col gap-2 bg-surface p-3.5 rounded-lg border border-border-def">
                   <div className="flex items-center justify-between">
-                    <label className="font-semibold text-txt-primary text-xs">
-                      Fastest Speed (Minimum Duration per Bar)
-                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-semibold text-txt-primary text-xs">
+                        Fastest Speed (Minimum Duration per Bar)
+                      </label>
+                      <div className="relative group/tooltip inline-flex items-center">
+                        <button
+                          type="button"
+                          className="text-txt-muted hover:text-accent transition-colors p-0.5 rounded focus:outline-none cursor-help"
+                          aria-label="Info"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:flex flex-col z-[70] w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                          <span>Controls the time per candle when the replay speed slider is set to the fastest setting. A lower duration (e.g. 0.01s) allows rapid bar progression and fast-forward simulation.</span>
+                          <div className="absolute -bottom-1 left-3 w-2 h-2 bg-modal-bg border-b border-r border-border-def rotate-45" />
+                        </div>
+                      </div>
+                    </div>
                     <span className="font-mono text-accent font-bold text-xs">
                       {(formState.replayMinDuration ?? 0.01).toFixed(2)} s/bar
                     </span>
