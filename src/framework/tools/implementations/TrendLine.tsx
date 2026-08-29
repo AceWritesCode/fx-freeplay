@@ -262,7 +262,19 @@ export const TrendLineTool: ToolDefinition = {
           });
         }
 
-        // Draw line segments
+        // 1. Transparent full-length line figure for reliable event hit-testing across text gaps
+        figures.push({
+          type: 'line',
+          attrs: { coordinates: [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }] },
+          styles: {
+            style: 'solid',
+            color: 'transparent',
+            size: Math.max(lineWidth, 8)
+          },
+          ignoreEvent: false,
+        });
+
+        // 2. Draw visible line segments (with text gap if active)
         drawSegments.forEach(seg => {
           figures.push({
             type: 'line',

@@ -8,26 +8,26 @@ export const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: bo
     if (isLocked) {
       figures.push({
         type: 'circle',
-        attrs: { x: coord.x, y: coord.y, r: 2.5 },
+        attrs: { x: coord.x, y: coord.y, r: 3 },
         styles: {
           style: 'stroke_fill',
           color: '#474a59',
           borderColor: '#6a6d7c',
           borderSize: 1.5
         },
-        ignoreEvent: true
+        ignoreEvent: false
       });
     } else {
       figures.push({
         type: 'circle',
-        attrs: { x: coord.x, y: coord.y, r: 4.5 },
+        attrs: { x: coord.x, y: coord.y, r: 5 },
         styles: {
           style: 'stroke_fill',
           color: '#ffffff',
           borderColor: '#2196F3',
           borderSize: 1.5
         },
-        ignoreEvent: true
+        ignoreEvent: false
       });
     }
   });
