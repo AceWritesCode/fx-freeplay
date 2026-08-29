@@ -60,6 +60,43 @@ const COLOR_FIELDS: { key: keyof CustomThemePalette; label: string }[] = [
   { key: 'statusError', label: 'Error' },
 ];
 
+const ColorPickerButton: React.FC<{
+  color: string;
+  onChange: (newColor: string) => void;
+  disabled?: boolean;
+  title?: string;
+  fieldKey: string;
+  activeKey: string | null;
+  onToggle: (key: string | null) => void;
+  placement?: 'left' | 'right';
+}> = ({ color, onChange, disabled, title, fieldKey, activeKey, onToggle, placement = 'right' }) => {
+  const isOpen = activeKey === fieldKey;
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onToggle(isOpen ? null : fieldKey)}
+        className="w-6 h-6 rounded border border-border-def shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-95 flex-shrink-0"
+        style={{ backgroundColor: color }}
+        title={title || 'Select Color'}
+      />
+      {isOpen && !disabled && (
+        <div className={`absolute ${placement === 'left' ? 'left-0' : 'right-0'} top-full mt-2 z-[70] shadow-2xl`}>
+          <div className="fixed inset-0 z-40" onClick={() => onToggle(null)} />
+          <div className="relative z-50">
+            <ColorPicker
+              color={color}
+              onChange={onChange}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   isOpen,
   onClose,
@@ -74,7 +111,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const { themeMode, setThemeMode, customTheme, setCustomTheme } = useSettingsStore();
   const [activeTab, setActiveTab] = useState<TabType>('Theme');
   const [formState, setFormState] = useState<ChartSettings>({ ...settings });
-  const [activeColorField, setActiveColorField] = useState<keyof CustomThemePalette | null>(null);
+  const [activeColorField, setActiveColorField] = useState<string | null>(null);
 
   // Custom chart presets: stored in localStorage, keyed by user-chosen name
   const [customPresets, setCustomPresets] = useState<{ [name: string]: ChartSettings }>(() => {
@@ -162,7 +199,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           {/* Left Sidebar (Tabs) */}
           <div className="w-44 bg-surface border-r border-border-sub py-3 flex flex-col gap-1 select-none">
             <button
-              onClick={() => setActiveTab('Theme')}
+              onClick={() => { setActiveTab('Theme'); setActiveColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Theme'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -174,7 +211,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('Symbol')}
+              onClick={() => { setActiveTab('Symbol'); setActiveColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Symbol'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -190,7 +227,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('Canvas')}
+              onClick={() => { setActiveTab('Canvas'); setActiveColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Canvas'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -202,7 +239,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('Scales')}
+              onClick={() => { setActiveTab('Scales'); setActiveColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Scales'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -214,7 +251,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('Timezone')}
+              onClick={() => { setActiveTab('Timezone'); setActiveColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Timezone'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -226,7 +263,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('Replay')}
+              onClick={() => { setActiveTab('Replay'); setActiveColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Replay'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -415,19 +452,23 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <span>Body Fill</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.bullColor}
+                      onChange={(c) => handleFieldChange('bullColor', c)}
                       disabled={!formState.showBody}
-                      value={formState.bullColor}
-                      onChange={(e) => handleFieldChange('bullColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Bullish Body Color"
+                      fieldKey="bullColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.bearColor}
+                      onChange={(c) => handleFieldChange('bearColor', c)}
                       disabled={!formState.showBody}
-                      value={formState.bearColor}
-                      onChange={(e) => handleFieldChange('bearColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Bearish Body Color"
+                      fieldKey="bearColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -444,19 +485,23 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <span>Borders</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.bullBorderColor}
+                      onChange={(c) => handleFieldChange('bullBorderColor', c)}
                       disabled={!formState.showBorders}
-                      value={formState.bullBorderColor}
-                      onChange={(e) => handleFieldChange('bullBorderColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Bullish Border Color"
+                      fieldKey="bullBorderColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.bearBorderColor}
+                      onChange={(c) => handleFieldChange('bearBorderColor', c)}
                       disabled={!formState.showBorders}
-                      value={formState.bearBorderColor}
-                      onChange={(e) => handleFieldChange('bearBorderColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Bearish Border Color"
+                      fieldKey="bearBorderColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -473,19 +518,23 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <span>Wick Color</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.bullWickColor}
+                      onChange={(c) => handleFieldChange('bullWickColor', c)}
                       disabled={!formState.showWicks}
-                      value={formState.bullWickColor}
-                      onChange={(e) => handleFieldChange('bullWickColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Bullish Wick Color"
+                      fieldKey="bullWickColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.bearWickColor}
+                      onChange={(c) => handleFieldChange('bearWickColor', c)}
                       disabled={!formState.showWicks}
-                      value={formState.bearWickColor}
-                      onChange={(e) => handleFieldChange('bearWickColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Bearish Wick Color"
+                      fieldKey="bearWickColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -557,12 +606,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       />
                       <span className={!formState.showPriceLine ? 'text-txt-muted' : ''}>Match Candle</span>
                     </label>
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.priceLineColor}
+                      onChange={(c) => handleFieldChange('priceLineColor', c)}
                       disabled={!formState.showPriceLine || formState.priceLineUseCandleColor}
-                      value={formState.priceLineColor}
-                      onChange={(e) => handleFieldChange('priceLineColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Price Line Color"
+                      fieldKey="priceLineColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -608,21 +659,23 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     </select>
                     
                     <div className="flex items-center gap-1.5">
-                      <input
-                        type="color"
+                      <ColorPickerButton
+                        color={formState.background}
+                        onChange={(c) => handleFieldChange('background', c)}
                         disabled={formState.backgroundType === 'None'}
-                        value={formState.background}
-                        onChange={(e) => handleFieldChange('background', e.target.value)}
                         title="Top / Primary Background Color"
-                        className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                        fieldKey="background"
+                        activeKey={activeColorField}
+                        onToggle={setActiveColorField}
                       />
                       {formState.backgroundType === 'Gradient' && (
-                        <input
-                          type="color"
-                          value={formState.backgroundGradientStop || '#1e222d'}
-                          onChange={(e) => handleFieldChange('backgroundGradientStop', e.target.value)}
+                        <ColorPickerButton
+                          color={formState.backgroundGradientStop || '#1e222d'}
+                          onChange={(c) => handleFieldChange('backgroundGradientStop', c)}
                           title="Bottom Gradient Color"
-                          className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                          fieldKey="backgroundGradientStop"
+                          activeKey={activeColorField}
+                          onToggle={setActiveColorField}
                         />
                       )}
                     </div>
@@ -652,12 +705,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       <option value="dashed">Dashed</option>
                       <option value="solid">Solid</option>
                     </select>
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.gridColor}
+                      onChange={(c) => handleFieldChange('gridColor', c)}
                       disabled={formState.gridType === 'None'}
-                      value={formState.gridColor}
-                      onChange={(e) => handleFieldChange('gridColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Grid Line Color"
+                      fieldKey="gridColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -709,12 +764,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       <option value="3">3 px</option>
                     </select>
 
-                    <input
-                      type="color"
+                    <ColorPickerButton
+                      color={formState.sessionBreaksColor}
+                      onChange={(c) => handleFieldChange('sessionBreaksColor', c)}
                       disabled={!formState.showSessionBreaks}
-                      value={formState.sessionBreaksColor}
-                      onChange={(e) => handleFieldChange('sessionBreaksColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                      title="Session Breaks Color"
+                      fieldKey="sessionBreaksColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -795,11 +852,13 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       <option value="13">13 px</option>
                       <option value="14">14 px</option>
                     </select>
-                    <input
-                      type="color"
-                      value={formState.scalesTextColor}
-                      onChange={(e) => handleFieldChange('scalesTextColor', e.target.value)}
-                      className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                    <ColorPickerButton
+                      color={formState.scalesTextColor}
+                      onChange={(c) => handleFieldChange('scalesTextColor', c)}
+                      title="Scales Text Color"
+                      fieldKey="scalesTextColor"
+                      activeKey={activeColorField}
+                      onToggle={setActiveColorField}
                     />
                   </div>
                 </div>
@@ -815,12 +874,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     />
                     <span>Scale Axis Lines</span>
                   </label>
-                  <input
-                    type="color"
+                  <ColorPickerButton
+                    color={formState.scalesLinesColor}
+                    onChange={(c) => handleFieldChange('scalesLinesColor', c)}
                     disabled={!formState.showScalesLines}
-                    value={formState.scalesLinesColor}
-                    onChange={(e) => handleFieldChange('scalesLinesColor', e.target.value)}
-                    className="w-6 h-6 bg-transparent border-0 rounded cursor-pointer disabled:opacity-40 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-border-def [&::-webkit-color-swatch]:rounded"
+                    title="Scale Axis Lines Color"
+                    fieldKey="scalesLinesColor"
+                    activeKey={activeColorField}
+                    onToggle={setActiveColorField}
                   />
                 </div>
               </div>
