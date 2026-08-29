@@ -902,9 +902,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       >
                         <HelpCircle className="w-3.5 h-3.5" />
                       </button>
-                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:flex flex-col z-[70] w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                      <div className="absolute left-0 top-full mt-1.5 hidden group-hover/tooltip:flex flex-col z-50 w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
                         <span>Sets the overall playback speed boundaries for bar replay. The application calculates 5 logarithmic speed steps between the slowest and fastest limits for smooth speed control on the replay footer slider.</span>
-                        <div className="absolute -bottom-1 left-3 w-2 h-2 bg-modal-bg border-b border-r border-border-def rotate-45" />
+                        <div className="absolute -top-1 left-3 w-2 h-2 bg-modal-bg border-t border-l border-border-def rotate-45" />
                       </div>
                     </div>
                   </div>
@@ -928,9 +928,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         >
                           <HelpCircle className="w-3.5 h-3.5" />
                         </button>
-                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:flex flex-col z-[70] w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute left-0 top-full mt-1.5 hidden group-hover/tooltip:flex flex-col z-50 w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
                           <span>Controls the time per candle when the replay speed slider is set all the way to the slowest setting. A higher duration (e.g. 3.00s) makes playback slower and gives more time to analyze price action.</span>
-                          <div className="absolute -bottom-1 left-3 w-2 h-2 bg-modal-bg border-b border-r border-border-def rotate-45" />
+                          <div className="absolute -top-1 left-3 w-2 h-2 bg-modal-bg border-t border-l border-border-def rotate-45" />
                         </div>
                       </div>
                     </div>
@@ -973,9 +973,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         >
                           <HelpCircle className="w-3.5 h-3.5" />
                         </button>
-                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:flex flex-col z-[70] w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute left-0 top-full mt-1.5 hidden group-hover/tooltip:flex flex-col z-50 w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
                           <span>Controls the time per candle when the replay speed slider is set to the fastest setting. A lower duration (e.g. 0.01s) allows rapid bar progression and fast-forward simulation.</span>
-                          <div className="absolute -bottom-1 left-3 w-2 h-2 bg-modal-bg border-b border-r border-border-def rotate-45" />
+                          <div className="absolute -top-1 left-3 w-2 h-2 bg-modal-bg border-t border-l border-border-def rotate-45" />
                         </div>
                       </div>
                     </div>
