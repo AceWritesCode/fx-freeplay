@@ -82,176 +82,107 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
   useEffect(() => {
     let active = true;
     const updatePosition = () => {
-      if (!active || !chart || !elRef.current) return;
+      if (!active) return;
 
-      const pts = overlay.points;
-      if (!pts || pts.length < 2) {
-        if (elRef.current) elRef.current.style.visibility = 'hidden';
-        requestAnimationFrame(updatePosition);
-        return;
-      }
-      const pixelPts = chart.convertToPixel(pts, { paneId: 'candle_pane' });
-      if (!pixelPts || !Array.isArray(pixelPts)) {
-        if (elRef.current) elRef.current.style.visibility = 'hidden';
-        requestAnimationFrame(updatePosition);
-        return;
-      }
+      const pts = overlay?.points;
+      if (pts && pts.length >= 2 && chart && elRef.current) {
+        const pixelPts = chart.convertToPixel(pts, { paneId: 'candle_pane' });
+        if (pixelPts && Array.isArray(pixelPts)) {
+          // Filter and collect all valid numeric pixel points
+          const validPixelPts = pixelPts.filter(
+            (p: any) => p && typeof p.x === 'number' && Number.isFinite(p.x) && typeof p.y === 'number' && Number.isFinite(p.y)
+          );
 
-      // Filter and collect all valid numeric pixel points
-      const validPixelPts = pixelPts.filter(
-        (p: any) => p && typeof p.x === 'number' && Number.isFinite(p.x) && typeof p.y === 'number' && Number.isFinite(p.y)
-      );
+          if (validPixelPts.length >= 2) {
+            const xCoords = validPixelPts.map((p: any) => p.x);
+            const yCoords = validPixelPts.map((p: any) => p.y);
+            const minX = Math.min(...xCoords);
+            const maxX = Math.max(...xCoords);
+            const minY = Math.min(...yCoords);
+            const maxY = Math.max(...yCoords);
 
-      if (validPixelPts.length < 2) {
-        if (elRef.current) elRef.current.style.visibility = 'hidden';
-        requestAnimationFrame(updatePosition);
-        return;
-      }
+            const x = minX;
+            const y = minY;
+            const w = maxX - minX;
+            const h = maxY - minY;
 
-      const xCoords = validPixelPts.map((p: any) => p.x);
-      const yCoords = validPixelPts.map((p: any) => p.y);
-      const minX = Math.min(...xCoords);
-      const maxX = Math.max(...xCoords);
-      const minY = Math.min(...yCoords);
-      const maxY = Math.max(...yCoords);
+            if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w >= 0 && h >= 0) {
+              let tx = x + w / 2;
+              let ty = y + h / 2;
 
-      const x = minX;
-      const y = minY;
-      const w = maxX - minX;
-      const h = maxY - minY;
+              let translateX = '-50%';
+              let translateY = '-50%';
 
-      if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || w < 0 || h < 0) {
-        if (elRef.current) elRef.current.style.visibility = 'hidden';
-        requestAnimationFrame(updatePosition);
-        return;
-      }
+              if (textPlacement === 'outside') {
+                if (textValign === 'top') {
+                  ty = y - 6;
+                  translateY = '-100%';
+                } else if (textValign === 'bottom') {
+                  ty = y + h + 6;
+                  translateY = '0%';
+                } else {
+                  if (textHalign === 'left') {
+                    tx = x - 6;
+                    translateX = '-100%';
+                    ty = y + h / 2;
+                    translateY = '-50%';
+                  } else if (textHalign === 'right') {
+                    tx = x + w + 6;
+                    translateX = '0%';
+                    ty = y + h / 2;
+                    translateY = '-50%';
+                  } else {
+                    ty = y - 6;
+                    translateY = '-100%';
+                    tx = x + w / 2;
+                    translateX = '-50%';
+                  }
+                }
 
-      let tx = x + w / 2;
-      let ty = y + h / 2;
+                if (textValign !== 'middle') {
+                  if (textHalign === 'left') {
+                    tx = x;
+                    translateX = '0%';
+                  } else if (textHalign === 'right') {
+                    tx = x + w;
+                    translateX = '-100%';
+                  } else {
+                    tx = x + w / 2;
+                    translateX = '-50%';
+                  }
+                }
+              } else {
+                // Inside placement
+                if (textHalign === 'left') {
+                  tx = x + 8;
+                  translateX = '0%';
+                } else if (textHalign === 'right') {
+                  tx = x + w - 8;
+                  translateX = '-100%';
+                } else {
+                  tx = x + w / 2;
+                  translateX = '-50%';
+                }
 
-      let translateX = '-50%';
-      let translateY = '-50%';
+                if (textValign === 'top') {
+                  ty = y + 8;
+                  translateY = '0%';
+                } else if (textValign === 'bottom') {
+                  ty = y + h - 8;
+                  translateY = '-100%';
+                } else {
+                  ty = y + h / 2;
+                  translateY = '-50%';
+                }
+              }
 
-      if (textPlacement === 'outside') {
-        if (textValign === 'top') {
-          ty = y - 6;
-          translateY = '-100%';
-        } else if (textValign === 'bottom') {
-          ty = y + h + 6;
-          translateY = '0%';
-        } else {
-          if (textHalign === 'left') {
-            tx = x - 6;
-            translateX = '-100%';
-            ty = y + h / 2;
-            translateY = '-50%';
-          } else if (textHalign === 'right') {
-            tx = x + w + 6;
-            translateX = '0%';
-            ty = y + h / 2;
-            translateY = '-50%';
-          } else {
-            ty = y - 6;
-            translateY = '-100%';
-            tx = x + w / 2;
-            translateX = '-50%';
-          }
-        }
-
-        if (textValign !== 'middle') {
-          if (textHalign === 'left') {
-            tx = x;
-            translateX = '0%';
-          } else if (textHalign === 'right') {
-            tx = x + w;
-            translateX = '-100%';
-          } else {
-            tx = x + w / 2;
-            translateX = '-50%';
-          }
-        }
-      } else {
-        // Inside placement
-        if (textHalign === 'left') {
-          tx = x + 8;
-          translateX = '0%';
-        } else if (textHalign === 'right') {
-          tx = x + w - 8;
-          translateX = '-100%';
-        } else {
-          tx = x + w / 2;
-          translateX = '-50%';
-        }
-
-        if (textValign === 'top') {
-          ty = y + 8;
-          translateY = '0%';
-        } else if (textValign === 'bottom') {
-          ty = y + h - 8;
-          translateY = '-100%';
-        } else {
-          ty = y + h / 2;
-          translateY = '-50%';
-        }
-      }
-
-      if (isNaN(tx) || isNaN(ty)) {
-        if (elRef.current) elRef.current.style.visibility = 'hidden';
-        requestAnimationFrame(updatePosition);
-        return;
-      }
-
-      let drawingAreaWidth = 10000;
-      try {
-        const paneStore = (chart as any)?._chartStore?.getPaneStore?.();
-        const pane = (chart as any)?.getDrawPaneById?.('candle_pane') || paneStore?.getPaneById?.('candle_pane');
-        if (pane) {
-          const mainWidget = pane.getWidget?.() || pane.getMainWidget?.();
-          const mw = mainWidget?.getBounding?.()?.width;
-          if (typeof mw === 'number' && mw > 0) {
-            drawingAreaWidth = mw;
-          } else {
-            const totalW = pane.getBounding?.()?.width;
-            const axisW = pane.getAxisWidget?.()?.getBounding?.()?.width || pane.getYAxisWidget?.()?.getBounding?.()?.width || 70;
-            if (typeof totalW === 'number' && totalW > 0) {
-              drawingAreaWidth = totalW - axisW;
+              if (Number.isFinite(tx) && Number.isFinite(ty)) {
+                elRef.current.style.transform = `translate(${tx}px, ${ty}px) translate(${translateX}, ${translateY})`;
+              }
             }
           }
         }
-        if (drawingAreaWidth === 10000) {
-          const chartDom = chart?.getDom?.();
-          if (chartDom && chartDom.offsetWidth > 100) {
-            drawingAreaWidth = chartDom.offsetWidth - 70;
-          }
-        }
-      } catch (e) {}
-
-      const domW = elRef.current.offsetWidth || 0;
-      const domH = elRef.current.offsetHeight || 0;
-
-      let textRight = tx;
-      let textLeft = tx;
-      if (translateX === '0%') {
-        textRight = tx + domW;
-        textLeft = tx;
-      } else if (translateX === '-50%') {
-        textRight = tx + domW / 2;
-        textLeft = tx - domW / 2;
-      } else if (translateX === '-100%') {
-        textRight = tx;
-        textLeft = tx - domW;
       }
-
-      const isTooSmall = domW > 0 && domH > 0 && (
-        text !== '' 
-          ? (w < domW || h < domH)
-          : (w < 20 || h < 12)
-      );
-      const isPastAxis = textRight > (drawingAreaWidth - 2);
-      const isBeforeLeftEdge = textLeft < 2;
-
-      elRef.current.style.transform = `translate(${tx}px, ${ty}px) translate(${translateX}, ${translateY})`;
-      elRef.current.style.visibility = (isTooSmall || isPastAxis || isBeforeLeftEdge) ? 'hidden' : 'visible';
 
       requestAnimationFrame(updatePosition);
     };
