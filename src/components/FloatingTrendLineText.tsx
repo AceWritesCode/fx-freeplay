@@ -106,11 +106,11 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             const uy = dy / len;
 
             if (textHalign === 'left') {
-              tx = pLeft.x + 18 * ux;
-              ty = pLeft.y + 18 * uy;
+              tx = pLeft.x + 2 * ux;
+              ty = pLeft.y + 2 * uy;
             } else if (textHalign === 'right') {
-              tx = pRight.x - 18 * ux;
-              ty = pRight.y - 18 * uy;
+              tx = pRight.x - 2 * ux;
+              ty = pRight.y - 2 * uy;
             }
           }
 

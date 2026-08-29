@@ -232,7 +232,7 @@ export const TrendLineTool: ToolDefinition = {
                 });
               }
             } else if (textHalign === 'left') {
-              const trimLen = textWidth + 2;
+              const trimLen = textWidth + 4;
               if (len > trimLen) {
                 drawSegments.push({
                   x1: pLeft.x + trimLen * ux,
@@ -242,7 +242,7 @@ export const TrendLineTool: ToolDefinition = {
                 });
               }
             } else if (textHalign === 'right') {
-              const trimLen = textWidth + 2;
+              const trimLen = textWidth + 4;
               if (len > trimLen) {
                 drawSegments.push({
                   x1: pLeft.x,
