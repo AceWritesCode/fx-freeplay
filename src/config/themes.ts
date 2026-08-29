@@ -160,25 +160,43 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
 };
 
 /**
- * Converts hex color string to rgba format with specified alpha opacity.
+ * Converts any hex or rgb/rgba color string to rgba format with specified alpha opacity.
  */
-function hexToRgba(hex: string, alpha: number): string {
-  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+export function colorWithAlpha(colorStr: string, alpha: number): string {
+  if (!colorStr || typeof colorStr !== 'string') {
     return `rgba(99, 102, 241, ${alpha})`;
   }
-  const cleanHex = hex.replace('#', '');
-  let r = 0, g = 0, b = 0;
-  if (cleanHex.length === 3) {
-    r = parseInt(cleanHex[0] + cleanHex[0], 16);
-    g = parseInt(cleanHex[1] + cleanHex[1], 16);
-    b = parseInt(cleanHex[2] + cleanHex[2], 16);
-  } else if (cleanHex.length >= 6) {
-    r = parseInt(cleanHex.substring(0, 2), 16);
-    g = parseInt(cleanHex.substring(2, 4), 16);
-    b = parseInt(cleanHex.substring(4, 6), 16);
+
+  const str = colorStr.trim();
+
+  // If already rgba or rgb format: rgba(r, g, b, a) or rgb(r, g, b)
+  const rgbMatch = str.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\)$/i);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+
+  // If hex format: #fff, #ffffff, #ffffffff, or without leading #
+  const cleanHex = str.replace('#', '');
+  if (/^[0-9a-fA-F]{3,8}$/.test(cleanHex)) {
+    let r = 0, g = 0, b = 0;
+    if (cleanHex.length === 3) {
+      r = parseInt(cleanHex[0] + cleanHex[0], 16);
+      g = parseInt(cleanHex[1] + cleanHex[1], 16);
+      b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    } else if (cleanHex.length >= 6) {
+      r = parseInt(cleanHex.substring(0, 2), 16);
+      g = parseInt(cleanHex.substring(2, 4), 16);
+      b = parseInt(cleanHex.substring(4, 6), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  return `rgba(99, 102, 241, ${alpha})`;
 }
+
+// Alias for backward compatibility
+export const hexToRgba = colorWithAlpha;
 
 /**
  * Resolves full ThemeTokens object for any given mode or custom palette configuration.
@@ -208,7 +226,7 @@ export const getThemeTokens = (
 
       accentPrimary: custom.accentPrimary,
       accentHover: custom.accentPrimary,
-      accentMuted: hexToRgba(custom.accentPrimary, 0.18),
+      accentMuted: colorWithAlpha(custom.accentPrimary, 0.18),
       surfaceHover: custom.bgSurfaceElevated,
       surfaceActive: custom.bgSurfaceElevated,
 

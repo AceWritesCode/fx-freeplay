@@ -63,13 +63,18 @@ const extractHex = (rgbaStr: string) => {
 };
 
 const hexToRgba = (hex: string, alpha: number) => {
+  if (!hex || typeof hex !== 'string') return `rgba(0, 0, 0, ${alpha})`;
+  const rgbMatch = hex.trim().match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgbMatch) {
+    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`;
+  }
   let clean = hex.replace('#', '');
   if (clean.length === 3) {
     clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
   }
-  const r = parseInt(clean.substring(0, 2), 16);
-  const g = parseInt(clean.substring(2, 4), 16);
-  const b = parseInt(clean.substring(4, 6), 16);
+  const r = parseInt(clean.substring(0, 2), 16) || 0;
+  const g = parseInt(clean.substring(2, 4), 16) || 0;
+  const b = parseInt(clean.substring(4, 6), 16) || 0;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
