@@ -62,38 +62,25 @@ const COLOR_FIELDS: { key: keyof CustomThemePalette; label: string }[] = [
 
 const ColorPickerButton: React.FC<{
   color: string;
-  onChange: (newColor: string) => void;
   disabled?: boolean;
-  title?: string;
+  title: string;
   fieldKey: string;
   activeKey: string | null;
-  onToggle: (key: string | null) => void;
-  placement?: 'left' | 'right';
-}> = ({ color, onChange, disabled, title, fieldKey, activeKey, onToggle, placement = 'right' }) => {
-  const isOpen = activeKey === fieldKey;
+  onToggle: (info: { fieldKey: string; title: string } | null) => void;
+}> = ({ color, disabled, title, fieldKey, activeKey, onToggle }) => {
+  const isActive = activeKey === fieldKey;
 
   return (
-    <div className="relative inline-flex items-center">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onToggle(isOpen ? null : fieldKey)}
-        className="w-6 h-6 rounded border border-border-def shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-transform active:scale-95 flex-shrink-0"
-        style={{ backgroundColor: color }}
-        title={title || 'Select Color'}
-      />
-      {isOpen && !disabled && (
-        <div className={`absolute ${placement === 'left' ? 'left-0' : 'right-0'} top-full mt-2 z-[70] shadow-2xl`}>
-          <div className="fixed inset-0 z-40" onClick={() => onToggle(null)} />
-          <div className="relative z-50">
-            <ColorPicker
-              color={color}
-              onChange={onChange}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onToggle(isActive ? null : { fieldKey, title })}
+      className={`w-6 h-6 rounded border shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 flex-shrink-0 ${
+        isActive ? 'ring-2 ring-accent border-accent scale-105' : 'border-border-def hover:border-txt-muted'
+      }`}
+      style={{ backgroundColor: color }}
+      title={title || 'Select Color'}
+    />
   );
 };
 
@@ -111,7 +98,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const { themeMode, setThemeMode, customTheme, setCustomTheme } = useSettingsStore();
   const [activeTab, setActiveTab] = useState<TabType>('Theme');
   const [formState, setFormState] = useState<ChartSettings>({ ...settings });
-  const [activeColorField, setActiveColorField] = useState<string | null>(null);
+  const [activeColorField, setActiveColorField] = useState<{ fieldKey: string; title: string } | null>(null);
 
   // Custom chart presets: stored in localStorage, keyed by user-chosen name
   const [customPresets, setCustomPresets] = useState<{ [name: string]: ChartSettings }>(() => {
@@ -178,9 +165,36 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     onClose();
   };
 
+  const getActiveColorConfig = (): { color: string; title: string; onChange: (newColor: string) => void } | null => {
+    if (!activeColorField) return null;
+    const { fieldKey, title } = activeColorField;
+
+    if (fieldKey.startsWith('custom_')) {
+      const customKey = fieldKey.replace('custom_', '') as keyof CustomThemePalette;
+      return {
+        title,
+        color: customTheme[customKey] || DEFAULT_CUSTOM_THEME[customKey],
+        onChange: (c: string) => setCustomTheme({ [customKey]: c }),
+      };
+    }
+
+    if (fieldKey in formState) {
+      const chartKey = fieldKey as keyof ChartSettings;
+      return {
+        title,
+        color: (formState[chartKey] as string) || '#ffffff',
+        onChange: (c: string) => handleFieldChange(chartKey, c),
+      };
+    }
+
+    return null;
+  };
+
+  const activeColorConfig = getActiveColorConfig();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg backdrop-blur-xs font-sans">
-      <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-modal-bg border border-border-def rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center gap-4 bg-overlay-bg backdrop-blur-xs font-sans p-4">
+      <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-modal-bg border border-border-def rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 flex-shrink-0">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-sub">
@@ -395,37 +409,30 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <div className="grid grid-cols-2 gap-2.5 relative">
                       {COLOR_FIELDS.map(({ key, label }) => {
                         const currentColor = customTheme[key] || DEFAULT_CUSTOM_THEME[key];
-                        const isOpen = activeColorField === key;
+                        const fieldKey = `custom_${key}`;
+                        const isActive = activeColorField?.fieldKey === fieldKey;
                         return (
-                          <div key={key} className="relative">
-                            <div className="flex items-center justify-between p-2 rounded-lg border border-border-sub bg-surface-elevated/30 hover:bg-surface-hover transition-colors">
-                              <span className="text-[11.5px] text-txt-secondary font-medium">{label}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-mono text-txt-muted uppercase">{currentColor}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveColorField(isOpen ? null : key)}
-                                  className="w-6 h-6 rounded-md border border-white/20 cursor-pointer shadow-xs transition-transform active:scale-95"
-                                  style={{ backgroundColor: currentColor }}
-                                  title={`Change ${label}`}
-                                />
-                              </div>
+                          <div
+                            key={key}
+                            className={`flex items-center justify-between p-2 rounded-lg border transition-colors ${
+                              isActive
+                                ? 'border-accent bg-accent-muted/30 ring-1 ring-accent'
+                                : 'border-border-sub bg-surface-elevated/30 hover:bg-surface-hover'
+                            }`}
+                          >
+                            <span className="text-[11.5px] text-txt-secondary font-medium">{label}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono text-txt-muted uppercase">{currentColor}</span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveColorField(isActive ? null : { fieldKey, title: label })}
+                                className={`w-6 h-6 rounded border shadow-xs cursor-pointer transition-all active:scale-95 ${
+                                  isActive ? 'ring-2 ring-accent border-accent scale-105' : 'border-white/20 hover:border-white/50'
+                                }`}
+                                style={{ backgroundColor: currentColor }}
+                                title={`Change ${label}`}
+                              />
                             </div>
-
-                            {/* ColorPicker Popover Dropdown */}
-                            {isOpen && (
-                              <div className="absolute right-0 top-full mt-2 z-50 shadow-2xl">
-                                <div className="fixed inset-0 z-40" onClick={() => setActiveColorField(null)} />
-                                <div className="relative z-50">
-                                  <ColorPicker
-                                    color={currentColor}
-                                    onChange={(newColor) => {
-                                      setCustomTheme({ [key]: newColor });
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -454,20 +461,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullColor}
-                      onChange={(c) => handleFieldChange('bullColor', c)}
                       disabled={!formState.showBody}
                       title="Bullish Body Color"
                       fieldKey="bullColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                     <ColorPickerButton
                       color={formState.bearColor}
-                      onChange={(c) => handleFieldChange('bearColor', c)}
                       disabled={!formState.showBody}
                       title="Bearish Body Color"
                       fieldKey="bearColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -487,20 +492,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullBorderColor}
-                      onChange={(c) => handleFieldChange('bullBorderColor', c)}
                       disabled={!formState.showBorders}
                       title="Bullish Border Color"
                       fieldKey="bullBorderColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                     <ColorPickerButton
                       color={formState.bearBorderColor}
-                      onChange={(c) => handleFieldChange('bearBorderColor', c)}
                       disabled={!formState.showBorders}
                       title="Bearish Border Color"
                       fieldKey="bearBorderColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -520,20 +523,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullWickColor}
-                      onChange={(c) => handleFieldChange('bullWickColor', c)}
                       disabled={!formState.showWicks}
                       title="Bullish Wick Color"
                       fieldKey="bullWickColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                     <ColorPickerButton
                       color={formState.bearWickColor}
-                      onChange={(c) => handleFieldChange('bearWickColor', c)}
                       disabled={!formState.showWicks}
                       title="Bearish Wick Color"
                       fieldKey="bearWickColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -608,11 +609,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     </label>
                     <ColorPickerButton
                       color={formState.priceLineColor}
-                      onChange={(c) => handleFieldChange('priceLineColor', c)}
                       disabled={!formState.showPriceLine || formState.priceLineUseCandleColor}
                       title="Price Line Color"
                       fieldKey="priceLineColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -661,20 +661,19 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <div className="flex items-center gap-1.5">
                       <ColorPickerButton
                         color={formState.background}
-                        onChange={(c) => handleFieldChange('background', c)}
                         disabled={formState.backgroundType === 'None'}
-                        title="Top / Primary Background Color"
+                        title="Canvas Background Color"
                         fieldKey="background"
-                        activeKey={activeColorField}
+                        activeKey={activeColorField?.fieldKey ?? null}
                         onToggle={setActiveColorField}
                       />
                       {formState.backgroundType === 'Gradient' && (
                         <ColorPickerButton
                           color={formState.backgroundGradientStop || '#1e222d'}
-                          onChange={(c) => handleFieldChange('backgroundGradientStop', c)}
+                          disabled={formState.backgroundType !== 'Gradient'}
                           title="Bottom Gradient Color"
                           fieldKey="backgroundGradientStop"
-                          activeKey={activeColorField}
+                          activeKey={activeColorField?.fieldKey ?? null}
                           onToggle={setActiveColorField}
                         />
                       )}
@@ -707,11 +706,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     </select>
                     <ColorPickerButton
                       color={formState.gridColor}
-                      onChange={(c) => handleFieldChange('gridColor', c)}
                       disabled={formState.gridType === 'None'}
                       title="Grid Line Color"
                       fieldKey="gridColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -766,11 +764,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                     <ColorPickerButton
                       color={formState.sessionBreaksColor}
-                      onChange={(c) => handleFieldChange('sessionBreaksColor', c)}
                       disabled={!formState.showSessionBreaks}
                       title="Session Breaks Color"
                       fieldKey="sessionBreaksColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -854,10 +851,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     </select>
                     <ColorPickerButton
                       color={formState.scalesTextColor}
-                      onChange={(c) => handleFieldChange('scalesTextColor', c)}
                       title="Scales Text Color"
                       fieldKey="scalesTextColor"
-                      activeKey={activeColorField}
+                      activeKey={activeColorField?.fieldKey ?? null}
                       onToggle={setActiveColorField}
                     />
                   </div>
@@ -876,11 +872,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   </label>
                   <ColorPickerButton
                     color={formState.scalesLinesColor}
-                    onChange={(c) => handleFieldChange('scalesLinesColor', c)}
                     disabled={!formState.showScalesLines}
                     title="Scale Axis Lines Color"
                     fieldKey="scalesLinesColor"
-                    activeKey={activeColorField}
+                    activeKey={activeColorField?.fieldKey ?? null}
                     onToggle={setActiveColorField}
                   />
                 </div>
@@ -1168,6 +1163,38 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         </div>
 
       </div>
+
+      {/* Side Color Picker Panel */}
+      {activeColorConfig && (
+        <div className="w-64 bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-left-2 duration-150 select-none max-h-[560px] overflow-y-auto flex-shrink-0">
+          <div className="flex items-center justify-between pb-2 border-b border-border-sub">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className="w-3.5 h-3.5 rounded border border-border-def shadow-xs flex-shrink-0"
+                style={{ backgroundColor: activeColorConfig.color }}
+              />
+              <span className="text-xs font-semibold text-txt-primary truncate">
+                {activeColorConfig.title}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveColorField(null)}
+              className="text-txt-muted hover:text-txt-primary p-1 rounded-lg hover:bg-surface-hover cursor-pointer transition-colors flex-shrink-0"
+              title="Close Color Picker"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="flex justify-center">
+            <ColorPicker
+              color={activeColorConfig.color}
+              onChange={activeColorConfig.onChange}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
