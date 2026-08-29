@@ -104,13 +104,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   }));
   const [activeColorField, setActiveColorField] = useState<{ fieldKey: string; title: string } | null>(null);
 
-  const handleModalClose = React.useCallback(() => {
-    if (activeColorField !== null) {
-      setActiveColorField(null);
-    } else {
-      onClose();
-    }
-  }, [activeColorField, onClose]);
+  const handleCloseModal = React.useCallback(() => {
+    setActiveColorField(null);
+    onClose();
+  }, [onClose]);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -128,12 +125,16 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        handleModalClose();
+        if (activeColorField !== null) {
+          setActiveColorField(null);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleModalClose]);
+  }, [isOpen, activeColorField, onClose]);
 
   // Custom chart presets: stored in localStorage, keyed by user-chosen name
   const [customPresets, setCustomPresets] = useState<{ [name: string]: ChartSettings }>(() => {
@@ -279,7 +280,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg backdrop-blur-xs font-sans p-4 overflow-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          handleModalClose();
+          handleCloseModal();
         }
       }}
     >
@@ -290,7 +291,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-sub">
           <h2 className="text-sm font-semibold text-txt-primary tracking-wide uppercase">Settings</h2>
           <button
-            onClick={handleModalClose}
+            onClick={handleCloseModal}
             className="text-txt-muted hover:text-txt-primary transition-colors duration-150 p-1 hover:bg-surface-hover rounded-lg cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -1366,7 +1367,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={handleModalClose}
+                onClick={handleCloseModal}
                 className="px-4 py-1.5 border border-border-def hover:bg-surface-hover hover:text-txt-primary rounded-lg text-xs font-semibold text-txt-muted transition-all cursor-pointer"
               >
                 Cancel
