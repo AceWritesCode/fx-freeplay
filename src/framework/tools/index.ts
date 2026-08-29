@@ -32,6 +32,7 @@ ToolRegistry.register(CurveTool);
 ToolRegistry.register(LongPositionTool);
 ToolRegistry.register(ShortPositionTool);
 
-// Export registry and initialization function
+// Export registry, initialization function, and shared tool utilities
 export { ToolRegistry, initializeToolFramework };
 export * from './ToolRegistry';
+export * from './toolUtils';

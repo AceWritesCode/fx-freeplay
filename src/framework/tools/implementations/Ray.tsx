@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../ToolRegistry';
+import { drawGrabHandles } from '../toolUtils';
 
 // Robust extrapolation calculation extending to the right
 const extrapolateRayToRight = (
@@ -113,7 +114,7 @@ export const RayTool: ToolDefinition = {
   createOverlayDef: () => ({
     name: 'ray',
     totalStep: 3,
-    needDefaultPointFigure: true,
+    needDefaultPointFigure: false,
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
     createPointFigures: ({ overlay, coordinates, chart, bounding }) => {
@@ -156,36 +157,9 @@ export const RayTool: ToolDefinition = {
           ignoreEvent: false
         });
 
-        // Selection point grab handles / fake lock circles
+        // Selection point grab handles
         if ((overlay?.extendData as any)?.isSelected) {
-          const isLocked = overlay?.lock || false;
-          coordinates.forEach((coord: any) => {
-            if (isLocked) {
-              figures.push({
-                type: 'circle',
-                attrs: { x: coord.x, y: coord.y, r: 2.5 },
-                styles: {
-                  style: 'fill',
-                  color: '#474a59',
-                  borderColor: '#6a6d7c',
-                  borderSize: 1.5
-                },
-                ignoreEvent: true
-              });
-            } else {
-              figures.push({
-                type: 'circle',
-                attrs: { x: coord.x, y: coord.y, r: 4.5 },
-                styles: {
-                  style: 'fill',
-                  color: '#ffffff',
-                  borderColor: '#2196F3',
-                  borderSize: 1.5
-                },
-                ignoreEvent: true
-              });
-            }
-          });
+          drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }
       return figures;

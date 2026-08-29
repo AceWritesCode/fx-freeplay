@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
+import { drawGrabHandles } from '../toolUtils';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -96,39 +97,6 @@ const isOverlayVisible = (overlay: any, chart: any) => {
   if (rule.max !== undefined && value > rule.max) return false;
   
   return true;
-};
-
-// ─── Grab Handle Styles Helper ───────────────────────────────────────────────
-
-const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: boolean) => {
-  coordinates.forEach((coord: any) => {
-    if (!coord) return;
-    if (isLocked) {
-      figures.push({
-        type: 'circle',
-        attrs: { x: coord.x, y: coord.y, r: 2.5 },
-        styles: {
-          style: 'stroke_fill',
-          color: '#474a59',
-          borderColor: '#6a6d7c',
-          borderSize: 1.5
-        },
-        ignoreEvent: true
-      });
-    } else {
-      figures.push({
-        type: 'circle',
-        attrs: { x: coord.x, y: coord.y, r: 4.5 },
-        styles: {
-          style: 'stroke_fill',
-          color: '#ffffff',
-          borderColor: '#2196F3',
-          borderSize: 1.5
-        },
-        ignoreEvent: true
-      });
-    }
-  });
 };
 
 // ─── 1. Brush / Highlighter Tool ──────────────────────────────────────────────

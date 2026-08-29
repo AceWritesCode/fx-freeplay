@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '../ToolRegistry';
+import { drawGrabHandles } from '../toolUtils';
 
 const parseTimeframe = (tf: string) => {
   const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
@@ -92,7 +93,7 @@ export const VerticalLineTool: ToolDefinition = {
   createOverlayDef: () => ({
     name: 'verticalLine',
     totalStep: 2,
-    needDefaultPointFigure: true,
+    needDefaultPointFigure: false,
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
     createPointFigures: ({ overlay, coordinates, chart, bounding }) => {
@@ -130,32 +131,7 @@ export const VerticalLineTool: ToolDefinition = {
 
         // Selection point grab handle
         if ((overlay?.extendData as any)?.isSelected) {
-          const isLocked = overlay?.lock || false;
-          if (isLocked) {
-            figures.push({
-              type: 'circle',
-              attrs: { x: coordinates[0].x, y: coordinates[0].y, r: 2.5 },
-              styles: {
-                style: 'fill',
-                color: '#474a59',
-                borderColor: '#6a6d7c',
-                borderSize: 1.5
-              },
-              ignoreEvent: true
-            });
-          } else {
-            figures.push({
-              type: 'circle',
-              attrs: { x: coordinates[0].x, y: coordinates[0].y, r: 4.5 },
-              styles: {
-                style: 'fill',
-                color: '#ffffff',
-                borderColor: '#2196F3',
-                borderSize: 1.5
-              },
-              ignoreEvent: true
-            });
-          }
+          drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }
       return figures;
