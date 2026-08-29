@@ -282,6 +282,23 @@ export function ChartWorkspace() {
   const [isMagnetMenuOpen, setIsMagnetMenuOpen] = useState<boolean>(false);
   const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoveredOverlayId, setHoveredOverlayId] = useState<string | null>(null);
+  const [isHoveringBottom10, setIsHoveringBottom10] = useState<boolean>(false);
+
+  const handleCanvasContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const distanceFromBottom = rect.bottom - e.clientY;
+    const bottomThreshold = rect.height * 0.10;
+    const isBottom = distanceFromBottom >= 0 && distanceFromBottom <= bottomThreshold;
+    if (isBottom !== isHoveringBottom10) {
+      setIsHoveringBottom10(isBottom);
+    }
+  };
+
+  const handleCanvasContainerMouseLeave = () => {
+    if (isHoveringBottom10) {
+      setIsHoveringBottom10(false);
+    }
+  };
 
   // Dropdown flyout references
   const brokerTfDropdownRef = useRef<HTMLDivElement>(null);
@@ -1926,7 +1943,11 @@ export function ChartWorkspace() {
               </div>
             </div>
           ) : null}
-          <div className="h-full w-full relative group">
+          <div
+            className="h-full w-full relative"
+            onMouseMove={handleCanvasContainerMouseMove}
+            onMouseLeave={handleCanvasContainerMouseLeave}
+          >
             <ChartGrid
               layoutType={layoutType}
               layoutContainerRef={layoutContainerRef}
@@ -1946,7 +1967,7 @@ export function ChartWorkspace() {
               <button
                 onClick={resetChartView}
                 title="Reset view (center last candle)"
-                className="
+                className={`
                   absolute bottom-8 left-1/2 -translate-x-1/2 z-20
                   flex items-center gap-1.5
                   px-3.5 py-1.5
@@ -1958,11 +1979,10 @@ export function ChartWorkspace() {
                   backdrop-blur-xs
                   shadow-lg
                   transition-all duration-200
-                  opacity-0 group-hover:opacity-100
-                  pointer-events-auto
                   select-none
                   cursor-pointer
-                "
+                  ${isHoveringBottom10 ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'}
+                `}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
