@@ -193,8 +193,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const activeColorConfig = getActiveColorConfig();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center gap-4 bg-overlay-bg backdrop-blur-xs font-sans p-4 overflow-auto">
-      <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-modal-bg border border-border-def rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 flex-shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg backdrop-blur-xs font-sans p-4 overflow-auto">
+      <div className="relative flex-shrink-0">
+        <div className="w-[720px] max-w-[92vw] h-[560px] max-h-[88vh] bg-modal-bg border border-border-def rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-sub">
@@ -1166,7 +1167,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
       {/* Side Color Picker Panel */}
       {activeColorConfig && (
-        <div className="w-fit bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-left-2 duration-150 select-none flex-shrink-0">
+        <div className="absolute left-[calc(100%+16px)] top-0 w-fit bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-left-2 duration-150 select-none z-50">
           <div className="flex items-center justify-between pb-2 border-b border-border-sub">
             <div className="flex items-center gap-2 min-w-0">
               <div
@@ -1195,6 +1196,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
