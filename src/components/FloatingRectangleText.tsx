@@ -308,9 +308,11 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
       data-no-deselect="true"
       data-floating-ui="true"
       onMouseDown={(e) => {
-        e.stopPropagation();
         if (chart) {
           chart._clickedOnOverlay = true;
+        }
+        if (isEditing) {
+          e.stopPropagation();
         }
       }}
       onMouseEnter={() => setIsDomHovered(true)}

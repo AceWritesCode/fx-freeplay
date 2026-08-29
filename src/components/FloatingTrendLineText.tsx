@@ -271,10 +271,11 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       data-no-deselect="true"
       data-floating-ui="true"
       onMouseDown={(e) => {
-        // Prevent window-level mousedown from triggering empty-canvas click handling
-        e.stopPropagation();
         if (chart) {
           chart._clickedOnOverlay = true;
+        }
+        if (isEditing) {
+          e.stopPropagation();
         }
       }}
       onMouseEnter={() => {
