@@ -957,9 +957,6 @@ export function ChartWorkspace() {
       });
 
       const isAnchorHit = minDistance <= 16;
-      if (isAnchorHit && targetOverlayForAnchor) {
-        console.log(`[Anchor] Hovering over anchor point ${closestIndex + 1} of overlay "${targetOverlayForAnchor.name}" (${targetOverlayForAnchor.id}), distance: ${minDistance.toFixed(1)}px`);
-      }
 
       // 2. Perform body/line hit-testing for interactive overlays
       let hoveredInteractiveOverlay: any = null;
