@@ -62,15 +62,23 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   const textHalign = customSettings.textPosition?.horizontal || 'right';
   const textValign = customSettings.textPosition?.vertical || 'middle';
 
+  // Check if line points are fully registered (line completed drawing)
+  const isLineDrawn = overlay?.points && overlay.points.length >= 2;
+
   // Check if overlay is hovered inside klinecharts
   const isOverlayHovered = !!overlay?.extendData?.isHovered;
 
   // Respect the timeframe visibility setting — hide text when line is hidden
   const isLineVisible = checkOverlayVisible(overlay, chart);
 
-  // We show the label if it's not empty, or if we are editing, or if hovered while selected
-  // But never show if the line itself is invisible on this timeframe
-  const shouldShow = isLineVisible && (text !== '' || isEditing || (isSelected && (isOverlayHovered || isDomHovered)));
+  const hasActualText = typeof text === 'string' && text.trim() !== '';
+
+  // 1) When actual text exists: show whenever the line is drawn and visible on this timeframe
+  // 2) When no text exists (placeholder "+ add text"): ONLY show when line is drawn + selected + (hovered or actively editing)
+  const shouldShow = isLineDrawn && isLineVisible && (
+    hasActualText || 
+    (isSelected && (isOverlayHovered || isDomHovered || isEditing))
+  );
 
   useEffect(() => {
     let active = true;
@@ -169,7 +177,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
     setIsEditing(true);
     setInputText(text);
 
-    // Tell overlays we are editing so the split gap persists
+    // Tell overlays we are editing so the split gap persists if actual text is present
     chart.overrideOverlay({
       id: overlay.id,
       extendData: {
@@ -247,10 +255,10 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           placeholder="+ add text"
-          className={`px-1.5 py-0.5 rounded cursor-text outline-none focus:outline-none focus:ring-0 border font-inherit select-text whitespace-nowrap ${
+          className={`px-2 py-0.5 rounded cursor-text outline-none focus:outline-none focus:ring-1 focus:ring-accent font-inherit select-text whitespace-nowrap border-0 ${
             text === '' 
-              ? 'text-[#2196F3] bg-indigo-500/10 border-dashed border-[#2196F3]/50'
-              : 'bg-transparent border-transparent'
+              ? 'text-accent bg-surface-elevated shadow-sm'
+              : 'bg-transparent'
           }`}
           style={{
             fontSize: `${fontSize}px`,
@@ -260,16 +268,16 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             lineHeight: '1.2',
             margin: 0,
             boxSizing: 'border-box',
-            width: `${Math.max(30, (inputText || '+ add text').length * (fontSize * 0.5) + 12)}px`
+            width: `${Math.max(30, (inputText || '+ add text').length * (fontSize * 0.5) + 16)}px`
           }}
         />
       ) : (
         <div
           onClick={handleStartEdit}
-          className={`px-1.5 py-0.5 rounded cursor-text transition-colors duration-150 flex items-center select-none whitespace-nowrap border ${
+          className={`px-2 py-0.5 rounded cursor-text transition-all duration-150 flex items-center select-none whitespace-nowrap border-0 ${
             text === '' 
-              ? 'text-accent hover:text-accent-hover bg-accent-muted/50 hover:bg-accent-muted border-dashed border-accent/30 hover:border-accent/50'
-              : 'border-transparent hover:bg-surface-hover/50'
+              ? 'text-accent hover:text-accent-hover bg-accent-muted/70 hover:bg-accent-muted shadow-xs'
+              : 'hover:bg-surface-hover/50'
           }`}
           style={{
             fontSize: `${fontSize}px`,
