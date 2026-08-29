@@ -923,20 +923,10 @@ export function ChartWorkspace() {
       const container = chartContainersRef.current[activeIndex];
       if (!container) return;
 
-      const applyCursor = (cur: string) => {
-        if (container.style.cursor !== cur) {
-          container.style.cursor = cur;
-        }
-        const elements = container.querySelectorAll<HTMLElement>('canvas, .k-line-chart');
-        elements.forEach((el) => {
-          if (el.style.cursor !== cur) {
-            el.style.cursor = cur;
-          }
-        });
-      };
-
       if (isMouseDown && activeDraggingOverlay) {
-        applyCursor('grabbing');
+        if (container.style.cursor !== 'grabbing') {
+          container.style.cursor = 'grabbing';
+        }
         return;
       }
 
@@ -1078,7 +1068,10 @@ export function ChartWorkspace() {
           });
         }
 
-        applyCursor('pointer');
+        const nextCursor = 'pointer';
+        if (container.style.cursor !== nextCursor) {
+          container.style.cursor = nextCursor;
+        }
         return;
       }
 
@@ -1095,7 +1088,10 @@ export function ChartWorkspace() {
         }
       });
 
-      applyCursor(isInsideBody ? 'grab' : 'default');
+      const finalCursor = isInsideBody ? 'grab' : 'default';
+      if (container.style.cursor !== finalCursor) {
+        container.style.cursor = finalCursor;
+      }
     };
 
     window.addEventListener('mousedown', handleMouseDown);
@@ -1527,10 +1523,10 @@ export function ChartWorkspace() {
 
         {/* Slot Info Badge */}
         <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-surface-elevated/85 backdrop-blur-sm border border-border-sub pointer-events-none select-none text-[10px] font-bold text-txt-primary">
-          <span className={isActive ? 'text-indigo-400' : 'text-gray-400'}>#{i + 1}</span>
+          <span className={isActive ? 'text-accent' : 'text-txt-muted'}>#{i + 1}</span>
           <span>{slots[i]?.symbol || 'No Symbol'}</span>
-          <span className="text-gray-500">•</span>
-          <span className="text-gray-300 font-semibold">{slots[i]?.timeframe || '1m'}</span>
+          <span className="text-txt-muted">•</span>
+          <span className="text-txt-secondary font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
 
         {/* Floating text inputs for TrendLines and Rectangles */}

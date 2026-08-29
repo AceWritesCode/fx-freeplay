@@ -207,7 +207,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                           e.stopPropagation();
                           onRemoveSymbol(item.name);
                         }}
-                        className="p-1 rounded opacity-0 group-hover/item:opacity-100 text-gray-500 hover:text-red-400 hover:bg-red-950/20 transition-all cursor-pointer"
+                        className="p-1 rounded opacity-0 group-hover/item:opacity-100 text-txt-muted hover:text-status-error hover:bg-status-error/15 transition-all cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>

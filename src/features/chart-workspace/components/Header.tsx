@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
     <header className="h-12 bg-surface border-b border-border-def px-4 flex items-center justify-between select-none z-30">
       {/* Left: Brand & Symbol */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 text-indigo-400 font-bold tracking-wider">
+        <div className="flex items-center gap-2 text-accent font-bold tracking-wider">
           <LineChart className="w-5 h-5" />
           <span className="text-sm font-black text-txt-primary tracking-tight">FX FREEPLAY</span>
         </div>

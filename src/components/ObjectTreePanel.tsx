@@ -1191,7 +1191,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           
           {/* ── Toolbar buttons matching TradingView ── */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-800/70 bg-[#171a26]/40">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-sub bg-surface-elevated/40">
             <div className="flex items-center gap-1.5">
               
               {/* Create Group */}
@@ -1353,7 +1353,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         )}
 
                         {childDrawings.length > 0 && (
-                          <span className="text-[10px] text-gray-500 font-bold bg-[#121420]/60 px-1.5 py-0.5 rounded-full border border-gray-800/30">
+                          <span className="text-[10px] text-accent font-bold bg-accent-muted px-1.5 py-0.5 rounded-full border border-accent/25">
                             {childDrawings.length}
                           </span>
                         )}
@@ -1370,7 +1370,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                             e.stopPropagation();
                             handleStartRename(folder.id, folder.name);
                           }}
-                          className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#121420] transition-colors"
+                          className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -1385,8 +1385,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className={`p-1 rounded transition-colors ${
                             folder.isLocked
-                              ? 'text-indigo-400 hover:text-indigo-300 bg-indigo-500/10'
-                              : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                              ? 'text-accent hover:text-accent-hover bg-accent-muted'
+                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
                           {folder.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
@@ -1402,8 +1402,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className={`p-1 rounded transition-colors ${
                             !folder.isVisible
-                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                              : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                              ? 'text-status-warning hover:text-status-warning/80 bg-status-warning/10'
+                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
                           {folder.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -1417,7 +1417,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                             e.stopPropagation();
                             handleDeleteFolder(folder.id);
                           }}
-                          className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-[#121420] transition-colors"
+                          className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/15 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1602,17 +1602,17 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         reorderRootItems(dragId, dragType, 'candles', 'candles', dropPosition || 'above');
                       }
                     }}
-                    className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all border-transparent hover:bg-[#1f2334] text-xs font-semibold text-gray-300`}
+                    className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all border-transparent hover:bg-surface-hover text-xs font-semibold text-txt-secondary`}
                   >
                     {isDragOverThis && (
                       <div
-                        className={`absolute left-0 right-0 h-0.5 bg-indigo-500 z-50 pointer-events-none ${
+                        className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
                           dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
                         }`}
                       />
                     )}
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-indigo-400 flex-shrink-0">
+                      <span className="text-accent flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" fill="currentColor">
                           <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z"></path>
                           <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z"></path>
@@ -1642,15 +1642,15 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className={`p-1 rounded transition-colors ${
                             !isVisible
-                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                              : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                              ? 'text-status-warning hover:text-status-warning/80 bg-status-warning/10'
+                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
                           {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                       
-                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-gray-800/40 px-1.5 py-0.5 rounded border border-gray-800/50 flex-shrink-0">Chart</span>
+                      <span className="text-[10px] text-txt-muted font-bold uppercase tracking-wider bg-surface-elevated px-1.5 py-0.5 rounded border border-border-def flex-shrink-0">Chart</span>
                     </div>
                   </div>
                 );
@@ -1759,8 +1759,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         }}
                         className={`p-1 rounded transition-colors ${
                           !isVisible
-                            ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                            : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                            ? 'text-status-warning hover:text-status-warning/80 bg-status-warning/10'
+                            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                         }`}
                       >
                         {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -1772,7 +1772,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           e.stopPropagation();
                           handleDeleteDrawing(d.id);
                         }}
-                        className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-[#121420] transition-colors"
+                        className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/15 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

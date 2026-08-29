@@ -2196,7 +2196,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                   setActiveTemplateMode(saveMode);
                   setIsSaveModalOpen(false);
                 }}
-                className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none text-white rounded-lg text-xs font-semibold transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+                className="px-5 py-1.5 bg-accent hover:bg-accent-hover disabled:opacity-40 disabled:pointer-events-none text-txt-inverse rounded-lg text-xs font-semibold transition-colors shadow-lg shadow-accent/20 cursor-pointer"
               >
                 Save
               </button>
