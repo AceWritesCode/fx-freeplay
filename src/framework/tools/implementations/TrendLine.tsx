@@ -173,10 +173,20 @@ export const TrendLineTool: ToolDefinition = {
 
         const hasActualText = typeof text === 'string' && text.trim() !== '';
         const isLineDrawn = overlay?.points && overlay.points.length >= 2;
+        const isSelected = (overlay?.extendData as any)?.isSelected || false;
+        const isHovered = (overlay?.extendData as any)?.isHovered || false;
+        const isEditingText = (overlay?.extendData as any)?.isEditingText || false;
         const measuredTextWidth = (overlay?.extendData as any)?.textWidth || 0;
+
+        let textToShow = '';
+        if (hasActualText) {
+          textToShow = text;
+        } else if (isLineDrawn && isSelected && (isHovered || isEditingText)) {
+          textToShow = '+ Add text';
+        }
         
-        // Only make space / gap in the line when actual user text exists and text is positioned in the middle
-        const hasTextGap = isLineDrawn && hasActualText && textValign === 'middle';
+        // The line adjusts and makes a gap whenever text (or + Add text placeholder) is active and centered on the line
+        const hasTextGap = isLineDrawn && Boolean(textToShow) && textValign === 'middle';
 
         const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
 
@@ -188,7 +198,7 @@ export const TrendLineTool: ToolDefinition = {
           const dx = pRight.x - pLeft.x;
           const dy = pRight.y - pLeft.y;
           const len = Math.sqrt(dx * dx + dy * dy);
-          const calculatedWidth = text.length * (fontSize * 0.5) + 6;
+          const calculatedWidth = textToShow.length * (fontSize * 0.5) + 6;
           const textWidth = measuredTextWidth
             ? Math.min(measuredTextWidth, calculatedWidth + 6)
             : calculatedWidth;

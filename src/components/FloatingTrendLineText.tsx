@@ -74,7 +74,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   const hasActualText = typeof text === 'string' && text.trim() !== '';
 
   // 1) When actual text exists: show whenever the line is drawn and visible on this timeframe
-  // 2) When no text exists (placeholder "+ add text"): ONLY show when line is drawn + selected + (hovered or actively editing)
+  // 2) When no text exists (placeholder "+ Add text"): ONLY show when line is drawn + selected + (hovered or actively editing)
   const shouldShow = isLineDrawn && isLineVisible && (
     hasActualText || 
     (isSelected && (isOverlayHovered || isDomHovered || isEditing))
@@ -177,7 +177,7 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
     setIsEditing(true);
     setInputText(text);
 
-    // Tell overlays we are editing so the split gap persists if actual text is present
+    // Tell overlays we are editing so the split gap persists
     chart.overrideOverlay({
       id: overlay.id,
       extendData: {
@@ -234,10 +234,10 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       ref={elRef}
       onMouseEnter={() => setIsDomHovered(true)}
       onMouseLeave={() => setIsDomHovered(false)}
-      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap"
+      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
         fontSize: `${fontSize}px`,
-        color: textColor,
+        color: text === '' ? '#8c8c8c' : textColor,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
         lineHeight: '1.2',
@@ -254,42 +254,36 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           }}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
-          placeholder="+ add text"
-          className={`px-2 py-0.5 rounded cursor-text outline-none focus:outline-none focus:ring-1 focus:ring-accent font-inherit select-text whitespace-nowrap border-0 ${
-            text === '' 
-              ? 'text-accent bg-surface-elevated shadow-sm'
-              : 'bg-transparent'
-          }`}
+          placeholder="+ Add text"
+          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text font-inherit select-text whitespace-nowrap"
           style={{
             fontSize: `${fontSize}px`,
-            color: textColor,
+            color: text === '' ? '#8c8c8c' : textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
             margin: 0,
+            padding: 0,
             boxSizing: 'border-box',
-            width: `${Math.max(30, (inputText || '+ add text').length * (fontSize * 0.5) + 16)}px`
+            width: `${Math.max(30, (inputText || '+ Add text').length * (fontSize * 0.5) + 12)}px`
           }}
         />
       ) : (
         <div
           onClick={handleStartEdit}
-          className={`px-2 py-0.5 rounded cursor-text transition-all duration-150 flex items-center select-none whitespace-nowrap border-0 ${
-            text === '' 
-              ? 'text-accent hover:text-accent-hover bg-accent-muted/70 hover:bg-accent-muted shadow-xs'
-              : 'hover:bg-surface-hover/50'
-          }`}
+          className="bg-transparent border-0 border-none outline-none p-0 m-0 cursor-text select-none whitespace-nowrap transition-opacity hover:opacity-80"
           style={{
             fontSize: `${fontSize}px`,
-            color: textColor,
+            color: text === '' ? '#8c8c8c' : textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
             lineHeight: '1.2',
             margin: 0,
+            padding: 0,
             boxSizing: 'border-box',
           }}
         >
-          {text === '' ? '+ add text' : text}
+          {text === '' ? '+ Add text' : text}
         </div>
       )}
     </div>
