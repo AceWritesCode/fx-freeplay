@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { DrawingChartAdapter } from '@/engine/charting';
 
 // Mirrors the same logic used in TrendLine.tsx canvas
 const parseTimeframe = (tf: string) => {
@@ -171,21 +172,46 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
     }
   }, [text, inputText, isEditing, fontSize, isBold, isItalic]);
 
+  // Guaranteed transient cleanup on unmount or removal
+  useEffect(() => {
+    return () => {
+      try {
+        if (chart && overlay?.id) {
+          chart.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...(overlay.extendData || {}),
+              isHovered: false,
+              isEditingText: false
+            }
+          });
+          DrawingChartAdapter.invalidatePane(chart);
+        }
+      } catch (_) {}
+    };
+  }, [chart, overlay?.id]);
+
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (chart) {
+      chart._clickedOnOverlay = true;
+    }
     backupTextRef.current = text;
     setIsEditing(true);
     setInputText(text);
 
     // Tell overlays we are editing so the split gap persists
-    chart.overrideOverlay({
-      id: overlay.id,
-      extendData: {
-        ...(overlay.extendData || {}),
-        isEditingText: true
-      }
-    });
+    try {
+      chart.overrideOverlay({
+        id: overlay.id,
+        extendData: {
+          ...(overlay.extendData || {}),
+          isEditingText: true
+        }
+      });
+      DrawingChartAdapter.invalidatePane(chart);
+    } catch (_) {}
 
     setTimeout(() => {
       inputRef.current?.focus();
@@ -195,36 +221,45 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
 
   const handleSave = () => {
     setIsEditing(false);
-    chart.overrideOverlay({
-      id: overlay.id,
-      extendData: {
-        ...(overlay.extendData || {}),
-        isEditingText: false
-      }
-    });
+    try {
+      chart.overrideOverlay({
+        id: overlay.id,
+        extendData: {
+          ...(overlay.extendData || {}),
+          isEditingText: false
+        }
+      });
+      DrawingChartAdapter.invalidatePane(chart);
+    } catch (_) {}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
-      chart.overrideOverlay({
-        id: overlay.id,
-        extendData: {
-          ...(overlay.extendData || {}),
-          isEditingText: false
-        }
-      });
+      try {
+        chart.overrideOverlay({
+          id: overlay.id,
+          extendData: {
+            ...(overlay.extendData || {}),
+            isEditingText: false
+          }
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      } catch (_) {}
     } else if (e.key === 'Escape') {
       setIsEditing(false);
       setInputText(backupTextRef.current);
       onTextChange(backupTextRef.current);
-      chart.overrideOverlay({
-        id: overlay.id,
-        extendData: {
-          ...(overlay.extendData || {}),
-          isEditingText: false
-        }
-      });
+      try {
+        chart.overrideOverlay({
+          id: overlay.id,
+          extendData: {
+            ...(overlay.extendData || {}),
+            isEditingText: false
+          }
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      } catch (_) {}
     }
   };
 
@@ -233,20 +268,44 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   return (
     <div
       ref={elRef}
+      data-no-deselect="true"
+      data-floating-ui="true"
+      onMouseDown={(e) => {
+        // Prevent window-level mousedown from triggering empty-canvas click handling
+        e.stopPropagation();
+        if (chart) {
+          chart._clickedOnOverlay = true;
+        }
+      }}
       onMouseEnter={() => {
         setIsDomHovered(true);
-        if (!overlay?.extendData?.isHovered) {
-          chart?.overrideOverlay({
-            id: overlay.id,
-            extendData: {
-              ...(overlay.extendData || {}),
-              isHovered: true
-            }
-          });
-        }
+        try {
+          if (chart && overlay?.id) {
+            chart.overrideOverlay({
+              id: overlay.id,
+              extendData: {
+                ...(overlay.extendData || {}),
+                isHovered: true
+              }
+            });
+            DrawingChartAdapter.invalidatePane(chart);
+          }
+        } catch (_) {}
       }}
       onMouseLeave={() => {
         setIsDomHovered(false);
+        try {
+          if (chart && overlay?.id) {
+            chart.overrideOverlay({
+              id: overlay.id,
+              extendData: {
+                ...(overlay.extendData || {}),
+                isHovered: false
+              }
+            });
+            DrawingChartAdapter.invalidatePane(chart);
+          }
+        } catch (_) {}
       }}
       className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{

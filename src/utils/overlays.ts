@@ -208,13 +208,22 @@ export function getInteractiveOverlayOptions(
 
       if (currentSymbol && event.overlay) {
         const sourceSlotIndex = actualChartIndex;
+        const cleanExtendData = JSON.parse(JSON.stringify(event.overlay.extendData || {}));
+        delete cleanExtendData.isHovered;
+        delete cleanExtendData.isEditingText;
+        delete cleanExtendData.hoveredAnchorIndex;
+        delete cleanExtendData.draggedIndex;
+        delete cleanExtendData.startPoints;
+        delete cleanExtendData.startPointsPixels;
+        delete cleanExtendData.startMousePixel;
+        delete cleanExtendData.startMousePt;
 
         const drawingObj = {
           id: event.overlay.id,
           name: event.overlay.name || toolName,
           points: JSON.parse(JSON.stringify(event.overlay.points || [])),
           extendData: {
-            ...JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+            ...cleanExtendData,
             sourceSlotIndex,
           },
           lock: !!event.overlay.lock,
@@ -528,9 +537,19 @@ export function getInteractiveOverlayOptions(
         const targetSymbol = resolved?.symbol || event.chart?._symbol;
 
         if (targetSymbol) {
+          const cleanExtendData = JSON.parse(JSON.stringify(event.overlay.extendData || {}));
+          delete cleanExtendData.isHovered;
+          delete cleanExtendData.isEditingText;
+          delete cleanExtendData.hoveredAnchorIndex;
+          delete cleanExtendData.draggedIndex;
+          delete cleanExtendData.startPoints;
+          delete cleanExtendData.startPointsPixels;
+          delete cleanExtendData.startMousePixel;
+          delete cleanExtendData.startMousePt;
+
           useDrawingStore.getState().updateSymbolDrawing(targetSymbol, overlayId, {
             points: JSON.parse(JSON.stringify(event.overlay.points || [])),
-            extendData: JSON.parse(JSON.stringify(event.overlay.extendData || {})),
+            extendData: cleanExtendData,
           });
           runWorkspaceReconciliation(chartInstancesRef);
         }
