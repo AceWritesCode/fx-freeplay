@@ -907,7 +907,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           height: 10px;
           border-radius: 50%;
           background: #ffffff;
-          border: 2px solid #6366f1;
+          border: 2px solid var(--accent-primary, #6366f1);
           cursor: pointer;
           transition: transform 0.1s ease;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -917,7 +917,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         }
         .custom-range-slider::-webkit-slider-thumb:active {
           transform: scale(1.3);
-          background: #6366f1;
+          background: var(--accent-primary, #6366f1);
         }
       `}} />
 
@@ -1291,7 +1291,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                           step="0.02"
                           value={activationHighlightOpacity}
                           onChange={(e) => setActivationHighlightOpacity(parseFloat(e.target.value))}
-                          className="w-28 accent-indigo-500 cursor-pointer"
+                          className="w-28 accent-accent cursor-pointer"
                         />
                         <span className="text-gray-300 font-mono text-[11px] w-10 text-right">
                           {Math.round(activationHighlightOpacity * 100)}%

@@ -1191,7 +1191,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           
           {/* ── Toolbar buttons matching TradingView ── */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-sub bg-surface-elevated/40">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-800/70 bg-[#171a26]/40">
             <div className="flex items-center gap-1.5">
               
               {/* Create Group */}
@@ -1353,7 +1353,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         )}
 
                         {childDrawings.length > 0 && (
-                          <span className="text-[10px] text-accent font-bold bg-accent-muted px-1.5 py-0.5 rounded-full border border-accent/25">
+                          <span className="text-[10px] text-txt-muted font-bold bg-surface-elevated/60 px-1.5 py-0.5 rounded-full border border-border-sub">
                             {childDrawings.length}
                           </span>
                         )}
@@ -1385,7 +1385,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className={`p-1 rounded transition-colors ${
                             folder.isLocked
-                              ? 'text-accent hover:text-accent-hover bg-accent-muted'
+                              ? 'text-accent hover:text-accent/80 bg-accent-muted'
                               : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
@@ -1402,7 +1402,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className={`p-1 rounded transition-colors ${
                             !folder.isVisible
-                              ? 'text-status-warning hover:text-status-warning/80 bg-status-warning/10'
+                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
                               : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
@@ -1417,7 +1417,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                             e.stopPropagation();
                             handleDeleteFolder(folder.id);
                           }}
-                          className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/15 transition-colors"
+                          className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1642,7 +1642,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className={`p-1 rounded transition-colors ${
                             !isVisible
-                              ? 'text-status-warning hover:text-status-warning/80 bg-status-warning/10'
+                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
                               : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                           }`}
                         >
@@ -1650,7 +1650,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         </button>
                       </div>
                       
-                      <span className="text-[10px] text-txt-muted font-bold uppercase tracking-wider bg-surface-elevated px-1.5 py-0.5 rounded border border-border-def flex-shrink-0">Chart</span>
+                      <span className="text-[10px] text-txt-muted font-bold uppercase tracking-wider bg-surface-elevated/40 px-1.5 py-0.5 rounded border border-border-sub flex-shrink-0">Chart</span>
                     </div>
                   </div>
                 );
@@ -1759,7 +1759,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         }}
                         className={`p-1 rounded transition-colors ${
                           !isVisible
-                            ? 'text-status-warning hover:text-status-warning/80 bg-status-warning/10'
+                            ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
                             : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                         }`}
                       >
@@ -1772,7 +1772,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           e.stopPropagation();
                           handleDeleteDrawing(d.id);
                         }}
-                        className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/15 transition-colors"
+                        className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

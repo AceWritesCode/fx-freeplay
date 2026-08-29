@@ -213,7 +213,7 @@ export const DataManagementDashboard: React.FC<DataManagementDashboardProps> = (
                 <button
                   onClick={() => setActiveCategory(def.id)}
                   disabled={isItemLoading}
-                  className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover font-medium transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Inspect & Manage
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -232,7 +232,7 @@ export const DataManagementDashboard: React.FC<DataManagementDashboardProps> = (
               <Trash2 className="w-4 h-4" />
               Danger Zone — Factory Reset
             </div>
-            <p className="text-xs text-gray-400 max-w-2xl">
+            <p className="text-xs text-txt-muted max-w-2xl">
               Permanently erase all imported market data, saved chart drawings, watchlist symbols, workspace grid layouts, drawing templates, and user preferences across IndexedDB and LocalStorage. Leaves the application in a completely fresh install state.
             </p>
           </div>
