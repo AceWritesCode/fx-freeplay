@@ -161,10 +161,11 @@ export const RayTool: ToolDefinition = {
           ignoreEvent: false
         });
 
-        // Selection / In-progress creation grab handles
+        // Selection / In-progress creation / Hover grab handles
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         const isSelected = (overlay?.extendData as any)?.isSelected;
-        if (isSelected || isDrawing) {
+        const isHovered = (overlay?.extendData as any)?.isHovered;
+        if (isSelected || isHovered || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }

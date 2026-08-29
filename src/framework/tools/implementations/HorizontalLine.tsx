@@ -129,8 +129,11 @@ export const HorizontalLineTool: ToolDefinition = {
           ignoreEvent: false
         });
 
-        // Selection point grab handle
-        if ((overlay?.extendData as any)?.isSelected) {
+        // Selection / Hover grab handle
+        const isSelected = (overlay?.extendData as any)?.isSelected;
+        const isHovered = (overlay?.extendData as any)?.isHovered;
+        const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
+        if (isSelected || isHovered || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }

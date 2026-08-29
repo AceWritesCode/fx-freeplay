@@ -290,9 +290,9 @@ export const TrendLineTool: ToolDefinition = {
         });
 
 
-        // Selection / In-progress creation grab handles
+        // Selection / In-progress creation / Hover grab handles
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
-        if (isSelected || isDrawing) {
+        if (isSelected || isHovered || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }
       }

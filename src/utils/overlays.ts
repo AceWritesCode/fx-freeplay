@@ -337,14 +337,11 @@ export function getInteractiveOverlayOptions(
         });
       }
 
-      const hoveredIdx = event.overlay.extendData?.hoveredAnchorIndex;
-      const hasHoveredIdx = hoveredIdx !== undefined && hoveredIdx !== null && typeof hoveredIdx === 'number';
+      const isHandle = minDistance <= 22;
+      const currentDraggedIndex = isHandle ? closestIndex : null;
 
-      const isHandle = minDistance <= 22 || hasHoveredIdx;
-      const currentDraggedIndex = minDistance <= 22 ? closestIndex : (hasHoveredIdx ? (hoveredIdx as number) : null);
-
-      if (isHandle && currentDraggedIndex !== null) {
-        console.log(`[Anchor] Anchor point ${currentDraggedIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
+      if (isHandle) {
+        console.log(`[Anchor] Anchor point ${closestIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
       } else {
         console.log(`[Anchor] Body clicked (no anchor hit, minDistance: ${minDistance.toFixed(1)}px) on "${toolName}" (${event.overlay?.id})`);
       }
@@ -484,9 +481,9 @@ export function getInteractiveOverlayOptions(
           const movingIndex = draggedIndex;
           const baseIndex = draggedIndex === 0 ? 1 : 0;
           const pBase = initialPoints[baseIndex];
-          const isShift = isShiftPressedRef?.current || false;
+          const isAngleSnap = isShiftPressedRef?.current || event.chart?._isCtrlPressedRef?.current || event.chart?._isShiftPressedRef?.current || false;
           
-          if (isShift && pBase) {
+          if (isAngleSnap && pBase) {
             const pixels = event.chart.convertToPixel([pBase], { paneId: 'candle_pane' });
             if (pixels && pixels.length > 0 && pixels[0]) {
               const x1 = pixels[0].x;
