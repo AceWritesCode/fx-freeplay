@@ -89,6 +89,24 @@ export const storeCustomTheme = (palette: CustomThemePalette): void => {
   } catch (e) {}
 };
 
+const SYNC_CHART_BG_KEY = 'fx_sync_chart_bg';
+
+/**
+ * Gets persisted SyncChartBackground preference from localStorage (defaults to false).
+ */
+export const getStoredSyncChartBackground = (): boolean => {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem(SYNC_CHART_BG_KEY) === 'true';
+};
+
+/**
+ * Persists SyncChartBackground preference to localStorage.
+ */
+export const storeSyncChartBackground = (enabled: boolean): void => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(SYNC_CHART_BG_KEY, enabled ? 'true' : 'false');
+};
+
 /**
  * Hydrates DOM CSS variables immediately from localStorage on startup.
  */

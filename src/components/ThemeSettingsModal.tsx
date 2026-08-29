@@ -4,6 +4,7 @@ import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground } from '@/config';
+import { getStoredSyncChartBackground, storeSyncChartBackground } from '@/utils/themeApplier';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -97,8 +98,20 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 }) => {
   const { themeMode, setThemeMode, customTheme, setCustomTheme } = useSettingsStore();
   const [activeTab, setActiveTab] = useState<TabType>('Theme');
-  const [formState, setFormState] = useState<ChartSettings>({ ...settings });
+  const [formState, setFormState] = useState<ChartSettings>(() => ({
+    ...settings,
+    syncChartBackgroundWithTheme: settings.syncChartBackgroundWithTheme ?? getStoredSyncChartBackground(),
+  }));
   const [activeColorField, setActiveColorField] = useState<{ fieldKey: string; title: string } | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormState({
+        ...settings,
+        syncChartBackgroundWithTheme: settings.syncChartBackgroundWithTheme ?? getStoredSyncChartBackground(),
+      });
+    }
+  }, [isOpen, settings]);
 
   // Custom chart presets: stored in localStorage, keyed by user-chosen name
   const [customPresets, setCustomPresets] = useState<{ [name: string]: ChartSettings }>(() => {
@@ -416,6 +429,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         checked={formState.syncChartBackgroundWithTheme ?? false}
                         onChange={(e) => {
                           const checked = e.target.checked;
+                          storeSyncChartBackground(checked);
                           handleFieldChange('syncChartBackgroundWithTheme', checked);
                           if (checked) {
                             const bg = getThemeChartBackground(themeMode, customTheme);

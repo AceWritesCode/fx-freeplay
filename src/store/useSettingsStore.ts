@@ -12,6 +12,8 @@ import {
   storeThemeMode,
   getStoredCustomTheme,
   storeCustomTheme,
+  getStoredSyncChartBackground,
+  storeSyncChartBackground,
 } from '@/utils/themeApplier';
 
 interface SettingsState {
@@ -31,7 +33,10 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  settings: PRESET_SETTINGS.classic,
+  settings: {
+    ...PRESET_SETTINGS.classic,
+    syncChartBackgroundWithTheme: getStoredSyncChartBackground(),
+  },
   customTimeframes: [],
   themeMode: getStoredThemeMode(),
   customTheme: getStoredCustomTheme(),
@@ -39,14 +44,30 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setInitialState: (settings, customTimeframes) => {
     const mode = getStoredThemeMode();
     const custom = getStoredCustomTheme();
+    const storedSync = getStoredSyncChartBackground();
     applyThemeToDOM(getThemeTokens(mode, custom));
-    set(() => ({ settings, customTimeframes, themeMode: mode, customTheme: custom }));
+    const syncEnabled = settings.syncChartBackgroundWithTheme ?? storedSync;
+    const mergedSettings: ChartSettings = {
+      ...settings,
+      syncChartBackgroundWithTheme: syncEnabled,
+    };
+    if (syncEnabled) {
+      mergedSettings.background = getThemeChartBackground(mode, custom);
+      if (mergedSettings.backgroundType === 'None') {
+        mergedSettings.backgroundType = 'Solid';
+      }
+    }
+    set(() => ({ settings: mergedSettings, customTimeframes, themeMode: mode, customTheme: custom }));
   },
 
-  setSettings: (newSettings) =>
+  setSettings: (newSettings) => {
+    if (newSettings.syncChartBackgroundWithTheme !== undefined) {
+      storeSyncChartBackground(newSettings.syncChartBackgroundWithTheme);
+    }
     set((state) => ({
       settings: { ...state.settings, ...newSettings },
-    })),
+    }));
+  },
 
   resetSettings: () =>
     set(() => ({
