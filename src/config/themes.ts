@@ -160,6 +160,31 @@ export const BUILTIN_THEMES: Record<'light' | 'amoled' | 'dark', ThemeTokens> = 
 };
 
 /**
+ * Converts any hex or rgb/rgba color string into a clean 6-digit hex string (#RRGGBB).
+ */
+export function formatToHex(colorStr: string): string {
+  if (!colorStr || typeof colorStr !== 'string') return '#000000';
+  const str = colorStr.trim();
+  if (str.startsWith('#')) {
+    const clean = str.replace('#', '');
+    if (clean.length === 3) {
+      return `#${clean[0]}${clean[0]}${clean[1]}${clean[1]}${clean[2]}${clean[2]}`.toUpperCase();
+    }
+    if (clean.length >= 6) {
+      return `#${clean.substring(0, 6)}`.toUpperCase();
+    }
+  }
+  const rgbMatch = str.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgbMatch) {
+    const r = Math.min(255, Math.max(0, parseInt(rgbMatch[1], 10))).toString(16).padStart(2, '0');
+    const g = Math.min(255, Math.max(0, parseInt(rgbMatch[2], 10))).toString(16).padStart(2, '0');
+    const b = Math.min(255, Math.max(0, parseInt(rgbMatch[3], 10))).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`.toUpperCase();
+  }
+  return str.toUpperCase();
+}
+
+/**
  * Converts any hex or rgb/rgba color string to rgba format with specified alpha opacity.
  */
 export function colorWithAlpha(colorStr: string, alpha: number): string {

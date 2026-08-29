@@ -3,7 +3,7 @@ import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCir
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
-import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens } from '@/config';
+import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens, formatToHex } from '@/config';
 import { getStoredSyncChartBackground, storeSyncChartBackground } from '@/utils/themeApplier';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
@@ -184,18 +184,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
     const currentTokens = getThemeTokens(modeToCopy);
     const newCustomPalette: CustomThemePalette = {
-      bgApp: currentTokens.bgApp,
-      bgSurface: currentTokens.bgSurface,
-      bgSurfaceElevated: currentTokens.bgSurfaceElevated,
-      bgModal: currentTokens.bgModal,
-      textPrimary: currentTokens.textPrimary,
-      textSecondary: currentTokens.textSecondary,
-      textMuted: currentTokens.textMuted,
-      borderDefault: currentTokens.borderDefault,
-      accentPrimary: currentTokens.accentPrimary,
-      statusSuccess: currentTokens.statusSuccess,
-      statusWarning: currentTokens.statusWarning,
-      statusError: currentTokens.statusError,
+      bgApp: formatToHex(currentTokens.bgApp),
+      bgSurface: formatToHex(currentTokens.bgSurface),
+      bgSurfaceElevated: formatToHex(currentTokens.bgSurfaceElevated),
+      bgModal: formatToHex(currentTokens.bgModal),
+      textPrimary: formatToHex(currentTokens.textPrimary),
+      textSecondary: formatToHex(currentTokens.textSecondary),
+      textMuted: formatToHex(currentTokens.textMuted),
+      borderDefault: formatToHex(currentTokens.borderDefault),
+      accentPrimary: formatToHex(currentTokens.accentPrimary),
+      statusSuccess: formatToHex(currentTokens.statusSuccess),
+      statusWarning: formatToHex(currentTokens.statusWarning),
+      statusError: formatToHex(currentTokens.statusError),
     };
 
     setCustomTheme(newCustomPalette);
@@ -219,8 +219,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       const customKey = fieldKey.replace('custom_', '') as keyof CustomThemePalette;
       return {
         title,
-        color: customTheme[customKey] || DEFAULT_CUSTOM_THEME[customKey],
-        onChange: (c: string) => setCustomTheme({ [customKey]: c }),
+        color: formatToHex(customTheme[customKey] || DEFAULT_CUSTOM_THEME[customKey]),
+        onChange: (c: string) => setCustomTheme({ [customKey]: formatToHex(c) }),
       };
     }
 
@@ -540,7 +540,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                           >
                             <span className="text-[11.5px] text-txt-secondary font-medium">{label}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-mono text-txt-muted uppercase">{currentColor}</span>
+                              <span className="text-[10px] font-mono text-txt-muted uppercase">{formatToHex(currentColor)}</span>
                               <button
                                 type="button"
                                 onClick={() => setActiveColorField(isActive ? null : { fieldKey, title: label })}
