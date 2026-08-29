@@ -337,11 +337,14 @@ export function getInteractiveOverlayOptions(
         });
       }
 
-      const isHandle = minDistance <= 22;
-      const currentDraggedIndex = isHandle ? closestIndex : null;
+      const hoveredIdx = event.overlay.extendData?.hoveredAnchorIndex;
+      const hasHoveredIdx = hoveredIdx !== undefined && hoveredIdx !== null && typeof hoveredIdx === 'number';
 
-      if (isHandle) {
-        console.log(`[Anchor] Anchor point ${closestIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
+      const isHandle = minDistance <= 22 || hasHoveredIdx;
+      const currentDraggedIndex = minDistance <= 22 ? closestIndex : (hasHoveredIdx ? (hoveredIdx as number) : null);
+
+      if (isHandle && currentDraggedIndex !== null) {
+        console.log(`[Anchor] Anchor point ${currentDraggedIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
       } else {
         console.log(`[Anchor] Body clicked (no anchor hit, minDistance: ${minDistance.toFixed(1)}px) on "${toolName}" (${event.overlay?.id})`);
       }

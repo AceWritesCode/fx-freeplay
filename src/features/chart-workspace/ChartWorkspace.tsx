@@ -923,10 +923,20 @@ export function ChartWorkspace() {
       const container = chartContainersRef.current[activeIndex];
       if (!container) return;
 
-      if (isMouseDown && activeDraggingOverlay) {
-        if (container.style.cursor !== 'grabbing') {
-          container.style.cursor = 'grabbing';
+      const applyCursor = (cur: string) => {
+        if (container.style.cursor !== cur) {
+          container.style.cursor = cur;
         }
+        const elements = container.querySelectorAll<HTMLElement>('canvas, .k-line-chart');
+        elements.forEach((el) => {
+          if (el.style.cursor !== cur) {
+            el.style.cursor = cur;
+          }
+        });
+      };
+
+      if (isMouseDown && activeDraggingOverlay) {
+        applyCursor('grabbing');
         return;
       }
 
@@ -1068,10 +1078,7 @@ export function ChartWorkspace() {
           });
         }
 
-        const nextCursor = 'pointer';
-        if (container.style.cursor !== nextCursor) {
-          container.style.cursor = nextCursor;
-        }
+        applyCursor('pointer');
         return;
       }
 
@@ -1088,10 +1095,7 @@ export function ChartWorkspace() {
         }
       });
 
-      const finalCursor = isInsideBody ? 'grab' : 'default';
-      if (container.style.cursor !== finalCursor) {
-        container.style.cursor = finalCursor;
-      }
+      applyCursor(isInsideBody ? 'grab' : 'default');
     };
 
     window.addEventListener('mousedown', handleMouseDown);
