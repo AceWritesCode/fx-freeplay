@@ -22,6 +22,7 @@ import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
+import { useDrawingInteraction } from '@/framework/interaction';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -447,6 +448,24 @@ export function ChartWorkspace() {
     [setSelectedOverlayIds]
   );
 
+  // Initialize Drawing Interaction Layer (modifier keys, marquee selection, keyboard shortcuts)
+  useDrawingInteraction({
+    chartContainersRef,
+    chartInstancesRef,
+    activeTool: drawingCoord.activeTool,
+    selectedOverlayIds,
+    onSelectOverlayIds: handleSelectOverlayIds,
+    onDeleteSelected: () => {
+      selectedOverlayIds.forEach((id) => {
+        useDrawingStore.getState().removeSymbolDrawingById(id);
+      });
+      handleSelectOverlayIds([]);
+      runWorkspaceReconciliation(chartInstancesRef);
+    },
+    onCancelTool: drawingCoord.cancelDrawingSession,
+    slots,
+  });
+
   // Keep chart instance styling automatically synchronized with useSettingsStore settings
   useEffect(() => {
     chartInstancesRef.current.forEach((chart) => {
@@ -757,33 +776,8 @@ export function ChartWorkspace() {
     };
   }, []);
 
-  // Synchronize keydown and clicks
+  // Synchronize brush strokes & clicks
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (drawingCoord.drawingTargetChartIndex !== null || drawingCoord.activeTool !== null) {
-          drawingCoord.cancelDrawingSession();
-        }
-      }
-      if (e.key === 'Shift') {
-        isShiftPressedRef.current = true;
-      }
-      if (e.key === 'Control' || e.key === 'Meta') {
-        isCtrlPressedRef.current = true;
-      }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') {
-        isShiftPressedRef.current = false;
-      }
-      if (e.key === 'Control' || e.key === 'Meta') {
-        isCtrlPressedRef.current = false;
-      }
-    };
-    const handleBlur = () => {
-      isShiftPressedRef.current = false;
-      isCtrlPressedRef.current = false;
-    };
     const handleMouseDown = () => {
       chartInstancesRef.current.forEach((chart) => {
         if (chart) chart._isMouseDown = true;
@@ -1064,16 +1058,10 @@ export function ChartWorkspace() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('mousemove', handleGlobalMouseMove);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('mousemove', handleGlobalMouseMove);

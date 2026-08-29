@@ -35,7 +35,7 @@ export const doesOverlayIntersectRect = (
 
   const pointInRect = (p: any) => isPointInRect(p, xMin, xMax, yMin, yMax);
 
-  if (ov.name === 'segment') {
+  if (['segment', 'trendLine', 'ray', 'horizontalRay', 'arrow'].includes(ov.name)) {
     if (validPts.length < 2) return false;
     const A = validPts[0];
     const B = validPts[1];
@@ -52,12 +52,12 @@ export const doesOverlayIntersectRect = (
            intersects(A, B, rBL, rTL);
   }
 
-  if (ov.name === 'horizontalStraightLine') {
+  if (['horizontalStraightLine', 'horizontalLine'].includes(ov.name)) {
     const y0 = validPts[0].y;
     return y0 >= yMin && y0 <= yMax;
   }
 
-  if (ov.name === 'rect' || ov.name === 'priceChannel') {
+  if (['rect', 'rectangle', 'priceChannel', 'parallelChannel', 'fibonacciRetracement', 'longPosition', 'shortPosition'].includes(ov.name)) {
     const xs = validPts.map((p: any) => p.x);
     const ys = validPts.map((p: any) => p.y);
     const xMin_ov = Math.min(...xs);
