@@ -279,7 +279,7 @@ export const TrendLineTool: ToolDefinition = {
 
 
         // Selection / In-progress creation grab handles
-        const isDrawing = typeof overlay?.currentStep === 'number' && typeof overlay?.totalStep === 'number' && overlay.currentStep < overlay.totalStep;
+        const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         if (isSelected || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }

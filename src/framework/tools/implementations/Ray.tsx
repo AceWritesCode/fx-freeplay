@@ -1,8 +1,8 @@
 import type { ToolDefinition } from '../ToolRegistry';
 import { drawGrabHandles } from '../toolUtils';
 
-// Robust extrapolation calculation extending to the right
-const extrapolateRayToRight = (
+// Robust extrapolation calculation extending in the direction of p2
+const extrapolateRay = (
   p1: { x: number; y: number },
   p2: { x: number; y: number },
   width: number,
@@ -17,7 +17,7 @@ const extrapolateRayToRight = (
   }
 
   const slope = dy / dx;
-  const targetX = width + 100;
+  const targetX = dx > 0 ? width + 100 : -100;
   const targetY = p1.y + slope * (targetX - p1.x);
   return { x: targetX, y: targetY };
 };
@@ -146,8 +146,8 @@ export const RayTool: ToolDefinition = {
         const width = bounding?.width ?? 1000;
         const height = bounding?.height ?? 500;
 
-        // Calculate extrapolated end point always to the right
-        const pExtrapolated = extrapolateRayToRight(coordinates[0], coordinates[1], width, height);
+        // Calculate extrapolated end point in the direction of the second anchor
+        const pExtrapolated = extrapolateRay(coordinates[0], coordinates[1], width, height);
 
         figures.push({
           type: 'line',
@@ -162,7 +162,7 @@ export const RayTool: ToolDefinition = {
         });
 
         // Selection / In-progress creation grab handles
-        const isDrawing = typeof overlay?.currentStep === 'number' && typeof overlay?.totalStep === 'number' && overlay.currentStep < overlay.totalStep;
+        const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         const isSelected = (overlay?.extendData as any)?.isSelected;
         if (isSelected || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
