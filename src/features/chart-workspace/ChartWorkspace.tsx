@@ -1530,10 +1530,19 @@ export function ChartWorkspace() {
                 useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
                   extendData: mergedExtendData,
                 });
+                // Also push the new text into the source chart's own KLineCharts overlay.
+                // Without this, the KLineCharts in-memory extendData still has the old text.
+                // When the user deselects, the deselection effect reads chartOverlay.extendData
+                // from KLineCharts and would overwrite the store with stale data, wiping the text.
+                if (chart && originalId) {
+                  chart.overrideOverlay({
+                    id: originalId,
+                    extendData: mergedExtendData,
+                  });
+                }
                 mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               }
 
-              runWorkspaceReconciliation(chartInstancesRef);
               drawingCoord.setDrawingTrigger((prev) => prev + 1);
             };
 

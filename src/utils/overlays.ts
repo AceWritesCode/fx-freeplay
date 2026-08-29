@@ -304,18 +304,14 @@ export function getInteractiveOverlayOptions(
         if (c) c._clickedOnOverlay = true;
       });
 
-      const rawId = event.overlay.id;
-      const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
-      const id = syncMatch ? syncMatch[1] : rawId;
-
-      if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
-        const currentSelected = actualChart._selectedOverlayIds || [];
-        if (!currentSelected.includes(id)) {
-          actualChart._setSelectedOverlayIds([id]);
-        }
-      }
-      // Calculate handle proximity directly from current mouse-down position (event.x, event.y).
-      // Convert points cleanly to pixel coordinates using both timestamp-based and raw points
+      // ── Anchor hit-test ───────────────────────────────────────────────────
+      // IMPORTANT: perform hit-test and set _activeDraggingIndex BEFORE calling
+      // _setSelectedOverlayIds. Calling _setSelectedOverlayIds triggers Zustand's
+      // selection effect synchronously, which calls runWorkspaceReconciliation.
+      // The reconciler checks chart._activeDraggingIndex to decide whether to
+      // protect the overlay's extendData from being overwritten. If _activeDraggingIndex
+      // is still null at that point, the reconciler wipes extendData.draggedIndex,
+      // making onPressedMoving fall through to body-drag even when an anchor was hit.
       const rawPoints = event.overlay.points || [];
       const cleanPoints = rawPoints.map((p: any) => ({
         timestamp: p.timestamp,
@@ -343,16 +339,27 @@ export function getInteractiveOverlayOptions(
       const isHandle = minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
+      // Set drag index on BOTH chart references before selection fires reconciliation
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
       }
-      // Always set on event.chart directly — in multi-chart setups, event.chart
-      // may differ from chartInstanceRef.current. The drawingReconciler checks
-      // chart._activeDraggingIndex to decide whether to protect the overlay from
-      // being overwritten, so both references must be consistent.
       if (event.chart) {
         event.chart._activeDraggingIndex = currentDraggedIndex;
       }
+      // ─────────────────────────────────────────────────────────────────────
+
+      const rawId = event.overlay.id;
+      const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
+      const id = syncMatch ? syncMatch[1] : rawId;
+
+      // Now safe to call _setSelectedOverlayIds — reconciler will see the drag index above
+      if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
+        const currentSelected = actualChart._selectedOverlayIds || [];
+        if (!currentSelected.includes(id)) {
+          actualChart._setSelectedOverlayIds([id]);
+        }
+      }
+
       if (event.overlay) {
         event.overlay.currentPointIndex = isHandle ? closestIndex : -1;
         delete event.overlay.prevPoints;
@@ -363,7 +370,7 @@ export function getInteractiveOverlayOptions(
       const startPointsPixels = pts || event.chart.convertToPixel(rawPoints, { paneId: 'candle_pane' });
 
       const overrideOpts = {
-        extendData: { 
+        extendData: {
           ...(event.overlay.extendData || {}),
           hoveredAnchorIndex: null, // Clear any stale hover state from previous handle interactions
           draggedIndex: currentDraggedIndex,
