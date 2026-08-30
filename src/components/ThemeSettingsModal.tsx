@@ -259,6 +259,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   };
 
   const handleEditTheme = (targetMode?: ThemeMode) => {
+    // If a saved custom theme card is active:
+    if (activeSavedThemeId !== null) {
+      const activeSaved = savedThemes.find(t => t.id === activeSavedThemeId);
+      if (activeSaved) {
+        setCustomTheme({ ...activeSaved.palette });
+      }
+      setActiveSavedThemeId(null);
+      setThemeMode('custom');
+      setActiveColorField(null);
+      return;
+    }
+
     const modeToCopy = targetMode || themeMode;
     if (modeToCopy === 'custom') return;
 
@@ -280,6 +292,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
     setCustomTheme(newCustomPalette);
     setThemeMode('custom');
+    setActiveSavedThemeId(null);
     setActiveColorField(null);
 
     if (formState.syncChartBackgroundWithTheme) {
@@ -436,12 +449,12 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       Select a built-in interface theme or customize semantic UI colors.
                     </p>
                   </div>
-                  {themeMode !== 'custom' && (
+                  {(themeMode !== 'custom' || activeSavedThemeId !== null) && (
                     <button
                       type="button"
                       onClick={() => handleEditTheme()}
                       className="px-3 py-1.5 text-xs font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0 shadow-xs"
-                      title="Copy current built-in theme colors into Custom theme and edit them"
+                      title="Edit colors of selected theme"
                     >
                       <Paintbrush className="w-3.5 h-3.5" />
                       <span>Edit Theme</span>
