@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown, Bookmark, Trash2 } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown, Bookmark, Trash2, GripHorizontal } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode, SavedCustomTheme } from '@/config';
@@ -250,6 +250,102 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       setThemeMode('dark');
     }
   };
+
+  // Draggable Color Picker state
+  const [colorPickerPos, setColorPickerPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingColorPicker, setIsDraggingColorPicker] = useState(false);
+  const colorPickerDragStartRef = React.useRef<{ x: number; y: number; initialX: number; initialY: number }>({
+    x: 0, y: 0, initialX: 0, initialY: 0
+  });
+  const colorPickerContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Initial Position Calculation for Color Picker (Landscape right vs Portrait below modal)
+  React.useEffect(() => {
+    if (!activeColorField) {
+      setColorPickerPos(null);
+      return;
+    }
+
+    if (colorPickerPos !== null) return;
+
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+
+    const modalWidth = Math.min(720, screenW * 0.92);
+    const modalHeight = Math.min(560, screenH * 0.88);
+    const modalRight = (screenW + modalWidth) / 2;
+    const pickerWidth = 310;
+    const pickerHeight = 440;
+
+    const spaceOnRight = screenW - modalRight;
+
+    let initialX = 0;
+    let initialY = 0;
+
+    if (spaceOnRight >= pickerWidth + 20) {
+      // Landscape / Wide screen -> Position to the right of modal
+      initialX = Math.min(screenW - pickerWidth - 16, modalRight + 16);
+      initialY = Math.max(16, Math.min(screenH - pickerHeight - 16, (screenH - modalHeight) / 2));
+    } else {
+      // Portrait / Narrow screen -> Pop below the modal
+      initialX = Math.max(16, Math.min(screenW - pickerWidth - 16, (screenW - pickerWidth) / 2));
+      initialY = Math.max(16, Math.min(screenH - pickerHeight - 16, (screenH + modalHeight) / 2 + 16));
+
+      if (initialY + pickerHeight > screenH) {
+        initialY = Math.max(16, screenH - pickerHeight - 20);
+      }
+    }
+
+    setColorPickerPos({ x: initialX, y: initialY });
+  }, [activeColorField, colorPickerPos]);
+
+  // Color Picker drag handlers
+  const handleColorPickerMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const startX = colorPickerPos?.x ?? 0;
+    const startY = colorPickerPos?.y ?? 0;
+    colorPickerDragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      initialX: startX,
+      initialY: startY,
+    };
+    setIsDraggingColorPicker(true);
+    e.preventDefault();
+  };
+
+  React.useEffect(() => {
+    if (!isDraggingColorPicker) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - colorPickerDragStartRef.current.x;
+      const dy = e.clientY - colorPickerDragStartRef.current.y;
+
+      const newX = Math.max(10, Math.min(window.innerWidth - 310, colorPickerDragStartRef.current.initialX + dx));
+      const newY = Math.max(10, Math.min(window.innerHeight - 440, colorPickerDragStartRef.current.initialY + dy));
+
+      if (colorPickerContainerRef.current) {
+        colorPickerContainerRef.current.style.left = `${newX}px`;
+        colorPickerContainerRef.current.style.top = `${newY}px`;
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingColorPicker(false);
+      if (colorPickerContainerRef.current) {
+        const rect = colorPickerContainerRef.current.getBoundingClientRect();
+        setColorPickerPos({ x: rect.left, y: rect.top });
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingColorPicker]);
 
   // Close custom preset dropdown on click outside
   React.useEffect(() => {
@@ -1717,11 +1813,21 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
       </div>
 
-      {/* Side Color Picker Panel */}
-      {activeColorConfig && (
-        <div className="absolute left-[calc(100%+16px)] top-0 w-fit bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-left-2 duration-150 select-none z-50">
-          <div className="flex items-center justify-between pb-2 border-b border-border-sub">
-            <div className="flex items-center gap-2 min-w-0">
+      {/* Floating Draggable Color Picker Panel */}
+      {activeColorConfig && colorPickerPos && (
+        <div
+          ref={colorPickerContainerRef}
+          style={{ left: `${colorPickerPos.x}px`, top: `${colorPickerPos.y}px` }}
+          className="fixed w-[310px] bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-150 select-none z-[60]"
+        >
+          {/* Draggable Header */}
+          <div
+            onMouseDown={handleColorPickerMouseDown}
+            className="flex items-center justify-between pb-2 border-b border-border-sub cursor-move group/drag"
+            title="Drag to move color picker"
+          >
+            <div className="flex items-center gap-2 min-w-0 pointer-events-none">
+              <GripHorizontal className="w-4 h-4 text-txt-muted group-hover/drag:text-accent transition-colors flex-shrink-0" />
               <div
                 className="w-3.5 h-3.5 rounded border border-border-def shadow-xs flex-shrink-0"
                 style={{ backgroundColor: activeColorConfig.color }}
@@ -1732,7 +1838,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => setActiveColorField(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveColorField(null);
+              }}
               className="text-txt-muted hover:text-txt-primary p-1 rounded-lg hover:bg-surface-hover cursor-pointer transition-colors flex-shrink-0"
               title="Close Color Picker"
             >
