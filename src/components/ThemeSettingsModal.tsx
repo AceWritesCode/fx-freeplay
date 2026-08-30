@@ -274,8 +274,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     const modalWidth = Math.min(720, screenW * 0.92);
     const modalHeight = Math.min(560, screenH * 0.88);
     const modalRight = (screenW + modalWidth) / 2;
-    const pickerWidth = 310;
-    const pickerHeight = 440;
+    const pickerWidth = colorPickerContainerRef.current?.offsetWidth || 340;
+    const pickerHeight = colorPickerContainerRef.current?.offsetHeight || 440;
 
     const spaceOnRight = screenW - modalRight;
 
@@ -321,8 +321,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       const dx = e.clientX - colorPickerDragStartRef.current.x;
       const dy = e.clientY - colorPickerDragStartRef.current.y;
 
-      const newX = Math.max(10, Math.min(window.innerWidth - 310, colorPickerDragStartRef.current.initialX + dx));
-      const newY = Math.max(10, Math.min(window.innerHeight - 440, colorPickerDragStartRef.current.initialY + dy));
+      const pWidth = colorPickerContainerRef.current?.offsetWidth || 340;
+      const pHeight = colorPickerContainerRef.current?.offsetHeight || 440;
+
+      const newX = Math.max(10, Math.min(window.innerWidth - pWidth - 10, colorPickerDragStartRef.current.initialX + dx));
+      const newY = Math.max(10, Math.min(window.innerHeight - pHeight - 10, colorPickerDragStartRef.current.initialY + dy));
 
       if (colorPickerContainerRef.current) {
         colorPickerContainerRef.current.style.left = `${newX}px`;
@@ -1818,7 +1821,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         <div
           ref={colorPickerContainerRef}
           style={{ left: `${colorPickerPos.x}px`, top: `${colorPickerPos.y}px` }}
-          className="fixed w-[310px] bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-150 select-none z-[60]"
+          className="fixed w-fit max-w-[95vw] bg-modal-bg border border-border-def rounded-xl shadow-2xl p-4 flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-150 select-none z-[60]"
         >
           {/* Draggable Header */}
           <div
