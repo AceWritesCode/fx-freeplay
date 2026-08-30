@@ -788,11 +788,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                                   type="text"
                                   placeholder="Enter or search theme name (e.g. Monochrome, Sunset)…"
                                   value={newThemeName}
-                                  onFocus={() => setIsThemeNameDropdownOpen(true)}
+                                  onFocus={() => {
+                                    if (newThemeName.trim().length > 0) setIsThemeNameDropdownOpen(true);
+                                  }}
                                   onChange={(e) => {
-                                    setNewThemeName(e.target.value);
+                                    const val = e.target.value;
+                                    setNewThemeName(val);
                                     setSaveThemeFeedback(null);
-                                    setIsThemeNameDropdownOpen(true);
+                                    setIsThemeNameDropdownOpen(val.trim().length > 0);
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleSaveCustomTheme();
@@ -810,7 +813,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                                 />
 
                                 {/* Searchable Dropdown for Existing Themes */}
-                                {isThemeNameDropdownOpen && matchingSavedThemeNames.length > 0 && (
+                                {isThemeNameDropdownOpen && newThemeName.trim().length > 0 && matchingSavedThemeNames.length > 0 && (
                                   <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-xs max-h-[160px] overflow-y-auto text-txt-secondary select-none animate-in fade-in zoom-in-95 duration-100">
                                     <div className="px-3 py-1 text-[10px] font-bold text-txt-muted uppercase tracking-wider bg-surface/50">
                                       Existing Saved Themes
