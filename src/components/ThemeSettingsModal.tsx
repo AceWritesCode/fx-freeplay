@@ -259,44 +259,59 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   });
   const colorPickerContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // Initial Position Calculation for Color Picker (Landscape right vs Portrait below modal)
+  // Compute optimal initial position for ColorPicker
+  const computeOptimalPickerPos = (screenW: number, screenH: number, pickerW = 340, pickerH = 440) => {
+    const modalWidth = Math.min(720, screenW * 0.92);
+    const modalHeight = Math.min(560, screenH * 0.88);
+    const modalRight = (screenW + modalWidth) / 2;
+    const spaceOnRight = screenW - modalRight;
+
+    if (spaceOnRight >= pickerW + 20) {
+      return {
+        x: Math.min(screenW - pickerW - 16, modalRight + 16),
+        y: Math.max(16, Math.min(screenH - pickerH - 16, (screenH - modalHeight) / 2)),
+      };
+    } else {
+      let initialY = Math.max(16, Math.min(screenH - pickerH - 16, (screenH + modalHeight) / 2 + 16));
+      if (initialY + pickerH > screenH) {
+        initialY = Math.max(16, screenH - pickerH - 20);
+      }
+      return {
+        x: Math.max(16, Math.min(screenW - pickerW - 16, (screenW - pickerW) / 2)),
+        y: initialY,
+      };
+    }
+  };
+
+  // Initial position calculation & window resize auto-clamping
   React.useEffect(() => {
     if (!activeColorField) {
       setColorPickerPos(null);
       return;
     }
 
-    if (colorPickerPos !== null) return;
+    const handleWindowResize = () => {
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      const pWidth = colorPickerContainerRef.current?.offsetWidth || 340;
+      const pHeight = colorPickerContainerRef.current?.offsetHeight || 440;
 
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
+      setColorPickerPos((prevPos) => {
+        if (!prevPos) {
+          return computeOptimalPickerPos(screenW, screenH, pWidth, pHeight);
+        }
+        const newX = Math.max(10, Math.min(screenW - pWidth - 10, prevPos.x));
+        const newY = Math.max(10, Math.min(screenH - pHeight - 10, prevPos.y));
+        return { x: newX, y: newY };
+      });
+    };
 
-    const modalWidth = Math.min(720, screenW * 0.92);
-    const modalHeight = Math.min(560, screenH * 0.88);
-    const modalRight = (screenW + modalWidth) / 2;
-    const pickerWidth = colorPickerContainerRef.current?.offsetWidth || 340;
-    const pickerHeight = colorPickerContainerRef.current?.offsetHeight || 440;
-
-    const spaceOnRight = screenW - modalRight;
-
-    let initialX = 0;
-    let initialY = 0;
-
-    if (spaceOnRight >= pickerWidth + 20) {
-      // Landscape / Wide screen -> Position to the right of modal
-      initialX = Math.min(screenW - pickerWidth - 16, modalRight + 16);
-      initialY = Math.max(16, Math.min(screenH - pickerHeight - 16, (screenH - modalHeight) / 2));
-    } else {
-      // Portrait / Narrow screen -> Pop below the modal
-      initialX = Math.max(16, Math.min(screenW - pickerWidth - 16, (screenW - pickerWidth) / 2));
-      initialY = Math.max(16, Math.min(screenH - pickerHeight - 16, (screenH + modalHeight) / 2 + 16));
-
-      if (initialY + pickerHeight > screenH) {
-        initialY = Math.max(16, screenH - pickerHeight - 20);
-      }
+    if (!colorPickerPos) {
+      handleWindowResize();
     }
 
-    setColorPickerPos({ x: initialX, y: initialY });
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
   }, [activeColorField, colorPickerPos]);
 
   // Color Picker drag handlers
