@@ -749,31 +749,33 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         <h4 className="text-xs font-semibold text-txt-primary">Custom Theme Palette</h4>
                         <p className="text-[11px] text-txt-muted">Configure base semantic colors using the color picker.</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsSavingTheme(true);
-                            setNewThemeName('');
-                            setSaveThemeFeedback(null);
-                            setThemeOverwriteTarget(null);
-                            setIsThemeNameDropdownOpen(false);
-                          }}
-                          className="px-2.5 py-1 text-[11px] font-semibold text-txt-inverse bg-accent hover:bg-accent-hover rounded-md shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0"
-                          title="Save current custom color palette as a named theme card"
-                        >
-                          <Bookmark className="w-3 h-3" />
-                          <span>Save Theme</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setCustomTheme(DEFAULT_CUSTOM_THEME); setActiveSavedThemeId(null); }}
-                          className="px-2.5 py-1 text-[11px] font-medium text-txt-secondary bg-surface-elevated hover:bg-surface-hover rounded-md border border-border-sub flex items-center gap-1.5 cursor-pointer transition-colors flex-shrink-0"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Reset Custom</span>
-                        </button>
-                      </div>
+                      {!isSavingTheme && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSavingTheme(true);
+                              setNewThemeName('');
+                              setSaveThemeFeedback(null);
+                              setThemeOverwriteTarget(null);
+                              setIsThemeNameDropdownOpen(false);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-txt-inverse bg-accent hover:bg-accent-hover rounded-md shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0"
+                            title="Save current custom color palette as a named theme card"
+                          >
+                            <Bookmark className="w-3 h-3" />
+                            <span>Save Theme</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setCustomTheme(DEFAULT_CUSTOM_THEME); setActiveSavedThemeId(null); }}
+                            className="px-2.5 py-1 text-[11px] font-medium text-txt-secondary bg-surface-elevated hover:bg-surface-hover rounded-md border border-border-sub flex items-center gap-1.5 cursor-pointer transition-colors flex-shrink-0"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reset Custom</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Inline Save Theme Form */}
