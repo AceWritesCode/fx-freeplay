@@ -440,7 +440,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleEditTheme()}
-                      className="px-3 py-1.5 text-xs font-semibold text-txt-inverse bg-accent hover:bg-accent-hover rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0"
+                      className="px-3 py-1.5 text-xs font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0 shadow-xs"
                       title="Copy current built-in theme colors into Custom theme and edit them"
                     >
                       <Paintbrush className="w-3.5 h-3.5" />
@@ -616,35 +616,6 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         <span className="text-[10.5px] text-txt-muted leading-tight">
                           {theme.desc}
                         </span>
-
-                        {isSelected && !theme.isSavedCustom && theme.id !== 'custom' && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditTheme(theme.id as ThemeMode);
-                            }}
-                            className="mt-2.5 w-full py-1 text-[11px] font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                            title="Copy this theme's colors into Custom theme and edit them"
-                          >
-                            <Paintbrush className="w-3 h-3" />
-                            <span>Edit Theme</span>
-                          </div>
-                        )}
-                        {isSelected && theme.isSavedCustom && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCustomTheme(theme.savedThemeObj!.palette);
-                              setThemeMode('custom');
-                              setActiveSavedThemeId(null);
-                            }}
-                            className="mt-2.5 w-full py-1 text-[11px] font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                            title="Edit colors of this saved theme in custom palette"
-                          >
-                            <Paintbrush className="w-3 h-3" />
-                            <span>Edit Theme</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
