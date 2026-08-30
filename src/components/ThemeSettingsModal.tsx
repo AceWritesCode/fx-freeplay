@@ -158,19 +158,47 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const [savedThemes, setSavedThemes] = useState<SavedCustomTheme[]>(getStoredSavedThemes);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [newThemeName, setNewThemeName] = useState('');
-  const [saveThemeError, setSaveThemeError] = useState('');
+  const [isThemeNameDropdownOpen, setIsThemeNameDropdownOpen] = useState(false);
+  const [saveThemeFeedback, setSaveThemeFeedback] = useState<{ type: 'error' | 'info' | 'confirm'; message: string } | null>(null);
+  const [themeOverwriteTarget, setThemeOverwriteTarget] = useState<SavedCustomTheme | null>(null);
   const [activeSavedThemeId, setActiveSavedThemeId] = useState<string | null>(null);
+  const themeNameInputRef = React.useRef<HTMLDivElement>(null);
+
+  const isPaletteEqual = (p1: CustomThemePalette, p2: CustomThemePalette): boolean => {
+    const keys: (keyof CustomThemePalette)[] = [
+      'bgApp', 'bgSurface', 'bgSurfaceElevated', 'bgModal',
+      'textPrimary', 'textSecondary', 'textMuted', 'borderDefault',
+      'accentPrimary', 'statusSuccess', 'statusWarning', 'statusError'
+    ];
+    return keys.every(k => (p1[k] || '').toLowerCase() === (p2[k] || '').toLowerCase());
+  };
 
   const handleSaveCustomTheme = () => {
     const name = newThemeName.trim();
     if (!name) {
-      setSaveThemeError('Please enter a theme name.');
+      setSaveThemeFeedback({ type: 'error', message: 'Please enter a theme name.' });
       return;
     }
-    if (savedThemes.some(t => t.name.toLowerCase() === name.toLowerCase())) {
-      setSaveThemeError('A theme with this name already exists.');
+
+    const existing = savedThemes.find(t => t.name.toLowerCase() === name.toLowerCase());
+
+    if (existing) {
+      if (isPaletteEqual(customTheme, existing.palette)) {
+        setSaveThemeFeedback({
+          type: 'info',
+          message: `No changes detected for "${existing.name}". Theme is already up to date.`
+        });
+        return;
+      }
+
+      setThemeOverwriteTarget(existing);
+      setSaveThemeFeedback({
+        type: 'confirm',
+        message: `Theme "${existing.name}" already exists. Do you want to update it with your new colors?`
+      });
       return;
     }
+
     const newTheme: SavedCustomTheme = {
       id: `saved_theme_${Date.now()}`,
       name,
@@ -184,7 +212,33 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     setThemeMode('custom');
     setIsSavingTheme(false);
     setNewThemeName('');
-    setSaveThemeError('');
+    setSaveThemeFeedback(null);
+    setThemeOverwriteTarget(null);
+    setIsThemeNameDropdownOpen(false);
+  };
+
+  const handleConfirmOverwriteTheme = () => {
+    if (!themeOverwriteTarget) return;
+
+    const updated = savedThemes.map(t => {
+      if (t.id === themeOverwriteTarget.id) {
+        return {
+          ...t,
+          palette: { ...customTheme },
+        };
+      }
+      return t;
+    });
+
+    setSavedThemes(updated);
+    storeSavedThemes(updated);
+    setActiveSavedThemeId(themeOverwriteTarget.id);
+    setThemeMode('custom');
+    setIsSavingTheme(false);
+    setNewThemeName('');
+    setSaveThemeFeedback(null);
+    setThemeOverwriteTarget(null);
+    setIsThemeNameDropdownOpen(false);
   };
 
   const handleDeleteSavedTheme = (id: string) => {
@@ -208,6 +262,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPresetDropdownOpen]);
+
+  // Close theme name dropdown on click outside
+  React.useEffect(() => {
+    if (!isThemeNameDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (themeNameInputRef.current && !themeNameInputRef.current.contains(e.target as Node)) {
+        setIsThemeNameDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isThemeNameDropdownOpen]);
 
   if (!isOpen) return null;
 
@@ -252,6 +318,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     { key: 'obsidian', label: 'Midnight Obsidian' },
     { key: 'matrix',   label: 'Matrix High-Contrast' },
   ];
+
+  const matchingSavedThemeNames = savedThemes.filter(t =>
+    !newThemeName.trim() || t.name.toLowerCase().includes(newThemeName.trim().toLowerCase())
+  );
 
   const handleSave = () => {
     onSettingsSave(formState);
@@ -682,7 +752,13 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => { setIsSavingTheme(true); setNewThemeName(''); setSaveThemeError(''); }}
+                          onClick={() => {
+                            setIsSavingTheme(true);
+                            setNewThemeName('');
+                            setSaveThemeFeedback(null);
+                            setThemeOverwriteTarget(null);
+                            setIsThemeNameDropdownOpen(false);
+                          }}
                           className="px-2.5 py-1 text-[11px] font-semibold text-txt-inverse bg-accent hover:bg-accent-hover rounded-md shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0"
                           title="Save current custom color palette as a named theme card"
                         >
@@ -702,36 +778,119 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                     {/* Inline Save Theme Form */}
                     {isSavingTheme && (
-                      <div className="flex flex-col gap-1 p-2.5 bg-surface-elevated/60 border border-border-def rounded-lg animate-in fade-in duration-100">
-                        <div className="flex items-center gap-2">
-                          <input
-                            autoFocus
-                            type="text"
-                            placeholder="Enter theme name (e.g. Sunset Violet, Cyberpunk)…"
-                            value={newThemeName}
-                            onChange={(e) => { setNewThemeName(e.target.value); setSaveThemeError(''); }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveCustomTheme();
-                              if (e.key === 'Escape') { setIsSavingTheme(false); setNewThemeName(''); setSaveThemeError(''); }
-                            }}
-                            className="flex-1 bg-modal-bg border border-border-def rounded-md px-2.5 py-1 text-xs text-txt-primary placeholder-txt-muted focus:outline-none focus:border-accent"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleSaveCustomTheme}
-                            className="px-3 py-1 bg-accent hover:bg-accent-hover text-txt-inverse rounded-md text-xs font-semibold transition-all cursor-pointer"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setIsSavingTheme(false); setNewThemeName(''); setSaveThemeError(''); }}
-                            className="px-2 py-1 border border-border-def hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-md text-xs font-semibold transition-all cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                        {saveThemeError && <span className="text-[10px] text-status-error font-medium">{saveThemeError}</span>}
+                      <div className="flex flex-col gap-2 p-3 bg-surface-elevated/70 border border-border-def rounded-xl animate-in fade-in duration-100 shadow-md">
+                        {!themeOverwriteTarget ? (
+                          <>
+                            <div className="flex items-center gap-2 relative" ref={themeNameInputRef}>
+                              <div className="relative flex-1">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="Enter or search theme name (e.g. Monochrome, Sunset)…"
+                                  value={newThemeName}
+                                  onFocus={() => setIsThemeNameDropdownOpen(true)}
+                                  onChange={(e) => {
+                                    setNewThemeName(e.target.value);
+                                    setSaveThemeFeedback(null);
+                                    setIsThemeNameDropdownOpen(true);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveCustomTheme();
+                                    if (e.key === 'Escape') {
+                                      if (isThemeNameDropdownOpen) {
+                                        setIsThemeNameDropdownOpen(false);
+                                      } else {
+                                        setIsSavingTheme(false);
+                                        setNewThemeName('');
+                                        setSaveThemeFeedback(null);
+                                      }
+                                    }
+                                  }}
+                                  className="w-full bg-modal-bg border border-border-def rounded-lg px-3 py-1.5 text-xs text-txt-primary placeholder-txt-muted focus:outline-none focus:border-accent"
+                                />
+
+                                {/* Searchable Dropdown for Existing Themes */}
+                                {isThemeNameDropdownOpen && matchingSavedThemeNames.length > 0 && (
+                                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-xs max-h-[160px] overflow-y-auto text-txt-secondary select-none animate-in fade-in zoom-in-95 duration-100">
+                                    <div className="px-3 py-1 text-[10px] font-bold text-txt-muted uppercase tracking-wider bg-surface/50">
+                                      Existing Saved Themes
+                                    </div>
+                                    {matchingSavedThemeNames.map((st) => (
+                                      <button
+                                        key={st.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setNewThemeName(st.name);
+                                          setIsThemeNameDropdownOpen(false);
+                                          setSaveThemeFeedback(null);
+                                        }}
+                                        className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-surface-hover hover:text-txt-primary transition-colors cursor-pointer"
+                                      >
+                                        <span className="truncate font-medium">{st.name}</span>
+                                        <div className="w-3.5 h-3.5 rounded-full border border-border-sub flex-shrink-0" style={{ backgroundColor: st.palette.accentPrimary }} />
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={handleSaveCustomTheme}
+                                className="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs flex-shrink-0"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsSavingTheme(false);
+                                  setNewThemeName('');
+                                  setSaveThemeFeedback(null);
+                                  setIsThemeNameDropdownOpen(false);
+                                }}
+                                className="px-2.5 py-1.5 border border-border-def hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-lg text-xs font-semibold transition-all cursor-pointer flex-shrink-0"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+
+                            {saveThemeFeedback && (
+                              <div className={`text-[11px] font-medium px-1 ${
+                                saveThemeFeedback.type === 'error' ? 'text-status-error' : 'text-status-info'
+                              }`}>
+                                {saveThemeFeedback.message}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          /* Overwrite Confirmation Row */
+                          <div className="flex flex-col gap-2 p-1">
+                            <div className="flex items-start gap-2 text-xs text-txt-primary">
+                              <HelpCircle className="w-4 h-4 text-status-warning flex-shrink-0 mt-0.5" />
+                              <span>{saveThemeFeedback?.message}</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setThemeOverwriteTarget(null);
+                                  setSaveThemeFeedback(null);
+                                }}
+                                className="px-3 py-1 text-xs border border-border-def hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-md font-semibold transition-colors cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleConfirmOverwriteTheme}
+                                className="px-3 py-1 text-xs bg-accent hover:bg-accent-hover text-txt-inverse rounded-md font-semibold shadow-xs transition-colors cursor-pointer"
+                              >
+                                Update Theme
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
