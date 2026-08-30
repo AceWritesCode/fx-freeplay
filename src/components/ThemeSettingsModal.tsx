@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown, Bookmark, Trash2 } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
-import type { ChartSettings, CustomThemePalette, ThemeMode } from '@/config';
+import type { ChartSettings, CustomThemePalette, ThemeMode, SavedCustomTheme } from '@/config';
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens, formatToHex } from '@/config';
-import { getStoredSyncChartBackground, storeSyncChartBackground } from '@/utils/themeApplier';
+import { getStoredSyncChartBackground, storeSyncChartBackground, getStoredSavedThemes, storeSavedThemes } from '@/utils/themeApplier';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -153,6 +153,49 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const [selectedPreset, setSelectedPreset] = useState('');
   const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
   const presetDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Saved Custom UI Themes
+  const [savedThemes, setSavedThemes] = useState<SavedCustomTheme[]>(getStoredSavedThemes);
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const [newThemeName, setNewThemeName] = useState('');
+  const [saveThemeError, setSaveThemeError] = useState('');
+  const [activeSavedThemeId, setActiveSavedThemeId] = useState<string | null>(null);
+
+  const handleSaveCustomTheme = () => {
+    const name = newThemeName.trim();
+    if (!name) {
+      setSaveThemeError('Please enter a theme name.');
+      return;
+    }
+    if (savedThemes.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+      setSaveThemeError('A theme with this name already exists.');
+      return;
+    }
+    const newTheme: SavedCustomTheme = {
+      id: `saved_theme_${Date.now()}`,
+      name,
+      palette: { ...customTheme },
+      createdAt: Date.now(),
+    };
+    const updated = [...savedThemes, newTheme];
+    setSavedThemes(updated);
+    storeSavedThemes(updated);
+    setActiveSavedThemeId(newTheme.id);
+    setThemeMode('custom');
+    setIsSavingTheme(false);
+    setNewThemeName('');
+    setSaveThemeError('');
+  };
+
+  const handleDeleteSavedTheme = (id: string) => {
+    const updated = savedThemes.filter(t => t.id !== id);
+    setSavedThemes(updated);
+    storeSavedThemes(updated);
+    if (activeSavedThemeId === id) {
+      setActiveSavedThemeId(null);
+      setThemeMode('dark');
+    }
+  };
 
   // Close custom preset dropdown on click outside
   React.useEffect(() => {
@@ -406,59 +449,124 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   )}
                 </div>
 
-                {/* 4 Theme Option Cards */}
+                {/* Theme Option Cards */}
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    {
-                      id: 'dark',
-                      name: 'Dark / Violet',
-                      desc: 'Classic TradingView-inspired identity',
-                      previewBg: '#131722',
-                      previewCard: '#1e222d',
-                      previewAccent: '#6366f1',
-                      previewText: '#ffffff',
-                    },
-                    {
-                      id: 'amoled',
-                      name: 'AMOLED Dark',
-                      desc: 'True black (#000000) for OLED displays',
-                      previewBg: '#000000',
-                      previewCard: '#0a0a0a',
-                      previewAccent: '#3b82f6',
-                      previewText: '#ffffff',
-                    },
-                    {
-                      id: 'light',
-                      name: 'Light',
-                      desc: 'Clean, bright modern UI',
-                      previewBg: '#f8fafc',
-                      previewCard: '#ffffff',
-                      previewAccent: '#2563eb',
-                      previewText: '#0f172a',
-                    },
-                    {
-                      id: 'custom',
-                      name: 'Custom',
-                      desc: 'User-configurable semantic palette',
-                      previewBg: customTheme.bgApp,
-                      previewCard: customTheme.bgSurface,
-                      previewAccent: customTheme.accentPrimary,
-                      previewText: customTheme.textPrimary,
-                    },
-                  ].map((theme) => {
-                    const isSelected = themeMode === theme.id;
+                  {(
+                    [
+                      {
+                        id: 'dark',
+                        isSavedCustom: false,
+                        savedThemeObj: undefined,
+                        name: 'Dark / Violet',
+                        desc: 'Classic TradingView-inspired identity',
+                        previewBg: '#131722',
+                        previewCard: '#1e222d',
+                        previewAccent: '#6366f1',
+                        previewText: '#ffffff',
+                      },
+                      {
+                        id: 'amoled',
+                        isSavedCustom: false,
+                        savedThemeObj: undefined,
+                        name: 'AMOLED Dark',
+                        desc: 'True black (#000000) for OLED displays',
+                        previewBg: '#000000',
+                        previewCard: '#0a0a0a',
+                        previewAccent: '#3b82f6',
+                        previewText: '#ffffff',
+                      },
+                      {
+                        id: 'light',
+                        isSavedCustom: false,
+                        savedThemeObj: undefined,
+                        name: 'Light',
+                        desc: 'Clean, bright modern UI',
+                        previewBg: '#f8fafc',
+                        previewCard: '#ffffff',
+                        previewAccent: '#2563eb',
+                        previewText: '#0f172a',
+                      },
+                      ...savedThemes.map((st) => ({
+                        id: st.id,
+                        isSavedCustom: true,
+                        savedThemeObj: st,
+                        name: st.name,
+                        desc: 'Custom Saved Theme',
+                        previewBg: st.palette.bgApp,
+                        previewCard: st.palette.bgSurface,
+                        previewAccent: st.palette.accentPrimary,
+                        previewText: st.palette.textPrimary,
+                      })),
+                      {
+                        id: 'custom',
+                        isSavedCustom: false,
+                        savedThemeObj: undefined,
+                        name: 'Custom',
+                        desc: 'User-configurable semantic palette',
+                        previewBg: customTheme.bgApp,
+                        previewCard: customTheme.bgSurface,
+                        previewAccent: customTheme.accentPrimary,
+                        previewText: customTheme.textPrimary,
+                      },
+                    ] as Array<{
+                      id: string;
+                      isSavedCustom: boolean;
+                      savedThemeObj?: SavedCustomTheme;
+                      name: string;
+                      desc: string;
+                      previewBg: string;
+                      previewCard: string;
+                      previewAccent: string;
+                      previewText: string;
+                    }>
+                  ).map((theme) => {
+                    const isSelected = (() => {
+                      if (theme.isSavedCustom) {
+                        if (themeMode !== 'custom') return false;
+                        if (activeSavedThemeId === theme.id) return true;
+                        const st = theme.savedThemeObj!;
+                        return (
+                          customTheme.bgApp === st.palette.bgApp &&
+                          customTheme.accentPrimary === st.palette.accentPrimary &&
+                          customTheme.bgSurface === st.palette.bgSurface
+                        );
+                      }
+                      if (theme.id === 'custom') {
+                        if (themeMode !== 'custom') return false;
+                        if (activeSavedThemeId !== null) return false;
+                        return true;
+                      }
+                      return themeMode === theme.id;
+                    })();
+
                     return (
                       <div
                         key={theme.id}
                         onClick={() => {
-                          const newMode = theme.id as ThemeMode;
-                          setThemeMode(newMode);
-                          setActiveColorField(null);
-                          if (formState.syncChartBackgroundWithTheme) {
-                            const bg = getThemeChartBackground(newMode, customTheme);
-                            handleFieldChange('background', bg);
-                            if (formState.backgroundType === 'None') {
-                              handleFieldChange('backgroundType', 'Solid');
+                          if (theme.isSavedCustom) {
+                            const st = theme.savedThemeObj!;
+                            setCustomTheme(st.palette);
+                            setThemeMode('custom');
+                            setActiveSavedThemeId(st.id);
+                            setActiveColorField(null);
+                            if (formState.syncChartBackgroundWithTheme) {
+                              const bg = getThemeChartBackground('custom', st.palette);
+                              handleFieldChange('background', bg);
+                              if (formState.backgroundType === 'None') {
+                                handleFieldChange('backgroundType', 'Solid');
+                              }
+                            }
+                          } else {
+                            const newMode = theme.id as ThemeMode;
+                            setThemeMode(newMode);
+                            setActiveSavedThemeId(null);
+                            setActiveColorField(null);
+                            if (formState.syncChartBackgroundWithTheme) {
+                              const bg = getThemeChartBackground(newMode, customTheme);
+                              handleFieldChange('background', bg);
+                              if (formState.backgroundType === 'None') {
+                                handleFieldChange('backgroundType', 'Solid');
+                              }
                             }
                           }
                         }}
@@ -469,14 +577,29 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         }`}
                       >
                         <div className="flex items-center justify-between w-full mb-2">
-                          <span className={`text-xs font-bold ${isSelected ? 'text-txt-primary' : 'text-txt-secondary'}`}>
+                          <span className={`text-xs font-bold truncate pr-1 ${isSelected ? 'text-txt-primary' : 'text-txt-secondary'}`}>
                             {theme.name}
                           </span>
-                          {isSelected && (
-                            <span className="w-4 h-4 rounded-full bg-accent text-txt-inverse flex items-center justify-center text-[10px]">
-                              <Check className="w-3 h-3 stroke-[3]" />
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {theme.isSavedCustom && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSavedTheme(theme.id);
+                                }}
+                                className="p-1 text-txt-muted hover:text-status-error transition-colors cursor-pointer rounded hover:bg-surface-hover"
+                                title={`Delete saved theme "${theme.name}"`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {isSelected && (
+                              <span className="w-4 h-4 rounded-full bg-accent text-txt-inverse flex items-center justify-center text-[10px]">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         {/* Color Swatch Preview Bar */}
@@ -494,7 +617,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                           {theme.desc}
                         </span>
 
-                        {isSelected && theme.id !== 'custom' && (
+                        {isSelected && !theme.isSavedCustom && theme.id !== 'custom' && (
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
@@ -502,6 +625,21 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                             }}
                             className="mt-2.5 w-full py-1 text-[11px] font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                             title="Copy this theme's colors into Custom theme and edit them"
+                          >
+                            <Paintbrush className="w-3 h-3" />
+                            <span>Edit Theme</span>
+                          </div>
+                        )}
+                        {isSelected && theme.isSavedCustom && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCustomTheme(theme.savedThemeObj!.palette);
+                              setThemeMode('custom');
+                              setActiveSavedThemeId(null);
+                            }}
+                            className="mt-2.5 w-full py-1 text-[11px] font-semibold text-accent border border-accent/40 hover:bg-accent/15 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                            title="Edit colors of this saved theme in custom palette"
                           >
                             <Paintbrush className="w-3 h-3" />
                             <span>Edit Theme</span>
@@ -557,15 +695,61 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         <h4 className="text-xs font-semibold text-txt-primary">Custom Theme Palette</h4>
                         <p className="text-[11px] text-txt-muted">Configure base semantic colors using the color picker.</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setCustomTheme(DEFAULT_CUSTOM_THEME)}
-                        className="px-2.5 py-1 text-[11px] font-medium text-txt-secondary bg-surface-elevated hover:bg-surface-hover rounded-md border border-border-sub flex items-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Reset Custom</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setIsSavingTheme(true); setNewThemeName(''); setSaveThemeError(''); }}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-txt-inverse bg-accent hover:bg-accent-hover rounded-md shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 flex-shrink-0"
+                          title="Save current custom color palette as a named theme card"
+                        >
+                          <Bookmark className="w-3 h-3" />
+                          <span>Save Theme</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setCustomTheme(DEFAULT_CUSTOM_THEME); setActiveSavedThemeId(null); }}
+                          className="px-2.5 py-1 text-[11px] font-medium text-txt-secondary bg-surface-elevated hover:bg-surface-hover rounded-md border border-border-sub flex items-center gap-1.5 cursor-pointer transition-colors flex-shrink-0"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset Custom</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Inline Save Theme Form */}
+                    {isSavingTheme && (
+                      <div className="flex flex-col gap-1 p-2.5 bg-surface-elevated/60 border border-border-def rounded-lg animate-in fade-in duration-100">
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Enter theme name (e.g. Sunset Violet, Cyberpunk)…"
+                            value={newThemeName}
+                            onChange={(e) => { setNewThemeName(e.target.value); setSaveThemeError(''); }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveCustomTheme();
+                              if (e.key === 'Escape') { setIsSavingTheme(false); setNewThemeName(''); setSaveThemeError(''); }
+                            }}
+                            className="flex-1 bg-modal-bg border border-border-def rounded-md px-2.5 py-1 text-xs text-txt-primary placeholder-txt-muted focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveCustomTheme}
+                            className="px-3 py-1 bg-accent hover:bg-accent-hover text-txt-inverse rounded-md text-xs font-semibold transition-all cursor-pointer"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setIsSavingTheme(false); setNewThemeName(''); setSaveThemeError(''); }}
+                            className="px-2 py-1 border border-border-def hover:bg-surface-hover text-txt-muted hover:text-txt-primary rounded-md text-xs font-semibold transition-all cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {saveThemeError && <span className="text-[10px] text-status-error font-medium">{saveThemeError}</span>}
+                      </div>
+                    )}
 
                     {/* Semantic Color Grid */}
                     <div className="grid grid-cols-2 gap-2.5 relative">

@@ -107,6 +107,31 @@ export const storeSyncChartBackground = (enabled: boolean): void => {
   localStorage.setItem(SYNC_CHART_BG_KEY, enabled ? 'true' : 'false');
 };
 
+const SAVED_CUSTOM_THEMES_KEY = 'fx_saved_custom_themes';
+
+/**
+ * Gets persisted SavedCustomTheme array from localStorage.
+ */
+export const getStoredSavedThemes = (): any[] => {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SAVED_CUSTOM_THEMES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+/**
+ * Persists SavedCustomTheme array to localStorage.
+ */
+export const storeSavedThemes = (themes: any[]): void => {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(SAVED_CUSTOM_THEMES_KEY, JSON.stringify(themes));
+  } catch (e) {}
+};
+
 /**
  * Hydrates DOM CSS variables immediately from localStorage on startup.
  */

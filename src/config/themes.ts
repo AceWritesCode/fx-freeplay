@@ -51,6 +51,13 @@ export interface CustomThemePalette {
   statusError: string;
 }
 
+export interface SavedCustomTheme {
+  id: string;
+  name: string;
+  palette: CustomThemePalette;
+  createdAt: number;
+}
+
 export const DEFAULT_CUSTOM_THEME: CustomThemePalette = {
   bgApp: '#131722',
   bgSurface: '#1e222d',
