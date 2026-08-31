@@ -57,7 +57,7 @@ export const TextTool: ToolDefinition = {
 
   createOverlayDef: () => ({
     name: 'text',
-    totalStep: 2,
+    totalStep: 1,
     needDefaultPointFigure: false,
     createPointFigures: ({ overlay, coordinates, chart }) => {
       if (chart && !isOverlayVisible(overlay, chart)) {
@@ -106,7 +106,7 @@ export const TextTool: ToolDefinition = {
       const isHovered = (overlay.extendData as any)?.isHovered;
       if (isSelected || isHovered) {
         const handles = [
-          { x: x + w, y: y + h / 2 } // 0: single right-edge width resize anchor
+          { x: x + w, y: y + h / 2 } // right-edge width resize anchor
         ];
         drawGrabHandles(figures, handles, overlay.lock || false);
       }
@@ -142,13 +142,13 @@ export const TextTool: ToolDefinition = {
   },
 
   onPressedMoving: (event: any, draggedIndex: number) => {
-    if (draggedIndex === undefined || draggedIndex === null) return false;
+    if (draggedIndex === undefined || draggedIndex === null || draggedIndex === 0) return false;
 
     const overlay = event.overlay;
     const customSettings = overlay.extendData?.customSettings || {};
 
-    // Handle width adjustment via single right resize handle (index 0)
-    if (draggedIndex === 0 || draggedIndex === 1 || draggedIndex === 2 || draggedIndex === 4) {
+    // Handle width adjustment via single right resize handle (index > 0)
+    if (draggedIndex === 1 || draggedIndex === 2 || draggedIndex === 4) {
       const p1 = event.coordinates[0];
       if (p1 && typeof event.x === 'number') {
         const newWidth = Math.max(60, event.x - p1.x);
