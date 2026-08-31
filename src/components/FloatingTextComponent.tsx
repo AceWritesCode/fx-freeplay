@@ -79,16 +79,19 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
     if (overlay?.extendData?.isNewText) {
       setIsEditing(true);
       setInputText('');
-      // Clear isNewText marker
-      if (chart) {
-        chart.overrideOverlay({
-          id: overlay.id,
-          extendData: {
-            ...overlay.extendData,
-            isNewText: false
-          }
-        });
-      }
+      // Delay clearing isNewText until focus has mounted cleanly
+      const timer = setTimeout(() => {
+        if (chart) {
+          chart.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...overlay.extendData,
+              isNewText: false
+            }
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [overlay?.extendData?.isNewText]);
 
@@ -192,10 +195,11 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
         fontStyle: isItalic ? 'italic' : 'normal',
         wordBreak: 'break-word',
         whiteSpace: 'pre-wrap',
+        lineHeight: 1.3,
         cursor: 'default',
         boxSizing: 'border-box',
       }}
-      className={`floating-text-container select-text ${isSelected ? 'ring-1 ring-accent' : ''}`}
+      className="floating-text-container select-text"
     >
       {isEditing ? (
         <textarea
@@ -220,6 +224,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
             fontWeight: 'inherit',
             fontStyle: 'inherit',
             fontFamily: 'inherit',
+            lineHeight: 1.3,
             outline: 'none',
             border: 'none',
             resize: 'none',
@@ -228,11 +233,11 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
             wordBreak: 'break-word',
             whiteSpace: 'pre-wrap',
           }}
-          placeholder="Type text…"
+          placeholder="Add text..."
         />
       ) : (
-        <div className="min-h-[20px] pointer-events-auto">
-          {text || <span className="opacity-40 italic text-xs">+ add text</span>}
+        <div style={{ fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit', fontStyle: 'inherit', lineHeight: 1.3 }} className="min-h-[20px] pointer-events-auto">
+          {text || <span className="opacity-40 italic text-xs">Add text...</span>}
         </div>
       )}
 

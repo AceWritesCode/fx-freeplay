@@ -101,17 +101,12 @@ export const TextTool: ToolDefinition = {
         });
       }
 
-      // Grab Handles when selected or hovered
+      // Single resize handle at the right edge when selected or hovered
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
       if (isSelected || isHovered) {
-        // Construct 4 corners + right-center handle for width resizing
         const handles = [
-          { x, y }, // 0: top-left
-          { x: x + w, y }, // 1: top-right
-          { x: x + w, y: y + h }, // 2: bottom-right
-          { x, y: y + h }, // 3: bottom-left
-          { x: x + w, y: y + h / 2 } // 4: right-center (width handle)
+          { x: x + w, y: y + h / 2 } // 0: single right-edge width resize anchor
         ];
         drawGrabHandles(figures, handles, overlay.lock || false);
       }
@@ -132,6 +127,8 @@ export const TextTool: ToolDefinition = {
         textColor: '#2196F3',
         fontSize: 14,
         isAnchored: false,
+        showBorder: false,
+        fillBackground: false,
         ...customSettings,
       },
       isDrawn: true,
@@ -150,8 +147,8 @@ export const TextTool: ToolDefinition = {
     const overlay = event.overlay;
     const customSettings = overlay.extendData?.customSettings || {};
 
-    // Handle width adjustment via right handles (index 1, 2, 4)
-    if (draggedIndex === 1 || draggedIndex === 2 || draggedIndex === 4) {
+    // Handle width adjustment via single right resize handle (index 0)
+    if (draggedIndex === 0 || draggedIndex === 1 || draggedIndex === 2 || draggedIndex === 4) {
       const p1 = event.coordinates[0];
       if (p1 && typeof event.x === 'number') {
         const newWidth = Math.max(60, event.x - p1.x);
