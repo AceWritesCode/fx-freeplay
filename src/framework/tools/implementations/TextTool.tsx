@@ -15,11 +15,11 @@ export const TextTool: ToolDefinition = {
   icon: Type,
   group: 'text',
   settingsSchema: [
-    { id: 'text', label: 'Text', type: 'color', defaultValue: 'Add text...' },
+    { id: 'text', label: 'Text', type: 'color', defaultValue: 'Add text' },
     { id: 'textColor', label: 'Text Color', type: 'color', defaultValue: '#2196F3' },
     { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 10, max: 48, step: 1 }
   ],
-  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: 'Add text...', textColor: '#2196F3', fontSize: 14 } }],
+  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: 'Add text', textColor: '#2196F3', fontSize: 14 } }],
   
   createOverlayDef: () => ({
     name: 'fxText',
@@ -37,7 +37,7 @@ export const TextTool: ToolDefinition = {
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
       const textColor = customSettings.textColor || '#2196F3';
-      const textContent = customSettings.text || 'Add text...';
+      const textContent = customSettings.text || 'Add text';
       const fontSize = customSettings.fontSize || 14;
 
       const p1 = coordinates[0]; // Top-left position
@@ -64,11 +64,11 @@ export const TextTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // Text content inside the box
+      // Text content inside the box with minimal padding
       figures.push({
         type: 'text',
         attrs: {
-          x: x + 8,
+          x: x + 4,
           y: y + h / 2,
           text: textContent,
           baseline: 'middle',
@@ -83,7 +83,7 @@ export const TextTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // EXACTLY ONE ANCHOR: Center-Right Resize Handle
+      // EXACTLY ONE VISIBLE ANCHOR: Center-Right Resize Handle (matching drawGrabHandles circle attrs)
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
       if (isSelected || isHovered) {
@@ -93,7 +93,7 @@ export const TextTool: ToolDefinition = {
           const handleY = y + h / 2;
           figures.push({
             type: 'circle',
-            attrs: { cx: handleX, cy: handleY, r: 4.5 },
+            attrs: { x: handleX, y: handleY, r: 5 },
             styles: {
               style: 'stroke_fill',
               color: '#ffffff',
