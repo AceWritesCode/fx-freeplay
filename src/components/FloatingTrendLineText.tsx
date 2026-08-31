@@ -326,7 +326,13 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             setInputText(e.target.value);
             onTextChange(e.target.value);
           }}
-          onBlur={handleSave}
+          onBlur={(e) => {
+            const relatedTarget = e.relatedTarget as HTMLElement | null;
+            if (relatedTarget && (relatedTarget.closest('.drawing-floating-toolbar') || relatedTarget.closest('[data-floating-ui="true"]'))) {
+              return;
+            }
+            handleSave();
+          }}
           onKeyDown={handleKeyDown}
           placeholder="+ Add text"
           className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text font-inherit select-text whitespace-nowrap"

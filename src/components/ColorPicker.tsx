@@ -312,7 +312,18 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
   };
 
   return (
-    <div className="flex bg-surface rounded-xl shadow-2xl border border-border-def p-4 gap-6 select-none animate-in fade-in zoom-in-95 duration-150" style={{ width: '560px' }}>
+    <div
+      onMouseDown={(e) => {
+        // If clicking inside inputs within ColorPicker, allow focus, otherwise prevent blur on external text inputs
+        if ((e.target as HTMLElement)?.tagName !== 'INPUT') {
+          e.preventDefault();
+        }
+        e.stopPropagation();
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="flex bg-surface rounded-xl shadow-2xl border border-border-def p-4 gap-6 select-none animate-in fade-in zoom-in-95 duration-150"
+      style={{ width: '560px' }}
+    >
       
       <style>{`
         .custom-picker-wrapper .react-colorful {

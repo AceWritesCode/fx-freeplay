@@ -17,12 +17,18 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
   title,
   children,
   className = '',
+  onMouseDown,
   ...props
 }) => {
   return (
     <button
       type="button"
       title={title}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onMouseDown) onMouseDown(e);
+      }}
       className={`
         relative flex items-center justify-center w-8 h-8 rounded transition-colors cursor-pointer select-none text-txt-secondary
         ${
@@ -570,6 +576,11 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         {isText && (
           <div className="relative">
             <button 
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={() => setActiveDropdown(activeDropdown === 'fontSize' ? null : 'fontSize')}
               className={`flex items-center gap-1 h-8 px-2 rounded transition-colors cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'fontSize' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
               title="Font size"
@@ -579,10 +590,21 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             </button>
             
             {activeDropdown === 'fontSize' && (
-              <div className="absolute top-full mt-2 left-0 w-20 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary max-h-48 overflow-y-auto">
+              <div 
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="absolute top-full mt-2 left-0 w-20 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary max-h-48 overflow-y-auto"
+              >
                 {[10, 12, 14, 16, 18, 20, 24, 28, 36, 48].map(size => (
                   <button
                     key={size}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                     onClick={() => handleUpdate({ fontSize: size })}
                     className={`px-3 py-1.5 text-xs text-left hover:bg-surface-hover ${size === fontSize ? 'text-accent font-bold' : ''}`}
                   >
@@ -596,8 +618,19 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
         {/* Text Alignment Selector for Text Tool */}
         {isText && (
-          <div className="flex items-center bg-surface-elevated/60 border border-border-def/60 rounded p-0.5 gap-0.5">
+          <div 
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="flex items-center bg-surface-elevated/60 border border-border-def/60 rounded p-0.5 gap-0.5"
+          >
             <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={() => handleUpdate({ textAlign: 'left' })}
               className={`p-1 rounded transition-colors ${textAlign === 'left' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
               title="Align Left"
@@ -605,6 +638,11 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               <AlignLeft className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={() => handleUpdate({ textAlign: 'center' })}
               className={`p-1 rounded transition-colors ${textAlign === 'center' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
               title="Align Center"
@@ -612,6 +650,11 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               <AlignCenter className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={() => handleUpdate({ textAlign: 'right' })}
               className={`p-1 rounded transition-colors ${textAlign === 'right' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
               title="Align Right"
