@@ -18,9 +18,7 @@ import {
 import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
-import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
-import { FloatingRectangleText } from '@/components/FloatingRectangleText';
-import { FloatingTextToolEditor } from '@/components/FloatingTextToolEditor';
+import { SlotFloatingTextOverlays } from './components/SlotFloatingTextOverlays';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction } from '@/framework/interaction';
@@ -1629,83 +1627,14 @@ export function ChartWorkspace() {
         </div>
 
         {/* Floating text inputs for TrendLines, Rectangles and Text tools */}
-        {(() => {
-          const chart = chartInstancesRef.current[i];
-          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => ['trendLine', 'rectangle', 'fxText', 'text'].includes(o.name)) : [];
-          return allTextOverlays.map((ov: any) => {
-            const handleTextChange = (newText: string) => {
-              const originalId = getOriginalDrawingId(ov.id);
-              const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
-              if (resolved) {
-                const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-                const mergedExtendData = {
-                  ...(currentDrawing.extendData || {}),
-                  customSettings: {
-                    ...(currentDrawing.extendData?.customSettings || {}),
-                    text: newText,
-                  },
-                };
-                useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
-                  extendData: mergedExtendData,
-                });
-                // Also push the new text into the source chart's own KLineCharts overlay.
-                // Without this, the KLineCharts in-memory extendData still has the old text.
-                // When the user deselects, the deselection effect reads chartOverlay.extendData
-                // from KLineCharts and would overwrite the store with stale data, wiping the text.
-                if (chart && originalId) {
-                  chart.overrideOverlay({
-                    id: originalId,
-                    extendData: mergedExtendData,
-                  });
-                }
-                mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
-              }
-
-              drawingCoord.setDrawingTrigger((prev) => prev + 1);
-            };
-
-            if (ov.name === 'trendLine') {
-              return (
-                <FloatingTrendLineText
-                  key={ov.id}
-                  chart={chart}
-                  overlay={ov}
-                  isSelected={selectedOverlayIds.includes(ov.id)}
-                  isHovered={hoveredOverlayId === ov.id}
-                  onTextChange={handleTextChange}
-                  syncAllDrawings={drawingCoord.syncAllDrawings}
-                />
-              );
-            }
-            if (ov.name === 'rectangle') {
-              return (
-                <FloatingRectangleText
-                  key={ov.id}
-                  chart={chart}
-                  overlay={ov}
-                  isSelected={selectedOverlayIds.includes(ov.id)}
-                  isHovered={hoveredOverlayId === ov.id}
-                  onTextChange={handleTextChange}
-                  syncAllDrawings={drawingCoord.syncAllDrawings}
-                />
-              );
-            }
-            if (ov.name === 'fxText' || ov.name === 'text') {
-              return (
-                <FloatingTextToolEditor
-                  key={ov.id}
-                  chart={chart}
-                  overlay={ov}
-                  isSelected={selectedOverlayIds.includes(ov.id)}
-                  isHovered={hoveredOverlayId === ov.id}
-                  onTextChange={handleTextChange}
-                  syncAllDrawings={drawingCoord.syncAllDrawings}
-                />
-              );
-            }
-            return null;
-          });
-        })()}
+        <SlotFloatingTextOverlays
+          chart={chartInstancesRef.current[i]}
+          selectedOverlayIds={selectedOverlayIds}
+          hoveredOverlayId={hoveredOverlayId}
+          chartInstancesRef={chartInstancesRef}
+          syncAllDrawings={drawingCoord.syncAllDrawings}
+          setDrawingTrigger={drawingCoord.setDrawingTrigger}
+        />
       </div>
     );
   };
