@@ -9,6 +9,58 @@ const isOverlayVisible = (overlay: any, _chart: any) => {
   return true;
 };
 
+/**
+ * Helper to split text into lines based on canvas width and font size.
+ * Handles both explicit newlines ('\n') and automatic word wrapping.
+ */
+const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number): string[] => {
+  if (!text) return [''];
+
+  const getWidth = (str: string) => {
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.font = `${fontSize}px sans-serif`;
+        return ctx.measureText(str).width;
+      }
+    }
+    return str.length * (fontSize * 0.58);
+  };
+
+  const lines: string[] = [];
+  const rawLines = text.split('\n');
+
+  for (const rawLine of rawLines) {
+    if (rawLine === '') {
+      lines.push('');
+      continue;
+    }
+
+    const words = rawLine.split(' ');
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = getWidth(testLine);
+
+      if (testWidth > maxPixelWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+  }
+
+  return lines.length > 0 ? lines : [''];
+};
+
 export const TextTool: ToolDefinition = {
   id: 'text',
   name: 'Text',
@@ -46,11 +98,22 @@ export const TextTool: ToolDefinition = {
       const x = p1.x;
       const y = p1.y;
       const w = Math.max(60, p2.x - p1.x);
-      const h = 32; // Default single-line box height
+
+      // Available width inside text box (with 4px padding on left & right)
+      const availWidth = Math.max(20, w - 8);
+
+      // Wrap text into lines based on availWidth and fontSize
+      const lines = getWrappedLines(textContent, availWidth, fontSize);
+
+      // Calculate dynamic line height and total box height automatically
+      const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
+      const topPadding = 6;
+      const bottomPadding = 6;
+      const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
 
       const figures: any[] = [];
 
-      // Main text box outline rect (border only, no fill)
+      // Main text box outline rect (border only, no background fill)
       figures.push({
         type: 'rect',
         attrs: { x, y, width: w, height: h },
@@ -64,26 +127,30 @@ export const TextTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // Text content inside the box with minimal padding
-      figures.push({
-        type: 'text',
-        attrs: {
-          x: x + 4,
-          y: y + h / 2,
-          text: textContent,
-          baseline: 'middle',
-          align: 'left'
-        },
-        styles: {
-          color: textColor,
-          size: fontSize,
-          family: 'sans-serif',
-          backgroundColor: 'transparent'
-        },
-        ignoreEvent: false
+      // Render each wrapped line of text inside the box
+      lines.forEach((lineStr, index) => {
+        const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
+        figures.push({
+          type: 'text',
+          attrs: {
+            x: x + 4,
+            y: lineY,
+            text: lineStr,
+            baseline: 'middle',
+            align: 'left'
+          },
+          styles: {
+            color: textColor,
+            size: fontSize,
+            family: 'sans-serif',
+            backgroundColor: 'transparent'
+          },
+          ignoreEvent: false
+        });
       });
 
-      // EXACTLY ONE VISIBLE ANCHOR: Center-Right Resize Handle (matching drawGrabHandles circle attrs)
+      // EXACTLY ONE VISIBLE ANCHOR: Center-Right Resize Handle
+      // Positioned vertically centered on the dynamic height (h) of the text box
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
       if (isSelected || isHovered) {
