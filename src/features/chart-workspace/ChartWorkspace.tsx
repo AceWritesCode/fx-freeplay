@@ -452,10 +452,34 @@ export function ChartWorkspace() {
       const current = useDrawingStore.getState().selectedOverlayIds;
       const nextIds = typeof idsOrFn === 'function' ? idsOrFn(current) : idsOrFn;
 
-      console.log('[ChartWorkspace] handleSelectOverlayIds called:', {
-        previousSelected: current,
-        nextSelected: nextIds,
-        callerStack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+      // Auto-delete empty text drawings on exit edit mode if no text was entered
+      current.forEach((prevId) => {
+        if (!nextIds.includes(prevId)) {
+          const syncMatch = prevId?.match(/^sync_(.+)_from_(\d+)$/);
+          const originalId = syncMatch ? syncMatch[1] : prevId;
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          if (resolved && (resolved.drawing.name === 'fxText' || resolved.drawing.name === 'text')) {
+            const rawText = resolved.drawing.extendData?.customSettings?.text;
+            const hasText = typeof rawText === 'string' && rawText.trim().length > 0 && rawText !== 'Add text';
+            if (!hasText) {
+              console.log(`[Auto-Delete] Removing empty text box "${originalId}" on exit edit mode`);
+              useDrawingStore.getState().removeSymbolDrawing(resolved.symbol, originalId);
+              chartInstancesRef.current.forEach((chart) => {
+                if (chart) {
+                  chart.removeOverlay({ id: originalId });
+                  chart.removeOverlay({ id: prevId });
+                  const overlays = chart.getOverlays() || [];
+                  overlays.forEach((ov: any) => {
+                    if (ov.id === originalId || ov.id?.startsWith(`sync_${originalId}_`)) {
+                      chart.removeOverlay({ id: ov.id });
+                    }
+                  });
+                  DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+                }
+              });
+            }
+          }
+        }
       });
 
       chartInstancesRef.current.forEach((chart) => {

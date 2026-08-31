@@ -84,14 +84,14 @@ export const TextTool: ToolDefinition = {
   icon: Type,
   group: 'text',
   settingsSchema: [
-    { id: 'text', label: 'Text', type: 'color', defaultValue: 'Add text' },
+    { id: 'text', label: 'Text', type: 'color', defaultValue: '' },
     { id: 'textColor', label: 'Text Color', type: 'color', defaultValue: '#2196F3' },
     { id: 'fillColor', label: 'Background Color', type: 'color', defaultValue: 'rgba(33, 150, 243, 0.15)' },
     { id: 'fillBackground', label: 'Fill Background', type: 'boolean', defaultValue: false },
     { id: 'showBorder', label: 'Border', type: 'boolean', defaultValue: true },
     { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 10, max: 48, step: 1 }
   ],
-  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: 'Add text', textColor: '#2196F3', fontSize: 14 } }],
+  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: '', textColor: '#2196F3', fontSize: 14 } }],
   
   createOverlayDef: () => ({
     name: 'fxText',
@@ -114,7 +114,8 @@ export const TextTool: ToolDefinition = {
       const isDragging = (overlay.extendData as any)?.draggedIndex !== undefined && (overlay.extendData as any)?.draggedIndex !== null;
 
       const textColor = customSettings.textColor || '#2196F3';
-      const textContent = customSettings.text || 'Add text';
+      const actualText = typeof customSettings.text === 'string' ? customSettings.text : '';
+      const hasText = actualText.trim().length > 0 && actualText !== 'Add text';
       const fontSize = customSettings.fontSize || 14;
       const textAlign = customSettings.textAlign || 'left';
       const isBold = !!customSettings.bold;
@@ -161,8 +162,13 @@ export const TextTool: ToolDefinition = {
       // Available width for character-level wrapping = boxWidth - leftPadding - rightPadding
       const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
 
+      // Display text: if actual user text is present, use it; otherwise in edit mode show placeholder 'Add text'
+      const isEditMode = isSelected || isHovered || isDragging;
+      const displayText = hasText ? actualText : (isEditMode ? 'Add text' : '');
+      const isPlaceholder = !hasText && isEditMode;
+
       // Character-level text wrapping
-      const lines = getWrappedLines(textContent, availWidth, fontSize, isBold);
+      const lines = getWrappedLines(displayText || ' ', availWidth, fontSize, isBold);
 
       // Calculate dynamic line height and total box height automatically
       const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
@@ -204,8 +210,6 @@ export const TextTool: ToolDefinition = {
 
       const figures: any[] = [];
 
-      // Check if box has text content
-      const hasText = textContent && textContent.trim().length > 0;
       // If showBorder is false, border disappears after exiting edit mode if the box has text
       const shouldShowBorder = showBorder || isSelected || isHovered || isDragging || !hasText;
 
@@ -244,27 +248,29 @@ export const TextTool: ToolDefinition = {
             : 'sans-serif';
 
       // Render each wrapped line of text inside the box with fixed consistent horizontal padding
-      lines.forEach((lineStr, index) => {
-        const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
-        figures.push({
-          type: 'text',
-          attrs: {
-            x: textX,
-            y: lineY,
-            text: lineStr,
-            baseline: 'middle',
-            align: textAlignStyle
-          },
-          styles: {
-            color: textColor,
-            size: fontSize,
-            family: fontFamily,
-            weight: isBold ? 'bold' : 'normal',
-            backgroundColor: 'transparent'
-          },
-          ignoreEvent: false
+      if (displayText) {
+        lines.forEach((lineStr, index) => {
+          const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
+          figures.push({
+            type: 'text',
+            attrs: {
+              x: textX,
+              y: lineY,
+              text: lineStr,
+              baseline: 'middle',
+              align: textAlignStyle
+            },
+            styles: {
+              color: isPlaceholder ? 'rgba(128, 130, 133, 0.65)' : textColor,
+              size: fontSize,
+              family: fontFamily,
+              weight: isBold ? 'bold' : 'normal',
+              backgroundColor: 'transparent'
+            },
+            ignoreEvent: false
+          });
         });
-      });
+      }
 
       // Center-Right Resize Handle (Point 1) visible in edit mode / selection
       if (isSelected || isHovered) {
@@ -317,7 +323,8 @@ export const TextTool: ToolDefinition = {
       customSettings: {
         ...(event.overlay.extendData?.customSettings || {}),
         boxWidth: defaultBoxWidth,
-        showBorder: true
+        showBorder: true,
+        text: ''
       }
     };
 
