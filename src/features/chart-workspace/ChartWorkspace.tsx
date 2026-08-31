@@ -18,7 +18,6 @@ import {
 import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
-import { SlotFloatingTextOverlays } from './components/SlotFloatingTextOverlays';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction } from '@/framework/interaction';
@@ -28,6 +27,7 @@ import { DrawingToolbar } from './components/DrawingToolbar';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { WorkspaceFooter } from './components/WorkspaceFooter';
 import { ChartGrid } from './components/ChartGrid';
+import { ChartSlot } from './components/ChartSlot';
 
 import { PRESET_TIMEFRAMES, TIMEZONE_OPTIONS } from '@/config';
 import type { ChartSettings } from '@/config';
@@ -1555,89 +1555,28 @@ export function ChartWorkspace() {
   };
 
   // Render chart slots
-  const renderSlot = (i: number) => {
-    const isActive = i === activeChartIndex;
-    const isMultiChart = layoutType !== '1';
-    return (
-      <div
-        onClick={() => handleSelectSlot(i)}
-        className={`
-          relative w-full h-full bg-slot-bg overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
-          ${isMultiChart ? 'rounded' : ''}
-          ${isMultiChart && isActive ? 'ring-2 ring-accent/40 z-10 shadow-md shadow-accent/5' : isMultiChart ? 'border border-border-sub hover:border-border-def' : ''}
-        `}
-      >
-        <div
-          ref={(el) => {
-            chartContainersRef.current[i] = el;
-          }}
-          className={`w-full h-full ${replayCoord.isSelectingCutPoint && isActive ? 'cursor-cell' : ''}`}
-          style={{
-            background:
-              settings.backgroundType === 'None'
-                ? 'transparent'
-                : settings.backgroundType === 'Gradient'
-                ? `linear-gradient(180deg, ${settings.background} 0%, ${settings.backgroundGradientStop || '#1e222d'} 100%)`
-                : settings.background,
-          }}
-        />
-
-        {/* Blocked interaction overlay for inactive slots during an active drawing session */}
-        {drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i && (
-          <div
-            className="absolute inset-0 z-40 cursor-not-allowed bg-transparent"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onMouseUp={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onPointerUp={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            title="Finish or cancel the active drawing session on the current chart first"
-          />
-        )}
-
-        {/* Vertical Cut Selection Line */}
-        {replayCoord.isSelectingCutPoint && isActive && replayCoord.cutPointHoverX !== null && (
-          <div
-            className="absolute top-0 bottom-0 w-px border-l border-dashed border-status-error pointer-events-none z-30"
-            style={{ left: `${replayCoord.cutPointHoverX}px` }}
-          />
-        )}
-
-        {/* Slot Info Badge */}
-        <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-surface-elevated/85 backdrop-blur-sm border border-border-sub pointer-events-none select-none text-[10px] font-bold text-txt-primary">
-          <span className={isActive ? 'text-accent' : 'text-txt-muted'}>#{i + 1}</span>
-          <span>{slots[i]?.symbol || 'No Symbol'}</span>
-          <span className="text-txt-muted">•</span>
-          <span className="text-txt-secondary font-semibold">{slots[i]?.timeframe || '1m'}</span>
-        </div>
-
-        {/* Floating text inputs for TrendLines, Rectangles and Text tools */}
-        <SlotFloatingTextOverlays
-          chart={chartInstancesRef.current[i]}
-          selectedOverlayIds={selectedOverlayIds}
-          hoveredOverlayId={hoveredOverlayId}
-          chartInstancesRef={chartInstancesRef}
-          syncAllDrawings={drawingCoord.syncAllDrawings}
-          setDrawingTrigger={drawingCoord.setDrawingTrigger}
-        />
-      </div>
-    );
-  };
+  const renderSlot = (i: number) => (
+    <ChartSlot
+      key={`chart_slot_${i}`}
+      slotIndex={i}
+      isActive={i === activeChartIndex}
+      isMultiChart={layoutType !== '1'}
+      slotInfo={slots[i]}
+      settings={settings}
+      isSelectingCutPoint={replayCoord.isSelectingCutPoint}
+      cutPointHoverX={replayCoord.cutPointHoverX}
+      isDrawingBlocked={drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i}
+      selectedOverlayIds={selectedOverlayIds}
+      hoveredOverlayId={hoveredOverlayId}
+      chartInstancesRef={chartInstancesRef}
+      syncAllDrawings={drawingCoord.syncAllDrawings}
+      setDrawingTrigger={drawingCoord.setDrawingTrigger}
+      onSelectSlot={handleSelectSlot}
+      setContainerRef={(el) => {
+        chartContainersRef.current[i] = el;
+      }}
+    />
+  );
 
   const handleSyncSettingChange = (
     key: 'syncSymbol' | 'syncInterval' | 'syncCrosshair' | 'syncTime' | 'syncDateRange' | 'syncDrawings',
