@@ -23,6 +23,7 @@ import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction } from '@/framework/interaction';
+import { getTextDimensions } from '@/framework/tools/implementations/TextTool';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -1022,11 +1023,11 @@ export function ChartWorkspace() {
             const cs = ov.extendData?.customSettings || {};
             const boxW = cs.boxWidth !== undefined ? cs.boxWidth : 180;
             const fontSize = cs.fontSize || 14;
-            const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-            const boxH = Math.max(32, 16 + lineHeight);
+            const textContent = cs.text || 'Add text';
+            const dims = getTextDimensions(textContent, boxW, fontSize);
             pts = [
               { x: pts[0].x, y: pts[0].y },
-              { x: pts[0].x + boxW, y: pts[0].y + boxH / 2 }
+              { x: pts[0].x + dims.width, y: pts[0].y + dims.height / 2 }
             ];
           }
           if (Array.isArray(pts)) {

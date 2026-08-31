@@ -10,12 +10,12 @@ const isOverlayVisible = (overlay: any, _chart: any) => {
 };
 
 // Fixed internal horizontal padding constant for equal left and right breathing room (10px left, 10px right)
-const PADDING_HORIZONTAL = 10;
+export const PADDING_HORIZONTAL = 10;
 
 /**
  * Helper to measure single character width at a given font size.
  */
-const getSingleCharWidth = (fontSize: number): number => {
+export const getSingleCharWidth = (fontSize: number): number => {
   if (typeof document !== 'undefined') {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -32,7 +32,7 @@ const getSingleCharWidth = (fontSize: number): number => {
  * Breaks text EXACTLY when available width ends at character boundaries,
  * without waiting for spaces or word boundaries.
  */
-const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number): string[] => {
+export const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number): string[] => {
   if (!text) return [''];
 
   const getWidth = (str: string) => {
@@ -79,6 +79,22 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number):
   return lines.length > 0 ? lines : [''];
 };
 
+/**
+ * Helper to calculate dimensions and wrapped lines for a text box.
+ */
+export const getTextDimensions = (textContent: string, boxWidth: number, fontSize: number) => {
+  const singleCharW = getSingleCharWidth(fontSize);
+  const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
+  const w = Math.max(minBoxWidth, boxWidth);
+  const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
+  const lines = getWrappedLines(textContent, availWidth, fontSize);
+  const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
+  const topPadding = 8;
+  const bottomPadding = 8;
+  const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
+  return { width: w, height: h, lines, lineHeight, topPadding, bottomPadding };
+};
+
 export const TextTool: ToolDefinition = {
   id: 'text',
   name: 'Text',
@@ -118,13 +134,15 @@ export const TextTool: ToolDefinition = {
 
       const p1 = coordinates[0]; // Top-left position (Point 0)
 
-      // Minimum box width = width of 1 character at current font size + horizontal padding (left + right)
-      const singleCharW = getSingleCharWidth(fontSize);
-      const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
-
       // Width is fixed in screen pixels (boxWidth) so chart zooming/squeezing NEVER distorts the text box!
       const configuredWidth = customSettings.boxWidth !== undefined ? customSettings.boxWidth : 180;
-      let w = Math.max(minBoxWidth, configuredWidth);
+      const dims = getTextDimensions(textContent, configuredWidth, fontSize);
+      const w = dims.width;
+      const h = dims.height;
+      const lines = dims.lines;
+      const lineHeight = dims.lineHeight;
+      const topPadding = dims.topPadding;
+
       let x = p1.x;
       let y = p1.y;
 
@@ -136,7 +154,6 @@ export const TextTool: ToolDefinition = {
           }
           x = customSettings.pinnedPixelPosition.x;
           y = customSettings.pinnedPixelPosition.y;
-          w = Math.max(minBoxWidth, customSettings.pinnedPixelPosition.width || w);
         } else {
           // Inside edit mode: edit freely, clear pinned position so it always updates fresh
           if (customSettings.pinnedPixelPosition) {
@@ -148,18 +165,6 @@ export const TextTool: ToolDefinition = {
           delete customSettings.pinnedPixelPosition;
         }
       }
-
-      // Available width for character-level wrapping = boxWidth - leftPadding - rightPadding
-      const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
-
-      // Character-level text wrapping
-      const lines = getWrappedLines(textContent, availWidth, fontSize);
-
-      // Calculate dynamic line height and total box height automatically
-      const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-      const topPadding = 8;
-      const bottomPadding = 8;
-      const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
 
       // Center-right resize handle coordinate
       const targetHandleX = x + w;
@@ -334,18 +339,27 @@ export const TextTool: ToolDefinition = {
     if (draggedIndex === 1) {
       // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
       const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0] || { x: event.x, y: event.y };
-      const newWidth = Math.max(minBoxWidth, event.x - p1Pixel.x);
+      const newWidth = Math.max(minBoxWidth, Math.round(event.x - p1Pixel.x));
+
+      const newCustomSettings = {
+        ...(event.overlay.extendData?.customSettings || customSettings),
+        boxWidth: newWidth
+      };
+
+      if (!event.overlay.extendData) event.overlay.extendData = {};
+      event.overlay.extendData.customSettings = newCustomSettings;
 
       const newExtendData = {
         ...(event.overlay.extendData || {}),
-        customSettings: {
-          ...customSettings,
-          boxWidth: newWidth
-        }
+        customSettings: newCustomSettings
       };
 
+      const dims = getTextDimensions(customSettings.text || 'Add text', newWidth, fontSize);
+      const targetHandleX = p1Pixel.x + newWidth;
+      const targetHandleY = p1Pixel.y + dims.height / 2;
+
       const p2Target = event.chart.convertFromPixel(
-        [{ x: p1Pixel.x + newWidth, y: p1Pixel.y + 16 }],
+        [{ x: targetHandleX, y: targetHandleY }],
         { paneId: 'candle_pane' }
       )?.[0];
 
@@ -359,7 +373,7 @@ export const TextTool: ToolDefinition = {
       // Only points[1] (width anchor) is updated
       points[1] = p2Target ? {
         timestamp: p2Target.timestamp,
-        value: startP2.value,
+        value: p2Target.value ?? startP1.value,
         dataIndex: p2Target.dataIndex
       } : {
         timestamp: startP2.timestamp,

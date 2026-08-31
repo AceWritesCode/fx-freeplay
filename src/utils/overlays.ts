@@ -3,6 +3,7 @@ import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, m
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
+import { getTextDimensions } from '../framework/tools/implementations/TextTool';
 
 export function syncSyncedCopyToOriginal(_chart: any, _overlayId: string, _overrideOptions: any) {
   // Deprecated legacy function: storage is the single source of truth under storage-first architecture.
@@ -396,11 +397,11 @@ export function getInteractiveOverlayOptions(
         const cs = event.overlay?.extendData?.customSettings || {};
         const boxW = cs.boxWidth !== undefined ? cs.boxWidth : 180;
         const fontSize = cs.fontSize || 14;
-        const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-        const boxH = Math.max(32, 16 + lineHeight);
+        const textContent = cs.text || 'Add text';
+        const dims = getTextDimensions(textContent, boxW, fontSize);
         pts = [
           { x: p1Pixel.x, y: p1Pixel.y },
-          { x: p1Pixel.x + boxW, y: p1Pixel.y + boxH / 2 }
+          { x: p1Pixel.x + dims.width, y: p1Pixel.y + dims.height / 2 }
         ];
       }
 
