@@ -74,14 +74,27 @@ class ToolRegistryImpl {
 
   register(tool: ToolDefinition) {
     this.tools.set(tool.id, tool);
+    try {
+      const def = tool.createOverlayDef?.();
+      if (def?.name && def.name !== tool.id) {
+        this.tools.set(def.name, tool);
+      }
+    } catch (_) {}
   }
 
   get(id: string): ToolDefinition | undefined {
-    return this.tools.get(id);
+    return this.tools.get(id) || Array.from(this.tools.values()).find((t) => {
+      try {
+        return t.createOverlayDef?.()?.name === id;
+      } catch (_) {
+        return false;
+      }
+    });
   }
 
   getAll(): ToolDefinition[] {
-    return Array.from(this.tools.values());
+    const set = new Set(this.tools.values());
+    return Array.from(set);
   }
 }
 
