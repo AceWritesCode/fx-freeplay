@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
-
 import { SearchableDropdown } from './DrawingSettingsDialog';
+import { useDrawingTemplates } from '@/framework/tools/useDrawingTemplates';
 
 interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
@@ -73,10 +73,6 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
       setActiveDropdown(open ? 'template' : null);
     }
   };
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [activeTemplateMode, setActiveTemplateMode] = useState<'light' | 'dark'>('light');
-  const [selectedGroup, setSelectedGroup] = useState('Default');
-  const [isSelectGroupDropdownOpen, setIsSelectGroupDropdownOpen] = useState(false);
 
   // Save modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -85,6 +81,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const [saveMode, setSaveMode] = useState<'light' | 'dark'>('light');
   const [isNameDropdownOpen, setIsNameDropdownOpen] = useState(false);
   const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const [isSelectGroupDropdownOpen, setIsSelectGroupDropdownOpen] = useState(false);
   
   const dragStartRef = useRef({ x: 0, y: 0, initialX: 0, initialY: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -92,7 +89,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   // Read current settings from first selected overlay
   const firstOverlay = selectedOverlayIds.length > 0 && getOverlay ? getOverlay(selectedOverlayIds[0]) : null;
   const customSettings = firstOverlay?.extendData?.customSettings || {};
-  
+
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isAnchored = !!customSettings.isAnchored;
@@ -119,91 +116,35 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
     setIsTemplateDropdownOpen(false);
   }, [selectedOverlayIds.length]);
 
-  // Load templates from localStorage
-  useEffect(() => {
-    if (selectedOverlayIds.length === 0 || !firstOverlay) return;
-    try {
-      const saved = localStorage.getItem(`fx_templates_${firstOverlay.name || 'default'}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const upgraded = parsed
-            .filter((t: any) => t !== null && typeof t === 'object')
-            .map((t: any) => ({
-              id: t.id || Date.now().toString() + Math.random().toString(),
-              name: t.name || 'Unnamed',
-              group: t.group || 'Default',
-              mode: t.mode || 'light',
-              settings: t.settings
-            }));
-          setTemplates(upgraded);
-        } else {
-          setTemplates([]);
-        }
-      } else {
-        setTemplates([]);
-      }
-    } catch (e) {
-      setTemplates([]);
-    }
-  }, [selectedOverlayIds, firstOverlay]);
-
-  // Helper to ensure selectedGroup updates if mode changes or templates are deleted
-  useEffect(() => {
-    const activeTpls = (templates || []).filter(t => t && t.mode === activeTemplateMode);
-    const groups = Array.from(new Set(activeTpls.map(t => t && (t.group || 'Default'))));
-    if (groups.length > 0) {
-      if (!groups.includes(selectedGroup)) {
-        setSelectedGroup(groups[0]);
-      }
-    } else {
-      setSelectedGroup('Default');
-    }
-  }, [activeTemplateMode, templates]);
-
-  const deleteTemplate = (id: string) => {
-    setTemplates(prev => {
-      const updated = (prev || []).filter(t => t && t.id !== id);
-      if (firstOverlay) {
-        localStorage.setItem(`fx_templates_${firstOverlay.name || 'default'}`, JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
-
-  const allUniqueNames = Array.from(new Set((templates || []).filter(t => t && t.name).map(t => t.name)));
-  const allUniqueGroups = Array.from(new Set((templates || []).filter(t => t && t.group).map(t => t.group)));
+  // Template management hook
+  const {
+    activeTemplateMode,
+    setActiveTemplateMode,
+    selectedGroup,
+    setSelectedGroup,
+    deleteTemplate,
+    deleteNameOption: deleteNameOptionBase,
+    deleteGroupOption: deleteGroupOptionBase,
+    saveTemplate,
+    uniqueGroups,
+    visibleTemplates,
+    allUniqueNames,
+    allUniqueGroups
+  } = useDrawingTemplates(firstOverlay?.name);
 
   const deleteNameOption = (name: string) => {
-    setTemplates(prev => {
-      const updated = (prev || []).filter(t => t && t.name !== name);
-      if (firstOverlay) {
-        localStorage.setItem(`fx_templates_${firstOverlay.name || 'default'}`, JSON.stringify(updated));
-      }
-      return updated;
-    });
+    deleteNameOptionBase(name);
     if (saveName === name) {
       setSaveName('');
     }
   };
 
   const deleteGroupOption = (groupName: string) => {
-    setTemplates(prev => {
-      const updated = (prev || []).filter(t => t && t.group !== groupName);
-      if (firstOverlay) {
-        localStorage.setItem(`fx_templates_${firstOverlay.name || 'default'}`, JSON.stringify(updated));
-      }
-      return updated;
-    });
+    deleteGroupOptionBase(groupName);
     if (saveGroup === groupName) {
       setSaveGroup('Default');
     }
   };
-
-  // Derived template states
-  const activeTemplates = (templates || []).filter(t => t && t.mode === activeTemplateMode);
-  const uniqueGroups = Array.from(new Set(activeTemplates.map(t => t.group || 'Default')));
-  const visibleTemplates = activeTemplates.filter(t => (t.group || 'Default') === selectedGroup);
 
   // Initialize position in the center top when it first appears
   useEffect(() => {
@@ -910,53 +851,36 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 type="button"
                 disabled={!saveName.trim()}
                 onClick={() => {
-                  const nameToSave = saveName.trim();
-                  const groupToSave = saveGroup.trim() || 'Default';
-                  
-                  setTemplates(prev => {
-                    const filtered = (prev || []).filter(t => 
-                      t && !(t.name.toLowerCase() === nameToSave.toLowerCase() && 
-                             t.group.toLowerCase() === groupToSave.toLowerCase() && 
-                             t.mode === saveMode)
-                    );
-                    const newTemplate = {
-                      id: Date.now().toString(),
-                      name: nameToSave,
-                      group: groupToSave,
-                      mode: saveMode,
-                      settings: {
-                        lineColor,
-                        lineWidth,
-                        lineStyle,
-                        extendType: customSettings.extendType || 'none',
-                        textColor,
-                        profitColor,
-                        lossColor,
-                        fontSize: customSettings.fontSize || 14,
-                        bold: !!customSettings.bold,
-                        italic: !!customSettings.italic,
-                        textPosition: customSettings.textPosition || { vertical: 'middle', horizontal: 'right' },
-                        visibility: customSettings.visibility || {
-                          ticks: { show: true },
-                          seconds: { show: true, min: 1, max: 59 },
-                          minutes: { show: true, min: 1, max: 59 },
-                          hours: { show: true, min: 1, max: 24 },
-                          days: { show: true, min: 1, max: 365 },
-                          weeks: { show: true, min: 1, max: 52 },
-                          months: { show: true, min: 1, max: 12 },
-                          ranges: { show: true }
-                        }
+                  saveTemplate({
+                    name: saveName,
+                    group: saveGroup,
+                    mode: saveMode,
+                    settings: {
+                      lineColor,
+                      lineWidth,
+                      lineStyle,
+                      extendType: customSettings.extendType || 'none',
+                      textColor,
+                      profitColor,
+                      lossColor,
+                      fontSize: customSettings.fontSize || 14,
+                      bold: !!customSettings.bold,
+                      italic: !!customSettings.italic,
+                      textPosition: customSettings.textPosition || { vertical: 'middle', horizontal: 'right' },
+                      visibility: customSettings.visibility || {
+                        ticks: { show: true },
+                        seconds: { show: true, min: 1, max: 59 },
+                        minutes: { show: true, min: 1, max: 59 },
+                        hours: { show: true, min: 1, max: 24 },
+                        days: { show: true, min: 1, max: 365 },
+                        weeks: { show: true, min: 1, max: 52 },
+                        months: { show: true, min: 1, max: 12 },
+                        ranges: { show: true }
                       }
-                    };
-                    const updated = [...filtered, newTemplate];
-                    if (firstOverlay) {
-                      localStorage.setItem(`fx_templates_${firstOverlay.name || 'default'}`, JSON.stringify(updated));
                     }
-                    return updated;
                   });
-
+                  setActiveTemplateMode(saveMode);
                   setIsSaveModalOpen(false);
-                  setSelectedGroup(groupToSave);
                 }}
                 className="px-5 py-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-txt-inverse rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-lg"
               >

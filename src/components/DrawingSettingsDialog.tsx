@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, Check, Minus, Plus, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
+import { useDrawingTemplates } from '@/framework/tools/useDrawingTemplates';
 
 interface DrawingSettingsDialogProps {
   isOpen: boolean;
@@ -166,17 +167,30 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const isTextOverlay = overlay?.name === 'fxText' || overlay?.name === 'text';
   const [activeTab, setActiveTab] = useState<TabType>(() => (isTextOverlay ? 'text' : 'style'));
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
-  const [templates, setTemplates] = useState<any[]>([]);
 
-  // Advanced template feature states
+  // Template management hook
+  const {
+    activeTemplateMode,
+    setActiveTemplateMode,
+    selectedGroup,
+    setSelectedGroup,
+    deleteTemplate,
+    deleteNameOption: deleteNameOptionBase,
+    deleteGroupOption: deleteGroupOptionBase,
+    saveTemplate,
+    uniqueGroups,
+    visibleTemplates,
+    allUniqueNames,
+    allUniqueGroups
+  } = useDrawingTemplates(overlay?.name);
+
+  // Advanced template feature modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [activeTemplateMode, setActiveTemplateMode] = useState<'light' | 'dark'>('light');
   const [saveName, setSaveName] = useState('');
   const [saveGroup, setSaveGroup] = useState('Default');
   const [saveMode, setSaveMode] = useState<'light' | 'dark'>('light');
   const [isNameDropdownOpen, setIsNameDropdownOpen] = useState(false);
   const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState('Default');
   const [isSelectGroupDropdownOpen, setIsSelectGroupDropdownOpen] = useState(false);
   
   // Draggable window state
@@ -351,33 +365,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       setPoints(mappedPoints);
     }
 
-    // Load templates
-    try {
-      const saved = localStorage.getItem(`fx_templates_${overlay.name || 'default'}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const upgraded = parsed
-            .filter((t: any) => t !== null && typeof t === 'object')
-            .map((t: any) => ({
-              id: t.id || Date.now().toString() + Math.random().toString(),
-              name: t.name || 'Unnamed',
-              group: t.group || 'Default',
-              mode: t.mode || 'light',
-              settings: t.settings
-            }));
-          setTemplates(upgraded);
-        } else {
-          setTemplates([]);
-        }
-      } else {
-        setTemplates([]);
-      }
-    } catch (e) {
-      console.error('[DEBUG] Failed to load templates:', e);
-      setTemplates([]);
-    }
-
     setActiveTab('style');
     setActiveColorPicker(null);
     setActiveSelect(null);
@@ -541,19 +528,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     onSave(updatedSettings, pointsToSave);
   }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
-  // Helper to ensure selectedGroup updates if mode changes or templates are deleted
-  useEffect(() => {
-    const activeTpls = (templates || []).filter(t => t && t.mode === activeTemplateMode);
-    const groups = Array.from(new Set(activeTpls.map(t => t && (t.group || 'Default'))));
-    if (groups.length > 0) {
-      if (!groups.includes(selectedGroup)) {
-        setSelectedGroup(groups[0]);
-      }
-    } else {
-      setSelectedGroup('Default');
-    }
-  }, [activeTemplateMode, templates]);
-
   if (!isOpen || !overlay) return null;
 
   const handleCancel = () => {
@@ -684,31 +658,15 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     });
   };
 
-  const deleteTemplate = (id: string) => {
-    setTemplates(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
-      return updated;
-    });
-  };
-
   const deleteNameOption = (name: string) => {
-    setTemplates(prev => {
-      const updated = prev.filter(t => t.name !== name);
-      localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
-      return updated;
-    });
+    deleteNameOptionBase(name);
     if (saveName === name) {
       setSaveName('');
     }
   };
 
   const deleteGroupOption = (groupName: string) => {
-    setTemplates(prev => {
-      const updated = prev.filter(t => t.group !== groupName);
-      localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
-      return updated;
-    });
+    deleteGroupOptionBase(groupName);
     if (saveGroup === groupName) {
       setSaveGroup('Default');
     }
@@ -894,14 +852,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       <span className="text-[12.5px] font-medium tracking-wide">{label}</span>
     </label>
   );
-
-  // Derived template states
-  const activeTemplates = (templates || []).filter(t => t && t.mode === activeTemplateMode);
-  const uniqueGroups = Array.from(new Set(activeTemplates.map(t => t.group || 'Default')));
-  const visibleTemplates = activeTemplates.filter(t => (t.group || 'Default') === selectedGroup);
-
-  const allUniqueNames = Array.from(new Set((templates || []).filter(t => t && t.name).map(t => t.name)));
-  const allUniqueGroups = Array.from(new Set((templates || []).filter(t => t && t.group).map(t => t.group)));
 
   const handleConfirm = () => {
     const customSettings = overlay.extendData?.customSettings || {};
@@ -2271,49 +2221,33 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 type="button"
                 disabled={!saveName.trim()}
                 onClick={() => {
-                  const nameToSave = saveName.trim();
-                  const groupToSave = saveGroup.trim() || 'Default';
-                  
-                  setTemplates(prev => {
-                    const filtered = prev.filter(t => 
-                      !(t.name.toLowerCase() === nameToSave.toLowerCase() && 
-                        t.group.toLowerCase() === groupToSave.toLowerCase() && 
-                        t.mode === saveMode)
-                    );
-                    const newTemplate = {
-                      id: Date.now().toString(),
-                      name: nameToSave,
-                      group: groupToSave,
-                      mode: saveMode,
-                      settings: {
-                        lineColor,
-                        lineWidth,
-                        lineStyle,
-                        extendType,
-                        fillColor,
-                        fillBackground,
-                        profitColor,
-                        lossColor,
-                        alwaysShowStats,
-                        showLines,
-                        text,
-                        textColor,
-                        fontSize,
-                        bold: isBold,
-                        italic: isItalic,
-                        textPosition: {
-                          vertical: textValign,
-                          horizontal: textHalign
-                        },
-                        visibility
-                      }
-                    };
-                    const updated = [...filtered, newTemplate];
-                    localStorage.setItem(`fx_templates_${overlay.name || 'default'}`, JSON.stringify(updated));
-                    return updated;
+                  saveTemplate({
+                    name: saveName,
+                    group: saveGroup,
+                    mode: saveMode,
+                    settings: {
+                      lineColor,
+                      lineWidth,
+                      lineStyle,
+                      extendType,
+                      fillColor,
+                      fillBackground,
+                      profitColor,
+                      lossColor,
+                      alwaysShowStats,
+                      showLines,
+                      text,
+                      textColor,
+                      fontSize,
+                      bold: isBold,
+                      italic: isItalic,
+                      textPosition: {
+                        vertical: textValign,
+                        horizontal: textHalign
+                      },
+                      visibility
+                    }
                   });
-                  
-                  setSelectedGroup(groupToSave);
                   setActiveTemplateMode(saveMode);
                   setIsSaveModalOpen(false);
                 }}
