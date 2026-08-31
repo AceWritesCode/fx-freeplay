@@ -86,6 +86,8 @@ export const TextTool: ToolDefinition = {
   settingsSchema: [
     { id: 'text', label: 'Text', type: 'color', defaultValue: 'Add text' },
     { id: 'textColor', label: 'Text Color', type: 'color', defaultValue: '#2196F3' },
+    { id: 'fillColor', label: 'Background Color', type: 'color', defaultValue: 'rgba(33, 150, 243, 0.15)' },
+    { id: 'fillBackground', label: 'Fill Background', type: 'boolean', defaultValue: false },
     { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 10, max: 48, step: 1 }
   ],
   defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: 'Add text', textColor: '#2196F3', fontSize: 14 } }],
@@ -114,6 +116,9 @@ export const TextTool: ToolDefinition = {
       const textContent = customSettings.text || 'Add text';
       const fontSize = customSettings.fontSize || 14;
       const textAlign = customSettings.textAlign || 'left';
+      const fillBackground = customSettings.fillBackground ?? (customSettings.backgroundColor || customSettings.fillColor ? true : false);
+      const bg = customSettings.fillColor || customSettings.backgroundColor || 'transparent';
+      const hasBg = fillBackground && bg && bg !== 'transparent';
 
       const p1 = coordinates[0]; // Top-left position (Point 0)
 
@@ -194,13 +199,13 @@ export const TextTool: ToolDefinition = {
 
       const figures: any[] = [];
 
-      // Main text box outline rect (border only, no background fill)
+      // Main text box outline rect (stroke + background fill)
       figures.push({
         type: 'rect',
         attrs: { x, y, width: w, height: h },
         styles: {
-          style: 'stroke',
-          color: 'transparent',
+          style: hasBg ? 'stroke_fill' : 'stroke',
+          color: hasBg ? bg : 'transparent',
           borderColor: textColor,
           borderSize: 1,
           borderStyle: 'solid'

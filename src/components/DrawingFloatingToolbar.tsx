@@ -691,7 +691,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                   <input
                     type="checkbox"
                     checked={fillBackground}
-                    onChange={(e) => handleUpdate({ fillBackground: e.target.checked }, false)}
+                    onChange={(e) => handleUpdate({ fillBackground: e.target.checked, backgroundColor: e.target.checked ? fillColor : 'transparent' }, false)}
                     className="rounded border-border-def text-accent focus:ring-0"
                   />
                   <span>Show Background</span>
@@ -699,7 +699,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 {fillBackground && (
                   <ColorPicker 
                     color={fillColor} 
-                    onChange={(c) => handleUpdate({ fillColor: c }, false)} 
+                    onChange={(c) => handleUpdate({ fillColor: c, backgroundColor: c, fillBackground: true }, false)} 
                   />
                 )}
               </div>
