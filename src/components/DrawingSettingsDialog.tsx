@@ -163,7 +163,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   pricePrecision,
   onDeselectOverlay
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('style');
+  const isTextOverlay = overlay?.name === 'fxText' || overlay?.name === 'text';
+  const [activeTab, setActiveTab] = useState<TabType>(() => (isTextOverlay ? 'text' : 'style'));
   const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
 
@@ -537,7 +538,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     });
 
     onSave(updatedSettings, updatedPoints);
-  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, isBold, isItalic, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
+  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
   // Helper to ensure selectedGroup updates if mode changes or templates are deleted
   useEffect(() => {
@@ -985,7 +986,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       <div className="p-5 text-[12.5px] space-y-4 overflow-visible">
         
         {/* STYLE TAB */}
-        {activeTab === 'style' && (
+        {!isTextOverlay && activeTab === 'style' && (
           <div className="space-y-4">
             
             {/* Line Color/Width/Style Row */}
@@ -1344,7 +1345,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         )}
 
         {/* TEXT TAB */}
-        {activeTab === 'text' && (
+        {(activeTab === 'text' || (isTextOverlay && activeTab === 'style')) && (
           <div className="space-y-4">
             
             {/* Toolbar controls for text */}
@@ -2121,7 +2122,46 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             Cancel
           </button>
           <button
-            onClick={onClose}
+            onClick={() => {
+              const customSettings = overlay.extendData?.customSettings || {};
+              const updatedSettings = {
+                lineColor,
+                lineWidth,
+                lineStyle,
+                extendType,
+                fillColor,
+                fillBackground,
+                profitColor,
+                lossColor,
+                alwaysShowStats,
+                showLines,
+                showActivationLine,
+                activationLineColor,
+                activationLineWidth,
+                activationLineStyle,
+                showActivationHighlight,
+                activationHighlightOpacity,
+                showMarkers,
+                initialSizePercent,
+                text,
+                textColor,
+                fontSize,
+                textAlign,
+                bold: isBold,
+                italic: isItalic,
+                showBorder,
+                isAnchored,
+                boxWidth: customSettings.boxWidth,
+                textPosition: {
+                  vertical: textValign,
+                  horizontal: textHalign
+                },
+                textPlacement,
+                visibility
+              };
+              onSave(updatedSettings, points);
+              onClose();
+            }}
             className="px-5 py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg font-semibold cursor-pointer transition-colors shadow-lg"
           >
             Ok
