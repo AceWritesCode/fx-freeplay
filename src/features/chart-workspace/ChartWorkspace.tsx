@@ -20,6 +20,7 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
+import { FloatingTextToolEditor } from '@/components/FloatingTextToolEditor';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction } from '@/framework/interaction';
@@ -1687,6 +1688,19 @@ export function ChartWorkspace() {
             if (ov.name === 'rectangle') {
               return (
                 <FloatingRectangleText
+                  key={ov.id}
+                  chart={chart}
+                  overlay={ov}
+                  isSelected={selectedOverlayIds.includes(ov.id)}
+                  isHovered={hoveredOverlayId === ov.id}
+                  onTextChange={handleTextChange}
+                  syncAllDrawings={drawingCoord.syncAllDrawings}
+                />
+              );
+            }
+            if (ov.name === 'fxText' || ov.name === 'text') {
+              return (
+                <FloatingTextToolEditor
                   key={ov.id}
                   chart={chart}
                   overlay={ov}

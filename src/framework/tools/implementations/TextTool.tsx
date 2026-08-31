@@ -248,7 +248,8 @@ export const TextTool: ToolDefinition = {
             : 'sans-serif';
 
       // Render each wrapped line of text inside the box with fixed consistent horizontal padding
-      if (displayText) {
+      // (When isSelected, FloatingTextToolEditor renders the HTML textarea directly so skip drawing canvas text to avoid duplication!)
+      if (displayText && !isSelected) {
         lines.forEach((lineStr, index) => {
           const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
           figures.push({
