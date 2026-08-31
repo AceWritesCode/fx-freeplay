@@ -1634,10 +1634,10 @@ export function ChartWorkspace() {
           <span className="text-txt-secondary font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
 
-        {/* Floating text inputs for TrendLines and Rectangles */}
+        {/* Floating text inputs for TrendLines, Rectangles and Text tools */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle') : [];
+          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => ['trendLine', 'rectangle', 'fxText', 'text'].includes(o.name)) : [];
           return allTextOverlays.map((ov: any) => {
             const handleTextChange = (newText: string) => {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);

@@ -148,7 +148,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
             textareaRef.current?.blur();
           }
         }}
-        className="w-full bg-transparent border-none outline-none resize-none p-0 m-0 overflow-hidden"
+        className="w-full bg-transparent border-none outline-none resize-none p-0 m-0 overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal"
         style={{
           color: textColor,
           fontSize: `${fontSize}px`,
