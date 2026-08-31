@@ -336,14 +336,10 @@ export const TextTool: ToolDefinition = {
       const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0] || { x: event.x, y: event.y };
       const newWidth = Math.max(minBoxWidth, event.x - p1Pixel.x);
 
-      if (!event.overlay.extendData) event.overlay.extendData = {};
-      if (!event.overlay.extendData.customSettings) event.overlay.extendData.customSettings = {};
-      event.overlay.extendData.customSettings.boxWidth = newWidth;
-
       const newExtendData = {
         ...(event.overlay.extendData || {}),
         customSettings: {
-          ...(event.overlay.extendData?.customSettings || {}),
+          ...customSettings,
           boxWidth: newWidth
         }
       };
