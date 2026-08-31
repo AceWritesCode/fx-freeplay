@@ -452,6 +452,12 @@ export function ChartWorkspace() {
       const current = useDrawingStore.getState().selectedOverlayIds;
       const nextIds = typeof idsOrFn === 'function' ? idsOrFn(current) : idsOrFn;
 
+      console.log('[ChartWorkspace] handleSelectOverlayIds called:', {
+        previousSelected: current,
+        nextSelected: nextIds,
+        callerStack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+      });
+
       chartInstancesRef.current.forEach((chart) => {
         if (chart) {
           chart._selectedOverlayIds = nextIds;
@@ -2264,6 +2270,11 @@ export function ChartWorkspace() {
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
         onUpdateSettings={(settingsUpdate) => {
+          console.log('[ChartWorkspace] onUpdateSettings triggered:', {
+            settingsUpdate,
+            selectedOverlayIds,
+            activeChartIndex
+          });
           if (selectedOverlayIds.length > 0) {
             const firstId = selectedOverlayIds[0];
             const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
