@@ -117,14 +117,14 @@ export const TextTool: ToolDefinition = {
       const textAlign = customSettings.textAlign || 'left';
 
       const p1 = coordinates[0]; // Top-left position (Point 0)
-      const p2 = coordinates[1]; // Center-right width anchor (Point 1)
 
       // Minimum box width = width of 1 character at current font size + horizontal padding (left + right)
       const singleCharW = getSingleCharWidth(fontSize);
       const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
-      const rawW = p2.x - p1.x;
-      let w = Math.max(minBoxWidth, rawW);
+      // Width is fixed in screen pixels (boxWidth) so chart zooming/squeezing NEVER distorts the text box!
+      const configuredWidth = customSettings.boxWidth !== undefined ? customSettings.boxWidth : 180;
+      let w = Math.max(minBoxWidth, configuredWidth);
       let x = p1.x;
       let y = p1.y;
 
@@ -168,8 +168,8 @@ export const TextTool: ToolDefinition = {
       const overlayPoints = (overlay?.points as any[]);
 
       if (!isDragging && isSelected && chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2) {
-        const diffX = Math.abs(p2.x - targetHandleX);
-        const diffY = Math.abs(p2.y - targetHandleY);
+        const diffX = Math.abs((coordinates[1]?.x ?? targetHandleX) - targetHandleX);
+        const diffY = Math.abs((coordinates[1]?.y ?? targetHandleY) - targetHandleY);
         if (diffX > 2 || diffY > 4) {
           const p2Target = (chart.convertFromPixel(
             [{ x: targetHandleX, y: targetHandleY }],
@@ -270,25 +270,18 @@ export const TextTool: ToolDefinition = {
     if (points.length === 0) return;
 
     const p1 = points[0];
-    let p2 = points[1];
+    const defaultBoxWidth = 180;
 
-    if (!p2) {
-      // Calculate default width (+120px in pixel space converted to candle point)
-      const p1Pixel = event.chart.convertToPixel([p1], { paneId: 'candle_pane' })?.[0];
-      if (p1Pixel) {
-        const p2Target = event.chart.convertFromPixel(
-          [{ x: p1Pixel.x + 120, y: p1Pixel.y + 16 }],
-          { paneId: 'candle_pane' }
-        )?.[0];
-        if (p2Target) {
-          p2 = p2Target;
-        }
-      }
+    const p1Pixel = event.chart.convertToPixel([p1], { paneId: 'candle_pane' })?.[0];
+    let p2Target: any = null;
+    if (p1Pixel) {
+      p2Target = event.chart.convertFromPixel(
+        [{ x: p1Pixel.x + defaultBoxWidth, y: p1Pixel.y + 16 }],
+        { paneId: 'candle_pane' }
+      )?.[0];
     }
 
-    if (!p2) {
-      p2 = { timestamp: p1.timestamp + 60, value: p1.value, dataIndex: (p1.dataIndex ?? 0) + 1 };
-    }
+    const p2 = p2Target || { timestamp: p1.timestamp + 60, value: p1.value, dataIndex: (p1.dataIndex ?? 0) + 1 };
 
     // Geometry is strictly 2 points: [p1 (position), p2 (center-right width anchor)]
     const newPoints = [
@@ -296,9 +289,18 @@ export const TextTool: ToolDefinition = {
       { timestamp: p2.timestamp, value: p2.value ?? p1.value, dataIndex: p2.dataIndex }
     ];
 
+    const newExtendData = {
+      ...(event.overlay.extendData || {}),
+      customSettings: {
+        ...(event.overlay.extendData?.customSettings || {}),
+        boxWidth: defaultBoxWidth
+      }
+    };
+
     event.chart.overrideOverlay({
       id: event.overlay.id,
-      points: newPoints
+      points: newPoints,
+      extendData: newExtendData
     });
   },
 
@@ -331,23 +333,21 @@ export const TextTool: ToolDefinition = {
 
     if (draggedIndex === 1) {
       // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
-      // Enforce minimum width constraint (boxWidth - leftPadding - rightPadding >= 1 char width)
-      const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0];
-      let p2Target = targetPt;
+      const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0] || { x: event.x, y: event.y };
+      const newWidth = Math.max(minBoxWidth, event.x - p1Pixel.x);
 
-      if (p1Pixel) {
-        const minXPixel = p1Pixel.x + minBoxWidth;
-        const currentMousePixel = event.chart.convertToPixel([targetPt], { paneId: 'candle_pane' })?.[0];
-        if (currentMousePixel && currentMousePixel.x < minXPixel) {
-          const clampedPt = event.chart.convertFromPixel(
-            [{ x: minXPixel, y: currentMousePixel.y }],
-            { paneId: 'candle_pane' }
-          )?.[0];
-          if (clampedPt) {
-            p2Target = clampedPt;
-          }
+      const newExtendData = {
+        ...(event.overlay.extendData || {}),
+        customSettings: {
+          ...customSettings,
+          boxWidth: newWidth
         }
-      }
+      };
+
+      const p2Target = event.chart.convertFromPixel(
+        [{ x: p1Pixel.x + newWidth, y: p1Pixel.y + 16 }],
+        { paneId: 'candle_pane' }
+      )?.[0];
 
       // Left/top position (points[0]) MUST REMAIN STRICTLY FIXED!
       points[0] = {
@@ -357,11 +357,17 @@ export const TextTool: ToolDefinition = {
       };
 
       // Only points[1] (width anchor) is updated
-      points[1] = {
+      points[1] = p2Target ? {
         timestamp: p2Target.timestamp,
         value: startP2.value,
         dataIndex: p2Target.dataIndex
+      } : {
+        timestamp: startP2.timestamp,
+        value: startP2.value,
+        dataIndex: startP2.dataIndex
       };
+
+      return { points, extendData: newExtendData };
     } else {
       // Body drag: move the ENTIRE text box together!
       const dt = targetPt.timestamp - startP1.timestamp;
@@ -380,8 +386,8 @@ export const TextTool: ToolDefinition = {
         value: startP2.value + dv,
         dataIndex: startP2.dataIndex !== undefined ? startP2.dataIndex + dDi : undefined
       };
-    }
 
-    return { points } satisfies ToolMutationResult;
+      return { points } satisfies ToolMutationResult;
+    }
   }
 };
