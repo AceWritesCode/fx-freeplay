@@ -65,6 +65,10 @@ export const TextTool: ToolDefinition = {
       }
       if (coordinates.length === 0) return [];
 
+      // Do not render any figure while moving mouse cursor before the first click
+      const isDrawn = !!(overlay?.extendData as any)?.isDrawn || ((chart as any)?._activeDrawingId !== overlay?.id && (overlay?.extendData as any)?.isDrawn !== false);
+      if (!isDrawn) return [];
+
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
@@ -127,6 +131,7 @@ export const TextTool: ToolDefinition = {
         isAnchored: false,
         ...customSettings,
       },
+      isDrawn: true,
       isNewText: true // Marker for immediate text editing
     };
 

@@ -71,7 +71,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
   const [inputText, setInputText] = useState(text);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
 
-  const isDrawn = overlay?.points && overlay.points.length > 0;
+  const isDrawn = overlay?.points && overlay.points.length > 0 && (!!overlay?.extendData?.isDrawn || ((chart as any)?._activeDrawingId !== overlay?.id && overlay?.extendData?.isDrawn !== false));
   const isVisible = checkOverlayVisible(overlay, chart);
 
   // Auto-enter edit mode for newly created text boxes
