@@ -1,6 +1,7 @@
 import { useDrawingStore, useLayoutStore } from '@/store';
 import {
   calculateWorkspaceSyncPlan,
+  parseOverlaySyncId,
   type SyncEngineInput,
   type WorkspaceSyncPlan,
 } from './drawingSyncEngine';
@@ -262,9 +263,7 @@ export function mirrorLiveOverlayUpdate(
   const sourceSymbolKey = sourceSymbol.toUpperCase();
 
   // Identify canonical original ID (strip any sync_ prefix if called on a projection)
-  const syncMatch = overlayId.match(/^sync_(.+)_from_(\d+)$/);
-  const originalId = syncMatch ? syncMatch[1] : overlayId;
-  const creatorSlotIndex = syncMatch ? parseInt(syncMatch[2], 10) : sourceSlotIndex;
+  const { originalId, sourceSlotIndex: creatorSlotIndex = sourceSlotIndex } = parseOverlaySyncId(overlayId);
 
   // Target sync overlay ID format for matching slots
   const targetSyncOverlayId = `sync_${originalId}_from_${creatorSlotIndex}`;

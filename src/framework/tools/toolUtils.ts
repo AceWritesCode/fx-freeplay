@@ -72,3 +72,73 @@ export const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: bo
     }
   });
 };
+
+/**
+ * Returns a fully opaque version of an RGBA, HSLA, or hex color string.
+ */
+export function makeOpaqueColor(colorStr: string): string {
+  if (!colorStr) return '#ffffff';
+  colorStr = colorStr.trim();
+  
+  if (colorStr.startsWith('#')) {
+    if (colorStr.length === 9) { // #RRGGBBAA
+      return colorStr.slice(0, 7);
+    }
+    if (colorStr.length === 5) { // #RGBA
+      return colorStr.slice(0, 4);
+    }
+    return colorStr;
+  }
+  
+  const rgbaRegex = /^rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[^)]+\)$/i;
+  const matchRgba = colorStr.match(rgbaRegex);
+  if (matchRgba) {
+    return `rgb(${matchRgba[1]}, ${matchRgba[2]}, ${matchRgba[3]})`;
+  }
+  
+  const hslaRegex = /^hsla\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*[^)]+\)$/i;
+  const matchHsla = colorStr.match(hslaRegex);
+  if (matchHsla) {
+    return `hsl(${matchHsla[1]}, ${matchHsla[2]}, ${matchHsla[3]})`;
+  }
+  
+  return colorStr;
+}
+
+/**
+ * Boosts opacity of a color string for overlay highlight rendering.
+ */
+export function boostColorOpacity(colorStr: string, defaultOpacity: number = 0.28): string {
+  if (!colorStr) return `rgba(76, 175, 80, ${defaultOpacity})`;
+  colorStr = colorStr.trim();
+
+  const rgbaRegex = /^rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/i;
+  const matchRgba = colorStr.match(rgbaRegex);
+  if (matchRgba) {
+    const r = matchRgba[1];
+    const g = matchRgba[2];
+    const b = matchRgba[3];
+    const baseAlpha = parseFloat(matchRgba[4]);
+    const newAlpha = Math.min(0.85, Math.max(defaultOpacity, baseAlpha * 2.5));
+    return `rgba(${r}, ${g}, ${b}, ${newAlpha})`;
+  }
+
+  const rgbRegex = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+  const matchRgb = colorStr.match(rgbRegex);
+  if (matchRgb) {
+    return `rgba(${matchRgb[1]}, ${matchRgb[2]}, ${matchRgb[3]}, ${defaultOpacity})`;
+  }
+
+  if (colorStr.startsWith('#')) {
+    let hex = colorStr.slice(1);
+    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    if (hex.length >= 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${defaultOpacity})`;
+    }
+  }
+
+  return colorStr;
+}

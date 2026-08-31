@@ -1,5 +1,5 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter } from '@/engine/charting';
+import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter, getOriginalDrawingId } from '@/engine/charting';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
@@ -371,8 +371,7 @@ export function getInteractiveOverlayOptions(
             }
           });
 
-          const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
-          const originalId = syncMatch ? syncMatch[1] : event.overlay.id;
+          const originalId = getOriginalDrawingId(event.overlay.id);
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
           if (resolved) {
             useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
@@ -426,8 +425,7 @@ export function getInteractiveOverlayOptions(
       // ─────────────────────────────────────────────────────────────────────
 
       const rawId = event.overlay.id;
-      const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
-      const id = syncMatch ? syncMatch[1] : rawId;
+      const id = getOriginalDrawingId(rawId);
 
       // Now safe to call _setSelectedOverlayIds — reconciler will see the drag index above
       if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
@@ -669,8 +667,7 @@ export function getInteractiveOverlayOptions(
     },
     onClick: (event: any) => {
       const rawId = event.overlay.id;
-      const syncMatch = rawId?.match(/^sync_(.+)_from_(\d+)$/);
-      const id = syncMatch ? syncMatch[1] : rawId;
+      const id = getOriginalDrawingId(rawId);
 
       const actualChart = event.chart || chartInstanceRef.current;
       if (actualChart?._activeTool === 'eraser') {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DrawingInstance, FolderItem } from './types';
 import { drawingRepository } from '@/repository';
+import { getOriginalDrawingId } from '@/engine/charting';
 
 export interface DrawingItem {
   id: string;
@@ -199,8 +200,7 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
 
   findSymbolByDrawingId: (id) => {
     if (!id) return null;
-    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-    const targetId = syncMatch ? syncMatch[1] : id;
+    const targetId = getOriginalDrawingId(id);
 
     const drawingsBySymbol = get().drawingsBySymbol;
     for (const symbol in drawingsBySymbol) {
@@ -214,8 +214,7 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
 
   removeSymbolDrawingById: (id) => {
     if (!id) return;
-    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-    const originalId = syncMatch ? syncMatch[1] : id;
+    const originalId = getOriginalDrawingId(id);
 
     const resolved = get().findSymbolByDrawingId(originalId);
     if (resolved) {

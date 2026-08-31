@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
-import { DrawingChartAdapter } from '@/engine/charting';
+import { DrawingChartAdapter, getOriginalDrawingId } from '@/engine/charting';
 import {
   detectPricePrecision,
 } from '@/utils/dataUtils';
@@ -456,8 +456,7 @@ export function ChartWorkspace() {
       // Auto-delete empty text drawings on exit edit mode if no text was entered
       current.forEach((prevId) => {
         if (!nextIds.includes(prevId)) {
-          const syncMatch = prevId?.match(/^sync_(.+)_from_(\d+)$/);
-          const originalId = syncMatch ? syncMatch[1] : prevId;
+          const originalId = getOriginalDrawingId(prevId);
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
           if (resolved && (resolved.drawing.name === 'fxText' || resolved.drawing.name === 'text')) {
             const rawText = resolved.drawing.extendData?.customSettings?.text;
@@ -524,8 +523,7 @@ export function ChartWorkspace() {
                   }
                 });
 
-                const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-                const originalId = syncMatch ? syncMatch[1] : ov.id;
+                const originalId = getOriginalDrawingId(ov.id);
                 const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
                 if (resolved) {
                   useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
@@ -1527,8 +1525,7 @@ export function ChartWorkspace() {
 
   const getSelectedSettingsOverlay = () => {
     if (!drawingSettingsOverlayId) return null;
-    const syncMatch = drawingSettingsOverlayId.match(/^sync_(.+)_from_(\d+)$/);
-    const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
+    const originalId = getOriginalDrawingId(drawingSettingsOverlayId);
     for (let i = 0; i < chartInstancesRef.current.length; i++) {
       const chart = chartInstancesRef.current[i];
       if (chart) {
@@ -1637,9 +1634,7 @@ export function ChartWorkspace() {
           const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => ['trendLine', 'rectangle', 'fxText', 'text'].includes(o.name)) : [];
           return allTextOverlays.map((ov: any) => {
             const handleTextChange = (newText: string) => {
-              const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : ov.id;
-
+              const originalId = getOriginalDrawingId(ov.id);
               const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
               if (resolved) {
                 const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
@@ -2255,8 +2250,7 @@ export function ChartWorkspace() {
         selectedOverlayIds={selectedOverlayIds}
         drawingTrigger={drawingCoord.drawingTrigger}
         getOverlay={(id) => {
-          const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-          const originalId = syncMatch ? syncMatch[1] : id;
+          const originalId = getOriginalDrawingId(id);
           for (let i = 0; i < chartInstancesRef.current.length; i++) {
             const chart = chartInstancesRef.current[i];
             if (chart) {
@@ -2282,8 +2276,7 @@ export function ChartWorkspace() {
         onApplyTemplate={(tplSettings) => {
           if (selectedOverlayIds.length > 0) {
             const firstId = selectedOverlayIds[0];
-            const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
-            const originalId = syncMatch ? syncMatch[1] : firstId;
+            const originalId = getOriginalDrawingId(firstId);
             let toolName = '';
             for (let i = 0; i < chartInstancesRef.current.length; i++) {
               const chart = chartInstancesRef.current[i];
@@ -2301,8 +2294,7 @@ export function ChartWorkspace() {
           }
           // Store-first migration: Dispatch style template to useDrawingStore for selected drawings
           selectedOverlayIds.forEach((id) => {
-            const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-            const originalId = syncMatch ? syncMatch[1] : id;
+            const originalId = getOriginalDrawingId(id);
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
@@ -2329,8 +2321,7 @@ export function ChartWorkspace() {
         onLock={() => {
           // Store-first migration: Dispatch lock state to useDrawingStore for selected drawings
           selectedOverlayIds.forEach((id) => {
-            const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-            const originalId = syncMatch ? syncMatch[1] : id;
+            const originalId = getOriginalDrawingId(id);
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
@@ -2360,8 +2351,7 @@ export function ChartWorkspace() {
         onUpdateSettings={(settingsUpdate) => {
           if (selectedOverlayIds.length > 0) {
             const firstId = selectedOverlayIds[0];
-            const syncMatch = firstId.match(/^sync_(.+)_from_(\d+)$/);
-            const originalId = syncMatch ? syncMatch[1] : firstId;
+            const originalId = getOriginalDrawingId(firstId);
             let toolName = '';
             for (let i = 0; i < chartInstancesRef.current.length; i++) {
               const chart = chartInstancesRef.current[i];
@@ -2380,8 +2370,7 @@ export function ChartWorkspace() {
 
           // Store-first migration: Dispatch settings update to useDrawingStore for selected drawings
           selectedOverlayIds.forEach((id) => {
-            const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-            const originalId = syncMatch ? syncMatch[1] : id;
+            const originalId = getOriginalDrawingId(id);
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
@@ -2400,9 +2389,7 @@ export function ChartWorkspace() {
                 if (!chart) return;
                 const overlays = chart.getOverlays() || [];
                 overlays.forEach((ov: any) => {
-                  const ovOriginalId = typeof ov.id === 'string' && ov.id.startsWith('sync_')
-                    ? ov.id.match(/^sync_(.+)_from_(\d+)$/)?.[1]
-                    : ov.id;
+                  const ovOriginalId = getOriginalDrawingId(ov.id);
                   if (ovOriginalId === originalId) {
                     chart.overrideOverlay({
                       id: ov.id,
@@ -2448,8 +2435,7 @@ export function ChartWorkspace() {
         onDeselectOverlay={() => setSelectedOverlayIds([])}
         onSave={(updatedSettings, updatedPoints) => {
           if (!drawingSettingsOverlayId) return;
-          const syncMatch = drawingSettingsOverlayId.match(/^sync_(.+)_from_(\d+)$/);
-          const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
+          const originalId = getOriginalDrawingId(drawingSettingsOverlayId);
 
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
           if (resolved) {
@@ -2471,9 +2457,7 @@ export function ChartWorkspace() {
               if (!chart) return;
               const overlays = chart.getOverlays() || [];
               overlays.forEach((ov: any) => {
-                const ovOriginalId = typeof ov.id === 'string' && ov.id.startsWith('sync_')
-                  ? ov.id.match(/^sync_(.+)_from_(\d+)$/)?.[1]
-                  : ov.id;
+                const ovOriginalId = getOriginalDrawingId(ov.id);
                 if (ovOriginalId === originalId) {
                   chart.overrideOverlay({
                     id: ov.id,

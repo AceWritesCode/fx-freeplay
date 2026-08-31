@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
+import { getOriginalDrawingId } from '@/engine/charting';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -965,8 +966,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Delete drawing
   const handleDeleteDrawing = (id: string) => {
-    const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-    const originalId = syncMatch ? syncMatch[1] : id;
+    const originalId = getOriginalDrawingId(id);
     useDrawingStore.getState().removeSymbolDrawingById(id);
     syncAllDrawings();
     setSelectedOverlayIds(prev => prev.filter(item => item !== id && item !== originalId));
@@ -1071,8 +1071,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const handleDeleteSelected = () => {
     if (selectedOverlayIds.length === 0 || !activeSymbol) return;
     selectedOverlayIds.forEach(id => {
-      const syncMatch = id.match(/^sync_(.+)_from_(\d+)$/);
-      const originalId = syncMatch ? syncMatch[1] : id;
+      const originalId = getOriginalDrawingId(id);
       useDrawingStore.getState().removeSymbolDrawing(activeSymbol, originalId);
     });
     setSelectedOverlayIds([]);

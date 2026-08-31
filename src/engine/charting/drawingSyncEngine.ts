@@ -215,3 +215,33 @@ export function calculateWorkspaceSyncPlan(input: SyncEngineInput): WorkspaceSyn
 
   return { slotPlans };
 }
+
+/**
+ * Extracts the canonical original drawing ID and creator slot index from any overlay ID.
+ * If the ID is a synced projection (`sync_${originalId}_from_${slotIndex}`), extracts the original ID.
+ * Otherwise returns the raw ID unchanged.
+ */
+export function parseOverlaySyncId(overlayId: string | null | undefined): { originalId: string; isSynced: boolean; sourceSlotIndex?: number } {
+  if (!overlayId) {
+    return { originalId: '', isSynced: false };
+  }
+  const syncMatch = overlayId.match(/^sync_(.+)_from_(\d+)$/);
+  if (syncMatch) {
+    return {
+      originalId: syncMatch[1],
+      isSynced: true,
+      sourceSlotIndex: parseInt(syncMatch[2], 10)
+    };
+  }
+  return {
+    originalId: overlayId,
+    isSynced: false
+  };
+}
+
+/**
+ * Returns the canonical original drawing ID, stripping any sync projection prefix.
+ */
+export function getOriginalDrawingId(overlayId: string | null | undefined): string {
+  return parseOverlaySyncId(overlayId).originalId;
+}
