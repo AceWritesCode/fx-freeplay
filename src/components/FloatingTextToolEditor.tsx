@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TEXT_FONT_FAMILY, PADDING_HORIZONTAL, TOP_PADDING } from '@/framework/tools/implementations/TextTool';
-import { DrawingChartAdapter } from '@/engine/charting';
 
 interface FloatingTextToolEditorProps {
   chart: any;
@@ -29,7 +28,6 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
   const isItalic = !!customSettings.italic;
 
   const [inputText, setInputText] = useState(text);
-  const [isEditing, setIsEditing] = useState(true);
 
   const isAnchorHovered = overlay?.extendData?.hoveredAnchorIndex !== null && overlay?.extendData?.hoveredAnchorIndex !== undefined;
   const isDragging = overlay?.extendData?.draggedIndex !== null && overlay?.extendData?.draggedIndex !== undefined;
@@ -51,73 +49,29 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     autoResizeTextarea();
   }, [inputText, fontSize]);
 
-  // When selected, activate edit mode and auto-focus immediately
+  // When selected, auto-focus immediately
   useEffect(() => {
     if (isSelected && !isAnchorHovered && !isDragging) {
-      setIsEditing(true);
-      try {
-        if (chart && overlay?.id) {
-          chart.overrideOverlay({
-            id: overlay.id,
-            extendData: {
-              ...(overlay.extendData || {}),
-              isEditingText: true
-            }
-          });
-          DrawingChartAdapter.invalidatePane(chart);
-        }
-      } catch (_) {}
-
       const timer = setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.selectionStart = textareaRef.current.value.length;
           textareaRef.current.selectionEnd = textareaRef.current.value.length;
         }
-      }, 50);
+      }, 40);
       return () => clearTimeout(timer);
     }
   }, [isSelected]);
 
-  // When mouse hovers over anchor or starts dragging, deactivate typing and save text immediately
+  // When mouse hovers over anchor or starts dragging, save any uncommitted text and blur to unblock dragging
   useEffect(() => {
     if (isAnchorHovered || isDragging) {
-      if (isEditing) {
-        setIsEditing(false);
-        onTextChange(inputText);
-        try {
-          if (chart && overlay?.id) {
-            chart.overrideOverlay({
-              id: overlay.id,
-              extendData: {
-                ...(overlay.extendData || {}),
-                isEditingText: false
-              }
-            });
-            DrawingChartAdapter.invalidatePane(chart);
-          }
-        } catch (_) {}
+      if (textareaRef.current && document.activeElement === textareaRef.current) {
+        textareaRef.current.blur();
       }
+      onTextChange(inputText);
     }
-  }, [isAnchorHovered, isDragging, isEditing, inputText]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      try {
-        if (chart && overlay?.id) {
-          chart.overrideOverlay({
-            id: overlay.id,
-            extendData: {
-              ...(overlay.extendData || {}),
-              isEditingText: false
-            }
-          });
-          DrawingChartAdapter.invalidatePane(chart);
-        }
-      } catch (_) {}
-    };
-  }, [chart, overlay?.id]);
+  }, [isAnchorHovered, isDragging]);
 
   // Continuously update position using requestAnimationFrame to track chart pan/zoom seamlessly
   useEffect(() => {
@@ -164,44 +118,27 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     return null;
   }
 
-  const handleStartEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (chart) {
-      chart._clickedOnOverlay = true;
-    }
-    setIsEditing(true);
-    try {
-      if (chart && overlay?.id) {
-        chart.overrideOverlay({
-          id: overlay.id,
-          extendData: {
-            ...(overlay.extendData || {}),
-            isEditingText: true
-          }
-        });
-        DrawingChartAdapter.invalidatePane(chart);
-      }
-    } catch (_) {}
-
-    setTimeout(() => {
-      textareaRef.current?.focus();
-    }, 30);
-  };
-
   const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
+  const isPointerBlocked = isAnchorHovered || isDragging;
 
   return (
     <div
       ref={elRef}
-      className={`absolute z-30 ${isEditing ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      className={`absolute z-30 ${isPointerBlocked ? 'pointer-events-none' : 'pointer-events-auto'}`}
       style={{
         boxSizing: 'border-box'
       }}
-      onClick={handleStartEdit}
+      onClick={(e) => {
+        if (!isPointerBlocked) {
+          e.stopPropagation();
+          if (chart) {
+            chart._clickedOnOverlay = true;
+          }
+          textareaRef.current?.focus();
+        }
+      }}
       onMouseDown={(e) => {
-        if (!isEditing) {
-          handleStartEdit(e);
-        } else {
+        if (!isPointerBlocked) {
           e.stopPropagation();
           if (chart) {
             chart._clickedOnOverlay = true;
@@ -214,7 +151,6 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         value={inputText}
         placeholder="Add text..."
         rows={1}
-        disabled={!isEditing}
         onChange={(e) => {
           const val = e.target.value;
           setInputText(val);
@@ -225,23 +161,10 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           e.stopPropagation();
           if (e.key === 'Escape') {
             textareaRef.current?.blur();
-            setIsEditing(false);
-            try {
-              if (chart && overlay?.id) {
-                chart.overrideOverlay({
-                  id: overlay.id,
-                  extendData: {
-                    ...(overlay.extendData || {}),
-                    isEditingText: false
-                  }
-                });
-                DrawingChartAdapter.invalidatePane(chart);
-              }
-            } catch (_) {}
           }
         }}
         className={`w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal ${
-          isEditing ? 'pointer-events-auto cursor-text' : 'pointer-events-none opacity-0 select-none'
+          isPointerBlocked ? 'pointer-events-none select-none' : 'pointer-events-auto cursor-text'
         }`}
         style={{
           color: textColor,
