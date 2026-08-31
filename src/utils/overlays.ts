@@ -157,14 +157,33 @@ export function getInteractiveOverlayOptions(
   _syncAllDrawings: () => void,
   setActiveTool: (tool: string | null) => void
 ) {
-  let defaultSettings = {};
+  let defaultSettings: Record<string, any> = {};
+  const registeredTool = ToolRegistry.get(toolName);
+  if (registeredTool) {
+    if (registeredTool.defaultTemplates && registeredTool.defaultTemplates.length > 0) {
+      defaultSettings = { ...registeredTool.defaultTemplates[0].commonSettings };
+    } else if (registeredTool.settingsSchema) {
+      registeredTool.settingsSchema.forEach((field: any) => {
+        if (field.defaultValue !== undefined) {
+          defaultSettings[field.id] = field.defaultValue;
+        }
+      });
+    }
+  }
+
   try {
     const saved = localStorage.getItem(`fx_default_settings_${toolName}`);
     if (saved) {
-      defaultSettings = JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      defaultSettings = { ...defaultSettings, ...parsed };
     }
   } catch (e) {
     console.error(e);
+  }
+
+  if (toolName === 'text') {
+    defaultSettings.showBorder = !!defaultSettings.showBorder;
+    defaultSettings.fillBackground = !!defaultSettings.fillBackground;
   }
 
   const overlayOptions: any = {

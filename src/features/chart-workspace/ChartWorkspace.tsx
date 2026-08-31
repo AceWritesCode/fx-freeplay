@@ -1439,6 +1439,10 @@ export function ChartWorkspace() {
         ...settingsUpdate,
       };
       delete merged.text;
+      if (toolName === 'text') {
+        merged.showBorder = !!merged.showBorder;
+        merged.fillBackground = !!merged.fillBackground;
+      }
       localStorage.setItem(key, JSON.stringify(merged));
     } catch (err) {
       console.error('[DEBUG] Failed to update default settings:', err);
