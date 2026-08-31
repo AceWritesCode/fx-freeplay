@@ -20,6 +20,7 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
+import { FloatingTextComponent } from '@/components/FloatingTextComponent';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction } from '@/framework/interaction';
@@ -279,6 +280,9 @@ export function ChartWorkspace() {
   const [selectedForecastToolId, setSelectedForecastToolId] = useState<string>('longPosition');
   const [isForecastMenuOpen, setIsForecastMenuOpen] = useState<boolean>(false);
   const [forecastMenuPos, setForecastMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [selectedTextToolId, setSelectedTextToolId] = useState<string>('text');
+  const [isTextMenuOpen, setIsTextMenuOpen] = useState<boolean>(false);
+  const [textMenuPos, setTextMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isMagnetMenuOpen, setIsMagnetMenuOpen] = useState<boolean>(false);
   const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoveredOverlayId, setHoveredOverlayId] = useState<string | null>(null);
@@ -308,6 +312,7 @@ export function ChartWorkspace() {
   const lineMenuRef = useRef<HTMLDivElement>(null);
   const shapeMenuRef = useRef<HTMLDivElement>(null);
   const forecastMenuRef = useRef<HTMLDivElement>(null);
+  const textMenuRef = useRef<HTMLDivElement>(null);
   const magnetMenuRef = useRef<HTMLDivElement>(null);
 
   // Derived states
@@ -1546,10 +1551,10 @@ export function ChartWorkspace() {
           <span className="text-txt-secondary font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
 
-        {/* Floating text inputs for TrendLines and Rectangles */}
+        {/* Floating text inputs for TrendLines, Rectangles, and Text Tool */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle') : [];
+          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle' || o.name === 'text') : [];
           return allTextOverlays.map((ov: any) => {
             const handleTextChange = (newText: string) => {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
@@ -1568,10 +1573,6 @@ export function ChartWorkspace() {
                 useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
                   extendData: mergedExtendData,
                 });
-                // Also push the new text into the source chart's own KLineCharts overlay.
-                // Without this, the KLineCharts in-memory extendData still has the old text.
-                // When the user deselects, the deselection effect reads chartOverlay.extendData
-                // from KLineCharts and would overwrite the store with stale data, wiping the text.
                 if (chart && originalId) {
                   chart.overrideOverlay({
                     id: originalId,
@@ -1581,6 +1582,44 @@ export function ChartWorkspace() {
                 mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               }
 
+              drawingCoord.setDrawingTrigger((prev) => prev + 1);
+            };
+
+            const handleUpdateSettings = (update: any) => {
+              const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : ov.id;
+
+              const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+              if (resolved) {
+                const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+                const mergedExtendData = {
+                  ...(currentDrawing.extendData || {}),
+                  customSettings: {
+                    ...(currentDrawing.extendData?.customSettings || {}),
+                    ...update,
+                  },
+                };
+                useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                  extendData: mergedExtendData,
+                });
+                if (chart && originalId) {
+                  chart.overrideOverlay({
+                    id: originalId,
+                    extendData: mergedExtendData,
+                  });
+                }
+                mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
+              }
+
+              drawingCoord.setDrawingTrigger((prev) => prev + 1);
+            };
+
+            const handleDelete = () => {
+              const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+              const originalId = syncMatch ? syncMatch[1] : ov.id;
+              useDrawingStore.getState().removeSymbolDrawingById(originalId);
+              setSelectedOverlayIds((prev) => prev.filter((id) => id !== ov.id && id !== originalId));
+              runWorkspaceReconciliation(chartInstancesRef);
               drawingCoord.setDrawingTrigger((prev) => prev + 1);
             };
 
@@ -1606,6 +1645,21 @@ export function ChartWorkspace() {
                   isSelected={selectedOverlayIds.includes(ov.id)}
                   isHovered={hoveredOverlayId === ov.id}
                   onTextChange={handleTextChange}
+                  syncAllDrawings={drawingCoord.syncAllDrawings}
+                />
+              );
+            }
+            if (ov.name === 'text') {
+              return (
+                <FloatingTextComponent
+                  key={ov.id}
+                  chart={chart}
+                  overlay={ov}
+                  isSelected={selectedOverlayIds.includes(ov.id)}
+                  isHovered={hoveredOverlayId === ov.id}
+                  onTextChange={handleTextChange}
+                  onDelete={handleDelete}
+                  onUpdateSettings={handleUpdateSettings}
                   syncAllDrawings={drawingCoord.syncAllDrawings}
                 />
               );
@@ -1805,6 +1859,12 @@ export function ChartWorkspace() {
           setIsForecastMenuOpen={setIsForecastMenuOpen}
           forecastMenuPos={forecastMenuPos}
           setForecastMenuPos={setForecastMenuPos}
+          selectedTextToolId={selectedTextToolId}
+          setSelectedTextToolId={setSelectedTextToolId}
+          isTextMenuOpen={isTextMenuOpen}
+          setIsTextMenuOpen={setIsTextMenuOpen}
+          textMenuPos={textMenuPos}
+          setTextMenuPos={setTextMenuPos}
           magnetMode={drawingCoord.magnetMode}
           isMagnetMenuOpen={isMagnetMenuOpen}
           setIsMagnetMenuOpen={setIsMagnetMenuOpen}
@@ -1818,6 +1878,7 @@ export function ChartWorkspace() {
           lineMenuRef={lineMenuRef}
           shapeMenuRef={shapeMenuRef}
           forecastMenuRef={forecastMenuRef}
+          textMenuRef={textMenuRef}
           magnetMenuRef={magnetMenuRef}
           chartInstanceRef={{ current: chartInstancesRef.current[activeChartIndex] }}
           activeOverlayIdRef={activeOverlayIdRef}

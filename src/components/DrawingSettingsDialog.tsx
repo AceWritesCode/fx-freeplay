@@ -212,6 +212,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [fontSize, setFontSize] = useState(14);
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
+  const [showBorder, setShowBorder] = useState(true);
+  const [isAnchored, setIsAnchored] = useState(false);
   const [textValign, setTextValign] = useState('middle');
   const [textHalign, setTextHalign] = useState('right');
   const [textPlacement, setTextPlacement] = useState<'inside' | 'outside'>('inside');
@@ -291,6 +293,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setFontSize(customSettings.fontSize || 14);
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
+    setShowBorder(customSettings.showBorder !== false);
+    setIsAnchored(!!customSettings.isAnchored);
     setTextValign(customSettings.textPosition?.vertical || 'middle');
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
     setTextPlacement(customSettings.textPlacement || 'inside');
@@ -442,6 +446,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       fontSize,
       bold: isBold,
       italic: isItalic,
+      showBorder,
+      isAnchored,
       textPosition: {
         vertical: textValign,
         horizontal: textHalign

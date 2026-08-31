@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 import { SearchableDropdown } from './DrawingSettingsDialog';
@@ -88,6 +88,11 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const customSettings = firstOverlay?.extendData?.customSettings || {};
   
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
+  const isText = firstOverlay?.name === 'text';
+  const isAnchored = !!customSettings.isAnchored;
+  const fontSize = customSettings.fontSize || 14;
+  const fillBackground = customSettings.fillBackground !== false && customSettings.fillBackground !== undefined;
+  const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
   const lineColor = customSettings.lineColor || '#2196F3';
   const textColor = customSettings.textColor || '#2196F3';
   const profitColor = customSettings.profitColor || 'rgba(76, 175, 80, 0.12)';
@@ -558,81 +563,144 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
+        {/* Font Size Selector for Text Tool */}
+        {isText && (
+          <div className="relative">
+            <button 
+              onClick={() => setActiveDropdown(activeDropdown === 'fontSize' ? null : 'fontSize')}
+              className={`flex items-center gap-1 h-8 px-2 rounded transition-colors cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'fontSize' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
+              title="Font size"
+            >
+              <span className="text-xs font-semibold">{fontSize}px</span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+            
+            {activeDropdown === 'fontSize' && (
+              <div className="absolute top-full mt-2 left-0 w-20 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary max-h-48 overflow-y-auto">
+                {[10, 12, 14, 16, 18, 20, 24, 28, 36, 48].map(size => (
+                  <button
+                    key={size}
+                    onClick={() => handleUpdate({ fontSize: size })}
+                    className={`px-3 py-1.5 text-xs text-left hover:bg-surface-hover ${size === fontSize ? 'text-accent font-bold' : ''}`}
+                  >
+                    {size}px
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Text Background Color for Text Tool */}
+        {isText && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'fillColor'}
+              onClick={() => setActiveDropdown(activeDropdown === 'fillColor' ? null : 'fillColor')}
+              title="Background color"
+            >
+              <div className="w-4 h-4 rounded border border-border-def" style={{ backgroundColor: fillBackground ? fillColor : 'transparent' }} />
+            </ToolbarButton>
+            
+            {activeDropdown === 'fillColor' && (
+              <div className="absolute top-full mt-2 left-0 z-50 p-2 bg-modal-bg border border-border-def rounded-lg shadow-xl flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={fillBackground}
+                    onChange={(e) => handleUpdate({ fillBackground: e.target.checked }, false)}
+                    className="rounded border-border-def text-accent focus:ring-0"
+                  />
+                  <span>Show Background</span>
+                </label>
+                {fillBackground && (
+                  <ColorPicker 
+                    color={fillColor} 
+                    onChange={(c) => handleUpdate({ fillColor: c }, false)} 
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Line Width */}
-        <div className="relative">
-          <button 
-            onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
-            className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'width' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
-            title="Line width"
-          >
-            <Minus className="w-4 h-4 stroke-[3px]" />
-            <span className="text-[11px] font-semibold">{lineWidth}px</span>
-          </button>
-          
-          {activeDropdown === 'width' && (
-            <div className="absolute top-full mt-2 left-0 w-24 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
-              {[1, 2, 3, 4].map(w => (
-                <button
-                  key={w}
-                  onClick={() => handleUpdate({ lineWidth: w })}
-                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === lineWidth ? 'text-accent font-bold' : ''}`}
-                >
-                  {w}px
-                  <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {!isText && (
+          <div className="relative">
+            <button 
+              onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
+              className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'width' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
+              title="Line width"
+            >
+              <Minus className="w-4 h-4 stroke-[3px]" />
+              <span className="text-[11px] font-semibold">{lineWidth}px</span>
+            </button>
+            
+            {activeDropdown === 'width' && (
+              <div className="absolute top-full mt-2 left-0 w-24 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
+                {[1, 2, 3, 4].map(w => (
+                  <button
+                    key={w}
+                    onClick={() => handleUpdate({ lineWidth: w })}
+                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === lineWidth ? 'text-accent font-bold' : ''}`}
+                  >
+                    {w}px
+                    <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Line Style */}
-        <div className="relative">
-          <ToolbarButton 
-            active={activeDropdown === 'style'}
-            onClick={() => setActiveDropdown(activeDropdown === 'style' ? null : 'style')}
-            title="Line style"
-          >
-            {lineStyle === 'solid' && (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="0" y1="8" x2="16" y2="8" />
-              </svg>
+        {!isText && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'style'}
+              onClick={() => setActiveDropdown(activeDropdown === 'style' ? null : 'style')}
+              title="Line style"
+            >
+              {lineStyle === 'solid' && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="0" y1="8" x2="16" y2="8" />
+                </svg>
+              )}
+              {lineStyle === 'dashed' && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2">
+                  <line x1="0" y1="8" x2="16" y2="8" />
+                </svg>
+              )}
+              {lineStyle === 'dotted' && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2">
+                  <line x1="0" y1="8" x2="16" y2="8" />
+                </svg>
+              )}
+              {lineStyle === 'none' && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="8" cy="8" r="5.5" />
+                  <line x1="4" y1="12" x2="12" y2="4" />
+                </svg>
+              )}
+            </ToolbarButton>
+            
+            {activeDropdown === 'style' && (
+              <div className="absolute top-full mt-2 left-0 w-28 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
+                {(firstOverlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => handleUpdate({ lineStyle: s })}
+                    className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-surface-hover flex items-center justify-between ${s === lineStyle ? 'text-accent font-bold' : ''}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             )}
-            {lineStyle === 'dashed' && (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2">
-                <line x1="0" y1="8" x2="16" y2="8" />
-              </svg>
-            )}
-            {lineStyle === 'dotted' && (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2">
-                <line x1="0" y1="8" x2="16" y2="8" />
-              </svg>
-            )}
-            {lineStyle === 'none' && (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="8" cy="8" r="5.5" />
-                <line x1="4" y1="12" x2="12" y2="4" />
-              </svg>
-            )}
-          </ToolbarButton>
-          
-          {activeDropdown === 'style' && (
-            <div className="absolute top-full mt-2 left-0 w-28 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
-              {(firstOverlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
-                <button
-                  key={s}
-                  onClick={() => handleUpdate({ lineStyle: s })}
-                  className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-surface-hover flex items-center justify-between ${s === lineStyle ? 'text-accent font-bold' : ''}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="w-px h-4 bg-border-def mx-0.5" />
-
-
 
         {/* Settings */}
         <ToolbarButton 
@@ -642,8 +710,6 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           <Settings className="w-4 h-4" />
         </ToolbarButton>
 
-
-
         {/* Lock */}
         <ToolbarButton 
           active={isLocked}
@@ -652,6 +718,17 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         >
           {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
         </ToolbarButton>
+
+        {/* Anchor Control (Placed immediately after Lock) */}
+        {isText && (
+          <ToolbarButton 
+            active={isAnchored}
+            onClick={() => handleUpdate({ isAnchored: !isAnchored })}
+            title={isAnchored ? "Unanchor text" : "Anchor text to chart data space"}
+          >
+            <Anchor className="w-4 h-4" />
+          </ToolbarButton>
+        )}
 
         {/* Remove */}
         <ToolbarButton 
