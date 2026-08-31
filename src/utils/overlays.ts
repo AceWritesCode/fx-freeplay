@@ -391,6 +391,14 @@ export function getInteractiveOverlayOptions(
         }
       }
 
+      if ((toolName === 'fxText' || toolName === 'text' || customSettings.boxWidth !== undefined) && Array.isArray(pts) && pts[0]) {
+        const boxW = customSettings.boxWidth !== undefined ? customSettings.boxWidth : 180;
+        pts[1] = {
+          x: pts[0].x + boxW,
+          y: pts[0].y + 16
+        };
+      }
+
       let minDistance = Infinity;
       let closestIndex = 0;
       if (Array.isArray(pts)) {

@@ -1018,6 +1018,13 @@ export function ChartWorkspace() {
           if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
             pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
           }
+          if ((ov.name === 'fxText' || ov.name === 'text' || ov.extendData?.customSettings?.boxWidth !== undefined) && Array.isArray(pts) && pts[0]) {
+            const boxW = ov.extendData?.customSettings?.boxWidth !== undefined ? ov.extendData?.customSettings?.boxWidth : 180;
+            pts[1] = {
+              x: pts[0].x + boxW,
+              y: pts[0].y + 16
+            };
+          }
           if (Array.isArray(pts)) {
             pts.forEach((pt: any, idx: number) => {
               if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
