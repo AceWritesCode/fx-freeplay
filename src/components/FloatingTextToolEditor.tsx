@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TEXT_FONT_FAMILY, PADDING_HORIZONTAL, TOP_PADDING } from '@/framework/tools/implementations/TextTool';
+import { DrawingChartAdapter } from '@/engine/charting';
 
 interface FloatingTextToolEditorProps {
   chart: any;
@@ -28,6 +29,10 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
   const isItalic = !!customSettings.italic;
 
   const [inputText, setInputText] = useState(text);
+  const [isEditing, setIsEditing] = useState(true);
+
+  const isAnchorHovered = overlay?.extendData?.hoveredAnchorIndex !== null && overlay?.extendData?.hoveredAnchorIndex !== undefined;
+  const isDragging = overlay?.extendData?.draggedIndex !== null && overlay?.extendData?.draggedIndex !== undefined;
 
   // Sync external text prop changes
   useEffect(() => {
@@ -46,9 +51,23 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     autoResizeTextarea();
   }, [inputText, fontSize]);
 
-  // When selected, auto-focus immediately!
+  // When selected, activate edit mode and auto-focus immediately
   useEffect(() => {
-    if (isSelected) {
+    if (isSelected && !isAnchorHovered && !isDragging) {
+      setIsEditing(true);
+      try {
+        if (chart && overlay?.id) {
+          chart.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...(overlay.extendData || {}),
+              isEditingText: true
+            }
+          });
+          DrawingChartAdapter.invalidatePane(chart);
+        }
+      } catch (_) {}
+
       const timer = setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
@@ -59,6 +78,46 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
       return () => clearTimeout(timer);
     }
   }, [isSelected]);
+
+  // When mouse hovers over anchor or starts dragging, deactivate typing and save text immediately
+  useEffect(() => {
+    if (isAnchorHovered || isDragging) {
+      if (isEditing) {
+        setIsEditing(false);
+        onTextChange(inputText);
+        try {
+          if (chart && overlay?.id) {
+            chart.overrideOverlay({
+              id: overlay.id,
+              extendData: {
+                ...(overlay.extendData || {}),
+                isEditingText: false
+              }
+            });
+            DrawingChartAdapter.invalidatePane(chart);
+          }
+        } catch (_) {}
+      }
+    }
+  }, [isAnchorHovered, isDragging, isEditing, inputText]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (chart && overlay?.id) {
+          chart.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...(overlay.extendData || {}),
+              isEditingText: false
+            }
+          });
+          DrawingChartAdapter.invalidatePane(chart);
+        }
+      } catch (_) {}
+    };
+  }, [chart, overlay?.id]);
 
   // Continuously update position using requestAnimationFrame to track chart pan/zoom seamlessly
   useEffect(() => {
@@ -105,20 +164,48 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     return null;
   }
 
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (chart) {
+      chart._clickedOnOverlay = true;
+    }
+    setIsEditing(true);
+    try {
+      if (chart && overlay?.id) {
+        chart.overrideOverlay({
+          id: overlay.id,
+          extendData: {
+            ...(overlay.extendData || {}),
+            isEditingText: true
+          }
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      }
+    } catch (_) {}
+
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 30);
+  };
+
   const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
 
   return (
     <div
       ref={elRef}
-      className="absolute pointer-events-auto z-30"
+      className={`absolute z-30 ${isEditing ? 'pointer-events-auto' : 'pointer-events-none'}`}
       style={{
         boxSizing: 'border-box'
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={handleStartEdit}
       onMouseDown={(e) => {
-        e.stopPropagation();
-        if (chart) {
-          chart._clickedOnOverlay = true;
+        if (!isEditing) {
+          handleStartEdit(e);
+        } else {
+          e.stopPropagation();
+          if (chart) {
+            chart._clickedOnOverlay = true;
+          }
         }
       }}
     >
@@ -127,6 +214,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         value={inputText}
         placeholder="Add text..."
         rows={1}
+        disabled={!isEditing}
         onChange={(e) => {
           const val = e.target.value;
           setInputText(val);
@@ -137,9 +225,24 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           e.stopPropagation();
           if (e.key === 'Escape') {
             textareaRef.current?.blur();
+            setIsEditing(false);
+            try {
+              if (chart && overlay?.id) {
+                chart.overrideOverlay({
+                  id: overlay.id,
+                  extendData: {
+                    ...(overlay.extendData || {}),
+                    isEditingText: false
+                  }
+                });
+                DrawingChartAdapter.invalidatePane(chart);
+              }
+            } catch (_) {}
           }
         }}
-        className="w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal"
+        className={`w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal ${
+          isEditing ? 'pointer-events-auto cursor-text' : 'pointer-events-none opacity-0 select-none'
+        }`}
         style={{
           color: textColor,
           fontSize: `${fontSize}px`,
