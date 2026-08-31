@@ -261,6 +261,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       setPosition({ x, y });
     }
 
+    if (overlay.name === 'fxText' || overlay.name === 'text') {
+      setActiveTab('text');
+    } else {
+      setActiveTab('style');
+    }
+
     const customSettings = overlay.extendData?.customSettings || {};
     
     // Save backups for Cancel restoration
@@ -941,7 +947,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         className="flex justify-between items-center px-5 py-4 border-b border-border-def cursor-move active:cursor-grabbing hover:bg-surface-hover transition-colors rounded-t-xl"
       >
         <span className="font-semibold text-[13.5px] tracking-wide text-txt-primary capitalize">
-          {overlay.name === 'trendLine' ? 'Trendline' : overlay.name} Settings
+          {overlay.name === 'trendLine' ? 'Trendline' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
         </span>
         <button onClick={handleCancel} className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer">
           <X className="w-4 h-4" />
@@ -953,7 +959,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         {(
           overlay.name === 'longPosition' || overlay.name === 'shortPosition'
             ? ['style', 'inputs', 'visibility'] as const
-            : ['style', 'text', 'coordinates', 'visibility'] as const
+            : (overlay.name === 'fxText' || overlay.name === 'text')
+              ? ['text', 'coordinates', 'visibility'] as const
+              : ['style', 'text', 'coordinates', 'visibility'] as const
         ).map(tab => (
           <button
             key={tab}
