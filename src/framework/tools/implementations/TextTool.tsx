@@ -24,30 +24,36 @@ export const TextTool: ToolDefinition = {
   
   createOverlayDef: () => ({
     name: 'fxText',
-    totalStep: 3,
+    totalStep: 2,
     needDefaultPointFigure: false,
     createPointFigures: ({ overlay, coordinates, chart }) => {
       if (chart && !isOverlayVisible(overlay, chart)) {
         return [];
       }
-      if (coordinates.length < 2) return [];
+      if (coordinates.length === 0) return [];
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
       const lineColor = customSettings.textColor || '#2196F3';
       const lineWidth = 1;
       const fillColor = 'rgba(33, 150, 243, 0.08)';
 
-      const p1 = coordinates[0];
-      const p2 = coordinates.length >= 8 ? coordinates[2] : coordinates[1];
+      let x = 0, y = 0, w = 150, h = 60;
 
-      const x = Math.min(p1.x, p2.x);
-      const y = Math.min(p1.y, p2.y);
-      const w = Math.abs(p1.x - p2.x);
-      const h = Math.abs(p1.y - p2.y);
+      if (coordinates.length === 1) {
+        x = coordinates[0].x;
+        y = coordinates[0].y;
+      } else {
+        const p1 = coordinates[0];
+        const p2 = coordinates.length >= 8 ? coordinates[2] : coordinates[1];
+        x = Math.min(p1.x, p2.x);
+        y = Math.min(p1.y, p2.y);
+        w = Math.abs(p1.x - p2.x);
+        h = Math.abs(p1.y - p2.y);
+      }
 
       const figures: any[] = [];
 
-      // Main body placeholder (Rectangle copy for Goal 1)
+      // Main rectangle body (copy from Rectangle mechanics for Goal 1)
       figures.push({
         type: 'rect',
         attrs: { x, y, width: w, height: h },
@@ -61,10 +67,10 @@ export const TextTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // 8 Grab Handles if selected or hovered
+      // Grab Handles if selected or hovered (copied from Rectangle for Goal 1)
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
-      if ((isSelected || isHovered) && coordinates.length >= 8) {
+      if (isSelected || isHovered) {
         drawGrabHandles(figures, coordinates, overlay.lock || false);
       }
 
@@ -74,15 +80,37 @@ export const TextTool: ToolDefinition = {
 
   onDrawEnd: (event: any) => {
     const points = event.overlay.points;
-    if (points.length < 2) return;
+    if (points.length === 0) return;
 
     const p1 = points[0];
-    const p2 = points[1];
+    let p2 = points[1];
+
+    if (!p2) {
+      // One-click creation: calculate default offset (150px wide x 60px high)
+      const p1Pixel = event.chart.convertToPixel([p1], { paneId: 'candle_pane' })?.[0];
+      if (p1Pixel) {
+        const p2Target = event.chart.convertFromPixel(
+          [{ x: p1Pixel.x + 150, y: p1Pixel.y + 60 }],
+          { paneId: 'candle_pane' }
+        )?.[0];
+        if (p2Target) {
+          p2 = p2Target;
+        }
+      }
+    }
+
+    if (!p2) {
+      p2 = { timestamp: p1.timestamp, value: p1.value, dataIndex: p1.dataIndex };
+    }
 
     const xMin = Math.min(p1.timestamp, p2.timestamp);
     const xMax = Math.max(p1.timestamp, p2.timestamp);
-    const diMin = p1.timestamp < p2.timestamp ? p1.dataIndex : p2.dataIndex;
-    const diMax = p1.timestamp < p2.timestamp ? p2.dataIndex : p1.dataIndex;
+    const diMin = (p1.dataIndex !== undefined && p2.dataIndex !== undefined)
+      ? (p1.timestamp <= p2.timestamp ? p1.dataIndex : p2.dataIndex)
+      : p1.dataIndex;
+    const diMax = (p1.dataIndex !== undefined && p2.dataIndex !== undefined)
+      ? (p1.timestamp <= p2.timestamp ? p2.dataIndex : p1.dataIndex)
+      : p1.dataIndex;
     const yMin = Math.min(p1.value, p2.value);
     const yMax = Math.max(p1.value, p2.value);
 
