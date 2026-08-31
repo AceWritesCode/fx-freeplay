@@ -158,7 +158,7 @@ export function getInteractiveOverlayOptions(
   setActiveTool: (tool: string | null) => void
 ) {
   let defaultSettings: Record<string, any> = {};
-  const registeredTool = ToolRegistry.get(toolName);
+  const registeredTool = ToolRegistry.get(toolName) || ToolRegistry.getAll().find((t: any) => t.createOverlayDef?.().name === toolName);
   if (registeredTool) {
     if (registeredTool.defaultTemplates && registeredTool.defaultTemplates.length > 0) {
       defaultSettings = { ...registeredTool.defaultTemplates[0].commonSettings };
@@ -171,8 +171,9 @@ export function getInteractiveOverlayOptions(
     }
   }
 
+  const lookupKey = registeredTool?.id || toolName;
   try {
-    const saved = localStorage.getItem(`fx_default_settings_${toolName}`);
+    const saved = localStorage.getItem(`fx_default_settings_${lookupKey}`) || localStorage.getItem(`fx_default_settings_${toolName}`);
     if (saved) {
       const parsed = JSON.parse(saved);
       defaultSettings = { ...defaultSettings, ...parsed };
@@ -181,7 +182,7 @@ export function getInteractiveOverlayOptions(
     console.error(e);
   }
 
-  if (toolName === 'text') {
+  if (lookupKey === 'text' || toolName === 'text') {
     defaultSettings.showBorder = !!defaultSettings.showBorder;
     defaultSettings.fillBackground = !!defaultSettings.fillBackground;
   }
@@ -195,8 +196,8 @@ export function getInteractiveOverlayOptions(
       const chartIdx = chartInstanceRef.current?._chartIndex ?? 0;
       console.log(`[DRAW CREATED]\ntype: ${toolName}\nid: ${event.overlay.id}\nsourceChart: chart-${chartIdx}`);
 
-      // Call custom tool onDrawEnd hook if defined in registry
-      const registeredTool = ToolRegistry.get(toolName);
+      // Call custom tool onDrawEnd hook if defined in registry (resolving by ID or overlay name)
+      const registeredTool = ToolRegistry.get(toolName) || ToolRegistry.getAll().find((t: any) => t.createOverlayDef?.().name === toolName);
       if (registeredTool && registeredTool.onDrawEnd) {
         registeredTool.onDrawEnd(event);
       }
@@ -265,7 +266,10 @@ export function getInteractiveOverlayOptions(
         actualChart._setSelectedOverlayIds([event.overlay.id]);
       }
 
-      setTimeout(() => runWorkspaceReconciliation(chartInstancesRef), 50);
+      runWorkspaceReconciliation(chartInstancesRef);
+      if (actualChart && actualChart._onHoverChange) {
+        actualChart._onHoverChange();
+      }
       return true;
     },
     onRemoved: (event: any) => {
