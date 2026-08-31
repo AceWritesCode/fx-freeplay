@@ -111,8 +111,8 @@ export const TextTool: ToolDefinition = {
       const fontSize = customSettings.fontSize || 14;
       const textAlign = customSettings.textAlign || 'left';
 
-      const p1 = coordinates[0]; // Top-left position
-      const p2 = coordinates[1]; // Center-right width anchor
+      const p1 = coordinates[0]; // Top-left position (Point 0)
+      const p2 = coordinates[1]; // Center-right width anchor (Point 1)
 
       const x = p1.x;
       const y = p1.y;
@@ -137,6 +137,36 @@ export const TextTool: ToolDefinition = {
       const topPadding = 8;
       const bottomPadding = 8;
       const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
+
+      // Synchronize points[1] in overlay if width or height expanded due to font-size change or text reflow
+      // This ensures the resize anchor point (points[1]) stays 100% attached to the center-right edge (x + w, y + h/2)
+      const targetHandleX = p1.x + w;
+      const targetHandleY = y + h / 2;
+      const diffX = Math.abs(p2.x - targetHandleX);
+      const diffY = Math.abs(p2.y - targetHandleY);
+      const overlayPoints = (overlay?.points as any[]);
+
+      if (chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2 && (diffX > 2 || diffY > 4)) {
+        const p2Target = (chart.convertFromPixel(
+          [{ x: targetHandleX, y: targetHandleY }],
+          { paneId: 'candle_pane' }
+        ) as any[])?.[0];
+        if (p2Target) {
+          setTimeout(() => {
+            chart.overrideOverlay({
+              id: overlay.id,
+              points: [
+                overlayPoints[0],
+                {
+                  timestamp: p2Target.timestamp,
+                  value: p2Target.value ?? overlayPoints[0].value,
+                  dataIndex: p2Target.dataIndex
+                }
+              ]
+            });
+          }, 0);
+        }
+      }
 
       const figures: any[] = [];
 
@@ -188,18 +218,16 @@ export const TextTool: ToolDefinition = {
         });
       });
 
-      // EXACTLY ONE VISIBLE ANCHOR: Center-Right Resize Handle
+      // EXACTLY ONE VISIBLE ANCHOR: Center-Right Resize Handle (Point 1)
       // Positioned vertically centered on the dynamic height (h) of the text box
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
       if (isSelected || isHovered) {
         const isLocked = overlay.lock || false;
         if (!isLocked) {
-          const handleX = p1.x + w;
-          const handleY = y + h / 2;
           figures.push({
             type: 'circle',
-            attrs: { x: handleX, y: handleY, r: 5 },
+            attrs: { x: targetHandleX, y: targetHandleY, r: 5 },
             styles: {
               style: 'stroke_fill',
               color: '#ffffff',
@@ -216,7 +244,7 @@ export const TextTool: ToolDefinition = {
   }),
 
   onDrawEnd: (event: any) => {
-    const points = event.overlay.points;
+    const points = (event.overlay.points as any[]) || [];
     if (points.length === 0) return;
 
     const p1 = points[0];
@@ -253,7 +281,7 @@ export const TextTool: ToolDefinition = {
   },
 
   onPressedMoving: (event: any, draggedIndex: number) => {
-    const points = [...event.overlay.points];
+    const points = [...((event.overlay.points as any[]) || [])];
     if (points.length < 2) return false;
 
     const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
