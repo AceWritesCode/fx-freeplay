@@ -9,6 +9,9 @@ const isOverlayVisible = (overlay: any, _chart: any) => {
   return true;
 };
 
+// Fixed internal horizontal padding constant for equal left and right breathing room
+const PADDING_HORIZONTAL = 8;
+
 /**
  * Helper to measure single character width at a given font size.
  */
@@ -17,7 +20,7 @@ const getSingleCharWidth = (fontSize: number): number => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.font = `${fontSize}px sans-serif`;
+      ctx.font = `${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
       return ctx.measureText('W').width;
     }
   }
@@ -37,11 +40,11 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number):
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.font = `${fontSize}px sans-serif`;
+        ctx.font = `${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
         return ctx.measureText(str).width;
       }
     }
-    return str.length * (fontSize * 0.58);
+    return str.length * (fontSize * 0.60);
   };
 
   const lines: string[] = [];
@@ -106,6 +109,7 @@ export const TextTool: ToolDefinition = {
       const textColor = customSettings.textColor || '#2196F3';
       const textContent = customSettings.text || 'Add text';
       const fontSize = customSettings.fontSize || 14;
+      const textAlign = customSettings.textAlign || 'left';
 
       const p1 = coordinates[0]; // Top-left position
       const p2 = coordinates[1]; // Center-right width anchor
@@ -113,17 +117,17 @@ export const TextTool: ToolDefinition = {
       const x = p1.x;
       const y = p1.y;
 
-      // Minimum box width = width of 1 character at current font size + horizontal padding (8px)
+      // Minimum box width = width of 1 character at current font size + horizontal padding (left + right)
       const singleCharW = getSingleCharWidth(fontSize);
-      const minBoxWidth = Math.ceil(singleCharW + 8);
+      const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
       // Font-size exception: if increasing font size makes 1 char wider than current box,
       // automatically increase the box width as necessary so text remains valid and contained!
       const rawW = p2.x - p1.x;
       const w = Math.max(minBoxWidth, rawW);
 
-      // Available width for character-level wrapping
-      const availWidth = Math.max(singleCharW, w - 8);
+      // Available width for character-level wrapping = boxWidth - leftPadding - rightPadding
+      const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
 
       // Character-level text wrapping
       const lines = getWrappedLines(textContent, availWidth, fontSize);
@@ -150,17 +154,29 @@ export const TextTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // Render each wrapped line of text inside the box
+      // Calculate text X position and alignment based on textAlign setting
+      let textX = x + PADDING_HORIZONTAL;
+      let textAlignStyle = 'left';
+
+      if (textAlign === 'center') {
+        textX = x + w / 2;
+        textAlignStyle = 'center';
+      } else if (textAlign === 'right') {
+        textX = x + w - PADDING_HORIZONTAL;
+        textAlignStyle = 'right';
+      }
+
+      // Render each wrapped line of text inside the box with fixed consistent horizontal padding
       lines.forEach((lineStr, index) => {
         const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
         figures.push({
           type: 'text',
           attrs: {
-            x: x + 4,
+            x: textX,
             y: lineY,
             text: lineStr,
             baseline: 'middle',
-            align: 'left'
+            align: textAlignStyle
           },
           styles: {
             color: textColor,
@@ -252,11 +268,11 @@ export const TextTool: ToolDefinition = {
 
     if (draggedIndex === 1) {
       // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
-      // Enforce minimum width constraint (never narrower than 1 character width)
+      // Enforce minimum width constraint (boxWidth - leftPadding - rightPadding >= 1 char width)
       const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
       const fontSize = customSettings.fontSize || 14;
       const singleCharW = getSingleCharWidth(fontSize);
-      const minBoxWidth = Math.ceil(singleCharW + 8);
+      const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
       const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0];
       let p2Target = targetPt;
