@@ -42,6 +42,7 @@ export const TextTool: ToolDefinition = {
   settingsSchema: [
     { id: 'textColor', label: 'Text Color', type: 'color', defaultValue: '#2196F3' },
     { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 8, max: 72, step: 1 },
+    { id: 'textAlign', label: 'Text Alignment', type: 'select', defaultValue: 'left', options: [{ label: 'Left', value: 'left' }, { label: 'Center', value: 'center' }, { label: 'Right', value: 'right' }] },
     { id: 'bold', label: 'Bold', type: 'boolean', defaultValue: false },
     { id: 'italic', label: 'Italic', type: 'boolean', defaultValue: false },
     { id: 'fillBackground', label: 'Background', type: 'boolean', defaultValue: false },
@@ -52,7 +53,7 @@ export const TextTool: ToolDefinition = {
     { id: 'isAnchored', label: 'Anchor to Chart', type: 'boolean', defaultValue: false }
   ],
   defaultTemplates: [
-    { id: 'default', name: 'Default', commonSettings: { textColor: '#2196F3', fontSize: 14, boxWidth: 200, isAnchored: false, showBorder: false, fillBackground: false } }
+    { id: 'default', name: 'Default', commonSettings: { textColor: '#2196F3', fontSize: 14, textAlign: 'left', boxWidth: 200, isAnchored: false, showBorder: false, fillBackground: false } }
   ],
 
   createOverlayDef: () => ({

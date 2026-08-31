@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ChevronDown, Check, Minus, Plus } from 'lucide-react';
+import { X, ChevronDown, Check, Minus, Plus, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 interface DrawingSettingsDialogProps {
@@ -210,6 +210,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [text, setText] = useState('');
   const [textColor, setTextColor] = useState('#2196F3');
   const [fontSize, setFontSize] = useState(14);
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [showBorder, setShowBorder] = useState(false);
@@ -291,6 +292,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setText(customSettings.text || '');
     setTextColor(customSettings.textColor || (overlay.name === 'longPosition' || overlay.name === 'shortPosition' ? '#ffffff' : '#2196F3'));
     setFontSize(customSettings.fontSize || 14);
+    setTextAlign(customSettings.textAlign || 'left');
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
     setShowBorder(!!customSettings.showBorder);
@@ -448,6 +450,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       text,
       textColor,
       fontSize,
+      textAlign,
       bold: isBold,
       italic: isItalic,
       showBorder,
@@ -1393,6 +1396,34 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               >
                 I
               </button>
+
+              {/* Text Alignment Selector */}
+              <div className="flex items-center bg-app-bg border border-border-def rounded-lg p-0.5 ml-2 gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTextAlign('left')}
+                  className={`p-1.5 rounded transition-colors ${textAlign === 'left' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
+                  title="Align Left"
+                >
+                  <AlignLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTextAlign('center')}
+                  className={`p-1.5 rounded transition-colors ${textAlign === 'center' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
+                  title="Align Center"
+                >
+                  <AlignCenter className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTextAlign('right')}
+                  className={`p-1.5 rounded transition-colors ${textAlign === 'right' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
+                  title="Align Right"
+                >
+                  <AlignRight className="w-4 h-4" />
+                </button>
+              </div>
 
             </div>
 

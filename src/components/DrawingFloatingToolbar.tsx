@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 
 import { SearchableDropdown } from './DrawingSettingsDialog';
@@ -91,6 +91,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
+  const textAlign = customSettings.textAlign || 'left';
   const fillBackground = customSettings.fillBackground !== false && customSettings.fillBackground !== undefined;
   const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
   const lineColor = customSettings.lineColor || '#2196F3';
@@ -588,6 +589,33 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Text Alignment Selector for Text Tool */}
+        {isText && (
+          <div className="flex items-center bg-surface-elevated/60 border border-border-def/60 rounded p-0.5 gap-0.5">
+            <button
+              onClick={() => handleUpdate({ textAlign: 'left' })}
+              className={`p-1 rounded transition-colors ${textAlign === 'left' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
+              title="Align Left"
+            >
+              <AlignLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => handleUpdate({ textAlign: 'center' })}
+              className={`p-1 rounded transition-colors ${textAlign === 'center' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
+              title="Align Center"
+            >
+              <AlignCenter className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => handleUpdate({ textAlign: 'right' })}
+              className={`p-1 rounded transition-colors ${textAlign === 'right' ? 'text-accent bg-accent-muted' : 'text-txt-muted hover:text-txt-primary'}`}
+              title="Align Right"
+            >
+              <AlignRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 

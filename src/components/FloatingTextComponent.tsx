@@ -59,6 +59,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
   const text = customSettings.text || '';
   const textColor = customSettings.textColor || '#2196F3';
   const fontSize = customSettings.fontSize || 14;
+  const textAlign = customSettings.textAlign || 'left';
   const isBold = !!customSettings.bold;
   const isItalic = !!customSettings.italic;
   const fillBackground = !!customSettings.fillBackground;
@@ -191,6 +192,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
         padding: '4px 6px',
         color: textColor,
         fontSize: `${fontSize}px`,
+        textAlign: textAlign as any,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
         wordBreak: 'break-word',
@@ -221,6 +223,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
             backgroundColor: 'transparent',
             color: 'inherit',
             fontSize: 'inherit',
+            textAlign: 'inherit',
             fontWeight: 'inherit',
             fontStyle: 'inherit',
             fontFamily: 'inherit',
@@ -236,7 +239,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
           placeholder="Add text..."
         />
       ) : (
-        <div style={{ fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit', fontStyle: 'inherit', lineHeight: 1.3 }} className="min-h-[20px] pointer-events-auto">
+        <div style={{ fontSize: 'inherit', textAlign: 'inherit', color: 'inherit', fontWeight: 'inherit', fontStyle: 'inherit', lineHeight: 1.3 }} className="min-h-[20px] pointer-events-auto">
           {text || <span className="opacity-40 italic text-xs">Add text...</span>}
         </div>
       )}
