@@ -2448,35 +2448,6 @@ export function ChartWorkspace() {
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
           if (resolved) {
             const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-
-            // If a text drawing is saved with empty text, immediately auto-delete it from store & canvas
-            if (currentDrawing.name === 'fxText' || currentDrawing.name === 'text') {
-              const rawText = updatedSettings.text;
-              const hasText = typeof rawText === 'string' && rawText.trim().length > 0 && rawText !== 'Add text';
-              if (!hasText) {
-                console.log(`[Auto-Delete] Removing empty text box "${originalId}" on save`);
-                useDrawingStore.getState().removeSymbolDrawing(drawingSymbol, originalId);
-                chartInstancesRef.current.forEach((chart) => {
-                  if (chart) {
-                    chart.removeOverlay({ id: originalId });
-                    chart.removeOverlay({ id: drawingSettingsOverlayId });
-                    const overlays = chart.getOverlays() || [];
-                    overlays.forEach((ov: any) => {
-                      if (ov.id === originalId || ov.id?.startsWith(`sync_${originalId}_`)) {
-                        chart.removeOverlay({ id: ov.id });
-                      }
-                    });
-                    DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
-                  }
-                });
-                setSelectedOverlayIds([]);
-                setIsDrawingSettingsOpen(false);
-                runWorkspaceReconciliation(chartInstancesRef);
-                drawingCoord.setDrawingTrigger((prev) => prev + 1);
-                return;
-              }
-            }
-
             updateDefaultSettings(currentDrawing.name, updatedSettings);
             const mergedExtendData = {
               ...(currentDrawing.extendData || {}),
