@@ -1,5 +1,4 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
-import { snapPointToCandle } from '@/engine/charting';
 import { Type } from 'lucide-react';
 
 const isOverlayVisible = (overlay: any, _chart: any) => {
@@ -317,12 +316,6 @@ export const TextTool: ToolDefinition = {
       delete customSettings.fixedPixelPosition;
     }
 
-    const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
-    if (!mousePt) return false;
-
-    const snapped = snapPointToCandle(event, event.x, event.y);
-    const targetPt = snapped || mousePt;
-
     const startPoints = (event.overlay.extendData as any)?.startPoints;
     const startP1 = startPoints?.[0] || points[0];
     const startP2 = startPoints?.[1] || points[1];
@@ -331,26 +324,10 @@ export const TextTool: ToolDefinition = {
     const singleCharW = getSingleCharWidth(fontSize);
     const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
-    console.log('[TextTool Debug] TextTool onPressedMoving:', {
-      draggedIndex,
-      eventX: event.x,
-      eventY: event.y,
-      currentBoxWidth: customSettings.boxWidth,
-      startP1,
-      startP2
-    });
-
     if (draggedIndex === 1) {
       // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
       const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0] || { x: event.x, y: event.y };
       const newWidth = Math.max(minBoxWidth, event.x - p1Pixel.x);
-
-      console.log('[TextTool Debug] Resizing TextTool width:', {
-        p1Pixel,
-        eventX: event.x,
-        newWidth,
-        minBoxWidth
-      });
 
       const newExtendData = {
         ...(event.overlay.extendData || {}),
@@ -385,25 +362,37 @@ export const TextTool: ToolDefinition = {
 
       return { points, extendData: newExtendData };
     } else {
-      // Body drag: move the ENTIRE text box together!
-      const dt = targetPt.timestamp - startP1.timestamp;
-      const dv = targetPt.value - startP1.value;
-      const dDi = (targetPt.dataIndex !== undefined && startP1.dataIndex !== undefined)
-        ? (targetPt.dataIndex - startP1.dataIndex)
-        : 0;
+      // Body drag: translate entire text box by mouse delta relative to where user grabbed it!
+      const startMousePixel = (event.overlay.extendData as any)?.startMousePixel;
+      const startPointsPixels = (event.overlay.extendData as any)?.startPointsPixels;
 
-      points[0] = {
-        timestamp: targetPt.timestamp,
-        value: targetPt.value,
-        dataIndex: targetPt.dataIndex
-      };
-      points[1] = {
-        timestamp: startP2.timestamp + dt,
-        value: startP2.value + dv,
-        dataIndex: startP2.dataIndex !== undefined ? startP2.dataIndex + dDi : undefined
-      };
+      if (startPoints && startMousePixel && startPointsPixels && Array.isArray(startPointsPixels)) {
+        const dx = event.x - startMousePixel.x;
+        const dy = event.y - startMousePixel.y;
 
-      return { points } satisfies ToolMutationResult;
+        const targetPixels = startPointsPixels.map((pt: any) => ({
+          x: pt.x + dx,
+          y: pt.y + dy
+        }));
+
+        const convertedPoints = event.chart.convertFromPixel(targetPixels, { paneId: 'candle_pane' });
+
+        if (convertedPoints && convertedPoints.length === startPoints.length) {
+          const newPoints = startPoints.map((pt: any, i: number) => {
+            const conv = convertedPoints[i];
+            return {
+              ...pt,
+              timestamp: conv?.timestamp ?? pt.timestamp,
+              value: conv?.value ?? pt.value,
+              ...(conv?.dataIndex !== undefined ? { dataIndex: conv.dataIndex } : {})
+            };
+          });
+
+          return { points: newPoints } satisfies ToolMutationResult;
+        }
+      }
+
+      return false;
     }
   }
 };
