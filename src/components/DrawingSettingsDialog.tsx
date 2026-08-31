@@ -537,7 +537,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       };
     });
 
-    onSave(updatedSettings, updatedPoints);
+    const pointsToSave = activeTab === 'coordinates' ? updatedPoints : (overlay.points || backupPointsRef.current || updatedPoints);
+    onSave(updatedSettings, pointsToSave);
   }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
   // Helper to ensure selectedGroup updates if mode changes or templates are deleted
@@ -2159,7 +2160,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 textPlacement,
                 visibility
               };
-              onSave(updatedSettings, points);
+              const pointsToSave = overlay.points || backupPointsRef.current || [];
+              onSave(updatedSettings, pointsToSave);
               onClose();
             }}
             className="px-5 py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg font-semibold cursor-pointer transition-colors shadow-lg"
