@@ -10,8 +10,24 @@ const isOverlayVisible = (overlay: any, _chart: any) => {
 };
 
 /**
- * Helper to split text into lines based on canvas width and font size.
- * Handles both explicit newlines ('\n') and automatic word wrapping.
+ * Helper to measure single character width at a given font size.
+ */
+const getSingleCharWidth = (fontSize: number): number => {
+  if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.font = `${fontSize}px sans-serif`;
+      return ctx.measureText('W').width;
+    }
+  }
+  return fontSize * 0.65;
+};
+
+/**
+ * Character-level wrapping algorithm.
+ * Breaks text EXACTLY when available width ends at character boundaries,
+ * without waiting for spaces or word boundaries.
  */
 const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number): string[] => {
   if (!text) return [''];
@@ -37,17 +53,16 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number):
       continue;
     }
 
-    const words = rawLine.split(' ');
     let currentLine = '';
 
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
+    for (let i = 0; i < rawLine.length; i++) {
+      const char = rawLine[i];
+      const testLine = currentLine + char;
       const testWidth = getWidth(testLine);
 
-      if (testWidth > maxPixelWidth && currentLine) {
+      if (testWidth > maxPixelWidth && currentLine.length > 0) {
         lines.push(currentLine);
-        currentLine = word;
+        currentLine = char;
       } else {
         currentLine = testLine;
       }
@@ -97,12 +112,20 @@ export const TextTool: ToolDefinition = {
 
       const x = p1.x;
       const y = p1.y;
-      const w = Math.max(60, p2.x - p1.x);
 
-      // Available width inside text box (with 4px padding on left & right)
-      const availWidth = Math.max(20, w - 8);
+      // Minimum box width = width of 1 character at current font size + horizontal padding (8px)
+      const singleCharW = getSingleCharWidth(fontSize);
+      const minBoxWidth = Math.ceil(singleCharW + 8);
 
-      // Wrap text into lines based on availWidth and fontSize
+      // Font-size exception: if increasing font size makes 1 char wider than current box,
+      // automatically increase the box width as necessary so text remains valid and contained!
+      const rawW = p2.x - p1.x;
+      const w = Math.max(minBoxWidth, rawW);
+
+      // Available width for character-level wrapping
+      const availWidth = Math.max(singleCharW, w - 8);
+
+      // Character-level text wrapping
       const lines = getWrappedLines(textContent, availWidth, fontSize);
 
       // Calculate dynamic line height and total box height automatically
@@ -229,10 +252,33 @@ export const TextTool: ToolDefinition = {
 
     if (draggedIndex === 1) {
       // Center-right anchor: resize width only
+      // Enforce minimum width constraint (never narrower than 1 character width)
+      const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
+      const fontSize = customSettings.fontSize || 14;
+      const singleCharW = getSingleCharWidth(fontSize);
+      const minBoxWidth = Math.ceil(singleCharW + 8);
+
+      const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0];
+      let p2Target = targetPt;
+
+      if (p1Pixel) {
+        const minXPixel = p1Pixel.x + minBoxWidth;
+        const currentMousePixel = event.chart.convertToPixel([targetPt], { paneId: 'candle_pane' })?.[0];
+        if (currentMousePixel && currentMousePixel.x < minXPixel) {
+          const clampedPt = event.chart.convertFromPixel(
+            [{ x: minXPixel, y: currentMousePixel.y }],
+            { paneId: 'candle_pane' }
+          )?.[0];
+          if (clampedPt) {
+            p2Target = clampedPt;
+          }
+        }
+      }
+
       points[1] = {
-        timestamp: targetPt.timestamp,
+        timestamp: p2Target.timestamp,
         value: startP1.value,
-        dataIndex: targetPt.dataIndex
+        dataIndex: p2Target.dataIndex
       };
     } else if (draggedIndex === 0) {
       // Position anchor / body drag: move entire text box
