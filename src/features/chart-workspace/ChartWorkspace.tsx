@@ -2434,7 +2434,21 @@ export function ChartWorkspace() {
       {/* Drawing Settings Dialog */}
       <DrawingSettingsDialog
         isOpen={isDrawingSettingsOpen}
-        onClose={() => setIsDrawingSettingsOpen(false)}
+        onClose={() => {
+          setIsDrawingSettingsOpen(false);
+          if (drawingSettingsOverlayId) {
+            const syncMatch = drawingSettingsOverlayId.match(/^sync_(.+)_from_(\d+)$/);
+            const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
+            const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+            if (resolved && (resolved.drawing.name === 'fxText' || resolved.drawing.name === 'text')) {
+              const rawText = resolved.drawing.extendData?.customSettings?.text;
+              const hasText = typeof rawText === 'string' && rawText.trim().length > 0 && rawText !== 'Add text';
+              if (!hasText) {
+                handleSelectOverlayIds((prev) => prev.filter((id) => id !== originalId && id !== drawingSettingsOverlayId));
+              }
+            }
+          }
+        }}
         overlay={getSelectedSettingsOverlay()}
         allCandles={workspaceCoord.allTimeframesData[activeTimeframe] || []}
         timeframe={activeTimeframe}
@@ -2447,6 +2461,33 @@ export function ChartWorkspace() {
 
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
           if (resolved) {
+            const isText = resolved.drawing.name === 'fxText' || resolved.drawing.name === 'text';
+            const rawText = updatedSettings.text;
+            const hasText = typeof rawText === 'string' && rawText.trim().length > 0 && rawText !== 'Add text';
+
+            // If it's a text tool and the text was cleared/empty, delete it immediately!
+            if (isText && !hasText) {
+              console.log(`[Auto-Delete] Deleting empty text drawing "${originalId}" on save`);
+              useDrawingStore.getState().removeSymbolDrawing(resolved.symbol, originalId);
+              chartInstancesRef.current.forEach((chart) => {
+                if (chart) {
+                  chart.removeOverlay({ id: originalId });
+                  chart.removeOverlay({ id: drawingSettingsOverlayId });
+                  const overlays = chart.getOverlays() || [];
+                  overlays.forEach((ov: any) => {
+                    if (ov.id === originalId || ov.id?.startsWith(`sync_${originalId}_`)) {
+                      chart.removeOverlay({ id: ov.id });
+                    }
+                  });
+                  DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+                }
+              });
+              setSelectedOverlayIds((prev) => prev.filter((id) => id !== originalId && id !== drawingSettingsOverlayId));
+              runWorkspaceReconciliation(chartInstancesRef);
+              drawingCoord.setDrawingTrigger((prev) => prev + 1);
+              return;
+            }
+
             const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
             updateDefaultSettings(currentDrawing.name, updatedSettings);
             const mergedExtendData = {
