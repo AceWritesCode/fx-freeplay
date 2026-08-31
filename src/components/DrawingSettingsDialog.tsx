@@ -903,16 +903,67 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const allUniqueNames = Array.from(new Set((templates || []).filter(t => t && t.name).map(t => t.name)));
   const allUniqueGroups = Array.from(new Set((templates || []).filter(t => t && t.group).map(t => t.group)));
 
+  const handleConfirm = () => {
+    const customSettings = overlay.extendData?.customSettings || {};
+    const updatedSettings = {
+      lineColor,
+      lineWidth,
+      lineStyle,
+      extendType,
+      fillColor,
+      fillBackground,
+      profitColor,
+      lossColor,
+      alwaysShowStats,
+      showLines,
+      showActivationLine,
+      activationLineColor,
+      activationLineWidth,
+      activationLineStyle,
+      showActivationHighlight,
+      activationHighlightOpacity,
+      showMarkers,
+      initialSizePercent,
+      text,
+      textColor,
+      fontSize,
+      textAlign,
+      bold: isBold,
+      italic: isItalic,
+      showBorder,
+      isAnchored,
+      boxWidth: customSettings.boxWidth,
+      textPosition: {
+        vertical: textValign,
+        horizontal: textHalign
+      },
+      textPlacement,
+      visibility
+    };
+    const pointsToSave = overlay.points || backupPointsRef.current || [];
+    onSave(updatedSettings, pointsToSave);
+    onClose();
+  };
+
   return (
-    <div 
-      ref={containerRef}
-      className="fixed bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[420px] flex flex-col z-50 text-txt-secondary select-none overflow-visible animate-in fade-in zoom-in-95 duration-150"
-      style={{ 
-        left: `${position.x}px`, 
-        top: `${position.y}px`,
-        boxShadow: '0 20px 30px -5px rgba(0, 0, 0, 0.6), 0 10px 15px -5px rgba(0, 0, 0, 0.4)'
-      }}
-    >
+    <>
+      {/* Backdrop overlay to block canvas interaction and save changes on outside click */}
+      <div 
+        className="fixed inset-0 z-40 bg-black/20"
+        onClick={handleConfirm}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+      />
+
+      <div 
+        ref={containerRef}
+        className="fixed bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[420px] flex flex-col z-50 text-txt-secondary select-none overflow-visible animate-in fade-in zoom-in-95 duration-150"
+        style={{ 
+          left: `${position.x}px`, 
+          top: `${position.y}px`,
+          boxShadow: '0 20px 30px -5px rgba(0, 0, 0, 0.6), 0 10px 15px -5px rgba(0, 0, 0, 0.4)'
+        }}
+      >
       {/* Super-imposed Range Sliders Styling */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-range-slider {
@@ -2123,47 +2174,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             Cancel
           </button>
           <button
-            onClick={() => {
-              const customSettings = overlay.extendData?.customSettings || {};
-              const updatedSettings = {
-                lineColor,
-                lineWidth,
-                lineStyle,
-                extendType,
-                fillColor,
-                fillBackground,
-                profitColor,
-                lossColor,
-                alwaysShowStats,
-                showLines,
-                showActivationLine,
-                activationLineColor,
-                activationLineWidth,
-                activationLineStyle,
-                showActivationHighlight,
-                activationHighlightOpacity,
-                showMarkers,
-                initialSizePercent,
-                text,
-                textColor,
-                fontSize,
-                textAlign,
-                bold: isBold,
-                italic: isItalic,
-                showBorder,
-                isAnchored,
-                boxWidth: customSettings.boxWidth,
-                textPosition: {
-                  vertical: textValign,
-                  horizontal: textHalign
-                },
-                textPlacement,
-                visibility
-              };
-              const pointsToSave = overlay.points || backupPointsRef.current || [];
-              onSave(updatedSettings, pointsToSave);
-              onClose();
-            }}
+            onClick={handleConfirm}
             className="px-5 py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg font-semibold cursor-pointer transition-colors shadow-lg"
           >
             Ok
@@ -2316,5 +2327,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       )}
 
     </div>
+    </>
   );
 };
