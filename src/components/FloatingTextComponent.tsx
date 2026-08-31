@@ -63,7 +63,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
   const isItalic = !!customSettings.italic;
   const fillBackground = !!customSettings.fillBackground;
   const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
-  const showBorder = customSettings.showBorder !== false;
+  const showBorder = !!customSettings.showBorder;
   const lineColor = customSettings.lineColor || '#2196F3';
   const boxWidth = customSettings.boxWidth || 200;
 
@@ -183,7 +183,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
         width: `${boxWidth}px`,
         zIndex: isEditing ? 50 : 20,
         backgroundColor: fillBackground ? fillColor : 'transparent',
-        border: showBorder ? `1px solid ${lineColor}` : '1px stroke-dashed transparent',
+        border: showBorder ? `1px solid ${lineColor}` : (isEditing ? '1px dashed rgba(33, 150, 243, 0.5)' : '1px solid transparent'),
         borderRadius: '4px',
         padding: '4px 6px',
         color: textColor,

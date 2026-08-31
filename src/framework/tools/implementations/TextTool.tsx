@@ -46,13 +46,13 @@ export const TextTool: ToolDefinition = {
     { id: 'italic', label: 'Italic', type: 'boolean', defaultValue: false },
     { id: 'fillBackground', label: 'Background', type: 'boolean', defaultValue: false },
     { id: 'fillColor', label: 'Background Color', type: 'color', defaultValue: 'rgba(33, 150, 243, 0.1)' },
-    { id: 'showBorder', label: 'Show Border', type: 'boolean', defaultValue: true },
+    { id: 'showBorder', label: 'Show Border', type: 'boolean', defaultValue: false },
     { id: 'lineColor', label: 'Border Color', type: 'color', defaultValue: '#2196F3' },
     { id: 'boxWidth', label: 'Box Width', type: 'number', defaultValue: 200, min: 50, max: 1000, step: 10 },
     { id: 'isAnchored', label: 'Anchor to Chart', type: 'boolean', defaultValue: false }
   ],
   defaultTemplates: [
-    { id: 'default', name: 'Default', commonSettings: { textColor: '#2196F3', fontSize: 14, boxWidth: 200, isAnchored: false } }
+    { id: 'default', name: 'Default', commonSettings: { textColor: '#2196F3', fontSize: 14, boxWidth: 200, isAnchored: false, showBorder: false, fillBackground: false } }
   ],
 
   createOverlayDef: () => ({
@@ -72,8 +72,9 @@ export const TextTool: ToolDefinition = {
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
-      const fillColor = customSettings.fillBackground ? (customSettings.fillColor || 'rgba(33, 150, 243, 0.1)') : 'transparent';
-      const showBorder = customSettings.showBorder !== false;
+      const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
+      const fillBackground = !!customSettings.fillBackground;
+      const showBorder = !!customSettings.showBorder;
       const boxWidth = customSettings.boxWidth || 200;
       const boxHeight = customSettings.boxHeight || 40;
 
@@ -85,18 +86,20 @@ export const TextTool: ToolDefinition = {
 
       const figures: any[] = [];
 
-      // Optional background / border box figure
-      figures.push({
-        type: 'rect',
-        attrs: { x, y, width: w, height: h },
-        styles: {
-          style: showBorder ? 'stroke_fill' : (customSettings.fillBackground ? 'fill' : 'none'),
-          color: fillColor,
-          borderColor: showBorder ? lineColor : 'transparent',
-          borderSize: showBorder ? lineWidth : 0,
-        },
-        ignoreEvent: false
-      });
+      // Render background / border box figure ONLY when explicitly enabled by user
+      if (showBorder || fillBackground) {
+        figures.push({
+          type: 'rect',
+          attrs: { x, y, width: w, height: h },
+          styles: {
+            style: showBorder && fillBackground ? 'stroke_fill' : (showBorder ? 'stroke' : 'fill'),
+            color: fillColor,
+            borderColor: showBorder ? lineColor : 'transparent',
+            borderSize: showBorder ? lineWidth : 0,
+          },
+          ignoreEvent: false
+        });
+      }
 
       // Grab Handles when selected or hovered
       const isSelected = (overlay.extendData as any)?.isSelected;
