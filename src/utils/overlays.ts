@@ -391,24 +391,17 @@ export function getInteractiveOverlayOptions(
         }
       }
 
-      if ((toolName === 'fxText' || toolName === 'text' || customSettings.boxWidth !== undefined) && Array.isArray(pts) && pts[0]) {
-        const boxW = customSettings.boxWidth !== undefined ? customSettings.boxWidth : 180;
-        const fontSize = customSettings.fontSize || 14;
-        const textContent = customSettings.text || 'Add text';
-        const singleCharW = fontSize * 0.65;
-        const availW = Math.max(singleCharW, boxW - 20);
-        const rawLines = textContent.split('\n');
-        let lineCount = 0;
-        rawLines.forEach((rl: string) => {
-          const charCountPerLine = Math.max(1, Math.floor(availW / singleCharW));
-          lineCount += Math.max(1, Math.ceil((rl.length || 1) / charCountPerLine));
-        });
+      if (toolName === 'fxText' || toolName === 'text') {
+        const p1Pixel = Array.isArray(pts) && pts[0] ? pts[0] : { x: event.x, y: event.y };
+        const cs = event.overlay?.extendData?.customSettings || {};
+        const boxW = cs.boxWidth !== undefined ? cs.boxWidth : 180;
+        const fontSize = cs.fontSize || 14;
         const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-        const boxH = Math.max(32, lineCount * lineHeight + 16);
-        pts[1] = {
-          x: pts[0].x + boxW,
-          y: pts[0].y + boxH / 2
-        };
+        const boxH = Math.max(32, 16 + lineHeight);
+        pts = [
+          { x: p1Pixel.x, y: p1Pixel.y },
+          { x: p1Pixel.x + boxW, y: p1Pixel.y + boxH / 2 }
+        ];
       }
 
       let minDistance = Infinity;
@@ -425,7 +418,7 @@ export function getInteractiveOverlayOptions(
         });
       }
 
-      const isHandle = minDistance <= 28;
+      const isHandle = minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
       if (isHandle) {
@@ -513,6 +506,7 @@ export function getInteractiveOverlayOptions(
           if (result.points) overridePayload.points = result.points;
           if ((result as any).extendData) overridePayload.extendData = (result as any).extendData;
           event.chart.overrideOverlay(overridePayload);
+          DrawingChartAdapter.invalidatePane(event.chart);
           mirrorLiveOverlayUpdate(event.chart, event.overlay.id, overridePayload, chartInstancesRef);
           return;
         }
