@@ -36,7 +36,7 @@ export const TextTool: ToolDefinition = {
       }
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
-      const textColor = customSettings.textColor || '#787b86';
+      const textColor = customSettings.textColor || '#2196F3';
       const textContent = customSettings.text || 'Add text...';
       const fontSize = customSettings.fontSize || 14;
 
@@ -50,15 +50,15 @@ export const TextTool: ToolDefinition = {
 
       const figures: any[] = [];
 
-      // Main text box background (no background/highlight)
+      // Main text box outline rect (border only, no fill)
       figures.push({
         type: 'rect',
         attrs: { x, y, width: w, height: h },
         styles: {
-          style: 'stroke_fill',
+          style: 'stroke',
           color: 'transparent',
-          borderColor: 'transparent',
-          borderSize: 0,
+          borderColor: textColor,
+          borderSize: 1,
           borderStyle: 'solid'
         },
         ignoreEvent: false
@@ -77,7 +77,8 @@ export const TextTool: ToolDefinition = {
         styles: {
           color: textColor,
           size: fontSize,
-          family: 'sans-serif'
+          family: 'sans-serif',
+          backgroundColor: 'transparent'
         },
         ignoreEvent: false
       });
