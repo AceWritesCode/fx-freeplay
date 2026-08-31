@@ -393,7 +393,8 @@ export const RectangleTool: ToolDefinition = {
     });
   },
 
-  onPressedMoving: (event: any, draggedIndex: number) => {
+  onPressedMoving: (event: any, draggedIndex: number | null) => {
+    if (draggedIndex === null) return false;
     const points = [...event.overlay.points];
     if (points.length < 8) return false;
 

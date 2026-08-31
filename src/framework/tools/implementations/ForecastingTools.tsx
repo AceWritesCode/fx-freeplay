@@ -868,7 +868,8 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
 
 // ─── onPressedMoving: handle per-handle drag constraints ─────────────────────
 
-const onPressedMovingRiskReward = (event: any, draggedIndex: number, isLong: boolean) => {
+const onPressedMovingRiskReward = (event: any, draggedIndex: number | null, isLong: boolean) => {
+  if (draggedIndex === null) return false;
   let points = [...event.overlay.points];
   if (points.length < 6) {
     return false;
@@ -1035,7 +1036,7 @@ export const LongPositionTool: ToolDefinition = {
   }],
   createOverlayDef:  () => createRiskRewardOverlayDef('longPosition', true),
   onDrawEnd:         (event: any) => onDrawEndRiskReward(event, true),
-  onPressedMoving:   (event: any, draggedIndex: number) => onPressedMovingRiskReward(event, draggedIndex, true)
+  onPressedMoving:   (event: any, draggedIndex: number | null) => onPressedMovingRiskReward(event, draggedIndex, true)
 };
 
 export const ShortPositionTool: ToolDefinition = {
@@ -1081,5 +1082,5 @@ export const ShortPositionTool: ToolDefinition = {
   }],
   createOverlayDef:  () => createRiskRewardOverlayDef('shortPosition', false),
   onDrawEnd:         (event: any) => onDrawEndRiskReward(event, false),
-  onPressedMoving:   (event: any, draggedIndex: number) => onPressedMovingRiskReward(event, draggedIndex, false)
+  onPressedMoving:   (event: any, draggedIndex: number | null) => onPressedMovingRiskReward(event, draggedIndex, false)
 };

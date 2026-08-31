@@ -150,42 +150,45 @@ export const TextTool: ToolDefinition = {
       const targetHandleY = y + h / 2;
 
       const overlayPoints = (overlay?.points as any[]);
+      const isActivelyDragging = (overlay.extendData as any)?.draggedIndex !== undefined && (overlay.extendData as any)?.draggedIndex !== null;
 
-      if (isAnchored && chart && overlay?.id) {
-        // Synchronize data points to keep KLineCharts internal mapping aligned with fixed screen position
-        const p1Conv = (chart.convertFromPixel([{ x, y }], { paneId: 'candle_pane' }) as any[])?.[0];
-        const p2Conv = (chart.convertFromPixel([{ x: targetHandleX, y: targetHandleY }], { paneId: 'candle_pane' }) as any[])?.[0];
-        const currentP0 = (overlay.points as any[])?.[0];
-        if (p1Conv && p2Conv && currentP0 && (p1Conv.timestamp !== currentP0.timestamp || Math.abs((p1Conv.value ?? 0) - (currentP0.value ?? 0)) > 0.000001)) {
-          setTimeout(() => {
-            chart.overrideOverlay({
-              id: overlay.id,
-              points: [p1Conv, p2Conv]
-            });
-          }, 0);
-        }
-      } else if (!isAnchored && chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2) {
-        const diffX = Math.abs(p2.x - targetHandleX);
-        const diffY = Math.abs(p2.y - targetHandleY);
-        if (diffX > 2 || diffY > 4) {
-          const p2Target = (chart.convertFromPixel(
-            [{ x: targetHandleX, y: targetHandleY }],
-            { paneId: 'candle_pane' }
-          ) as any[])?.[0];
-          if (p2Target) {
+      if (!isActivelyDragging) {
+        if (isAnchored && chart && overlay?.id) {
+          // Synchronize data points to keep KLineCharts internal mapping aligned with fixed screen position
+          const p1Conv = (chart.convertFromPixel([{ x, y }], { paneId: 'candle_pane' }) as any[])?.[0];
+          const p2Conv = (chart.convertFromPixel([{ x: targetHandleX, y: targetHandleY }], { paneId: 'candle_pane' }) as any[])?.[0];
+          const currentP0 = (overlay.points as any[])?.[0];
+          if (p1Conv && p2Conv && currentP0 && (p1Conv.timestamp !== currentP0.timestamp || Math.abs((p1Conv.value ?? 0) - (currentP0.value ?? 0)) > 0.000001)) {
             setTimeout(() => {
               chart.overrideOverlay({
                 id: overlay.id,
-                points: [
-                  overlayPoints[0],
-                  {
-                    timestamp: p2Target.timestamp,
-                    value: p2Target.value ?? overlayPoints[0].value,
-                    dataIndex: p2Target.dataIndex
-                  }
-                ]
+                points: [p1Conv, p2Conv]
               });
             }, 0);
+          }
+        } else if (!isAnchored && chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2) {
+          const diffX = Math.abs(p2.x - targetHandleX);
+          const diffY = Math.abs(p2.y - targetHandleY);
+          if (diffX > 2 || diffY > 4) {
+            const p2Target = (chart.convertFromPixel(
+              [{ x: targetHandleX, y: targetHandleY }],
+              { paneId: 'candle_pane' }
+            ) as any[])?.[0];
+            if (p2Target) {
+              setTimeout(() => {
+                chart.overrideOverlay({
+                  id: overlay.id,
+                  points: [
+                    overlayPoints[0],
+                    {
+                      timestamp: p2Target.timestamp,
+                      value: p2Target.value ?? overlayPoints[0].value,
+                      dataIndex: p2Target.dataIndex
+                    }
+                  ]
+                });
+              }, 0);
+            }
           }
         }
       }
@@ -302,7 +305,7 @@ export const TextTool: ToolDefinition = {
     });
   },
 
-  onPressedMoving: (event: any, draggedIndex: number) => {
+  onPressedMoving: (event: any, draggedIndex: number | null) => {
     const points = [...((event.overlay.points as any[]) || [])];
     if (points.length < 2) return false;
 
@@ -313,43 +316,43 @@ export const TextTool: ToolDefinition = {
     const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
     if (isAnchored) {
-      if (!customSettings.fixedPixelPosition) {
-        const p1Pix = (event.chart.convertToPixel([points[0]], { paneId: 'candle_pane' }) as any[])?.[0] || { x: event.x, y: event.y };
-        const p2Pix = (event.chart.convertToPixel([points[1]], { paneId: 'candle_pane' }) as any[])?.[0] || { x: event.x + 120, y: event.y };
-        customSettings.fixedPixelPosition = { x: p1Pix.x, y: p1Pix.y, width: Math.max(minBoxWidth, p2Pix.x - p1Pix.x) };
-      }
-
-      const startFixed = (event.overlay.extendData as any)?.startFixedPixelPosition || customSettings.fixedPixelPosition;
+      const startFixed = (event.overlay.extendData as any)?.startFixedPixelPosition || customSettings.fixedPixelPosition || { x: event.x, y: event.y, width: 120 };
       const startMousePixel = (event.overlay.extendData as any)?.startMousePixel || { x: event.x, y: event.y };
+
+      const newFixedPos = { ...startFixed };
 
       if (draggedIndex === 1) {
         // Resizing width while anchored (left position fixed, width expands/shrinks)
         const newW = Math.max(minBoxWidth, event.x - startFixed.x);
-        customSettings.fixedPixelPosition = {
-          ...customSettings.fixedPixelPosition,
-          width: newW
-        };
+        newFixedPos.width = newW;
       } else {
         // Moving body while anchored
         const dx = event.x - startMousePixel.x;
         const dy = event.y - startMousePixel.y;
-        customSettings.fixedPixelPosition = {
-          ...customSettings.fixedPixelPosition,
-          x: startFixed.x + dx,
-          y: startFixed.y + dy
-        };
+        newFixedPos.x = startFixed.x + dx;
+        newFixedPos.y = startFixed.y + dy;
       }
 
+      customSettings.fixedPixelPosition = newFixedPos;
+
       // Keep points in sync with new fixed pixel position
-      const p1Pixel = { x: customSettings.fixedPixelPosition.x, y: customSettings.fixedPixelPosition.y };
-      const p2Pixel = { x: customSettings.fixedPixelPosition.x + (customSettings.fixedPixelPosition.width || 120), y: p1Pixel.y + 16 };
+      const p1Pixel = { x: newFixedPos.x, y: newFixedPos.y };
+      const p2Pixel = { x: newFixedPos.x + (newFixedPos.width || 120), y: p1Pixel.y + 16 };
       const p1Conv = (event.chart.convertFromPixel([p1Pixel], { paneId: 'candle_pane' }) as any[])?.[0];
       const p2Conv = (event.chart.convertFromPixel([p2Pixel], { paneId: 'candle_pane' }) as any[])?.[0];
 
       if (p1Conv) points[0] = p1Conv;
       if (p2Conv) points[1] = p2Conv;
 
-      return { points } satisfies ToolMutationResult;
+      const newExtendData = {
+        ...(event.overlay.extendData || {}),
+        customSettings: {
+          ...customSettings,
+          fixedPixelPosition: newFixedPos
+        }
+      };
+
+      return { points, extendData: newExtendData } as any;
     }
 
     const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];

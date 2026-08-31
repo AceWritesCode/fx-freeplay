@@ -458,6 +458,20 @@ export function getInteractiveOverlayOptions(
         console.log(`[Anchor] Dragging body (whole object) on "${toolName}" (${event.overlay?.id})`);
       }
 
+      // 1. Prioritize custom tool onPressedMoving hook if defined in registry
+      const registeredTool = ToolRegistry.get(toolName);
+      if (registeredTool && registeredTool.onPressedMoving) {
+        const result = registeredTool.onPressedMoving(event, draggedIndex);
+        if (result && typeof result === 'object') {
+          const overridePayload: any = { id: event.overlay.id };
+          if (result.points) overridePayload.points = result.points;
+          if ((result as any).extendData) overridePayload.extendData = (result as any).extendData;
+          event.chart.overrideOverlay(overridePayload);
+          mirrorLiveOverlayUpdate(event.chart, event.overlay.id, overridePayload, chartInstancesRef);
+          return;
+        }
+      }
+
       if (draggedIndex === null) {
         const startPoints = event.overlay.extendData?.startPoints;
         const startMousePixel = event.overlay.extendData?.startMousePixel;
@@ -495,20 +509,6 @@ export function getInteractiveOverlayOptions(
 
         if (event.chart._handleMultiMove) {
           event.chart._handleMultiMove(event);
-        }
-        return;
-      }
-
-      // Call custom tool onPressedMoving hook if defined in registry
-      const registeredTool = ToolRegistry.get(toolName);
-      if (registeredTool && registeredTool.onPressedMoving) {
-        const result = registeredTool.onPressedMoving(event, draggedIndex);
-        if (result && typeof result === 'object' && result.points) {
-          event.chart.overrideOverlay({
-            id: event.overlay.id,
-            points: result.points
-          });
-          mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: result.points }, chartInstancesRef);
         }
         return;
       }

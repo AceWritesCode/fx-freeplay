@@ -34,7 +34,9 @@ export interface ToolTemplate {
  */
 export interface ToolMutationResult {
   /** Updated overlay points to apply via overrideOverlay and synchronize. */
-  points: any[];
+  points?: any[];
+  /** Optional updated extendData to apply via overrideOverlay and synchronize. */
+  extendData?: any;
 }
 
 export interface ToolDefinition {
@@ -63,7 +65,7 @@ export interface ToolDefinition {
   //   - true (boolean)      — tool has already called overrideOverlay itself (legacy).
   //                           The framework will still trigger forward synchronization.
   //   - false / undefined   — event not handled; framework falls through to default path.
-  onPressedMoving?: (event: any, draggedIndex: number) => ToolMutationResult | boolean;
+  onPressedMoving?: (event: any, draggedIndex: number | null) => ToolMutationResult | boolean;
   onDrawEnd?: (event: any) => void;
 }
 
