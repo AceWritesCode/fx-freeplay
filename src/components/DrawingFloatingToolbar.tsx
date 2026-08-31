@@ -806,8 +806,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         {isText && (
           <ToolbarButton 
             active={isAnchored}
-            onClick={() => handleUpdate({ isAnchored: !isAnchored })}
-            title={isAnchored ? "Unanchor text" : "Anchor text to chart data space"}
+            onClick={() => handleUpdate({ isAnchored: !isAnchored, pinnedPixelPosition: undefined, fixedPixelPosition: undefined })}
+            title={isAnchored ? "Unanchor text (scroll with chart)" : "Anchor text (fix to canvas)"}
           >
             <Anchor className="w-4 h-4" />
           </ToolbarButton>

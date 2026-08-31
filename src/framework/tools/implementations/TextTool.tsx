@@ -107,6 +107,10 @@ export const TextTool: ToolDefinition = {
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
       const isAnchored = !!customSettings.isAnchored;
+      const isSelected = (overlay.extendData as any)?.isSelected;
+      const isHovered = (overlay.extendData as any)?.isHovered;
+      const isDragging = (overlay.extendData as any)?.draggedIndex !== undefined && (overlay.extendData as any)?.draggedIndex !== null;
+
       const textColor = customSettings.textColor || '#2196F3';
       const textContent = customSettings.text || 'Add text';
       const fontSize = customSettings.fontSize || 14;
@@ -119,18 +123,30 @@ export const TextTool: ToolDefinition = {
       const singleCharW = getSingleCharWidth(fontSize);
       const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
-      let x = p1.x;
-      let y = p1.y;
       const rawW = p2.x - p1.x;
       let w = Math.max(minBoxWidth, rawW);
+      let x = p1.x;
+      let y = p1.y;
 
+      // Anchor mode effect: effective ONLY outside edit mode (when not selected/dragging)
       if (isAnchored) {
-        if (!customSettings.fixedPixelPosition) {
-          customSettings.fixedPixelPosition = { x: p1.x, y: p1.y, width: w };
+        if (!isSelected && !isDragging) {
+          if (!customSettings.pinnedPixelPosition) {
+            customSettings.pinnedPixelPosition = { x: p1.x, y: p1.y, width: w };
+          }
+          x = customSettings.pinnedPixelPosition.x;
+          y = customSettings.pinnedPixelPosition.y;
+          w = Math.max(minBoxWidth, customSettings.pinnedPixelPosition.width || w);
+        } else {
+          // Inside edit mode: edit freely, clear pinned position so it always updates fresh
+          if (customSettings.pinnedPixelPosition) {
+            delete customSettings.pinnedPixelPosition;
+          }
         }
-        x = customSettings.fixedPixelPosition.x;
-        y = customSettings.fixedPixelPosition.y;
-        w = Math.max(minBoxWidth, customSettings.fixedPixelPosition.width || w);
+      } else {
+        if (customSettings.pinnedPixelPosition) {
+          delete customSettings.pinnedPixelPosition;
+        }
       }
 
       // Available width for character-level wrapping = boxWidth - leftPadding - rightPadding
@@ -150,45 +166,29 @@ export const TextTool: ToolDefinition = {
       const targetHandleY = y + h / 2;
 
       const overlayPoints = (overlay?.points as any[]);
-      const isActivelyDragging = (overlay.extendData as any)?.draggedIndex !== undefined && (overlay.extendData as any)?.draggedIndex !== null;
 
-      if (!isActivelyDragging) {
-        if (isAnchored && chart && overlay?.id) {
-          // Synchronize data points to keep KLineCharts internal mapping aligned with fixed screen position
-          const p1Conv = (chart.convertFromPixel([{ x, y }], { paneId: 'candle_pane' }) as any[])?.[0];
-          const p2Conv = (chart.convertFromPixel([{ x: targetHandleX, y: targetHandleY }], { paneId: 'candle_pane' }) as any[])?.[0];
-          const currentP0 = (overlay.points as any[])?.[0];
-          if (p1Conv && p2Conv && currentP0 && (p1Conv.timestamp !== currentP0.timestamp || Math.abs((p1Conv.value ?? 0) - (currentP0.value ?? 0)) > 0.000001)) {
+      if (!isDragging && isSelected && chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2) {
+        const diffX = Math.abs(p2.x - targetHandleX);
+        const diffY = Math.abs(p2.y - targetHandleY);
+        if (diffX > 2 || diffY > 4) {
+          const p2Target = (chart.convertFromPixel(
+            [{ x: targetHandleX, y: targetHandleY }],
+            { paneId: 'candle_pane' }
+          ) as any[])?.[0];
+          if (p2Target) {
             setTimeout(() => {
               chart.overrideOverlay({
                 id: overlay.id,
-                points: [p1Conv, p2Conv]
+                points: [
+                  overlayPoints[0],
+                  {
+                    timestamp: p2Target.timestamp,
+                    value: p2Target.value ?? overlayPoints[0].value,
+                    dataIndex: p2Target.dataIndex
+                  }
+                ]
               });
             }, 0);
-          }
-        } else if (!isAnchored && chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2) {
-          const diffX = Math.abs(p2.x - targetHandleX);
-          const diffY = Math.abs(p2.y - targetHandleY);
-          if (diffX > 2 || diffY > 4) {
-            const p2Target = (chart.convertFromPixel(
-              [{ x: targetHandleX, y: targetHandleY }],
-              { paneId: 'candle_pane' }
-            ) as any[])?.[0];
-            if (p2Target) {
-              setTimeout(() => {
-                chart.overrideOverlay({
-                  id: overlay.id,
-                  points: [
-                    overlayPoints[0],
-                    {
-                      timestamp: p2Target.timestamp,
-                      value: p2Target.value ?? overlayPoints[0].value,
-                      dataIndex: p2Target.dataIndex
-                    }
-                  ]
-                });
-              }, 0);
-            }
           }
         }
       }
@@ -243,10 +243,7 @@ export const TextTool: ToolDefinition = {
         });
       });
 
-      // EXACTLY ONE VISIBLE ANCHOR: Center-Right Resize Handle (Point 1)
-      // Positioned vertically centered on the dynamic height (h) of the text box
-      const isSelected = (overlay.extendData as any)?.isSelected;
-      const isHovered = (overlay.extendData as any)?.isHovered;
+      // Center-Right Resize Handle (Point 1) visible in edit mode / selection
       if (isSelected || isHovered) {
         const isLocked = overlay.lock || false;
         if (!isLocked) {
@@ -310,49 +307,12 @@ export const TextTool: ToolDefinition = {
     if (points.length < 2) return false;
 
     const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
-    const isAnchored = !!customSettings.isAnchored;
-    const fontSize = customSettings.fontSize || 14;
-    const singleCharW = getSingleCharWidth(fontSize);
-    const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
-
-    if (isAnchored) {
-      const startFixed = (event.overlay.extendData as any)?.startFixedPixelPosition || customSettings.fixedPixelPosition || { x: event.x, y: event.y, width: 120 };
-      const startMousePixel = (event.overlay.extendData as any)?.startMousePixel || { x: event.x, y: event.y };
-
-      const newFixedPos = { ...startFixed };
-
-      if (draggedIndex === 1) {
-        // Resizing width while anchored (left position fixed, width expands/shrinks)
-        const newW = Math.max(minBoxWidth, event.x - startFixed.x);
-        newFixedPos.width = newW;
-      } else {
-        // Moving body while anchored
-        const dx = event.x - startMousePixel.x;
-        const dy = event.y - startMousePixel.y;
-        newFixedPos.x = startFixed.x + dx;
-        newFixedPos.y = startFixed.y + dy;
-      }
-
-      customSettings.fixedPixelPosition = newFixedPos;
-
-      // Keep points in sync with new fixed pixel position
-      const p1Pixel = { x: newFixedPos.x, y: newFixedPos.y };
-      const p2Pixel = { x: newFixedPos.x + (newFixedPos.width || 120), y: p1Pixel.y + 16 };
-      const p1Conv = (event.chart.convertFromPixel([p1Pixel], { paneId: 'candle_pane' }) as any[])?.[0];
-      const p2Conv = (event.chart.convertFromPixel([p2Pixel], { paneId: 'candle_pane' }) as any[])?.[0];
-
-      if (p1Conv) points[0] = p1Conv;
-      if (p2Conv) points[1] = p2Conv;
-
-      const newExtendData = {
-        ...(event.overlay.extendData || {}),
-        customSettings: {
-          ...customSettings,
-          fixedPixelPosition: newFixedPos
-        }
-      };
-
-      return { points, extendData: newExtendData } as any;
+    // Clear any stale pinned position so edit/drag mode always updates fresh
+    if (customSettings.pinnedPixelPosition) {
+      delete customSettings.pinnedPixelPosition;
+    }
+    if (customSettings.fixedPixelPosition) {
+      delete customSettings.fixedPixelPosition;
     }
 
     const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
@@ -364,6 +324,10 @@ export const TextTool: ToolDefinition = {
     const startPoints = (event.overlay.extendData as any)?.startPoints;
     const startP1 = startPoints?.[0] || points[0];
     const startP2 = startPoints?.[1] || points[1];
+
+    const fontSize = customSettings.fontSize || 14;
+    const singleCharW = getSingleCharWidth(fontSize);
+    const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
     if (draggedIndex === 1) {
       // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
@@ -399,7 +363,7 @@ export const TextTool: ToolDefinition = {
         dataIndex: p2Target.dataIndex
       };
     } else {
-      // Body drag or point 0 hit: move the ENTIRE text box together!
+      // Body drag: move the ENTIRE text box together!
       const dt = targetPt.timestamp - startP1.timestamp;
       const dv = targetPt.value - startP1.value;
       const dDi = (targetPt.dataIndex !== undefined && startP1.dataIndex !== undefined)

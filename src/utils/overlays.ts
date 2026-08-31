@@ -348,20 +348,18 @@ export function getInteractiveOverlayOptions(
       }
 
       const customSettings = event.overlay?.extendData?.customSettings || {};
-      if (customSettings.isAnchored) {
-        if (!customSettings.fixedPixelPosition && Array.isArray(pts) && pts[0]) {
-          customSettings.fixedPixelPosition = {
-            x: pts[0].x,
-            y: pts[0].y,
-            width: pts[1] ? Math.max(20, pts[1].x - pts[0].x) : 120
-          };
+      if (customSettings.isAnchored && customSettings.pinnedPixelPosition) {
+        const fp = customSettings.pinnedPixelPosition;
+        pts = [
+          { x: fp.x, y: fp.y },
+          { x: fp.x + (fp.width || 120), y: fp.y + 16 }
+        ];
+        const p1Conv = event.chart.convertFromPixel([{ x: fp.x, y: fp.y }], { paneId: 'candle_pane' })?.[0];
+        const p2Conv = event.chart.convertFromPixel([{ x: fp.x + (fp.width || 120), y: fp.y + 16 }], { paneId: 'candle_pane' })?.[0];
+        if (p1Conv && p2Conv) {
+          event.overlay.points = [p1Conv, p2Conv];
         }
-        if (customSettings.fixedPixelPosition) {
-          pts = [
-            { x: customSettings.fixedPixelPosition.x, y: customSettings.fixedPixelPosition.y },
-            { x: customSettings.fixedPixelPosition.x + (customSettings.fixedPixelPosition.width || 120), y: customSettings.fixedPixelPosition.y + 16 }
-          ];
-        }
+        delete customSettings.pinnedPixelPosition;
       }
 
       let minDistance = Infinity;
@@ -422,7 +420,6 @@ export function getInteractiveOverlayOptions(
           ...(event.overlay.extendData || {}),
           hoveredAnchorIndex: null, // Clear any stale hover state from previous handle interactions
           draggedIndex: currentDraggedIndex,
-          startFixedPixelPosition: customSettings.fixedPixelPosition ? { ...customSettings.fixedPixelPosition } : null,
           startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
           startPointsPixels,
           startMousePixel,
