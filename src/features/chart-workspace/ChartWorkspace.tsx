@@ -1020,9 +1020,22 @@ export function ChartWorkspace() {
           }
           if ((ov.name === 'fxText' || ov.name === 'text' || ov.extendData?.customSettings?.boxWidth !== undefined) && Array.isArray(pts) && pts[0]) {
             const boxW = ov.extendData?.customSettings?.boxWidth !== undefined ? ov.extendData?.customSettings?.boxWidth : 180;
+            const customSettings = ov.extendData?.customSettings || {};
+            const fontSize = customSettings.fontSize || 14;
+            const textContent = customSettings.text || 'Add text';
+            const singleCharW = fontSize * 0.65;
+            const availW = Math.max(singleCharW, boxW - 20);
+            const rawLines = textContent.split('\n');
+            let lineCount = 0;
+            rawLines.forEach((rl: string) => {
+              const charCountPerLine = Math.max(1, Math.floor(availW / singleCharW));
+              lineCount += Math.max(1, Math.ceil((rl.length || 1) / charCountPerLine));
+            });
+            const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
+            const boxH = Math.max(32, lineCount * lineHeight + 16);
             pts[1] = {
               x: pts[0].x + boxW,
-              y: pts[0].y + 16
+              y: pts[0].y + boxH / 2
             };
           }
           if (Array.isArray(pts)) {
