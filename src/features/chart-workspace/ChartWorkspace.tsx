@@ -2170,6 +2170,19 @@ export function ChartWorkspace() {
               if (ov) return ov;
             }
           }
+          // Store-first fallback if in-memory chart overlays are momentarily reconciling
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          if (resolved?.drawing) {
+            return {
+              id: resolved.drawing.id,
+              name: resolved.drawing.name,
+              points: resolved.drawing.points,
+              lock: resolved.drawing.lock,
+              visible: resolved.drawing.visible,
+              extendData: resolved.drawing.extendData,
+              styles: resolved.drawing.styles
+            };
+          }
           return null;
         }}
         onApplyTemplate={(tplSettings) => {
@@ -2217,7 +2230,6 @@ export function ChartWorkspace() {
           });
 
           runWorkspaceReconciliation(chartInstancesRef);
-          setSelectedOverlayIds([]);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
         onLock={() => {

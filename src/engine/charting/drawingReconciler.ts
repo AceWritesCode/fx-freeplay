@@ -156,8 +156,12 @@ export function reconcileWorkspace(
             lock: d.lock,
             visible: d.visible !== false,
             extendData: {
-              ...JSON.parse(JSON.stringify(d.extendData || {})),
               ...(existingOv.extendData || {}),
+              ...JSON.parse(JSON.stringify(d.extendData || {})),
+              customSettings: {
+                ...(existingOv.extendData?.customSettings || {}),
+                ...(d.extendData?.customSettings || {})
+              },
               isSelected,
             },
             styles: d.styles,

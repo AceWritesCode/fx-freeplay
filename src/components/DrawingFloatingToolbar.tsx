@@ -432,6 +432,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
       ref={toolbarRef}
       data-floating-ui="true"
       onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
       style={{ 
         transform: `translate(${position.x}px, ${position.y}px)`,
         position: 'absolute',
