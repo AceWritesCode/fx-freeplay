@@ -3,7 +3,6 @@ import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, m
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
-import { getTextDimensions } from '../framework/tools/implementations/TextTool';
 
 export function syncSyncedCopyToOriginal(_chart: any, _overlayId: string, _overrideOptions: any) {
   // Deprecated legacy function: storage is the single source of truth under storage-first architecture.
@@ -397,11 +396,11 @@ export function getInteractiveOverlayOptions(
         const cs = event.overlay?.extendData?.customSettings || {};
         const boxW = cs.boxWidth !== undefined ? cs.boxWidth : 180;
         const fontSize = cs.fontSize || 14;
-        const textContent = cs.text || 'Add text';
-        const dims = getTextDimensions(textContent, boxW, fontSize);
+        const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
+        const boxH = Math.max(32, 16 + lineHeight);
         pts = [
           { x: p1Pixel.x, y: p1Pixel.y },
-          { x: p1Pixel.x + dims.width, y: p1Pixel.y + dims.height / 2 }
+          { x: p1Pixel.x + boxW, y: p1Pixel.y + boxH / 2 }
         ];
       }
 
@@ -421,6 +420,17 @@ export function getInteractiveOverlayOptions(
 
       const isHandle = minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
+
+      console.log('[TextTool Debug] onPressedMoveStart hit-test:', {
+        toolName,
+        eventX: event.x,
+        eventY: event.y,
+        pts,
+        minDistance: minDistance.toFixed(1),
+        closestIndex,
+        isHandle,
+        currentDraggedIndex
+      });
 
       if (isHandle) {
         console.log(`[Anchor] Anchor point ${closestIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
@@ -497,6 +507,14 @@ export function getInteractiveOverlayOptions(
       } else {
         console.log(`[Anchor] Dragging body (whole object) on "${toolName}" (${event.overlay?.id})`);
       }
+
+      console.log('[TextTool Debug] overlays.ts onPressedMoving:', {
+        toolName,
+        draggedIndex,
+        eventX: event.x,
+        eventY: event.y,
+        overlayId: event.overlay?.id
+      });
 
       // 1. Prioritize custom tool onPressedMoving hook if defined in registry
       const registeredTool = ToolRegistry.get(toolName);
