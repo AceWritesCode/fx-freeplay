@@ -109,20 +109,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isLocked = firstOverlay?.lock || false;
 
   const handleUpdate = (update: any, closeDropdown = true) => {
-    console.log('[DrawingFloatingToolbar] handleUpdate called:', {
-      update,
-      selectedOverlayIds,
-      firstOverlayId: firstOverlay?.id,
-      firstOverlayName: firstOverlay?.name,
-      closeDropdown
-    });
     if (onUpdateSettings) onUpdateSettings(update);
     if (closeDropdown) setActiveDropdown(null);
   };
 
   // Dismiss any open dropdowns when the selection changes (e.g. unselected)
   useEffect(() => {
-    console.log('[DrawingFloatingToolbar] selectedOverlayIds changed:', selectedOverlayIds);
     setActiveDropdown(null);
     setIsTemplateDropdownOpen(false);
   }, [selectedOverlayIds.length]);

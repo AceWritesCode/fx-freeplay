@@ -4,11 +4,6 @@ import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
 
-export function syncSyncedCopyToOriginal(_chart: any, _overlayId: string, _overrideOptions: any) {
-  // Deprecated legacy function: storage is the single source of truth under storage-first architecture.
-  return;
-}
-
 export function registerCustomOverlays() {
   // Initialize new tool framework
   initializeToolFramework();
@@ -421,23 +416,6 @@ export function getInteractiveOverlayOptions(
       const isHandle = minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
-      console.log('[TextTool Debug] onPressedMoveStart hit-test:', {
-        toolName,
-        eventX: event.x,
-        eventY: event.y,
-        pts,
-        minDistance: minDistance.toFixed(1),
-        closestIndex,
-        isHandle,
-        currentDraggedIndex
-      });
-
-      if (isHandle) {
-        console.log(`[Anchor] Anchor point ${closestIndex + 1} clicked on "${toolName}" (${event.overlay?.id}), minDistance: ${minDistance.toFixed(1)}px`);
-      } else {
-        console.log(`[Anchor] Body clicked (no anchor hit, minDistance: ${minDistance.toFixed(1)}px) on "${toolName}" (${event.overlay?.id})`);
-      }
-
       // Set drag index on BOTH chart references before selection fires reconciliation
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = currentDraggedIndex;
@@ -501,20 +479,6 @@ export function getInteractiveOverlayOptions(
       } else {
         draggedIndex = event.chart?._activeDraggingIndex ?? chartInstanceRef.current?._activeDraggingIndex ?? null;
       }
-
-      if (draggedIndex !== null) {
-        console.log(`[Anchor] Dragging anchor point ${draggedIndex + 1} on "${toolName}" (${event.overlay?.id})`);
-      } else {
-        console.log(`[Anchor] Dragging body (whole object) on "${toolName}" (${event.overlay?.id})`);
-      }
-
-      console.log('[TextTool Debug] overlays.ts onPressedMoving:', {
-        toolName,
-        draggedIndex,
-        eventX: event.x,
-        eventY: event.y,
-        overlayId: event.overlay?.id
-      });
 
       // 1. Prioritize custom tool onPressedMoving hook if defined in registry
       const registeredTool = ToolRegistry.get(toolName);
