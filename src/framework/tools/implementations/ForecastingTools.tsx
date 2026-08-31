@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
+import { isOverlayVisible, parseTimeframe } from '../toolUtils';
 
 function makeOpaqueColor(colorStr: string): string {
   if (!colorStr) return '#ffffff';
@@ -78,41 +79,6 @@ const ShortPositionIcon = ({ className = 'w-5 h-5', style }: { className?: strin
     <path fill="currentColor" d="M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m9.52-7q.53 0 .93.2l.2.1q.27.17.46.43l.06.1q.2.3.25.73v.02h-.82v-.01a1 1 0 0 0-.36-.55 1.2 1.2 0 0 0-.73-.2q-.22 0-.4.06l-.12.04a1 1 0 0 0-.36.3 1 1 0 0 0-.13.43v.01q0 .2.09.34t.26.25q.19.1.48.2l.76.21q.71.2 1.06.57l.08.1q.27.36.27.9v.02q0 .45-.2.81l-.07.1a2 2 0 0 1-.72.62q-.45.22-1.02.22-.42 0-.77-.1l-.22-.1a2 2 0 0 1-.7-.55 2 2 0 0 1-.3-.84v-.02h.86v.01q.1.36.39.57t.76.22q.34 0 .59-.11a1 1 0 0 0 .4-.31l.06-.1q.09-.17.08-.36a1 1 0 0 0-.1-.38l-.1-.1a1.5 1.5 0 0 0-.65-.34l-.78-.21q-.46-.13-.77-.34-.3-.21-.45-.51-.14-.3-.14-.73 0-.5.24-.88l.06-.09q.24-.32.61-.5.43-.23.96-.23M25 12H5v-1h20zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3" />
   </svg>
 );
-
-// ─── Timeframe Visibility Helper ─────────────────────────────────────────────
-
-const parseTimeframe = (tf: string) => {
-  const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
-  if (!match) return { value: 1, unit: 'minutes' };
-  const val = parseInt(match[1]);
-  const unitChar = match[2];
-  let unit = 'minutes';
-  if (unitChar === 's') unit = 'seconds';
-  else if (unitChar === 'm') unit = 'minutes';
-  else if (unitChar === 'h' || unitChar === 'H') unit = 'hours';
-  else if (unitChar === 'd' || unitChar === 'D') unit = 'days';
-  else if (unitChar === 'w' || unitChar === 'W') unit = 'weeks';
-  else if (unitChar === 'M') unit = 'months';
-  return { value: val, unit };
-};
-
-const isOverlayVisible = (overlay: any, chart: any) => {
-  const customSettings = overlay?.extendData?.customSettings || {};
-  const visibility = customSettings.visibility;
-  if (!visibility) return true; // Default visible
-  
-  const tf = chart?._loadedTimeframe || '1m';
-  const { value, unit } = parseTimeframe(tf);
-  
-  const rule = visibility[unit];
-  if (!rule) return true;
-  if (!rule.show) return false;
-  
-  if (rule.min !== undefined && value < rule.min) return false;
-  if (rule.max !== undefined && value > rule.max) return false;
-  
-  return true;
-};
 
 // ─── Pip Formatting Helper ───────────────────────────────────────────────────
 

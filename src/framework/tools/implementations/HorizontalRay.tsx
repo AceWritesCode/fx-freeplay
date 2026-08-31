@@ -1,38 +1,5 @@
 import type { ToolDefinition } from '../ToolRegistry';
-import { drawGrabHandles } from '../toolUtils';
-
-const parseTimeframe = (tf: string) => {
-  const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
-  if (!match) return { value: 1, unit: 'minutes' };
-  const val = parseInt(match[1]);
-  const unitChar = match[2];
-  let unit = 'minutes';
-  if (unitChar === 's') unit = 'seconds';
-  else if (unitChar === 'm') unit = 'minutes';
-  else if (unitChar === 'h' || unitChar === 'H') unit = 'hours';
-  else if (unitChar === 'd' || unitChar === 'D') unit = 'days';
-  else if (unitChar === 'w' || unitChar === 'W') unit = 'weeks';
-  else if (unitChar === 'M') unit = 'months';
-  return { value: val, unit };
-};
-
-const isOverlayVisible = (overlay: any, chart: any) => {
-  const customSettings = overlay?.extendData?.customSettings || {};
-  const visibility = customSettings.visibility;
-  if (!visibility) return true; // Default visible
-  
-  const tf = chart?._loadedTimeframe || '1m';
-  const { value, unit } = parseTimeframe(tf);
-  
-  const rule = visibility[unit];
-  if (!rule) return true;
-  if (!rule.show) return false;
-  
-  if (rule.min !== undefined && value < rule.min) return false;
-  if (rule.max !== undefined && value > rule.max) return false;
-  
-  return true;
-};
+import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
 
 const HorizontalRayIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>

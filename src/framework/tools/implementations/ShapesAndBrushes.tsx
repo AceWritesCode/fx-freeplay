@@ -1,6 +1,6 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
-import { drawGrabHandles } from '../toolUtils';
+import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -63,41 +63,6 @@ const CurveIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
     </g>
   </svg>
 );
-
-// ─── Timeframe Visibility Helper ─────────────────────────────────────────────
-
-const parseTimeframe = (tf: string) => {
-  const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
-  if (!match) return { value: 1, unit: 'minutes' };
-  const val = parseInt(match[1]);
-  const unitChar = match[2];
-  let unit = 'minutes';
-  if (unitChar === 's') unit = 'seconds';
-  else if (unitChar === 'm') unit = 'minutes';
-  else if (unitChar === 'h' || unitChar === 'H') unit = 'hours';
-  else if (unitChar === 'd' || unitChar === 'D') unit = 'days';
-  else if (unitChar === 'w' || unitChar === 'W') unit = 'weeks';
-  else if (unitChar === 'M') unit = 'months';
-  return { value: val, unit };
-};
-
-const isOverlayVisible = (overlay: any, chart: any) => {
-  const customSettings = (overlay?.extendData as any)?.customSettings || {};
-  const visibility = customSettings.visibility;
-  if (!visibility) return true; // Default visible
-  
-  const tf = chart?._loadedTimeframe || '1m';
-  const { value, unit } = parseTimeframe(tf);
-  
-  const rule = visibility[unit];
-  if (!rule) return true;
-  if (!rule.show) return false;
-  
-  if (rule.min !== undefined && value < rule.min) return false;
-  if (rule.max !== undefined && value > rule.max) return false;
-  
-  return true;
-};
 
 // ─── 1. Brush / Highlighter Tool ──────────────────────────────────────────────
 

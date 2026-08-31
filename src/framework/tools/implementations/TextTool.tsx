@@ -1,12 +1,6 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { Type } from 'lucide-react';
-
-const isOverlayVisible = (overlay: any, _chart: any) => {
-  const customSettings = (overlay?.extendData as any)?.customSettings || {};
-  const visibility = customSettings.visibility;
-  if (!visibility) return true;
-  return true;
-};
+import { isOverlayVisible } from '../toolUtils';
 
 // Fixed font stack constant shared exactly between canvas drawing and HTML textarea
 export const TEXT_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
