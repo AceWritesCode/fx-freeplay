@@ -471,6 +471,50 @@ export function ChartWorkspace() {
             )
               return;
             const isSelected = nextIds.includes(ov.id);
+
+            // If entering edit mode on an anchored overlay with a pinned screen position,
+            // immediately convert the pinned screen coordinates to current candle points under the box
+            // and save to drawing store so selecting never jumps back to old candle positions.
+            if (isSelected && ov.extendData?.customSettings?.isAnchored && ov.extendData?.customSettings?.pinnedPixelPosition) {
+              const fp = ov.extendData.customSettings.pinnedPixelPosition;
+              const p1Conv = chart.convertFromPixel([{ x: fp.x, y: fp.y }], { paneId: 'candle_pane' })?.[0];
+              const p2Conv = chart.convertFromPixel([{ x: fp.x + (fp.width || 120), y: fp.y + 16 }], { paneId: 'candle_pane' })?.[0];
+              if (p1Conv && p2Conv) {
+                const cleanCustomSettings = { ...ov.extendData.customSettings };
+                delete cleanCustomSettings.pinnedPixelPosition;
+                delete cleanCustomSettings.fixedPixelPosition;
+
+                const nextPoints = [
+                  { timestamp: p1Conv.timestamp, value: p1Conv.value, dataIndex: p1Conv.dataIndex },
+                  { timestamp: p2Conv.timestamp, value: p2Conv.value ?? p1Conv.value, dataIndex: p2Conv.dataIndex }
+                ];
+
+                chart.overrideOverlay({
+                  id: ov.id,
+                  points: nextPoints,
+                  extendData: {
+                    ...(ov.extendData || {}),
+                    isSelected: true,
+                    customSettings: cleanCustomSettings
+                  }
+                });
+
+                const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
+                const originalId = syncMatch ? syncMatch[1] : ov.id;
+                const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+                if (resolved) {
+                  useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
+                    points: nextPoints,
+                    extendData: {
+                      ...(resolved.drawing.extendData || {}),
+                      customSettings: cleanCustomSettings
+                    }
+                  });
+                }
+                return;
+              }
+            }
+
             if (ov.extendData?.isSelected !== isSelected) {
               chart.overrideOverlay({
                 id: ov.id,

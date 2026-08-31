@@ -357,9 +357,38 @@ export function getInteractiveOverlayOptions(
         const p1Conv = event.chart.convertFromPixel([{ x: fp.x, y: fp.y }], { paneId: 'candle_pane' })?.[0];
         const p2Conv = event.chart.convertFromPixel([{ x: fp.x + (fp.width || 120), y: fp.y + 16 }], { paneId: 'candle_pane' })?.[0];
         if (p1Conv && p2Conv) {
-          event.overlay.points = [p1Conv, p2Conv];
+          const nextPoints = [
+            { timestamp: p1Conv.timestamp, value: p1Conv.value, dataIndex: p1Conv.dataIndex },
+            { timestamp: p2Conv.timestamp, value: p2Conv.value ?? p1Conv.value, dataIndex: p2Conv.dataIndex }
+          ];
+          event.overlay.points = nextPoints;
+
+          const cleanCustomSettings = { ...customSettings };
+          delete cleanCustomSettings.pinnedPixelPosition;
+          delete cleanCustomSettings.fixedPixelPosition;
+
+          event.chart.overrideOverlay({
+            id: event.overlay.id,
+            points: nextPoints,
+            extendData: {
+              ...(event.overlay.extendData || {}),
+              customSettings: cleanCustomSettings
+            }
+          });
+
+          const syncMatch = event.overlay.id?.match(/^sync_(.+)_from_(\d+)$/);
+          const originalId = syncMatch ? syncMatch[1] : event.overlay.id;
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          if (resolved) {
+            useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
+              points: nextPoints,
+              extendData: {
+                ...(resolved.drawing.extendData || {}),
+                customSettings: cleanCustomSettings
+              }
+            });
+          }
         }
-        delete customSettings.pinnedPixelPosition;
       }
 
       let minDistance = Infinity;
