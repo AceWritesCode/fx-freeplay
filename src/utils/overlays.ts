@@ -182,15 +182,16 @@ export function getInteractiveOverlayOptions(
     console.error(e);
   }
 
-  if (lookupKey === 'text' || toolName === 'text') {
-    defaultSettings.showBorder = !!defaultSettings.showBorder;
-    defaultSettings.fillBackground = !!defaultSettings.fillBackground;
+  if (lookupKey === 'text' || toolName === 'text' || lookupKey === 'fxText' || toolName === 'fxText') {
+    defaultSettings.showBorder = false;
+    defaultSettings.fillBackground = false;
   }
 
   const overlayOptions: any = {
     name: toolName,
     extendData: {
-      customSettings: defaultSettings
+      customSettings: defaultSettings,
+      ...(lookupKey === 'text' || toolName === 'text' || lookupKey === 'fxText' || toolName === 'fxText' ? { isNewText: true } : {})
     },
     onDrawEnd: (event: any) => {
       const chartIdx = chartInstanceRef.current?._chartIndex ?? 0;

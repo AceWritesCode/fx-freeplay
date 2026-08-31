@@ -995,7 +995,7 @@ export function ChartWorkspace() {
       let isInsideBody = false;
 
       interactiveOverlays.forEach((ov: any) => {
-        if (ov.points && ['rectangle', 'longPosition', 'shortPosition'].includes(ov.name)) {
+        if (ov.points && ['rectangle', 'fxText', 'text', 'longPosition', 'shortPosition'].includes(ov.name)) {
           const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
           if (pts && pts.length >= 2) {
             const xCoords = pts.map((p: any) => p?.x).filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
@@ -1046,7 +1046,7 @@ export function ChartWorkspace() {
 
       // Maintain isHovered state cleanly without layout resets
       interactiveOverlays.forEach((ov: any) => {
-        if (['rectangle', 'longPosition', 'shortPosition', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)) {
+        if (['rectangle', 'fxText', 'text', 'longPosition', 'shortPosition', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)) {
           const isCurrentlyHovered = ov.id === nextHoveredId;
           if (ov.extendData?.isHovered !== isCurrentlyHovered) {
             chart.overrideOverlay({
@@ -1553,7 +1553,7 @@ export function ChartWorkspace() {
         {/* Floating text inputs for TrendLines and Rectangles */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle') : [];
+          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle' || o.name === 'fxText' || o.name === 'text') : [];
           return allTextOverlays.map((ov: any) => {
             const handleTextChange = (newText: string) => {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
@@ -1572,10 +1572,6 @@ export function ChartWorkspace() {
                 useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
                   extendData: mergedExtendData,
                 });
-                // Also push the new text into the source chart's own KLineCharts overlay.
-                // Without this, the KLineCharts in-memory extendData still has the old text.
-                // When the user deselects, the deselection effect reads chartOverlay.extendData
-                // from KLineCharts and would overwrite the store with stale data, wiping the text.
                 if (chart && originalId) {
                   chart.overrideOverlay({
                     id: originalId,
@@ -1601,7 +1597,7 @@ export function ChartWorkspace() {
                 />
               );
             }
-            if (ov.name === 'rectangle') {
+            if (ov.name === 'rectangle' || ov.name === 'fxText' || ov.name === 'text') {
               return (
                 <FloatingRectangleText
                   key={ov.id}
