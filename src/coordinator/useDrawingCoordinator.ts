@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLayoutStore, useSettingsStore, useDrawingStore } from '@/store';
 import { getInteractiveOverlayOptions } from '@/utils/overlays';
 import { runWorkspaceReconciliation } from '@/engine/charting';
+import { ToolRegistry } from '@/framework/tools';
 
 export function useDrawingCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
@@ -192,8 +193,11 @@ export function useDrawingCoordinator(
     const activeFolder = parsedFolders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
     const activeGroupId = activeFolder?.id || undefined;
 
+    const registeredTool = ToolRegistry.get(toolName);
+    const overlayName = registeredTool?.createOverlayDef()?.name || toolName;
+
     createOverlayWithHandlers(chart, {
-      name: toolName,
+      name: overlayName,
       id: newDrawingId,
       extendData: {
         order: newOrder,

@@ -63,8 +63,11 @@ export function initializeToolFramework() {
     }
 
     registerOverlay({
+      needDefaultPointFigure: false,
+      needDefaultXAxisFigure: false,
+      needDefaultYAxisFigure: false,
       ...overlayDef,
-      name: tool.id
+      name: overlayDef.name || tool.id
     });
     
     console.log(`[Tool Framework] Registered overlay tool: ${tool.id}`);

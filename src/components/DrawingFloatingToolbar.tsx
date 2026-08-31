@@ -88,7 +88,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const customSettings = firstOverlay?.extendData?.customSettings || {};
   
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
-  const isText = firstOverlay?.name === 'text';
+  const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const fillBackground = customSettings.fillBackground !== false && customSettings.fillBackground !== undefined;

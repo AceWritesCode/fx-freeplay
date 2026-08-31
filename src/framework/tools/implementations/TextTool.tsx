@@ -56,9 +56,11 @@ export const TextTool: ToolDefinition = {
   ],
 
   createOverlayDef: () => ({
-    name: 'text',
+    name: 'fxText',
     totalStep: 1,
     needDefaultPointFigure: false,
+    needDefaultXAxisFigure: false,
+    needDefaultYAxisFigure: false,
     createPointFigures: ({ overlay, coordinates, chart }) => {
       if (chart && !isOverlayVisible(overlay, chart)) {
         return [];

@@ -1558,7 +1558,7 @@ export function ChartWorkspace() {
         {/* Floating text inputs for TrendLines, Rectangles, and Text Tool */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle' || o.name === 'text') : [];
+          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle' || o.name === 'text' || o.name === 'fxText') : [];
           return allTextOverlays.map((ov: any) => {
             const handleTextChange = (newText: string) => {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
@@ -1667,7 +1667,7 @@ export function ChartWorkspace() {
                 />
               );
             }
-            if (ov.name === 'text') {
+            if (ov.name === 'text' || ov.name === 'fxText') {
               return (
                 <FloatingTextComponent
                   key={ov.id}

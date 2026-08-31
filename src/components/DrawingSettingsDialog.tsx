@@ -299,7 +299,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
     setTextPlacement(customSettings.textPlacement || 'inside');
 
-    if (overlay.name === 'text') {
+    if (overlay.name === 'text' || overlay.name === 'fxText') {
       setActiveTab('text');
     }
 
