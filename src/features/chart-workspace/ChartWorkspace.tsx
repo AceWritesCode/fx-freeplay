@@ -875,7 +875,9 @@ export function ChartWorkspace() {
 
             if (clickInside && !isUIInteraction) {
               setTimeout(() => {
-                if (!chart._clickedOnOverlay && !chart._activeDrawingId) {
+                const isAnyDrawingActive = chartInstancesRef.current.some((c) => c && c._activeDrawingId);
+                const isAnyOverlayClicked = chartInstancesRef.current.some((c) => c && c._clickedOnOverlay);
+                if (!isAnyOverlayClicked && !isAnyDrawingActive && !chart._activeDrawingId) {
                   handleSelectOverlayIds([]);
                   if (drawingCoord.activeTool) {
                     drawingCoord.setActiveTool(null);
