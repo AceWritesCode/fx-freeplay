@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-const PADDING_HORIZONTAL = 10;
+import { TEXT_FONT_FAMILY, PADDING_HORIZONTAL, TOP_PADDING } from '@/framework/tools/implementations/TextTool';
 
 interface FloatingTextToolEditorProps {
   chart: any;
@@ -87,7 +86,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         }
 
         elRef.current.style.left = `${x + PADDING_HORIZONTAL}px`;
-        elRef.current.style.top = `${y + 8}px`;
+        elRef.current.style.top = `${y + TOP_PADDING}px`;
         elRef.current.style.width = `${Math.max(30, boxWidth - PADDING_HORIZONTAL * 2)}px`;
       }
 
@@ -105,14 +104,6 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
   if (!isSelected) {
     return null;
   }
-
-  const fontFamily = isBold && isItalic
-    ? 'bold italic sans-serif'
-    : isBold
-      ? 'bold sans-serif'
-      : isItalic
-        ? 'italic sans-serif'
-        : 'sans-serif';
 
   const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
 
@@ -148,16 +139,21 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
             textareaRef.current?.blur();
           }
         }}
-        className="w-full bg-transparent border-none outline-none resize-none p-0 m-0 overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal"
+        className="w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal"
         style={{
           color: textColor,
           fontSize: `${fontSize}px`,
-          fontFamily,
+          fontFamily: TEXT_FONT_FAMILY,
           fontWeight: isBold ? 'bold' : 'normal',
           fontStyle: isItalic ? 'italic' : 'normal',
           textAlign: textAlign as any,
           lineHeight: `${lineHeight}px`,
           minHeight: `${lineHeight}px`,
+          padding: 0,
+          margin: 0,
+          boxSizing: 'border-box',
+          verticalAlign: 'top',
+          display: 'block',
           caretColor: textColor
         }}
       />

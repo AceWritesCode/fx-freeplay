@@ -8,8 +8,13 @@ const isOverlayVisible = (overlay: any, _chart: any) => {
   return true;
 };
 
+// Fixed font stack constant shared exactly between canvas drawing and HTML textarea
+export const TEXT_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 // Fixed internal horizontal padding constant for equal left and right breathing room (10px left, 10px right)
-const PADDING_HORIZONTAL = 10;
+export const PADDING_HORIZONTAL = 10;
+export const TOP_PADDING = 8;
+export const BOTTOM_PADDING = 8;
 
 /**
  * Helper to measure single character width at a given font size.
@@ -19,7 +24,7 @@ const getSingleCharWidth = (fontSize: number, isBold: boolean = false): number =
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
+      ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px ${TEXT_FONT_FAMILY}`;
       return ctx.measureText('W').width * 1.05;
     }
   }
@@ -39,7 +44,7 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number, 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
+        ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px ${TEXT_FONT_FAMILY}`;
         return ctx.measureText(str).width * 1.05;
       }
     }
@@ -172,9 +177,7 @@ export const TextTool: ToolDefinition = {
 
       // Calculate dynamic line height and total box height automatically
       const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-      const topPadding = 8;
-      const bottomPadding = 8;
-      const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
+      const h = Math.max(32, lines.length * lineHeight + TOP_PADDING + BOTTOM_PADDING);
 
       // Center-right resize handle coordinate
       const targetHandleX = x + w;
@@ -239,33 +242,26 @@ export const TextTool: ToolDefinition = {
         textAlignStyle = 'right';
       }
 
-      const fontFamily = isBold && isItalic
-        ? 'bold italic sans-serif'
-        : isBold
-          ? 'bold sans-serif'
-          : isItalic
-            ? 'italic sans-serif'
-            : 'sans-serif';
-
       // Render each wrapped line of text inside the box with fixed consistent horizontal padding
-      // (When isSelected, FloatingTextToolEditor renders the HTML textarea directly so skip drawing canvas text to avoid duplication!)
+      // (When isSelected, FloatingTextToolEditor renders the HTML textarea directly with exact identical metrics!)
       if (displayText && !isSelected) {
         lines.forEach((lineStr, index) => {
-          const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
+          const lineY = y + TOP_PADDING + index * lineHeight;
           figures.push({
             type: 'text',
             attrs: {
               x: textX,
               y: lineY,
               text: lineStr,
-              baseline: 'middle',
+              baseline: 'top',
               align: textAlignStyle
             },
             styles: {
               color: isPlaceholder ? 'rgba(128, 130, 133, 0.65)' : textColor,
               size: fontSize,
-              family: fontFamily,
+              family: TEXT_FONT_FAMILY,
               weight: isBold ? 'bold' : 'normal',
+              style: isItalic ? 'italic' : 'normal',
               backgroundColor: 'transparent'
             },
             ignoreEvent: false
