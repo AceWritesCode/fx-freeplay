@@ -28,6 +28,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
   const isItalic = !!customSettings.italic;
 
   const [inputText, setInputText] = useState(text);
+  const [isEditing, setIsEditing] = useState(true);
 
   const isAnchorHovered = overlay?.extendData?.hoveredAnchorIndex !== null && overlay?.extendData?.hoveredAnchorIndex !== undefined;
   const isDragging = overlay?.extendData?.draggedIndex !== null && overlay?.extendData?.draggedIndex !== undefined;
@@ -49,29 +50,30 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     autoResizeTextarea();
   }, [inputText, fontSize]);
 
-  // When selected, auto-focus immediately
+  // When freshly selected (and not hovering an anchor), activate edit mode and focus immediately
   useEffect(() => {
     if (isSelected && !isAnchorHovered && !isDragging) {
+      setIsEditing(true);
       const timer = setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.selectionStart = textareaRef.current.value.length;
           textareaRef.current.selectionEnd = textareaRef.current.value.length;
         }
-      }, 40);
+      }, 50);
       return () => clearTimeout(timer);
     }
   }, [isSelected]);
 
-  // When mouse hovers over anchor or starts dragging, save any uncommitted text and blur to unblock dragging
+  // When mouse hovers over anchor or starts dragging, deactivate active typing and save text immediately
   useEffect(() => {
     if (isAnchorHovered || isDragging) {
-      if (textareaRef.current && document.activeElement === textareaRef.current) {
-        textareaRef.current.blur();
+      if (isEditing) {
+        setIsEditing(false);
+        onTextChange(inputText);
       }
-      onTextChange(inputText);
     }
-  }, [isAnchorHovered, isDragging]);
+  }, [isAnchorHovered, isDragging, isEditing, inputText]);
 
   // Continuously update position using requestAnimationFrame to track chart pan/zoom seamlessly
   useEffect(() => {
@@ -118,27 +120,31 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     return null;
   }
 
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (chart) {
+      chart._clickedOnOverlay = true;
+    }
+    setIsEditing(true);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 30);
+  };
+
   const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-  const isPointerBlocked = isAnchorHovered || isDragging;
 
   return (
     <div
       ref={elRef}
-      className={`absolute z-30 ${isPointerBlocked ? 'pointer-events-none' : 'pointer-events-auto'}`}
+      className={`absolute z-30 ${isEditing ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
       style={{
         boxSizing: 'border-box'
       }}
-      onClick={(e) => {
-        if (!isPointerBlocked) {
-          e.stopPropagation();
-          if (chart) {
-            chart._clickedOnOverlay = true;
-          }
-          textareaRef.current?.focus();
-        }
-      }}
+      onClick={handleStartEdit}
       onMouseDown={(e) => {
-        if (!isPointerBlocked) {
+        if (!isEditing) {
+          handleStartEdit(e);
+        } else {
           e.stopPropagation();
           if (chart) {
             chart._clickedOnOverlay = true;
@@ -151,6 +157,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         value={inputText}
         placeholder="Add text..."
         rows={1}
+        readOnly={!isEditing}
         onChange={(e) => {
           const val = e.target.value;
           setInputText(val);
@@ -161,11 +168,10 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           e.stopPropagation();
           if (e.key === 'Escape') {
             textareaRef.current?.blur();
+            setIsEditing(false);
           }
         }}
-        className={`w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal ${
-          isPointerBlocked ? 'pointer-events-none select-none' : 'pointer-events-auto cursor-text'
-        }`}
+        className="w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:text-txt-muted/60 placeholder:font-normal"
         style={{
           color: textColor,
           fontSize: `${fontSize}px`,
@@ -180,6 +186,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           boxSizing: 'border-box',
           verticalAlign: 'top',
           display: 'block',
+          cursor: isEditing ? 'text' : 'pointer',
           caretColor: textColor
         }}
       />

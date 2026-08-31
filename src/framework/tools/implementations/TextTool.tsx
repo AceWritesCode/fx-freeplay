@@ -242,8 +242,8 @@ export const TextTool: ToolDefinition = {
         textAlignStyle = 'right';
       }
 
-      // Render each wrapped line of text inside the box ONLY when not in edit mode (not selected)
-      // When isSelected, FloatingTextToolEditor renders the text cleanly so canvas text is NEVER duplicated!
+      // Render each wrapped line of text inside the box with fixed consistent horizontal padding
+      // (When isSelected is true, FloatingTextToolEditor renders the HTML textarea directly, eliminating any double-rendering or text ghosting!)
       if (displayText && !isSelected) {
         lines.forEach((lineStr, index) => {
           const lineY = y + TOP_PADDING + index * lineHeight;
