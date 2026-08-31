@@ -1031,8 +1031,8 @@ export function ChartWorkspace() {
 
       const xVal = e.clientX - containerRect.left;
       const yVal = e.clientY - containerRect.top;
-
-      selectedOverlays.forEach((ov: any) => {
+      const candidatesForAnchor = selectedOverlays.length > 0 ? selectedOverlays : interactiveOverlays;
+      candidatesForAnchor.forEach((ov: any) => {
         if (ov.points && Array.isArray(ov.points)) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
@@ -1127,7 +1127,7 @@ export function ChartWorkspace() {
 
       // Maintain isHovered state cleanly without layout resets
       interactiveOverlays.forEach((ov: any) => {
-        if (['rectangle', 'longPosition', 'shortPosition', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)) {
+        if (['rectangle', 'fxText', 'text', 'longPosition', 'shortPosition', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)) {
           const isCurrentlyHovered = ov.id === nextHoveredId;
           if (ov.extendData?.isHovered !== isCurrentlyHovered) {
             chart.overrideOverlay({
