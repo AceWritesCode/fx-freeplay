@@ -242,9 +242,11 @@ export const TextTool: ToolDefinition = {
         textAlignStyle = 'right';
       }
 
+      const isEditingText = (overlay.extendData as any)?.isEditingText;
+
       // Render each wrapped line of text inside the box with fixed consistent horizontal padding
-      // (When isSelected is true, FloatingTextToolEditor renders the HTML textarea directly, eliminating any double-rendering or text ghosting!)
-      if (displayText && !isSelected) {
+      // (When isEditingText is true, FloatingTextToolEditor renders the HTML textarea directly. When isEditingText is false, canvas draws the text figures!)
+      if (displayText && !isEditingText) {
         lines.forEach((lineStr, index) => {
           const lineY = y + TOP_PADDING + index * lineHeight;
           figures.push({
