@@ -1,117 +1,71 @@
-import type { ToolDefinition } from '../ToolRegistry';
+import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
+import { snapPointToCandle } from '@/engine/charting';
 import { drawGrabHandles } from '../toolUtils';
+import { Type } from 'lucide-react';
 
-// Text Icon Component
-const TextToolIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
-    <path fill="currentColor" d="M6 7h16v3h-6.5v12h-3V10H6V7z" />
-  </svg>
-);
-
-const isOverlayVisible = (overlay: any, chart: any) => {
+const isOverlayVisible = (overlay: any, _chart: any) => {
   const customSettings = (overlay?.extendData as any)?.customSettings || {};
   const visibility = customSettings.visibility;
   if (!visibility) return true;
-  const tf = chart?._loadedTimeframe || '1m';
-  const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
-  if (!match) return true;
-  const value = parseInt(match[1]);
-  const unitChar = match[2];
-  let unit = 'minutes';
-  if (unitChar === 's') unit = 'seconds';
-  else if (unitChar === 'm') unit = 'minutes';
-  else if (unitChar === 'h' || unitChar === 'H') unit = 'hours';
-  else if (unitChar === 'd' || unitChar === 'D') unit = 'days';
-  else if (unitChar === 'w' || unitChar === 'W') unit = 'weeks';
-  else if (unitChar === 'M') unit = 'months';
-
-  const rule = visibility[unit];
-  if (!rule) return true;
-  if (!rule.show) return false;
-  if (rule.min !== undefined && value < rule.min) return false;
-  if (rule.max !== undefined && value > rule.max) return false;
   return true;
 };
 
 export const TextTool: ToolDefinition = {
   id: 'text',
   name: 'Text',
-  icon: TextToolIcon,
+  icon: Type,
   group: 'text',
-  hotkey: 'Alt + T',
   settingsSchema: [
+    { id: 'text', label: 'Text', type: 'color', defaultValue: 'Text' },
     { id: 'textColor', label: 'Text Color', type: 'color', defaultValue: '#2196F3' },
-    { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 8, max: 72, step: 1 },
-    { id: 'textAlign', label: 'Text Alignment', type: 'select', defaultValue: 'left', options: [{ label: 'Left', value: 'left' }, { label: 'Center', value: 'center' }, { label: 'Right', value: 'right' }] },
-    { id: 'bold', label: 'Bold', type: 'boolean', defaultValue: false },
-    { id: 'italic', label: 'Italic', type: 'boolean', defaultValue: false },
-    { id: 'fillBackground', label: 'Background', type: 'boolean', defaultValue: false },
-    { id: 'fillColor', label: 'Background Color', type: 'color', defaultValue: 'rgba(33, 150, 243, 0.1)' },
-    { id: 'showBorder', label: 'Show Border', type: 'boolean', defaultValue: false },
-    { id: 'lineColor', label: 'Border Color', type: 'color', defaultValue: '#2196F3' },
-    { id: 'boxWidth', label: 'Box Width', type: 'number', defaultValue: 200, min: 50, max: 1000, step: 10 },
-    { id: 'isAnchored', label: 'Anchor to Chart', type: 'boolean', defaultValue: false }
+    { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 10, max: 48, step: 1 }
   ],
-  defaultTemplates: [
-    { id: 'default', name: 'Default', commonSettings: { textColor: '#2196F3', fontSize: 14, textAlign: 'left', boxWidth: 200, isAnchored: false, showBorder: false, fillBackground: false } }
-  ],
-
+  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: 'Text', textColor: '#2196F3', fontSize: 14 } }],
+  
   createOverlayDef: () => ({
     name: 'fxText',
-    totalStep: 1,
+    totalStep: 3,
     needDefaultPointFigure: false,
-    needDefaultXAxisFigure: false,
-    needDefaultYAxisFigure: false,
     createPointFigures: ({ overlay, coordinates, chart }) => {
       if (chart && !isOverlayVisible(overlay, chart)) {
         return [];
       }
-      if (coordinates.length === 0) return [];
-
-      // Do not render any figure while moving mouse cursor before the first click
-      const isDrawn = !!(overlay?.extendData as any)?.isDrawn || ((chart as any)?._activeDrawingId !== overlay?.id && (overlay?.extendData as any)?.isDrawn !== false);
-      if (!isDrawn) return [];
+      if (coordinates.length < 2) return [];
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
-      const lineColor = customSettings.lineColor || '#2196F3';
-      const lineWidth = customSettings.lineWidth || 1;
-      const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
-      const fillBackground = !!customSettings.fillBackground;
-      const showBorder = !!customSettings.showBorder;
-      const boxWidth = customSettings.boxWidth || 200;
-      const boxHeight = customSettings.boxHeight || 40;
+      const lineColor = customSettings.textColor || '#2196F3';
+      const lineWidth = 1;
+      const fillColor = 'rgba(33, 150, 243, 0.08)';
 
       const p1 = coordinates[0];
-      const x = p1.x;
-      const y = p1.y;
-      const w = boxWidth;
-      const h = boxHeight;
+      const p2 = coordinates.length >= 8 ? coordinates[2] : coordinates[1];
+
+      const x = Math.min(p1.x, p2.x);
+      const y = Math.min(p1.y, p2.y);
+      const w = Math.abs(p1.x - p2.x);
+      const h = Math.abs(p1.y - p2.y);
 
       const figures: any[] = [];
 
-      // Render background / border box figure ONLY when explicitly enabled by user
-      if (showBorder || fillBackground) {
-        figures.push({
-          type: 'rect',
-          attrs: { x, y, width: w, height: h },
-          styles: {
-            style: showBorder && fillBackground ? 'stroke_fill' : (showBorder ? 'stroke' : 'fill'),
-            color: fillColor,
-            borderColor: showBorder ? lineColor : 'transparent',
-            borderSize: showBorder ? lineWidth : 0,
-          },
-          ignoreEvent: false
-        });
-      }
+      // Main body placeholder (Rectangle copy for Goal 1)
+      figures.push({
+        type: 'rect',
+        attrs: { x, y, width: w, height: h },
+        styles: {
+          style: 'stroke_fill',
+          color: fillColor,
+          borderColor: lineColor,
+          borderSize: lineWidth,
+          borderStyle: 'solid'
+        },
+        ignoreEvent: false
+      });
 
-      // Single resize handle at the right edge when selected or hovered
+      // 8 Grab Handles if selected or hovered
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
-      if (isSelected || isHovered) {
-        const handles = [
-          { x: x + w, y: y + h / 2 } // right-edge width resize anchor
-        ];
-        drawGrabHandles(figures, handles, overlay.lock || false);
+      if ((isSelected || isHovered) && coordinates.length >= 8) {
+        drawGrabHandles(figures, coordinates, overlay.lock || false);
       }
 
       return figures;
@@ -120,55 +74,86 @@ export const TextTool: ToolDefinition = {
 
   onDrawEnd: (event: any) => {
     const points = event.overlay.points;
-    if (!points || points.length === 0) return;
+    if (points.length < 2) return;
 
-    const customSettings = event.overlay.extendData?.customSettings || {};
-    const updatedExtendData = {
-      ...(event.overlay.extendData || {}),
-      customSettings: {
-        boxWidth: 200,
-        textColor: '#2196F3',
-        fontSize: 14,
-        isAnchored: false,
-        showBorder: false,
-        fillBackground: false,
-        ...customSettings,
-      },
-      isDrawn: true,
-      isNewText: true // Marker for immediate text editing
-    };
+    const p1 = points[0];
+    const p2 = points[1];
+
+    const xMin = Math.min(p1.timestamp, p2.timestamp);
+    const xMax = Math.max(p1.timestamp, p2.timestamp);
+    const diMin = p1.timestamp < p2.timestamp ? p1.dataIndex : p2.dataIndex;
+    const diMax = p1.timestamp < p2.timestamp ? p2.dataIndex : p1.dataIndex;
+    const yMin = Math.min(p1.value, p2.value);
+    const yMax = Math.max(p1.value, p2.value);
+
+    const xMid = (xMin + xMax) / 2;
+    const yMid = (yMin + yMax) / 2;
+    const diMid = (diMin !== undefined && diMax !== undefined) ? Math.round((diMin + diMax) / 2) : undefined;
+
+    const newPoints = [
+      { timestamp: xMin, value: yMin, dataIndex: diMin }, // 0: top-left
+      { timestamp: xMax, value: yMin, dataIndex: diMax }, // 1: top-right
+      { timestamp: xMax, value: yMax, dataIndex: diMax }, // 2: bottom-right
+      { timestamp: xMin, value: yMax, dataIndex: diMin }, // 3: bottom-left
+      { timestamp: xMid, value: yMin, dataIndex: diMid }, // 4: top-center
+      { timestamp: xMid, value: yMax, dataIndex: diMid }, // 5: bottom-center
+      { timestamp: xMin, value: yMid, dataIndex: diMin }, // 6: left-center
+      { timestamp: xMax, value: yMid, dataIndex: diMax }  // 7: right-center
+    ];
 
     event.chart.overrideOverlay({
       id: event.overlay.id,
-      extendData: updatedExtendData
+      points: newPoints
     });
   },
 
   onPressedMoving: (event: any, draggedIndex: number) => {
-    if (draggedIndex === undefined || draggedIndex === null || draggedIndex === 0) return false;
+    const points = [...event.overlay.points];
+    if (points.length < 8) return false;
 
-    const overlay = event.overlay;
-    const customSettings = overlay.extendData?.customSettings || {};
+    const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+    if (!mousePt) return false;
 
-    // Handle width adjustment via single right resize handle (index > 0)
-    if (draggedIndex === 1 || draggedIndex === 2 || draggedIndex === 4) {
-      const p1 = event.coordinates[0];
-      if (p1 && typeof event.x === 'number') {
-        const newWidth = Math.max(60, event.x - p1.x);
-        event.chart.overrideOverlay({
-          id: overlay.id,
-          extendData: {
-            ...overlay.extendData,
-            customSettings: {
-              ...customSettings,
-              boxWidth: newWidth
-            }
-          }
-        });
-        return true;
-      }
+    const snapped = snapPointToCandle(event, event.x, event.y);
+    const targetPt = snapped || mousePt;
+
+    const x = targetPt.timestamp;
+    const y = targetPt.value;
+    const di = targetPt.dataIndex;
+
+    const startPoints = (event.overlay.extendData as any)?.startPoints;
+
+    let xMin = startPoints ? startPoints[0].timestamp : points[0].timestamp;
+    let xMax = startPoints ? startPoints[2].timestamp : points[2].timestamp;
+    let diMin = startPoints ? startPoints[0].dataIndex : points[0].dataIndex;
+    let diMax = startPoints ? startPoints[2].dataIndex : points[2].dataIndex;
+    let yMin = startPoints ? startPoints[0].value : points[0].value;
+    let yMax = startPoints ? startPoints[2].value : points[2].value;
+
+    switch (draggedIndex) {
+      case 0: xMin = x; yMin = y; diMin = di; break;
+      case 1: xMax = x; yMin = y; diMax = di; break;
+      case 2: xMax = x; yMax = y; diMax = di; break;
+      case 3: xMin = x; yMax = y; diMin = di; break;
+      case 4: yMin = y; break;
+      case 5: yMax = y; break;
+      case 6: xMin = x; diMin = di; break;
+      case 7: xMax = x; diMax = di; break;
     }
 
-    return false;
+    const xMid = (xMin + xMax) / 2;
+    const yMid = (yMin + yMax) / 2;
+    const diMid = (diMin !== undefined && diMax !== undefined) ? Math.round((diMin + diMax) / 2) : undefined;
+
+    points[0] = { timestamp: xMin, value: yMin, dataIndex: diMin };
+    points[1] = { timestamp: xMax, value: yMin, dataIndex: diMax };
+    points[2] = { timestamp: xMax, value: yMax, dataIndex: diMax };
+    points[3] = { timestamp: xMin, value: yMax, dataIndex: diMin };
+    points[4] = { timestamp: xMid, value: yMin, dataIndex: diMid };
+    points[5] = { timestamp: xMid, value: yMax, dataIndex: diMid };
+    points[6] = { timestamp: xMin, value: yMid, dataIndex: diMin };
+    points[7] = { timestamp: xMax, value: yMid, dataIndex: diMax };
+
+    return { points } satisfies ToolMutationResult;
   }
 };

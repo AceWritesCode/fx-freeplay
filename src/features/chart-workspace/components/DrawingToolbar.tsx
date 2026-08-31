@@ -666,7 +666,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               disabled={!hasData}
               onClick={() => {
                 closeAllMenus();
-                // Visual selection only in Stage 1 — no drawing activation
+                if (activeTextTool.id === 'text') {
+                  handleSelectTool('text');
+                }
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
                 isGroupActive
@@ -726,6 +728,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                         key={tool.id}
                         onClick={() => {
                           setSelectedTextToolId(tool.id);
+                          if (tool.id === 'text') {
+                            handleSelectTool('text');
+                          }
                           closeAllMenus();
                         }}
                         className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
