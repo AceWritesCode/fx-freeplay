@@ -9,8 +9,8 @@ const isOverlayVisible = (overlay: any, _chart: any) => {
   return true;
 };
 
-// Fixed internal horizontal padding constant for equal left and right breathing room
-const PADDING_HORIZONTAL = 8;
+// Fixed internal horizontal padding constant for equal left and right breathing room (10px left, 10px right)
+const PADDING_HORIZONTAL = 10;
 
 /**
  * Helper to measure single character width at a given font size.
@@ -21,7 +21,7 @@ const getSingleCharWidth = (fontSize: number): number => {
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.font = `${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
-      return ctx.measureText('W').width;
+      return ctx.measureText('W').width * 1.05;
     }
   }
   return fontSize * 0.65;
@@ -41,10 +41,10 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number):
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.font = `${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
-        return ctx.measureText(str).width;
+        return ctx.measureText(str).width * 1.05;
       }
     }
-    return str.length * (fontSize * 0.60);
+    return str.length * (fontSize * 0.65);
   };
 
   const lines: string[] = [];
@@ -134,8 +134,8 @@ export const TextTool: ToolDefinition = {
 
       // Calculate dynamic line height and total box height automatically
       const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-      const topPadding = 6;
-      const bottomPadding = 6;
+      const topPadding = 8;
+      const bottomPadding = 8;
       const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
 
       const figures: any[] = [];
