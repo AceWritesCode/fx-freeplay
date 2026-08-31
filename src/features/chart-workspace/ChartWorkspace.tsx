@@ -1560,28 +1560,35 @@ export function ChartWorkspace() {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
               const originalId = syncMatch ? syncMatch[1] : ov.id;
 
+              const mergedExtendData = {
+                ...(ov.extendData || {}),
+                customSettings: {
+                  ...(ov.extendData?.customSettings || {}),
+                  text: newText,
+                },
+              };
+
               const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
               if (resolved) {
-                const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-                const mergedExtendData = {
-                  ...(currentDrawing.extendData || {}),
-                  customSettings: {
-                    ...(currentDrawing.extendData?.customSettings || {}),
-                    text: newText,
-                  },
-                };
-                useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
                   extendData: mergedExtendData,
                 });
-                if (chart && originalId) {
-                  chart.overrideOverlay({
-                    id: originalId,
+              } else {
+                const currentSymbol = slots[i]?.symbol;
+                if (currentSymbol) {
+                  useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
                     extendData: mergedExtendData,
                   });
                 }
-                mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               }
 
+              if (chart && originalId) {
+                chart.overrideOverlay({
+                  id: originalId,
+                  extendData: mergedExtendData,
+                });
+              }
+              mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               drawingCoord.setDrawingTrigger((prev) => prev + 1);
             };
 
@@ -1589,28 +1596,35 @@ export function ChartWorkspace() {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
               const originalId = syncMatch ? syncMatch[1] : ov.id;
 
+              const mergedExtendData = {
+                ...(ov.extendData || {}),
+                customSettings: {
+                  ...(ov.extendData?.customSettings || {}),
+                  ...update,
+                },
+              };
+
               const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
               if (resolved) {
-                const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-                const mergedExtendData = {
-                  ...(currentDrawing.extendData || {}),
-                  customSettings: {
-                    ...(currentDrawing.extendData?.customSettings || {}),
-                    ...update,
-                  },
-                };
-                useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+                useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
                   extendData: mergedExtendData,
                 });
-                if (chart && originalId) {
-                  chart.overrideOverlay({
-                    id: originalId,
+              } else {
+                const currentSymbol = slots[i]?.symbol;
+                if (currentSymbol) {
+                  useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
                     extendData: mergedExtendData,
                   });
                 }
-                mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               }
 
+              if (chart && originalId) {
+                chart.overrideOverlay({
+                  id: originalId,
+                  extendData: mergedExtendData,
+                });
+              }
+              mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               drawingCoord.setDrawingTrigger((prev) => prev + 1);
             };
 
@@ -2396,42 +2410,54 @@ export function ChartWorkspace() {
           const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
 
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          const currentSettingsOverlay = getSelectedSettingsOverlay();
+          const currentExtendData = resolved?.drawing?.extendData || currentSettingsOverlay?.extendData || {};
+          const currentName = resolved?.drawing?.name || currentSettingsOverlay?.name || 'text';
+          updateDefaultSettings(currentName, updatedSettings);
+          const mergedExtendData = {
+            ...(currentExtendData || {}),
+            customSettings: {
+              ...(currentExtendData?.customSettings || {}),
+              ...updatedSettings,
+            },
+          };
+
           if (resolved) {
-            const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
-            updateDefaultSettings(currentDrawing.name, updatedSettings);
-            const mergedExtendData = {
-              ...(currentDrawing.extendData || {}),
-              customSettings: {
-                ...(currentDrawing.extendData?.customSettings || {}),
-                ...updatedSettings,
-              },
-            };
-            useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+            useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
               extendData: mergedExtendData,
               ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
             });
-            // Direct immediate overlay override & pane invalidation across all chart slots
-            chartInstancesRef.current.forEach((chart) => {
-              if (!chart) return;
-              const overlays = chart.getOverlays() || [];
-              overlays.forEach((ov: any) => {
-                const ovOriginalId = typeof ov.id === 'string' && ov.id.startsWith('sync_')
-                  ? ov.id.match(/^sync_(.+)_from_(\d+)$/)?.[1]
-                  : ov.id;
-                if (ovOriginalId === originalId) {
-                  chart.overrideOverlay({
-                    id: ov.id,
-                    ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
-                    extendData: mergedExtendData,
-                  });
-                  DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
-                }
+          } else {
+            const currentSymbol = slots[activeChartIndex]?.symbol;
+            if (currentSymbol) {
+              useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
+                extendData: mergedExtendData,
+                ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
               });
-            });
-            const activeChart = chartInstancesRef.current[activeChartIndex];
-            if (activeChart) {
-              mirrorLiveOverlayUpdate(activeChart, originalId, { points: updatedPoints, extendData: mergedExtendData }, chartInstancesRef);
             }
+          }
+
+          // Direct immediate overlay override & pane invalidation across all chart slots
+          chartInstancesRef.current.forEach((chart) => {
+            if (!chart) return;
+            const overlays = chart.getOverlays() || [];
+            overlays.forEach((ov: any) => {
+              const ovOriginalId = typeof ov.id === 'string' && ov.id.startsWith('sync_')
+                ? ov.id.match(/^sync_(.+)_from_(\d+)$/)?.[1]
+                : ov.id;
+              if (ovOriginalId === originalId) {
+                chart.overrideOverlay({
+                  id: ov.id,
+                  ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
+                  extendData: mergedExtendData,
+                });
+                DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+              }
+            });
+          });
+          const activeChart = chartInstancesRef.current[activeChartIndex];
+          if (activeChart) {
+            mirrorLiveOverlayUpdate(activeChart, originalId, { points: updatedPoints, extendData: mergedExtendData }, chartInstancesRef);
           }
 
           runWorkspaceReconciliation(chartInstancesRef);

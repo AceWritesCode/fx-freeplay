@@ -105,7 +105,7 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
     const updatePos = () => {
       if (!active) return;
       const pts = overlay?.points;
-      if (pts && pts.length > 0 && chart && elRef.current) {
+      if (pts && pts.length > 0 && chart) {
         const pixelPts = chart.convertToPixel(pts, { paneId: 'candle_pane' });
         if (pixelPts && pixelPts[0] && typeof pixelPts[0].x === 'number' && Number.isFinite(pixelPts[0].x)) {
           setPosition({ x: pixelPts[0].x, y: pixelPts[0].y });
@@ -121,13 +121,13 @@ export const FloatingTextComponent: React.FC<FloatingTextComponentProps> = ({
     };
   }, [overlay, chart]);
 
-  // Focus textarea when editing starts
+  // Focus textarea when editing starts or when position mounts textarea
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.select();
     }
-  }, [isEditing]);
+  }, [isEditing, position]);
 
   if (!isDrawn || !isVisible || !position) return null;
 
