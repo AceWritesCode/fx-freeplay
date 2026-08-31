@@ -211,7 +211,7 @@ export const TextTool: ToolDefinition = {
       const p1Pixel = event.chart.convertToPixel([p1], { paneId: 'candle_pane' })?.[0];
       if (p1Pixel) {
         const p2Target = event.chart.convertFromPixel(
-          [{ x: p1Pixel.x + 120, y: p1Pixel.y }],
+          [{ x: p1Pixel.x + 120, y: p1Pixel.y + 16 }],
           { paneId: 'candle_pane' }
         )?.[0];
         if (p2Target) {
@@ -227,7 +227,7 @@ export const TextTool: ToolDefinition = {
     // Geometry is strictly 2 points: [p1 (position), p2 (center-right width anchor)]
     const newPoints = [
       { timestamp: p1.timestamp, value: p1.value, dataIndex: p1.dataIndex },
-      { timestamp: p2.timestamp, value: p1.value, dataIndex: p2.dataIndex }
+      { timestamp: p2.timestamp, value: p2.value ?? p1.value, dataIndex: p2.dataIndex }
     ];
 
     event.chart.overrideOverlay({
@@ -251,7 +251,7 @@ export const TextTool: ToolDefinition = {
     const startP2 = startPoints?.[1] || points[1];
 
     if (draggedIndex === 1) {
-      // Center-right anchor: resize width only
+      // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
       // Enforce minimum width constraint (never narrower than 1 character width)
       const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
       const fontSize = customSettings.fontSize || 14;
@@ -275,14 +275,23 @@ export const TextTool: ToolDefinition = {
         }
       }
 
+      // Left/top position (points[0]) MUST REMAIN STRICTLY FIXED!
+      points[0] = {
+        timestamp: startP1.timestamp,
+        value: startP1.value,
+        dataIndex: startP1.dataIndex
+      };
+
+      // Only points[1] (width anchor) is updated
       points[1] = {
         timestamp: p2Target.timestamp,
-        value: startP1.value,
+        value: startP2.value,
         dataIndex: p2Target.dataIndex
       };
-    } else if (draggedIndex === 0) {
-      // Position anchor / body drag: move entire text box
+    } else {
+      // Body drag or point 0 hit: move the ENTIRE text box together!
       const dt = targetPt.timestamp - startP1.timestamp;
+      const dv = targetPt.value - startP1.value;
       const dDi = (targetPt.dataIndex !== undefined && startP1.dataIndex !== undefined)
         ? (targetPt.dataIndex - startP1.dataIndex)
         : 0;
@@ -294,7 +303,7 @@ export const TextTool: ToolDefinition = {
       };
       points[1] = {
         timestamp: startP2.timestamp + dt,
-        value: targetPt.value,
+        value: startP2.value + dv,
         dataIndex: startP2.dataIndex !== undefined ? startP2.dataIndex + dDi : undefined
       };
     }
