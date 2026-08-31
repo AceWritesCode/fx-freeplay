@@ -20,7 +20,6 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
-import { FloatingTextComponent } from '@/components/FloatingTextComponent';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction } from '@/framework/interaction';
@@ -277,12 +276,12 @@ export function ChartWorkspace() {
   const [selectedShapeToolId, setSelectedShapeToolId] = useState<string>('rectangle');
   const [isShapeMenuOpen, setIsShapeMenuOpen] = useState<boolean>(false);
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [selectedForecastToolId, setSelectedForecastToolId] = useState<string>('longPosition');
-  const [isForecastMenuOpen, setIsForecastMenuOpen] = useState<boolean>(false);
-  const [forecastMenuPos, setForecastMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedTextToolId, setSelectedTextToolId] = useState<string>('text');
   const [isTextMenuOpen, setIsTextMenuOpen] = useState<boolean>(false);
   const [textMenuPos, setTextMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [selectedForecastToolId, setSelectedForecastToolId] = useState<string>('longPosition');
+  const [isForecastMenuOpen, setIsForecastMenuOpen] = useState<boolean>(false);
+  const [forecastMenuPos, setForecastMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isMagnetMenuOpen, setIsMagnetMenuOpen] = useState<boolean>(false);
   const [magnetMenuPos, setMagnetMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoveredOverlayId, setHoveredOverlayId] = useState<string | null>(null);
@@ -311,8 +310,8 @@ export function ChartWorkspace() {
   const cursorMenuRef = useRef<HTMLDivElement>(null);
   const lineMenuRef = useRef<HTMLDivElement>(null);
   const shapeMenuRef = useRef<HTMLDivElement>(null);
-  const forecastMenuRef = useRef<HTMLDivElement>(null);
   const textMenuRef = useRef<HTMLDivElement>(null);
+  const forecastMenuRef = useRef<HTMLDivElement>(null);
   const magnetMenuRef = useRef<HTMLDivElement>(null);
 
   // Derived states
@@ -875,9 +874,7 @@ export function ChartWorkspace() {
 
             if (clickInside && !isUIInteraction) {
               setTimeout(() => {
-                const isAnyDrawingActive = chartInstancesRef.current.some((c) => c && c._activeDrawingId);
-                const isAnyOverlayClicked = chartInstancesRef.current.some((c) => c && c._clickedOnOverlay);
-                if (!isAnyOverlayClicked && !isAnyDrawingActive && !chart._activeDrawingId) {
+                if (!chart._clickedOnOverlay && !chart._activeDrawingId) {
                   handleSelectOverlayIds([]);
                   if (drawingCoord.activeTool) {
                     drawingCoord.setActiveTool(null);
@@ -1441,10 +1438,6 @@ export function ChartWorkspace() {
         ...settingsUpdate,
       };
       delete merged.text;
-      if (toolName === 'text') {
-        merged.showBorder = !!merged.showBorder;
-        merged.fillBackground = !!merged.fillBackground;
-      }
       localStorage.setItem(key, JSON.stringify(merged));
     } catch (err) {
       console.error('[DEBUG] Failed to update default settings:', err);
@@ -1557,89 +1550,41 @@ export function ChartWorkspace() {
           <span className="text-txt-secondary font-semibold">{slots[i]?.timeframe || '1m'}</span>
         </div>
 
-        {/* Floating text inputs for TrendLines, Rectangles, and Text Tool */}
+        {/* Floating text inputs for TrendLines and Rectangles */}
         {(() => {
           const chart = chartInstancesRef.current[i];
-          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle' || o.name === 'text' || o.name === 'fxText') : [];
+          const allTextOverlays = chart ? chart.getOverlays().filter((o: any) => o.name === 'trendLine' || o.name === 'rectangle') : [];
           return allTextOverlays.map((ov: any) => {
             const handleTextChange = (newText: string) => {
               const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
               const originalId = syncMatch ? syncMatch[1] : ov.id;
 
-              const mergedExtendData = {
-                ...(ov.extendData || {}),
-                customSettings: {
-                  ...(ov.extendData?.customSettings || {}),
-                  text: newText,
-                },
-              };
-
               const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
               if (resolved) {
-                useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
+                const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+                const mergedExtendData = {
+                  ...(currentDrawing.extendData || {}),
+                  customSettings: {
+                    ...(currentDrawing.extendData?.customSettings || {}),
+                    text: newText,
+                  },
+                };
+                useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
                   extendData: mergedExtendData,
                 });
-              } else {
-                const currentSymbol = slots[i]?.symbol;
-                if (currentSymbol) {
-                  useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
+                // Also push the new text into the source chart's own KLineCharts overlay.
+                // Without this, the KLineCharts in-memory extendData still has the old text.
+                // When the user deselects, the deselection effect reads chartOverlay.extendData
+                // from KLineCharts and would overwrite the store with stale data, wiping the text.
+                if (chart && originalId) {
+                  chart.overrideOverlay({
+                    id: originalId,
                     extendData: mergedExtendData,
                   });
                 }
+                mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
               }
 
-              if (chart && originalId) {
-                chart.overrideOverlay({
-                  id: originalId,
-                  extendData: mergedExtendData,
-                });
-              }
-              mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
-              drawingCoord.setDrawingTrigger((prev) => prev + 1);
-            };
-
-            const handleUpdateSettings = (update: any) => {
-              const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : ov.id;
-
-              const mergedExtendData = {
-                ...(ov.extendData || {}),
-                customSettings: {
-                  ...(ov.extendData?.customSettings || {}),
-                  ...update,
-                },
-              };
-
-              const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
-              if (resolved) {
-                useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
-                  extendData: mergedExtendData,
-                });
-              } else {
-                const currentSymbol = slots[i]?.symbol;
-                if (currentSymbol) {
-                  useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
-                    extendData: mergedExtendData,
-                  });
-                }
-              }
-
-              if (chart && originalId) {
-                chart.overrideOverlay({
-                  id: originalId,
-                  extendData: mergedExtendData,
-                });
-              }
-              mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
-              drawingCoord.setDrawingTrigger((prev) => prev + 1);
-            };
-
-            const handleDelete = () => {
-              const syncMatch = ov.id?.match(/^sync_(.+)_from_(\d+)$/);
-              const originalId = syncMatch ? syncMatch[1] : ov.id;
-              useDrawingStore.getState().removeSymbolDrawingById(originalId);
-              setSelectedOverlayIds((prev) => prev.filter((id) => id !== ov.id && id !== originalId));
-              runWorkspaceReconciliation(chartInstancesRef);
               drawingCoord.setDrawingTrigger((prev) => prev + 1);
             };
 
@@ -1665,21 +1610,6 @@ export function ChartWorkspace() {
                   isSelected={selectedOverlayIds.includes(ov.id)}
                   isHovered={hoveredOverlayId === ov.id}
                   onTextChange={handleTextChange}
-                  syncAllDrawings={drawingCoord.syncAllDrawings}
-                />
-              );
-            }
-            if (ov.name === 'text' || ov.name === 'fxText') {
-              return (
-                <FloatingTextComponent
-                  key={ov.id}
-                  chart={chart}
-                  overlay={ov}
-                  isSelected={selectedOverlayIds.includes(ov.id)}
-                  isHovered={hoveredOverlayId === ov.id}
-                  onTextChange={handleTextChange}
-                  onDelete={handleDelete}
-                  onUpdateSettings={handleUpdateSettings}
                   syncAllDrawings={drawingCoord.syncAllDrawings}
                 />
               );
@@ -1873,18 +1803,18 @@ export function ChartWorkspace() {
           setIsShapeMenuOpen={setIsShapeMenuOpen}
           shapeMenuPos={shapeMenuPos}
           setShapeMenuPos={setShapeMenuPos}
-          selectedForecastToolId={selectedForecastToolId}
-          setSelectedForecastToolId={setSelectedForecastToolId}
-          isForecastMenuOpen={isForecastMenuOpen}
-          setIsForecastMenuOpen={setIsForecastMenuOpen}
-          forecastMenuPos={forecastMenuPos}
-          setForecastMenuPos={setForecastMenuPos}
           selectedTextToolId={selectedTextToolId}
           setSelectedTextToolId={setSelectedTextToolId}
           isTextMenuOpen={isTextMenuOpen}
           setIsTextMenuOpen={setIsTextMenuOpen}
           textMenuPos={textMenuPos}
           setTextMenuPos={setTextMenuPos}
+          selectedForecastToolId={selectedForecastToolId}
+          setSelectedForecastToolId={setSelectedForecastToolId}
+          isForecastMenuOpen={isForecastMenuOpen}
+          setIsForecastMenuOpen={setIsForecastMenuOpen}
+          forecastMenuPos={forecastMenuPos}
+          setForecastMenuPos={setForecastMenuPos}
           magnetMode={drawingCoord.magnetMode}
           isMagnetMenuOpen={isMagnetMenuOpen}
           setIsMagnetMenuOpen={setIsMagnetMenuOpen}
@@ -1897,8 +1827,8 @@ export function ChartWorkspace() {
           cursorMenuRef={cursorMenuRef}
           lineMenuRef={lineMenuRef}
           shapeMenuRef={shapeMenuRef}
-          forecastMenuRef={forecastMenuRef}
           textMenuRef={textMenuRef}
+          forecastMenuRef={forecastMenuRef}
           magnetMenuRef={magnetMenuRef}
           chartInstanceRef={{ current: chartInstancesRef.current[activeChartIndex] }}
           activeOverlayIdRef={activeOverlayIdRef}
@@ -2416,54 +2346,42 @@ export function ChartWorkspace() {
           const originalId = syncMatch ? syncMatch[1] : drawingSettingsOverlayId;
 
           const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
-          const currentSettingsOverlay = getSelectedSettingsOverlay();
-          const currentExtendData = resolved?.drawing?.extendData || currentSettingsOverlay?.extendData || {};
-          const currentName = resolved?.drawing?.name || currentSettingsOverlay?.name || 'text';
-          updateDefaultSettings(currentName, updatedSettings);
-          const mergedExtendData = {
-            ...(currentExtendData || {}),
-            customSettings: {
-              ...(currentExtendData?.customSettings || {}),
-              ...updatedSettings,
-            },
-          };
-
           if (resolved) {
-            useDrawingStore.getState().updateSymbolDrawing(resolved.symbol, originalId, {
+            const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+            updateDefaultSettings(currentDrawing.name, updatedSettings);
+            const mergedExtendData = {
+              ...(currentDrawing.extendData || {}),
+              customSettings: {
+                ...(currentDrawing.extendData?.customSettings || {}),
+                ...updatedSettings,
+              },
+            };
+            useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
               extendData: mergedExtendData,
               ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
             });
-          } else {
-            const currentSymbol = slots[activeChartIndex]?.symbol;
-            if (currentSymbol) {
-              useDrawingStore.getState().updateSymbolDrawing(currentSymbol, originalId, {
-                extendData: mergedExtendData,
-                ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
+            // Direct immediate overlay override & pane invalidation across all chart slots
+            chartInstancesRef.current.forEach((chart) => {
+              if (!chart) return;
+              const overlays = chart.getOverlays() || [];
+              overlays.forEach((ov: any) => {
+                const ovOriginalId = typeof ov.id === 'string' && ov.id.startsWith('sync_')
+                  ? ov.id.match(/^sync_(.+)_from_(\d+)$/)?.[1]
+                  : ov.id;
+                if (ovOriginalId === originalId) {
+                  chart.overrideOverlay({
+                    id: ov.id,
+                    ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
+                    extendData: mergedExtendData,
+                  });
+                  DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+                }
               });
-            }
-          }
-
-          // Direct immediate overlay override & pane invalidation across all chart slots
-          chartInstancesRef.current.forEach((chart) => {
-            if (!chart) return;
-            const overlays = chart.getOverlays() || [];
-            overlays.forEach((ov: any) => {
-              const ovOriginalId = typeof ov.id === 'string' && ov.id.startsWith('sync_')
-                ? ov.id.match(/^sync_(.+)_from_(\d+)$/)?.[1]
-                : ov.id;
-              if (ovOriginalId === originalId) {
-                chart.overrideOverlay({
-                  id: ov.id,
-                  ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
-                  extendData: mergedExtendData,
-                });
-                DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
-              }
             });
-          });
-          const activeChart = chartInstancesRef.current[activeChartIndex];
-          if (activeChart) {
-            mirrorLiveOverlayUpdate(activeChart, originalId, { points: updatedPoints, extendData: mergedExtendData }, chartInstancesRef);
+            const activeChart = chartInstancesRef.current[activeChartIndex];
+            if (activeChart) {
+              mirrorLiveOverlayUpdate(activeChart, originalId, { points: updatedPoints, extendData: mergedExtendData }, chartInstancesRef);
+            }
           }
 
           runWorkspaceReconciliation(chartInstancesRef);

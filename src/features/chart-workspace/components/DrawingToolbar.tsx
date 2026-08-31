@@ -1,9 +1,36 @@
 import React, { useEffect } from 'react';
 import { 
   Magnet, 
-  Trash2
+  Trash2,
+  Type,
+  FileText,
+  Table as TableIcon,
+  MessageSquare
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
+
+export const TEXT_TOOLS = [
+  {
+    id: 'text',
+    name: 'Text',
+    icon: Type,
+  },
+  {
+    id: 'note',
+    name: 'Note',
+    icon: FileText,
+  },
+  {
+    id: 'table',
+    name: 'Table',
+    icon: TableIcon,
+  },
+  {
+    id: 'callout',
+    name: 'Callout',
+    icon: MessageSquare,
+  },
+];
 
 export const ToolIconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <span className="w-[22px] h-[22px] flex items-center justify-center flex-shrink-0 text-current pointer-events-none select-none">
@@ -123,18 +150,18 @@ interface DrawingToolbarProps {
   setIsShapeMenuOpen: (open: boolean) => void;
   shapeMenuPos: { x: number; y: number };
   setShapeMenuPos: (pos: { x: number; y: number }) => void;
-  selectedForecastToolId: string;
-  setSelectedForecastToolId: (id: string) => void;
-  isForecastMenuOpen: boolean;
-  setIsForecastMenuOpen: (open: boolean) => void;
-  forecastMenuPos: { x: number; y: number };
-  setForecastMenuPos: (pos: { x: number; y: number }) => void;
   selectedTextToolId: string;
   setSelectedTextToolId: (id: string) => void;
   isTextMenuOpen: boolean;
   setIsTextMenuOpen: (open: boolean) => void;
   textMenuPos: { x: number; y: number };
   setTextMenuPos: (pos: { x: number; y: number }) => void;
+  selectedForecastToolId: string;
+  setSelectedForecastToolId: (id: string) => void;
+  isForecastMenuOpen: boolean;
+  setIsForecastMenuOpen: (open: boolean) => void;
+  forecastMenuPos: { x: number; y: number };
+  setForecastMenuPos: (pos: { x: number; y: number }) => void;
   magnetMode: 'normal' | 'normal_magnet' | 'weak_magnet' | 'strong_magnet';
   isMagnetMenuOpen: boolean;
   setIsMagnetMenuOpen: (open: boolean) => void;
@@ -147,8 +174,8 @@ interface DrawingToolbarProps {
   cursorMenuRef: React.RefObject<HTMLDivElement | null>;
   lineMenuRef: React.RefObject<HTMLDivElement | null>;
   shapeMenuRef: React.RefObject<HTMLDivElement | null>;
-  forecastMenuRef: React.RefObject<HTMLDivElement | null>;
   textMenuRef: React.RefObject<HTMLDivElement | null>;
+  forecastMenuRef: React.RefObject<HTMLDivElement | null>;
   magnetMenuRef: React.RefObject<HTMLDivElement | null>;
   chartInstanceRef?: any;
   activeOverlayIdRef?: any;
@@ -178,18 +205,18 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     setIsShapeMenuOpen,
     shapeMenuPos,
     setShapeMenuPos,
-    selectedForecastToolId,
-    setSelectedForecastToolId,
-    isForecastMenuOpen,
-    setIsForecastMenuOpen,
-    forecastMenuPos,
-    setForecastMenuPos,
     selectedTextToolId,
     setSelectedTextToolId,
     isTextMenuOpen,
     setIsTextMenuOpen,
     textMenuPos,
     setTextMenuPos,
+    selectedForecastToolId,
+    setSelectedForecastToolId,
+    isForecastMenuOpen,
+    setIsForecastMenuOpen,
+    forecastMenuPos,
+    setForecastMenuPos,
     magnetMode,
     isMagnetMenuOpen,
     setIsMagnetMenuOpen,
@@ -202,17 +229,17 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     cursorMenuRef,
     lineMenuRef,
     shapeMenuRef,
-    forecastMenuRef,
     textMenuRef,
+    forecastMenuRef,
     magnetMenuRef,
   } = props;
 
-  const closeAllMenus = (except?: 'cursor' | 'line' | 'shape' | 'forecast' | 'text' | 'magnet') => {
+  const closeAllMenus = (except?: 'cursor' | 'line' | 'shape' | 'text' | 'forecast' | 'magnet') => {
     if (except !== 'cursor') setIsCursorMenuOpen(false);
     if (except !== 'line') setIsLineMenuOpen(false);
     if (except !== 'shape') setIsShapeMenuOpen(false);
-    if (except !== 'forecast') setIsForecastMenuOpen(false);
     if (except !== 'text') setIsTextMenuOpen(false);
+    if (except !== 'forecast') setIsForecastMenuOpen(false);
     if (except !== 'magnet') setIsMagnetMenuOpen(false);
   };
 
@@ -223,6 +250,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         cursorMenuRef.current?.contains(target) ||
         lineMenuRef.current?.contains(target) ||
         shapeMenuRef.current?.contains(target) ||
+        textMenuRef.current?.contains(target) ||
         forecastMenuRef.current?.contains(target) ||
         magnetMenuRef.current?.contains(target)
       ) {
@@ -239,11 +267,13 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     cursorMenuRef,
     lineMenuRef,
     shapeMenuRef,
+    textMenuRef,
     forecastMenuRef,
     magnetMenuRef,
     setIsCursorMenuOpen,
     setIsLineMenuOpen,
     setIsShapeMenuOpen,
+    setIsTextMenuOpen,
     setIsForecastMenuOpen,
     setIsMagnetMenuOpen,
   ]);
@@ -624,6 +654,104 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         );
       })()}
 
+      {/* Grouped Drawing Tools: Text & Notes */}
+      {(() => {
+        const activeTextTool = TEXT_TOOLS.find(t => t.id === selectedTextToolId) || TEXT_TOOLS[0];
+        const Icon = activeTextTool.icon;
+        const isGroupActive = activeTool && (activeTool === 'text' || activeTool === 'note' || activeTool === 'table' || activeTool === 'callout');
+        return (
+          <div className="relative flex items-center bg-transparent rounded-lg">
+            <button
+              title={activeTextTool.name}
+              disabled={!hasData}
+              onClick={() => {
+                closeAllMenus();
+                // Visual selection only in Stage 1 — no drawing activation
+              }}
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+                isGroupActive
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+              }`}
+              style={{ width: '34px', height: '34px' }}
+            >
+              <ToolIconWrapper>
+                <Icon className="w-full h-full text-current" />
+              </ToolIconWrapper>
+            </button>
+            <button
+              title="More text & notes tools"
+              disabled={!hasData}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTextMenuPos({ x: rect.right, y: rect.top });
+                const nextState = !isTextMenuOpen;
+                closeAllMenus('text');
+                setIsTextMenuOpen(nextState);
+              }}
+              className={`border rounded-md transition-all flex items-center justify-center ${
+                isTextMenuOpen
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+              }`}
+              style={{ width: '12px', height: '34px' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+                <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {isTextMenuOpen && (
+              <div
+                ref={textMenuRef}
+                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[200px] text-txt-secondary select-none"
+                style={{
+                  left: `${textMenuPos.x + 6}px`,
+                  top: `${textMenuPos.y}px`,
+                }}
+              >
+                {/* Header */}
+                <div className="px-3.5 py-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
+                  Text & Notes
+                </div>
+
+                {/* Items */}
+                <div className="flex flex-col">
+                  {TEXT_TOOLS.map(tool => {
+                    const ToolIcon = tool.icon;
+                    const isSelected = selectedTextToolId === tool.id;
+                    return (
+                      <button
+                        key={tool.id}
+                        onClick={() => {
+                          setSelectedTextToolId(tool.id);
+                          closeAllMenus();
+                        }}
+                        className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
+                          isSelected
+                            ? 'bg-surface-elevated text-txt-primary font-medium'
+                            : 'hover:bg-surface-hover text-txt-secondary'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`w-7 h-7 flex items-center justify-center rounded ${
+                            isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'
+                          }`}>
+                            <ToolIcon className="w-5 h-5 text-current" />
+                          </span>
+                          <span className="text-xs">{tool.name}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Grouped Drawing Tools: Forecast (Long / Short position) */}
       {(() => {
         const activeForecastTool = ToolRegistry.get(selectedForecastToolId) || ToolRegistry.get('longPosition');
@@ -722,104 +850,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         );
       })()}
 
-      {/* Grouped Drawing Tools: Text Tools */}
-      {(() => {
-        const activeTextTool = ToolRegistry.get(selectedTextToolId) || ToolRegistry.get('text');
-        if (!activeTextTool) return null;
-        const Icon = activeTextTool.icon;
-        const isGroupActive = activeTool && ToolRegistry.get(activeTool)?.group === 'text';
-        return (
-          <div className="relative flex items-center bg-transparent rounded-lg">
-            <button
-              title={activeTextTool.name}
-              disabled={!hasData}
-              onClick={() => {
-                closeAllMenus();
-                handleSelectTool(activeTextTool.id);
-              }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
-                isGroupActive
-                  ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-              }`}
-              style={{ width: '34px', height: '34px' }}
-            >
-              <ToolIconWrapper>
-                <Icon className="w-full h-full text-current" />
-              </ToolIconWrapper>
-            </button>
-            <button
-              title="More text tools"
-              disabled={!hasData}
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setTextMenuPos({ x: rect.right, y: rect.top });
-                const nextState = !isTextMenuOpen;
-                closeAllMenus('text');
-                setIsTextMenuOpen(nextState);
-              }}
-              className={`border rounded-md transition-all flex items-center justify-center ${
-                isTextMenuOpen
-                  ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-              }`}
-              style={{ width: '12px', height: '34px' }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
-                <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-
-            {isTextMenuOpen && (
-              <div
-                ref={textMenuRef}
-                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[200px] text-txt-secondary select-none"
-                style={{
-                  left: `${textMenuPos.x + 6}px`,
-                  top: `${textMenuPos.y}px`,
-                }}
-              >
-                <div className="px-3.5 py-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
-                  Text Tools
-                </div>
-                {(['text'] as const).map(toolId => {
-                  const tool = ToolRegistry.get(toolId);
-                  if (!tool) return null;
-                  const ToolIcon = tool.icon;
-                  const isSelected = selectedTextToolId === tool.id;
-                  return (
-                    <button
-                      key={tool.id}
-                      onClick={() => {
-                        setSelectedTextToolId(tool.id);
-                        handleSelectTool(tool.id);
-                        closeAllMenus();
-                      }}
-                      className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
-                        isSelected
-                          ? 'bg-surface-elevated text-txt-primary font-medium'
-                          : 'hover:bg-surface-hover text-txt-secondary'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`w-7 h-7 flex items-center justify-center rounded ${
-                          isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'
-                        }`}>
-                          <ToolIcon className="w-6 h-6 text-current" />
-                        </span>
-                        <span className="text-xs">{tool.name}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Any other tools not in 'lines', 'shapes', 'forecast', or 'text' groups */}
+      {/* Any other tools not in 'lines', 'shapes', or 'forecast' groups */}
       {ToolRegistry.getAll()
         .filter(tool => !tool.group)
         .map((tool) => {
