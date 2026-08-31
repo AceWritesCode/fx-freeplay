@@ -43,13 +43,13 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
   const autoResizeTextarea = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      textareaRef.current.style.height = `${Math.max(16, textareaRef.current.scrollHeight)}px`;
     }
   };
 
   useEffect(() => {
     autoResizeTextarea();
-  }, [inputText, fontSize]);
+  }, [inputText, fontSize, isEditing, customSettings.boxWidth]);
 
   // When selected, activate edit mode and auto-focus immediately
   useEffect(() => {
@@ -73,6 +73,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           textareaRef.current.focus();
           textareaRef.current.selectionStart = textareaRef.current.value.length;
           textareaRef.current.selectionEnd = textareaRef.current.value.length;
+          autoResizeTextarea();
         }
       }, 50);
       return () => clearTimeout(timer);
@@ -142,9 +143,11 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           }
         }
 
+        const targetW = Math.max(30, boxWidth - PADDING_HORIZONTAL * 2);
         elRef.current.style.left = `${x + PADDING_HORIZONTAL}px`;
         elRef.current.style.top = `${y + TOP_PADDING}px`;
-        elRef.current.style.width = `${Math.max(30, boxWidth - PADDING_HORIZONTAL * 2)}px`;
+        elRef.current.style.width = `${targetW}px`;
+        elRef.current.style.maxWidth = `${targetW}px`;
       }
 
       if (isSelected) {
@@ -184,6 +187,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
+        autoResizeTextarea();
       }
     }, 30);
   };
@@ -193,7 +197,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
   return (
     <div
       ref={elRef}
-      className="absolute z-30 pointer-events-auto cursor-text"
+      className="absolute z-30 pointer-events-auto cursor-text overflow-hidden"
       style={{
         boxSizing: 'border-box'
       }}
@@ -253,6 +257,11 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           minHeight: `${lineHeight}px`,
           padding: 0,
           margin: 0,
+          width: '100%',
+          maxWidth: '100%',
+          wordBreak: 'break-all',
+          overflowWrap: 'anywhere',
+          whiteSpace: 'pre-wrap',
           boxSizing: 'border-box',
           verticalAlign: 'top',
           display: 'block',
