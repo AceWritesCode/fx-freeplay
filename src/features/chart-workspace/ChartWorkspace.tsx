@@ -872,11 +872,9 @@ export function ChartWorkspace() {
               e.clientY <= rect.bottom;
 
             const isUIInteraction =
-              e.target instanceof HTMLElement &&
+              e.target instanceof Element &&
               (!!e.target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect]') ||
-               e.target.tagName === 'BUTTON' ||
-               e.target.tagName === 'INPUT' ||
-               e.target.tagName === 'SELECT');
+               !!e.target.closest('button, input, select, textarea, [role="button"], [role="dialog"], [role="menu"]'));
 
             if (clickInside && !isUIInteraction) {
               setTimeout(() => {

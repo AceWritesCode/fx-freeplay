@@ -2,11 +2,11 @@
  * Checks if an event target is an editable input or inside a text editor.
  */
 export function isEditableElement(target: EventTarget | null): boolean {
-  if (!target || !(target instanceof HTMLElement)) return false;
+  if (!target || !(target instanceof Element)) return false;
   return (
     target.tagName === 'INPUT' ||
     target.tagName === 'TEXTAREA' ||
-    target.isContentEditable ||
+    (target as any).isContentEditable ||
     target.closest('[data-floating-ui="true"]') !== null ||
     target.closest('[data-no-deselect="true"]') !== null ||
     target.closest('input') !== null ||
