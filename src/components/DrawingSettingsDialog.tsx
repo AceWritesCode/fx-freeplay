@@ -213,7 +213,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
-  const [showBorder, setShowBorder] = useState(false);
+  const [showBorder, setShowBorder] = useState(true);
   const [isAnchored, setIsAnchored] = useState(false);
   const [textValign, setTextValign] = useState('middle');
   const [textHalign, setTextHalign] = useState('right');
@@ -301,7 +301,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setTextAlign(customSettings.textAlign || 'left');
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
-    setShowBorder(!!customSettings.showBorder);
+    setShowBorder(customSettings.showBorder !== false);
     setIsAnchored(!!customSettings.isAnchored);
     setTextValign(customSettings.textPosition?.vertical || 'middle');
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
@@ -765,8 +765,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       text: settings.text || '',
       textColor: settings.textColor || '#2196F3',
       fontSize: settings.fontSize || 14,
+      textAlign: settings.textAlign || 'left',
       bold: !!settings.bold,
       italic: !!settings.italic,
+      showBorder: settings.showBorder !== false,
+      isAnchored: !!settings.isAnchored,
+      boxWidth: settings.boxWidth ?? (overlay.extendData?.customSettings?.boxWidth),
       textPosition: {
         vertical: settings.textPosition?.vertical || 'middle',
         horizontal: settings.textPosition?.horizontal || 'right'
@@ -1445,97 +1449,112 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               />
             </div>
 
-            {/* Text Alignment Row */}
-            <div className="flex items-center justify-between min-h-[36px]">
-              <span className="text-txt-muted font-medium">Text alignment</span>
-              <div className="flex gap-2">
-                
-                {/* Vertical Alignment */}
-                <div className="relative">
-                  <button
-                    onClick={() => { setActiveSelect(activeSelect === 'valign' ? null : 'valign'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
-                  >
-                    <span>{textValign}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
-                  </button>
-                  {activeSelect === 'valign' && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                        {['top', 'middle', 'bottom'].map(v => (
-                          <button
-                            key={v}
-                            onClick={() => { setTextValign(v); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textValign === v ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
-                          >
-                            {v}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Horizontal Alignment */}
-                <div className="relative">
-                  <button
-                    onClick={() => { setActiveSelect(activeSelect === 'halign' ? null : 'halign'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
-                  >
-                    <span>{textHalign}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
-                  </button>
-                  {activeSelect === 'halign' && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                        {['left', 'center', 'right'].map(h => (
-                          <button
-                            key={h}
-                            onClick={() => { setTextHalign(h); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textHalign === h ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
-                          >
-                            {h}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-
+            {/* Text Tool specific: Show Border option */}
+            {(overlay.name === 'fxText' || overlay.name === 'text') ? (
+              <div className="flex items-center justify-between min-h-[36px] pt-1">
+                <label className="flex items-center gap-2.5 text-txt-primary font-medium cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showBorder}
+                    onChange={(e) => setShowBorder(e.target.checked)}
+                    className="rounded border-border-def text-accent focus:ring-0 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-[12.5px]">Show border</span>
+                </label>
               </div>
-            </div>
-
-            {/* Text Placement Row */}
-            <div className="flex items-center justify-between min-h-[36px]">
-              <span className="text-txt-muted font-medium">Text placement</span>
-              <div className="relative">
-                <button
-                  onClick={() => { setActiveSelect(activeSelect === 'textPlacement' ? null : 'textPlacement'); setActiveColorPicker(null); }}
-                  className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
-                >
-                  <span>{textPlacement}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
-                </button>
-                {activeSelect === 'textPlacement' && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-28 overflow-hidden">
-                      {['inside', 'outside'].map(p => (
-                        <button
-                          key={p}
-                          onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
-                          className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textPlacement === p ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
-                        >
-                          {p}
-                        </button>
-                      ))}
+            ) : (
+              <>
+                {/* Text Alignment Row */}
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-txt-muted font-medium">Text alignment</span>
+                  <div className="flex gap-2">
+                    {/* Vertical Alignment */}
+                    <div className="relative">
+                      <button
+                        onClick={() => { setActiveSelect(activeSelect === 'valign' ? null : 'valign'); setActiveColorPicker(null); }}
+                        className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
+                      >
+                        <span>{textValign}</span>
+                        <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
+                      </button>
+                      {activeSelect === 'valign' && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                          <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                            {['top', 'middle', 'bottom'].map(v => (
+                              <button
+                                key={v}
+                                onClick={() => { setTextValign(v); setActiveSelect(null); }}
+                                className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textValign === v ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
+                              >
+                                {v}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
+
+                    {/* Horizontal Alignment */}
+                    <div className="relative">
+                      <button
+                        onClick={() => { setActiveSelect(activeSelect === 'halign' ? null : 'halign'); setActiveColorPicker(null); }}
+                        className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
+                      >
+                        <span>{textHalign}</span>
+                        <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
+                      </button>
+                      {activeSelect === 'halign' && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                          <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                            {['left', 'center', 'right'].map(h => (
+                              <button
+                                key={h}
+                                onClick={() => { setTextHalign(h); setActiveSelect(null); }}
+                                className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textHalign === h ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
+                              >
+                                {h}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Text Placement Row */}
+                <div className="flex items-center justify-between min-h-[36px]">
+                  <span className="text-txt-muted font-medium">Text placement</span>
+                  <div className="relative">
+                    <button
+                      onClick={() => { setActiveSelect(activeSelect === 'textPlacement' ? null : 'textPlacement'); setActiveColorPicker(null); }}
+                      className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
+                    >
+                      <span>{textPlacement}</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
+                    </button>
+                    {activeSelect === 'textPlacement' && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                        <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-28 overflow-hidden">
+                          {['inside', 'outside'].map(p => (
+                            <button
+                              key={p}
+                              onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
+                              className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textPlacement === p ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
           </div>
         )}

@@ -14,16 +14,16 @@ const PADDING_HORIZONTAL = 10;
 /**
  * Helper to measure single character width at a given font size.
  */
-const getSingleCharWidth = (fontSize: number): number => {
+const getSingleCharWidth = (fontSize: number, isBold: boolean = false): number => {
   if (typeof document !== 'undefined') {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.font = `${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
+      ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
       return ctx.measureText('W').width * 1.05;
     }
   }
-  return fontSize * 0.65;
+  return fontSize * (isBold ? 0.72 : 0.65);
 };
 
 /**
@@ -31,7 +31,7 @@ const getSingleCharWidth = (fontSize: number): number => {
  * Breaks text EXACTLY when available width ends at character boundaries,
  * without waiting for spaces or word boundaries.
  */
-const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number): string[] => {
+const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number, isBold: boolean = false): string[] => {
   if (!text) return [''];
 
   const getWidth = (str: string) => {
@@ -39,11 +39,11 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number):
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.font = `${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
+        ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
         return ctx.measureText(str).width * 1.05;
       }
     }
-    return str.length * (fontSize * 0.65);
+    return str.length * (fontSize * (isBold ? 0.72 : 0.65));
   };
 
   const lines: string[] = [];
@@ -88,6 +88,7 @@ export const TextTool: ToolDefinition = {
     { id: 'textColor', label: 'Text Color', type: 'color', defaultValue: '#2196F3' },
     { id: 'fillColor', label: 'Background Color', type: 'color', defaultValue: 'rgba(33, 150, 243, 0.15)' },
     { id: 'fillBackground', label: 'Fill Background', type: 'boolean', defaultValue: false },
+    { id: 'showBorder', label: 'Border', type: 'boolean', defaultValue: true },
     { id: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14, min: 10, max: 48, step: 1 }
   ],
   defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { text: 'Add text', textColor: '#2196F3', fontSize: 14 } }],
@@ -116,6 +117,10 @@ export const TextTool: ToolDefinition = {
       const textContent = customSettings.text || 'Add text';
       const fontSize = customSettings.fontSize || 14;
       const textAlign = customSettings.textAlign || 'left';
+      const isBold = !!customSettings.bold;
+      const isItalic = !!customSettings.italic;
+      const showBorder = customSettings.showBorder !== false;
+
       const fillBackground = customSettings.fillBackground ?? (customSettings.backgroundColor || customSettings.fillColor ? true : false);
       const bg = customSettings.fillColor || customSettings.backgroundColor || 'transparent';
       const hasBg = fillBackground && bg && bg !== 'transparent';
@@ -123,7 +128,7 @@ export const TextTool: ToolDefinition = {
       const p1 = coordinates[0]; // Top-left position (Point 0)
 
       // Minimum box width = width of 1 character at current font size + horizontal padding (left + right)
-      const singleCharW = getSingleCharWidth(fontSize);
+      const singleCharW = getSingleCharWidth(fontSize, isBold);
       const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
       // Width is fixed in screen pixels (boxWidth) so chart zooming/squeezing NEVER distorts the text box!
@@ -157,7 +162,7 @@ export const TextTool: ToolDefinition = {
       const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
 
       // Character-level text wrapping
-      const lines = getWrappedLines(textContent, availWidth, fontSize);
+      const lines = getWrappedLines(textContent, availWidth, fontSize, isBold);
 
       // Calculate dynamic line height and total box height automatically
       const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
@@ -199,6 +204,11 @@ export const TextTool: ToolDefinition = {
 
       const figures: any[] = [];
 
+      // Check if box has text content
+      const hasText = textContent && textContent.trim().length > 0;
+      // If showBorder is false, border disappears after exiting edit mode if the box has text
+      const shouldShowBorder = showBorder || isSelected || isHovered || isDragging || !hasText;
+
       // Main text box outline rect (stroke + background fill)
       figures.push({
         type: 'rect',
@@ -206,8 +216,8 @@ export const TextTool: ToolDefinition = {
         styles: {
           style: hasBg ? 'stroke_fill' : 'stroke',
           color: hasBg ? bg : 'transparent',
-          borderColor: textColor,
-          borderSize: 1,
+          borderColor: shouldShowBorder ? textColor : 'transparent',
+          borderSize: shouldShowBorder ? 1 : 0,
           borderStyle: 'solid'
         },
         ignoreEvent: false
@@ -225,6 +235,14 @@ export const TextTool: ToolDefinition = {
         textAlignStyle = 'right';
       }
 
+      const fontFamily = isBold && isItalic
+        ? 'bold italic sans-serif'
+        : isBold
+          ? 'bold sans-serif'
+          : isItalic
+            ? 'italic sans-serif'
+            : 'sans-serif';
+
       // Render each wrapped line of text inside the box with fixed consistent horizontal padding
       lines.forEach((lineStr, index) => {
         const lineY = y + topPadding + index * lineHeight + lineHeight / 2;
@@ -240,7 +258,8 @@ export const TextTool: ToolDefinition = {
           styles: {
             color: textColor,
             size: fontSize,
-            family: 'sans-serif',
+            family: fontFamily,
+            weight: isBold ? 'bold' : 'normal',
             backgroundColor: 'transparent'
           },
           ignoreEvent: false
@@ -297,7 +316,8 @@ export const TextTool: ToolDefinition = {
       ...(event.overlay.extendData || {}),
       customSettings: {
         ...(event.overlay.extendData?.customSettings || {}),
-        boxWidth: defaultBoxWidth
+        boxWidth: defaultBoxWidth,
+        showBorder: true
       }
     };
 
@@ -326,7 +346,8 @@ export const TextTool: ToolDefinition = {
     const startP2 = startPoints?.[1] || points[1];
 
     const fontSize = customSettings.fontSize || 14;
-    const singleCharW = getSingleCharWidth(fontSize);
+    const isBold = !!customSettings.bold;
+    const singleCharW = getSingleCharWidth(fontSize, isBold);
     const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
     if (draggedIndex === 1) {
