@@ -485,25 +485,27 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         <div className="w-px h-4 bg-border-def mx-0.5" />
 
         {/* Line Color */}
-        <div className="relative">
-          <ToolbarButton 
-            active={activeDropdown === 'color'}
-            onClick={() => setActiveDropdown(activeDropdown === 'color' ? null : 'color')}
-            title="Line color"
-          >
-            <Palette className="w-4 h-4" />
-            <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
-          </ToolbarButton>
-          
-          {activeDropdown === 'color' && (
-            <div className="absolute top-full mt-2 left-0 z-50">
-              <ColorPicker 
-                color={lineColor} 
-                onChange={(c) => handleUpdate({ lineColor: c }, false)} 
-              />
-            </div>
-          )}
-        </div>
+        {!isText && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'color'}
+              onClick={() => setActiveDropdown(activeDropdown === 'color' ? null : 'color')}
+              title="Line color"
+            >
+              <Palette className="w-4 h-4" />
+              <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
+            </ToolbarButton>
+            
+            {activeDropdown === 'color' && (
+              <div className="absolute top-full mt-2 left-0 z-50">
+                <ColorPicker 
+                  color={lineColor} 
+                  onChange={(c) => handleUpdate({ lineColor: c }, false)} 
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Text Color */}
         <div className="relative">

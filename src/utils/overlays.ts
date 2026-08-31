@@ -347,6 +347,23 @@ export function getInteractiveOverlayOptions(
         pts = event.chart.convertToPixel(rawPoints, { paneId: 'candle_pane' });
       }
 
+      const customSettings = event.overlay?.extendData?.customSettings || {};
+      if (customSettings.isAnchored) {
+        if (!customSettings.fixedPixelPosition && Array.isArray(pts) && pts[0]) {
+          customSettings.fixedPixelPosition = {
+            x: pts[0].x,
+            y: pts[0].y,
+            width: pts[1] ? Math.max(20, pts[1].x - pts[0].x) : 120
+          };
+        }
+        if (customSettings.fixedPixelPosition) {
+          pts = [
+            { x: customSettings.fixedPixelPosition.x, y: customSettings.fixedPixelPosition.y },
+            { x: customSettings.fixedPixelPosition.x + (customSettings.fixedPixelPosition.width || 120), y: customSettings.fixedPixelPosition.y + 16 }
+          ];
+        }
+      }
+
       let minDistance = Infinity;
       let closestIndex = 0;
       if (Array.isArray(pts)) {
@@ -405,6 +422,7 @@ export function getInteractiveOverlayOptions(
           ...(event.overlay.extendData || {}),
           hoveredAnchorIndex: null, // Clear any stale hover state from previous handle interactions
           draggedIndex: currentDraggedIndex,
+          startFixedPixelPosition: customSettings.fixedPixelPosition ? { ...customSettings.fixedPixelPosition } : null,
           startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
           startPointsPixels,
           startMousePixel,

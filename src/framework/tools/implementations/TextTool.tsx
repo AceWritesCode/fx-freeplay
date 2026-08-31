@@ -106,6 +106,7 @@ export const TextTool: ToolDefinition = {
       }
 
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
+      const isAnchored = !!customSettings.isAnchored;
       const textColor = customSettings.textColor || '#2196F3';
       const textContent = customSettings.text || 'Add text';
       const fontSize = customSettings.fontSize || 14;
@@ -114,17 +115,23 @@ export const TextTool: ToolDefinition = {
       const p1 = coordinates[0]; // Top-left position (Point 0)
       const p2 = coordinates[1]; // Center-right width anchor (Point 1)
 
-      const x = p1.x;
-      const y = p1.y;
-
       // Minimum box width = width of 1 character at current font size + horizontal padding (left + right)
       const singleCharW = getSingleCharWidth(fontSize);
       const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
 
-      // Font-size exception: if increasing font size makes 1 char wider than current box,
-      // automatically increase the box width as necessary so text remains valid and contained!
+      let x = p1.x;
+      let y = p1.y;
       const rawW = p2.x - p1.x;
-      const w = Math.max(minBoxWidth, rawW);
+      let w = Math.max(minBoxWidth, rawW);
+
+      if (isAnchored) {
+        if (!customSettings.fixedPixelPosition) {
+          customSettings.fixedPixelPosition = { x: p1.x, y: p1.y, width: w };
+        }
+        x = customSettings.fixedPixelPosition.x;
+        y = customSettings.fixedPixelPosition.y;
+        w = Math.max(minBoxWidth, customSettings.fixedPixelPosition.width || w);
+      }
 
       // Available width for character-level wrapping = boxWidth - leftPadding - rightPadding
       const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
@@ -138,33 +145,48 @@ export const TextTool: ToolDefinition = {
       const bottomPadding = 8;
       const h = Math.max(32, lines.length * lineHeight + topPadding + bottomPadding);
 
-      // Synchronize points[1] in overlay if width or height expanded due to font-size change or text reflow
-      // This ensures the resize anchor point (points[1]) stays 100% attached to the center-right edge (x + w, y + h/2)
-      const targetHandleX = p1.x + w;
+      // Center-right resize handle coordinate
+      const targetHandleX = x + w;
       const targetHandleY = y + h / 2;
-      const diffX = Math.abs(p2.x - targetHandleX);
-      const diffY = Math.abs(p2.y - targetHandleY);
+
       const overlayPoints = (overlay?.points as any[]);
 
-      if (chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2 && (diffX > 2 || diffY > 4)) {
-        const p2Target = (chart.convertFromPixel(
-          [{ x: targetHandleX, y: targetHandleY }],
-          { paneId: 'candle_pane' }
-        ) as any[])?.[0];
-        if (p2Target) {
+      if (isAnchored && chart && overlay?.id) {
+        // Synchronize data points to keep KLineCharts internal mapping aligned with fixed screen position
+        const p1Conv = (chart.convertFromPixel([{ x, y }], { paneId: 'candle_pane' }) as any[])?.[0];
+        const p2Conv = (chart.convertFromPixel([{ x: targetHandleX, y: targetHandleY }], { paneId: 'candle_pane' }) as any[])?.[0];
+        const currentP0 = (overlay.points as any[])?.[0];
+        if (p1Conv && p2Conv && currentP0 && (p1Conv.timestamp !== currentP0.timestamp || Math.abs((p1Conv.value ?? 0) - (currentP0.value ?? 0)) > 0.000001)) {
           setTimeout(() => {
             chart.overrideOverlay({
               id: overlay.id,
-              points: [
-                overlayPoints[0],
-                {
-                  timestamp: p2Target.timestamp,
-                  value: p2Target.value ?? overlayPoints[0].value,
-                  dataIndex: p2Target.dataIndex
-                }
-              ]
+              points: [p1Conv, p2Conv]
             });
           }, 0);
+        }
+      } else if (!isAnchored && chart && overlay?.id && Array.isArray(overlayPoints) && overlayPoints.length >= 2) {
+        const diffX = Math.abs(p2.x - targetHandleX);
+        const diffY = Math.abs(p2.y - targetHandleY);
+        if (diffX > 2 || diffY > 4) {
+          const p2Target = (chart.convertFromPixel(
+            [{ x: targetHandleX, y: targetHandleY }],
+            { paneId: 'candle_pane' }
+          ) as any[])?.[0];
+          if (p2Target) {
+            setTimeout(() => {
+              chart.overrideOverlay({
+                id: overlay.id,
+                points: [
+                  overlayPoints[0],
+                  {
+                    timestamp: p2Target.timestamp,
+                    value: p2Target.value ?? overlayPoints[0].value,
+                    dataIndex: p2Target.dataIndex
+                  }
+                ]
+              });
+            }, 0);
+          }
         }
       }
 
@@ -284,6 +306,52 @@ export const TextTool: ToolDefinition = {
     const points = [...((event.overlay.points as any[]) || [])];
     if (points.length < 2) return false;
 
+    const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
+    const isAnchored = !!customSettings.isAnchored;
+    const fontSize = customSettings.fontSize || 14;
+    const singleCharW = getSingleCharWidth(fontSize);
+    const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
+
+    if (isAnchored) {
+      if (!customSettings.fixedPixelPosition) {
+        const p1Pix = (event.chart.convertToPixel([points[0]], { paneId: 'candle_pane' }) as any[])?.[0] || { x: event.x, y: event.y };
+        const p2Pix = (event.chart.convertToPixel([points[1]], { paneId: 'candle_pane' }) as any[])?.[0] || { x: event.x + 120, y: event.y };
+        customSettings.fixedPixelPosition = { x: p1Pix.x, y: p1Pix.y, width: Math.max(minBoxWidth, p2Pix.x - p1Pix.x) };
+      }
+
+      const startFixed = (event.overlay.extendData as any)?.startFixedPixelPosition || customSettings.fixedPixelPosition;
+      const startMousePixel = (event.overlay.extendData as any)?.startMousePixel || { x: event.x, y: event.y };
+
+      if (draggedIndex === 1) {
+        // Resizing width while anchored (left position fixed, width expands/shrinks)
+        const newW = Math.max(minBoxWidth, event.x - startFixed.x);
+        customSettings.fixedPixelPosition = {
+          ...customSettings.fixedPixelPosition,
+          width: newW
+        };
+      } else {
+        // Moving body while anchored
+        const dx = event.x - startMousePixel.x;
+        const dy = event.y - startMousePixel.y;
+        customSettings.fixedPixelPosition = {
+          ...customSettings.fixedPixelPosition,
+          x: startFixed.x + dx,
+          y: startFixed.y + dy
+        };
+      }
+
+      // Keep points in sync with new fixed pixel position
+      const p1Pixel = { x: customSettings.fixedPixelPosition.x, y: customSettings.fixedPixelPosition.y };
+      const p2Pixel = { x: customSettings.fixedPixelPosition.x + (customSettings.fixedPixelPosition.width || 120), y: p1Pixel.y + 16 };
+      const p1Conv = (event.chart.convertFromPixel([p1Pixel], { paneId: 'candle_pane' }) as any[])?.[0];
+      const p2Conv = (event.chart.convertFromPixel([p2Pixel], { paneId: 'candle_pane' }) as any[])?.[0];
+
+      if (p1Conv) points[0] = p1Conv;
+      if (p2Conv) points[1] = p2Conv;
+
+      return { points } satisfies ToolMutationResult;
+    }
+
     const mousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
     if (!mousePt) return false;
 
@@ -297,11 +365,6 @@ export const TextTool: ToolDefinition = {
     if (draggedIndex === 1) {
       // STRICTLY RESIZE WIDTH ONLY when dragging anchor index 1!
       // Enforce minimum width constraint (boxWidth - leftPadding - rightPadding >= 1 char width)
-      const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
-      const fontSize = customSettings.fontSize || 14;
-      const singleCharW = getSingleCharWidth(fontSize);
-      const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
-
       const p1Pixel = event.chart.convertToPixel([startP1], { paneId: 'candle_pane' })?.[0];
       let p2Target = targetPt;
 
