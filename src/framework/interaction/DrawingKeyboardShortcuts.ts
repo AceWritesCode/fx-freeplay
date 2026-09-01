@@ -1,4 +1,5 @@
 import { isEditableElement } from './ModifierKeyTracker';
+import { useDrawingStore } from '@/store';
 
 export interface DrawingKeyboardShortcutsOptions {
   activeTool: string | null;
@@ -54,6 +55,16 @@ export class DrawingKeyboardShortcuts {
         this._options.onCancelTool();
       } else if (this._options.selectedOverlayIds.length > 0) {
         this._options.onClearSelection();
+      }
+    }
+
+    // 3. Space: switch to crosshair — also deactivate Stay in Drawing Mode
+    if ((e.key === ' ' || e.code === 'Space') && !isEditableElement(e.target)) {
+      if (useDrawingStore.getState().isStayInDrawingMode) {
+        useDrawingStore.getState().setStayInDrawingMode(false);
+      }
+      if (this._options.activeTool) {
+        this._options.onCancelTool();
       }
     }
   }

@@ -136,6 +136,7 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
             }
           } else {
             cancelDrawingSession();
+            useDrawingStore.getState().setStayInDrawingMode(false);
           }
         },
       };

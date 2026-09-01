@@ -301,7 +301,6 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     handleToggleHideAllDrawings,
   } = props;
 
-  const [isDrawModeLocked, setIsDrawModeLocked] = React.useState(false);
   const [localIsAllDrawingsLocked, setLocalIsAllDrawingsLocked] = React.useState(false);
   const [localIsAllDrawingsHidden, setLocalIsAllDrawingsHidden] = React.useState(false);
 
@@ -313,6 +312,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     isFavoriteToolbarOpen,
     toggleFavoriteTool,
     setFavoriteToolbarOpen,
+    isStayInDrawingMode,
+    setStayInDrawingMode,
   } = useDrawingStore();
 
   const renderFavoriteButton = (toolId: string) => {
@@ -407,6 +408,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                   }
                 } else {
                   cancelDrawingSession();
+                  setStayInDrawingMode(false);
                 }
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
@@ -477,6 +479,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                                 setActiveTool('eraser');
                               } else {
                                 cancelDrawingSession();
+                                setStayInDrawingMode(false);
                               }
                               closeAllMenus();
                             }}
@@ -1192,17 +1195,17 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
 
       {/* Stay in Drawing Mode */}
       <button
-        title={isDrawModeLocked ? 'Stay in Drawing Mode (Active)' : 'Stay in Drawing Mode'}
+        title={isStayInDrawingMode ? 'Stay in Drawing Mode (Active)' : 'Stay in Drawing Mode'}
         aria-label="Stay in Drawing Mode"
         data-tooltip="Stay in Drawing Mode"
         disabled={!hasData}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => {
           closeAllMenus();
-          setIsDrawModeLocked(!isDrawModeLocked);
+          setStayInDrawingMode(!isStayInDrawingMode);
         }}
         className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-          isDrawModeLocked
+          isStayInDrawingMode
             ? 'border-transparent bg-accent-muted text-accent'
             : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}

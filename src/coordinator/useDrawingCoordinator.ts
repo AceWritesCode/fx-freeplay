@@ -128,7 +128,8 @@ export function useDrawingCoordinator(
       chartInstancesRef,
       isShiftPressedRef,
       syncAllDrawings,
-      handleSetActiveTool
+      handleSetActiveTool,
+      handleSelectTool
     );
     chart.createOverlay({
       ...interactiveOptions,

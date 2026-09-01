@@ -150,7 +150,8 @@ export function getInteractiveOverlayOptions(
   chartInstancesRef: any,
   isShiftPressedRef: any,
   _syncAllDrawings: () => void,
-  setActiveTool: (tool: string | null) => void
+  setActiveTool: (tool: string | null) => void,
+  handleSelectTool?: (toolName: string) => void
 ) {
   let defaultSettings: Record<string, any> = {};
   const registeredTool = ToolRegistry.get(toolName) || ToolRegistry.getAll().find((t: any) => t.createOverlayDef?.().name === toolName);
@@ -251,17 +252,27 @@ export function getInteractiveOverlayOptions(
         useDrawingStore.getState().addSymbolDrawing(currentSymbol, drawingObj);
       }
 
-      setActiveTool(null);
-      
-      // Auto-select the newly created drawing so the floating toolbar appears immediately
-      if (actualChart) {
-        actualChart._clickedOnOverlay = true;
-      }
-      chartInstancesRef.current.forEach((c: any) => {
-        if (c) c._clickedOnOverlay = true;
-      });
-      if (actualChart && actualChart._setSelectedOverlayIds) {
-        actualChart._setSelectedOverlayIds([event.overlay.id]);
+      const stayInDrawingMode = useDrawingStore.getState().isStayInDrawingMode;
+
+      if (stayInDrawingMode && handleSelectTool) {
+        // Full re-arm: creates a new overlay, re-disables scroll/zoom, same as clicking the tool again
+        // Small timeout so the current draw cycle fully finishes first
+        setTimeout(() => {
+          handleSelectTool(toolName);
+        }, 50);
+      } else {
+        setActiveTool(null);
+
+        // Auto-select the newly created drawing so the floating toolbar appears immediately
+        if (actualChart) {
+          actualChart._clickedOnOverlay = true;
+        }
+        chartInstancesRef.current.forEach((c: any) => {
+          if (c) c._clickedOnOverlay = true;
+        });
+        if (actualChart && actualChart._setSelectedOverlayIds) {
+          actualChart._setSelectedOverlayIds([event.overlay.id]);
+        }
       }
 
       runWorkspaceReconciliation(chartInstancesRef);

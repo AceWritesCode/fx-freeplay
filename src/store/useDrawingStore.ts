@@ -54,6 +54,10 @@ interface DrawingState {
   toggleFavoriteTool: (toolId: string) => void;
   reorderFavoriteTools: (newOrder: string[]) => void;
   setFavoriteToolbarOpen: (open: boolean) => void;
+
+  // Stay in Drawing Mode
+  isStayInDrawingMode: boolean;
+  setStayInDrawingMode: (active: boolean) => void;
 }
 
 export const useDrawingStore = create<DrawingState>((set, get) => ({
@@ -308,6 +312,12 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
       localStorage.setItem('fx_favorite_toolbar_open', String(open));
     } catch (_) {}
     set({ isFavoriteToolbarOpen: open });
+  },
+
+  isStayInDrawingMode: false,
+
+  setStayInDrawingMode: (active: boolean) => {
+    set({ isStayInDrawingMode: active });
   },
 }));
 
