@@ -87,22 +87,29 @@ export const drawArrowHeads = (
   lineWidth: number = 1
 ) => {
   if (!p1 || !p2) return;
-  const headLength = 10 + Math.max(1, lineWidth) * 1.5;
+  const headLength = 10 + Math.max(1, lineWidth) * 2;
+  const wingAngle = Math.PI / 5.5; // ~32 degrees sleek chevron
 
   if (endArrow === 'arrow') {
     const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
     const pLeft = {
-      x: p2.x - headLength * Math.cos(angle - Math.PI / 6),
-      y: p2.y - headLength * Math.sin(angle - Math.PI / 6)
+      x: p2.x - headLength * Math.cos(angle - wingAngle),
+      y: p2.y - headLength * Math.sin(angle - wingAngle)
     };
     const pRight = {
-      x: p2.x - headLength * Math.cos(angle + Math.PI / 6),
-      y: p2.y - headLength * Math.sin(angle + Math.PI / 6)
+      x: p2.x - headLength * Math.cos(angle + wingAngle),
+      y: p2.y - headLength * Math.sin(angle + wingAngle)
     };
     figures.push({
-      type: 'polygon',
-      attrs: { coordinates: [p2, pLeft, pRight] },
-      styles: { style: 'fill', color: lineColor },
+      type: 'line',
+      attrs: { coordinates: [pLeft, p2, pRight] },
+      styles: {
+        style: 'solid',
+        color: lineColor,
+        size: lineWidth,
+        lineCap: 'round',
+        lineJoin: 'round'
+      },
       ignoreEvent: true
     });
   }
@@ -110,17 +117,23 @@ export const drawArrowHeads = (
   if (startArrow === 'arrow') {
     const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
     const pLeft = {
-      x: p1.x - headLength * Math.cos(angle - Math.PI / 6),
-      y: p1.y - headLength * Math.sin(angle - Math.PI / 6)
+      x: p1.x - headLength * Math.cos(angle - wingAngle),
+      y: p1.y - headLength * Math.sin(angle - wingAngle)
     };
     const pRight = {
-      x: p1.x - headLength * Math.cos(angle + Math.PI / 6),
-      y: p1.y - headLength * Math.sin(angle + Math.PI / 6)
+      x: p1.x - headLength * Math.cos(angle + wingAngle),
+      y: p1.y - headLength * Math.sin(angle + wingAngle)
     };
     figures.push({
-      type: 'polygon',
-      attrs: { coordinates: [p1, pLeft, pRight] },
-      styles: { style: 'fill', color: lineColor },
+      type: 'line',
+      attrs: { coordinates: [pLeft, p1, pRight] },
+      styles: {
+        style: 'solid',
+        color: lineColor,
+        size: lineWidth,
+        lineCap: 'round',
+        lineJoin: 'round'
+      },
       ignoreEvent: true
     });
   }

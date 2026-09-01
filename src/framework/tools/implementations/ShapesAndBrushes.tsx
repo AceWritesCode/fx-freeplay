@@ -239,11 +239,17 @@ export const ArrowTool: ToolDefinition = {
         ignoreEvent: false
       });
 
-      // Head Polygon
+      // Head 2-stroke open chevron
       figures.push({
-        type: 'polygon',
-        attrs: { coordinates: [p2, pLeft, pRight] },
-        styles: { style: 'fill', color: lineColor },
+        type: 'line',
+        attrs: { coordinates: [pLeft, p2, pRight] },
+        styles: {
+          style: 'solid',
+          color: lineColor,
+          size: lineWidth,
+          lineCap: 'round',
+          lineJoin: 'round'
+        },
         ignoreEvent: true
       });
 
