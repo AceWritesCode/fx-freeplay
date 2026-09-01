@@ -285,7 +285,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
       {(() => {
         const activeCursorTool = CURSOR_TOOLS.find(t => t.id === selectedCursorId) || CURSOR_TOOLS[0];
         const Icon = activeCursorTool.icon;
-        const isGroupActive = !activeTool || activeTool === 'eraser';
+        const isGroupActive = activeCursorTool.id === 'eraser' ? activeTool === 'eraser' : !activeTool;
         return (
           <div className="relative flex items-center bg-transparent rounded-lg">
             <button
@@ -296,7 +296,11 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               onClick={() => {
                 closeAllMenus();
                 if (activeCursorTool.id === 'eraser') {
-                  setActiveTool('eraser');
+                  if (activeTool === 'eraser') {
+                    setActiveTool(null);
+                  } else {
+                    setActiveTool('eraser');
+                  }
                 } else {
                   cancelDrawingSession();
                 }
@@ -358,7 +362,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                         const tool = CURSOR_TOOLS.find(t => t.id === toolId);
                         if (!tool) return null;
                         const ToolIcon = tool.icon;
-                        const isSelected = selectedCursorId === tool.id && (!activeTool || activeTool === 'eraser');
+                        const isSelected = selectedCursorId === tool.id && (tool.id === 'eraser' ? activeTool === 'eraser' : !activeTool);
                         return (
                           <button
                             key={tool.id}

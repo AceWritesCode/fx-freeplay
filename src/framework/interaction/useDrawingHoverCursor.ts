@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { DrawingChartAdapter } from '@/engine/charting';
+import { DrawingChartAdapter, getOriginalDrawingId, runWorkspaceReconciliation } from '@/engine/charting';
+import { useDrawingStore } from '@/store';
 
 export interface DrawingHoverCursorConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -32,10 +33,90 @@ export function useDrawingHoverCursor({
   isDrawingSettingsOpen = false,
 }: DrawingHoverCursorConfig) {
   useEffect(() => {
-    const handleMouseDown = () => {
+    const handleMouseDown = (e: MouseEvent) => {
       chartInstancesRef.current.forEach((chart) => {
         if (chart) chart._isMouseDown = true;
       });
+
+      if (drawingCoord.activeTool === 'eraser') {
+        for (let i = 0; i < chartContainersRef.current.length; i++) {
+          const container = chartContainersRef.current[i];
+          const chart = chartInstancesRef.current[i];
+          if (container && chart) {
+            const rect = container.getBoundingClientRect();
+            if (
+              e.clientX >= rect.left &&
+              e.clientX <= rect.right &&
+              e.clientY >= rect.top &&
+              e.clientY <= rect.bottom
+            ) {
+              const xVal = e.clientX - rect.left;
+              const yVal = e.clientY - rect.top;
+              const overlays = chart.getOverlays();
+              const interactiveOverlays = overlays.filter(
+                (ov: any) =>
+                  ov.id !== 'custom_price_line_overlay' &&
+                  ov.name !== 'customPriceLine' &&
+                  ov.id !== 'session_breaks_overlay' &&
+                  ov.name !== 'sessionBreaks'
+              );
+
+              for (const ov of interactiveOverlays) {
+                if (ov.points && Array.isArray(ov.points)) {
+                  const cleanPts = ov.points.map((p: any) => ({
+                    ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+                    ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+                    value: p.value,
+                  }));
+                  let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
+                  if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
+                    pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+                  }
+                  if (Array.isArray(pts) && pts.length > 0) {
+                    let hit = false;
+                    for (const pt of pts) {
+                      if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
+                        if (Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2) <= 18) {
+                          hit = true;
+                          break;
+                        }
+                      }
+                    }
+                    if (!hit && pts.length >= 2) {
+                      for (let j = 0; j < pts.length - 1; j++) {
+                        const p1 = pts[j];
+                        const p2 = pts[j + 1];
+                        if (p1 && p2 && Number.isFinite(p1.x) && Number.isFinite(p1.y) && Number.isFinite(p2.x) && Number.isFinite(p2.y)) {
+                          const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                          let dist = Infinity;
+                          if (l2 > 0) {
+                            let t = ((xVal - p1.x) * (p2.x - p1.x) + (yVal - p1.y) * (p2.y - p1.y)) / l2;
+                            t = Math.max(0, Math.min(1, t));
+                            dist = Math.sqrt((xVal - (p1.x + t * (p2.x - p1.x))) ** 2 + (yVal - (p1.y + t * (p2.y - p1.y))) ** 2);
+                          } else {
+                            dist = Math.sqrt((xVal - p1.x) ** 2 + (yVal - p1.y) ** 2);
+                          }
+                          if (dist <= 18) {
+                            hit = true;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    if (hit) {
+                      const originalId = getOriginalDrawingId(ov.id);
+                      useDrawingStore.getState().removeSymbolDrawingById(originalId);
+                      runWorkspaceReconciliation(chartInstancesRef);
+                      chart._clickedOnOverlay = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     };
 
     const handleMouseUp = (e: MouseEvent) => {
@@ -63,7 +144,7 @@ export function useDrawingHoverCursor({
               setTimeout(() => {
                 if (!chart._clickedOnOverlay && !chart._activeDrawingId) {
                   handleSelectOverlayIds([]);
-                  if (drawingCoord.activeTool) {
+                  if (drawingCoord.activeTool && drawingCoord.activeTool !== 'eraser') {
                     drawingCoord.setActiveTool(null);
                     chart.setScrollEnabled(true);
                     chart.setZoomEnabled(true);
@@ -107,7 +188,7 @@ export function useDrawingHoverCursor({
       const chart = chartInstancesRef.current[activeIndex];
       if (!chart) return;
 
-      if (drawingCoord.activeTool && drawingCoord.activeTool !== 'brush' && drawingCoord.activeTool !== 'highlighter') return;
+      if (drawingCoord.activeTool && drawingCoord.activeTool !== 'brush' && drawingCoord.activeTool !== 'highlighter' && drawingCoord.activeTool !== 'eraser') return;
 
       const overlays = chart.getOverlays();
       const interactiveOverlays = overlays.filter(
@@ -133,7 +214,7 @@ export function useDrawingHoverCursor({
       const container = chartContainersRef.current[activeIndex];
       if (!container) return;
 
-      if (isMouseDown && activeDraggingOverlay) {
+      if (isMouseDown && activeDraggingOverlay && drawingCoord.activeTool !== 'eraser') {
         if (container.style.cursor !== 'grabbing') {
           container.style.cursor = 'grabbing';
         }
@@ -219,7 +300,7 @@ export function useDrawingHoverCursor({
         } else if (
           ov.points &&
           ov.points.length >= 2 &&
-          ['brush', 'highlighter', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)
+          ['brush', 'highlighter', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'curve', 'path', 'circle'].includes(ov.name)
         ) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
@@ -250,12 +331,23 @@ export function useDrawingHoverCursor({
                 }
               }
             }
-            if (minDistToStroke <= 12) {
+            if (minDistToStroke <= 14) {
               hoveredInteractiveOverlay = ov;
             }
           }
         }
       });
+
+      // Eraser continuous swipe-erase during mouse drag
+      if (drawingCoord.activeTool === 'eraser' && isMouseDown) {
+        const hitTarget = hoveredInteractiveOverlay || (isAnchorHit ? targetOverlayForAnchor : null);
+        if (hitTarget) {
+          const originalId = getOriginalDrawingId(hitTarget.id);
+          useDrawingStore.getState().removeSymbolDrawingById(originalId);
+          runWorkspaceReconciliation(chartInstancesRef);
+          chart._clickedOnOverlay = true;
+        }
+      }
 
       const nextHoveredId = hoveredInteractiveOverlay?.id || null;
       if (hoveredOverlayId !== nextHoveredId) {
@@ -275,9 +367,13 @@ export function useDrawingHoverCursor({
             'shortPosition',
             'trendLine',
             'ray',
+            'arrow',
             'horizontalRay',
             'horizontalLine',
             'verticalLine',
+            'curve',
+            'path',
+            'circle',
           ].includes(ov.name)
         ) {
           const isCurrentlyHovered = ov.id === nextHoveredId;
@@ -295,7 +391,7 @@ export function useDrawingHoverCursor({
       });
 
       // 3. Apply the interaction state locally on the chart
-      if (isAnchorHit && targetOverlayForAnchor) {
+      if (isAnchorHit && targetOverlayForAnchor && drawingCoord.activeTool !== 'eraser') {
         const targetOverlay = targetOverlayForAnchor;
         const currentHoveredIdx = targetOverlay.extendData?.hoveredAnchorIndex;
 
@@ -349,6 +445,8 @@ export function useDrawingHoverCursor({
       let finalCursor = 'default';
       if (chart._isSpacePressedRef?.current) {
         finalCursor = isMouseDown ? 'grabbing' : 'grab';
+      } else if (drawingCoord.activeTool === 'eraser') {
+        finalCursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><circle cx=\'12\' cy=\'12\' r=\'7\' fill=\'rgba(239,68,68,0.15)\' stroke=\'%23ef4444\' stroke-width=\'2\'/><circle cx=\'12\' cy=\'12\' r=\'1.5\' fill=\'%23ef4444\'/></svg>") 12 12, crosshair';
       } else if (isInsideBody) {
         finalCursor = 'grab';
       } else if (drawingCoord.activeTool === 'brush' || drawingCoord.activeTool === 'highlighter') {

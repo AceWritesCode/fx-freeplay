@@ -318,6 +318,17 @@ export function getInteractiveOverlayOptions(
     },
     onPressedMoveStart: (event: any) => {
       const actualChart = event.chart || chartInstanceRef.current;
+      const isEraser = actualChart?._activeTool === 'eraser' || (actualChart?._activeCursorTool === 'eraser');
+      if (isEraser) {
+        const rawId = event.overlay?.id;
+        if (rawId) {
+          const id = getOriginalDrawingId(rawId);
+          useDrawingStore.getState().removeSymbolDrawingById(id);
+          runWorkspaceReconciliation(chartInstancesRef);
+        }
+        return;
+      }
+
       if (actualChart) {
         actualChart._clickedOnOverlay = true;
       }
@@ -681,7 +692,7 @@ export function getInteractiveOverlayOptions(
       const id = getOriginalDrawingId(rawId);
 
       const actualChart = event.chart || chartInstanceRef.current;
-      if (actualChart?._activeTool === 'eraser') {
+      if (actualChart?._activeTool === 'eraser' || actualChart?._activeCursorTool === 'eraser') {
         useDrawingStore.getState().removeSymbolDrawingById(id);
         runWorkspaceReconciliation(chartInstancesRef);
         return true;
