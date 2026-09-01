@@ -429,9 +429,18 @@ export function getInteractiveOverlayOptions(
 
       // Now safe to call _setSelectedOverlayIds — reconciler will see the drag index above
       if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
-        const currentSelected = actualChart._selectedOverlayIds || [];
+        const isCtrl =
+          actualChart?._isCtrlPressedRef?.current ||
+          (event as any)?.originalEvent?.ctrlKey ||
+          (event as any)?.originalEvent?.metaKey ||
+          (event as any)?.event?.ctrlKey ||
+          (event as any)?.event?.metaKey ||
+          false;
+        const currentSelected = useDrawingStore.getState().selectedOverlayIds || actualChart._selectedOverlayIds || [];
         if (!currentSelected.includes(id)) {
-          actualChart._setSelectedOverlayIds([id]);
+          if (!isCtrl) {
+            actualChart._setSelectedOverlayIds([id]);
+          }
         }
       }
 
@@ -682,8 +691,14 @@ export function getInteractiveOverlayOptions(
         if (c) c._clickedOnOverlay = true;
       });
       if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
-        const isCtrl = actualChart._isCtrlPressedRef?.current || false;
-        const currentSelected = actualChart._selectedOverlayIds || [];
+        const isCtrl =
+          actualChart?._isCtrlPressedRef?.current ||
+          (event as any)?.originalEvent?.ctrlKey ||
+          (event as any)?.originalEvent?.metaKey ||
+          (event as any)?.event?.ctrlKey ||
+          (event as any)?.event?.metaKey ||
+          false;
+        const currentSelected = useDrawingStore.getState().selectedOverlayIds || actualChart._selectedOverlayIds || [];
         if (isCtrl) {
           if (currentSelected.includes(id)) {
             actualChart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
