@@ -206,7 +206,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [lineWidth, setLineWidth] = useState(1);
   const [lineStyle, setLineStyle] = useState('solid');
   const [extendType, setExtendType] = useState('none');
-  const [arrowType, setArrowType] = useState('none');
   const [fillColor, setFillColor] = useState('rgba(33, 150, 243, 0.1)');
   const [fillBackground, setFillBackground] = useState(true);
   const [profitColor, setProfitColor] = useState('rgba(76, 175, 80, 0.12)');
@@ -254,7 +253,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
   
   // Custom dropdowns for style selectors
-  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'arrowType' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | 'textPlacement' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | 'textPlacement' | null>(null);
 
   const prec = pricePrecision !== undefined ? pricePrecision : 4;
 
@@ -296,7 +295,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(customSettings.lineWidth || 1);
     setLineStyle(customSettings.lineStyle || 'solid');
     setExtendType(customSettings.extendType || 'none');
-    setArrowType(customSettings.arrowType || 'none');
     setFillColor(customSettings.fillColor || 'rgba(33, 150, 243, 0.1)');
     setFillBackground(customSettings.fillBackground !== false);
     setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
@@ -439,7 +437,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineWidth,
       lineStyle,
       extendType,
-      arrowType,
       fillColor,
       fillBackground,
       profitColor,
@@ -529,7 +526,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const pointsToSave = activeTab === 'coordinates' ? updatedPoints : (overlay.points || backupPointsRef.current || updatedPoints);
     onSave(updatedSettings, pointsToSave);
-  }, [lineColor, lineWidth, lineStyle, extendType, arrowType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
+  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
   if (!isOpen || !overlay) return null;
 
@@ -681,7 +678,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(settings.lineWidth || 1);
     setLineStyle(settings.lineStyle || 'solid');
     setExtendType(settings.extendType || 'none');
-    setArrowType(settings.arrowType || 'none');
     setFillColor(settings.fillColor || 'rgba(33, 150, 243, 0.1)');
     setFillBackground(settings.fillBackground !== false);
     setProfitColor(settings.profitColor || 'rgba(76, 175, 80, 0.12)');
@@ -712,7 +708,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineWidth: settings.lineWidth || 1,
       lineStyle: settings.lineStyle || 'solid',
       extendType: settings.extendType || 'none',
-      arrowType: settings.arrowType || 'none',
       fillColor: settings.fillColor || 'rgba(33, 150, 243, 0.1)',
       fillBackground: settings.fillBackground !== false,
       profitColor: settings.profitColor || 'rgba(76, 175, 80, 0.12)',
@@ -811,7 +806,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineWidth(1);
     setLineStyle('solid');
     setExtendType('none');
-    setArrowType('none');
     setFillColor('rgba(33, 150, 243, 0.1)');
     setFillBackground(true);
     setProfitColor('rgba(76, 175, 80, 0.12)');
@@ -866,7 +860,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineWidth,
       lineStyle,
       extendType,
-      arrowType,
       fillColor,
       fillBackground,
       profitColor,
@@ -1051,31 +1044,33 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
 
                 {/* Line Style Dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => { setActiveSelect(activeSelect === 'lineStyle' ? null : 'lineStyle'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 justify-between capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
-                  >
-                    <span>{lineStyle}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
-                  </button>
-                  {activeSelect === 'lineStyle' && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                        {(overlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
-                          <button
-                            key={s}
-                            onClick={() => { setLineStyle(s); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${lineStyle === s ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                {overlay.name !== 'brush' && (
+                  <div className="relative">
+                    <button
+                      onClick={() => { setActiveSelect(activeSelect === 'lineStyle' ? null : 'lineStyle'); setActiveColorPicker(null); }}
+                      className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 justify-between capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
+                    >
+                      <span>{lineStyle}</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
+                    </button>
+                    {activeSelect === 'lineStyle' && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                        <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
+                          {(overlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
+                            <button
+                              key={s}
+                              onClick={() => { setLineStyle(s); setActiveSelect(null); }}
+                              className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${lineStyle === s ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
               </div>
             </div>
@@ -1106,45 +1101,6 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                             key={item.val}
                             onClick={() => { setExtendType(item.val); setActiveSelect(null); }}
                             className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] ${extendType === item.val ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Arrow Row */}
-            {overlay && (['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'extendedLine', 'parallelChannel'].includes(overlay.name) || (overlay.name !== 'brush' && overlay.name !== 'highlighter' && overlay.name !== 'rectangle' && overlay.name !== 'circle' && overlay.name !== 'text' && overlay.name !== 'fxText' && overlay.name !== 'longPosition' && overlay.name !== 'shortPosition')) && (
-              <div className="flex items-center justify-between min-h-[36px]">
-                <span className="text-txt-muted font-medium">Arrow</span>
-                <div className="relative">
-                  <button
-                    onClick={() => { setActiveSelect(activeSelect === 'arrowType' ? null : 'arrowType'); setActiveColorPicker(null); }}
-                    className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-48 h-8 cursor-pointer transition-all active:scale-95 text-txt-primary"
-                  >
-                    <span className="capitalize">
-                      {arrowType === 'none' ? 'None' : arrowType === 'start' ? 'Starting Point' : arrowType === 'end' ? 'End Point' : 'Both'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-txt-muted" />
-                  </button>
-                  {activeSelect === 'arrowType' && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
-                        {[
-                          { val: 'none', label: 'None' },
-                          { val: 'start', label: 'Starting Point' },
-                          { val: 'end', label: 'End Point' },
-                          { val: 'both', label: 'Both' }
-                        ].map(item => (
-                          <button
-                            key={item.val}
-                            onClick={() => { setArrowType(item.val); setActiveSelect(null); }}
-                            className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] ${arrowType === item.val ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
                           >
                             {item.label}
                           </button>

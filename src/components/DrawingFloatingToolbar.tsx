@@ -92,6 +92,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
+  const isBrush = firstOverlay?.name === 'brush';
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const textAlign = customSettings.textAlign || 'left';
@@ -440,102 +441,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Arrowhead Option for Line Tools */}
-        {firstOverlay && (['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'extendedLine', 'parallelChannel'].includes(firstOverlay?.name) || (!isText && !isRiskReward && firstOverlay?.name !== 'brush' && firstOverlay?.name !== 'rectangle' && firstOverlay?.name !== 'circle')) && (
-          <div className="relative">
-            <ToolbarButton 
-              active={activeDropdown === 'arrow'}
-              onClick={() => setActiveDropdown(activeDropdown === 'arrow' ? null : 'arrow')}
-              title={`Arrow: ${(customSettings.arrowType || 'none') === 'none' ? 'None' : (customSettings.arrowType === 'start' ? 'Starting Point' : (customSettings.arrowType === 'end' ? 'End Point' : 'Both'))}`}
-            >
-              {(customSettings.arrowType || 'none') === 'none' && (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="2" y1="8" x2="14" y2="8" />
-                </svg>
-              )}
-              {customSettings.arrowType === 'start' && (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="5" y1="8" x2="14" y2="8" />
-                  <polyline points="7,4 3,8 7,12" />
-                </svg>
-              )}
-              {customSettings.arrowType === 'end' && (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="2" y1="8" x2="11" y2="8" />
-                  <polyline points="9,4 13,8 9,12" />
-                </svg>
-              )}
-              {customSettings.arrowType === 'both' && (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="5" y1="8" x2="11" y2="8" />
-                  <polyline points="6,5 3,8 6,11" />
-                  <polyline points="10,5 13,8 10,11" />
-                </svg>
-              )}
-            </ToolbarButton>
-            
-            {activeDropdown === 'arrow' && (
-              <div className="absolute top-full mt-2 left-0 w-44 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
-                {[
-                  {
-                    id: 'none',
-                    label: 'None',
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="2" y1="8" x2="14" y2="8" />
-                      </svg>
-                    )
-                  },
-                  {
-                    id: 'start',
-                    label: 'Starting Point',
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="5" y1="8" x2="14" y2="8" />
-                        <polyline points="7,4 3,8 7,12" />
-                      </svg>
-                    )
-                  },
-                  {
-                    id: 'end',
-                    label: 'End Point',
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="2" y1="8" x2="11" y2="8" />
-                        <polyline points="9,4 13,8 9,12" />
-                      </svg>
-                    )
-                  },
-                  {
-                    id: 'both',
-                    label: 'Both',
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="5" y1="8" x2="11" y2="8" />
-                        <polyline points="6,5 3,8 6,11" />
-                        <polyline points="10,5 13,8 10,11" />
-                      </svg>
-                    )
-                  },
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => handleUpdate({ arrowType: opt.id })}
-                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between gap-2 ${opt.id === (customSettings.arrowType || 'none') ? 'text-accent font-bold' : ''}`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-4 h-4 flex items-center justify-center text-current">{opt.icon}</span>
-                      <span>{opt.label}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Text Color for Text Tool */}
-        {isText && (
+        {/* Text Color */}
+        {!isBrush && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'textColor'}
@@ -766,7 +673,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* Line Style */}
-        {!isText && (
+        {!isText && !isBrush && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'style'}
