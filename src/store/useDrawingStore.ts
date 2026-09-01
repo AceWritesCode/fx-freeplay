@@ -47,6 +47,12 @@ interface DrawingState {
   updateFolder: (id: string, updates: Partial<FolderItem>) => void;
   removeFolder: (id: string) => void;
   setSelectedOverlayIds: (ids: string[] | ((prev: string[]) => string[])) => void;
+
+  // Favorite Tools
+  favoriteTools: string[];
+  isFavoriteToolbarOpen: boolean;
+  toggleFavoriteTool: (toolId: string) => void;
+  setFavoriteToolbarOpen: (open: boolean) => void;
 }
 
 export const useDrawingStore = create<DrawingState>((set, get) => ({
@@ -54,6 +60,21 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
   drawings: [],
   folders: [],
   selectedOverlayIds: [],
+  favoriteTools: (() => {
+    try {
+      const saved = localStorage.getItem('fx_favorite_tools');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  })(),
+  isFavoriteToolbarOpen: (() => {
+    try {
+      return localStorage.getItem('fx_favorite_toolbar_open') === 'true';
+    } catch (_) {
+      return false;
+    }
+  })(),
 
   // Load from IndexedDB into store state
   loadSymbolDrawings: async (symbol: string) => {
@@ -260,4 +281,25 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     set((state) => ({
       selectedOverlayIds: typeof ids === 'function' ? ids(state.selectedOverlayIds) : ids,
     })),
+
+  toggleFavoriteTool: (toolId: string) => {
+    set((state) => {
+      const exists = state.favoriteTools.includes(toolId);
+      const updated = exists
+        ? state.favoriteTools.filter((id) => id !== toolId)
+        : [...state.favoriteTools, toolId];
+      try {
+        localStorage.setItem('fx_favorite_tools', JSON.stringify(updated));
+      } catch (_) {}
+      return { favoriteTools: updated };
+    });
+  },
+
+  setFavoriteToolbarOpen: (open: boolean) => {
+    try {
+      localStorage.setItem('fx_favorite_toolbar_open', String(open));
+    } catch (_) {}
+    set({ isFavoriteToolbarOpen: open });
+  },
 }));
+

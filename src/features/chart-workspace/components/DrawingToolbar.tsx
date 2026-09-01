@@ -9,8 +9,10 @@ import {
   Ruler,
   ZoomIn,
   ZoomOut,
+  Star,
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
+import { useDrawingStore } from '@/store';
 
 export const TEXT_TOOLS = [
   {
@@ -241,6 +243,35 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     magnetMenuRef,
   } = props;
 
+  const {
+    favoriteTools,
+    isFavoriteToolbarOpen,
+    toggleFavoriteTool,
+    setFavoriteToolbarOpen,
+  } = useDrawingStore();
+
+  const renderFavoriteButton = (toolId: string) => {
+    const isFav = favoriteTools.includes(toolId);
+    return (
+      <button
+        type="button"
+        title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavoriteTool(toolId);
+        }}
+        className="p-1 rounded hover:bg-surface-elevated transition-colors text-txt-muted flex items-center justify-center outline-none focus:outline-none"
+      >
+        <Star
+          className={`w-3.5 h-3.5 transition-colors ${
+            isFav ? 'fill-amber-400 text-amber-400' : 'text-txt-muted hover:text-amber-400'
+          }`}
+        />
+      </button>
+    );
+  };
+
   const closeAllMenus = (except?: 'cursor' | 'line' | 'shape' | 'text' | 'forecast' | 'magnet') => {
     if (except !== 'cursor') setIsCursorMenuOpen(false);
     if (except !== 'line') setIsLineMenuOpen(false);
@@ -398,11 +429,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             </div>
                             
                             <div className="flex items-center gap-3.5">
-                              <span className="text-txt-muted hover:text-amber-500 transition-colors">
-                                <svg className="w-4 h-4 fill-current text-amber-500" viewBox="0 0 18 18">
-                                  <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
-                                </svg>
-                              </span>
+                              {renderFavoriteButton(tool.id)}
                             </div>
                           </button>
                         );
@@ -512,18 +539,14 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                             <span className="text-xs">{tool.name}</span>
                           </div>
                           
-                          <div className="flex items-center gap-3.5">
-                            {tool.hotkey && (
-                              <span className="text-[10px] text-txt-muted font-mono pr-1">
-                                {tool.hotkey}
-                              </span>
-                            )}
-                            <span className="text-txt-muted hover:text-amber-500 transition-colors">
-                              <svg className="w-4 h-4 fill-current text-amber-500" viewBox="0 0 18 18">
-                                <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
-                              </svg>
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-3.5">
+                              {tool.hotkey && (
+                                <span className="text-[10px] text-txt-muted font-mono pr-1">
+                                  {tool.hotkey}
+                                </span>
+                              )}
+                              {renderFavoriteButton(tool.id)}
+                            </div>
                         </button>
                       );
                     })}
@@ -648,11 +671,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                                   {tool.hotkey}
                                 </span>
                               )}
-                              <span className="text-txt-muted hover:text-amber-500 transition-colors">
-                                <svg className="w-4 h-4 fill-current text-amber-500" viewBox="0 0 18 18">
-                                  <path d="M9 1l2.35 4.76 5.26.77-3.8 3.7.9 5.24L9 13l-4.7 2.47.9-5.23-3.8-3.71 5.25-.77L9 1z" />
-                                </svg>
-                              </span>
+                              {renderFavoriteButton(tool.id)}
                             </div>
                           </button>
                         );
@@ -766,6 +785,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                           </span>
                           <span className="text-xs">{tool.name}</span>
                         </div>
+                        <div className="flex items-center gap-3.5">
+                          {renderFavoriteButton(tool.id)}
+                        </div>
                       </button>
                     );
                   })}
@@ -866,6 +888,9 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                           <ToolIcon className="w-6 h-6 text-current" />
                         </span>
                         <span className="text-xs">{tool.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3.5">
+                        {renderFavoriteButton(tool.id)}
                       </div>
                     </button>
                   );
@@ -1107,6 +1132,30 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           </div>
         );
       })()}
+
+      {/* Bottom Sidebar: Favorite Drawing Tools Toolbar Toggle */}
+      <div className="mt-auto flex flex-col items-start gap-2 pt-2">
+        <button
+          title="Favorite Drawing Tools Toolbar"
+          aria-label="Favorite Drawing Tools Toolbar"
+          data-tooltip="Favorite Drawing Tools Toolbar"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            setFavoriteToolbarOpen(!isFavoriteToolbarOpen);
+          }}
+          className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+            isFavoriteToolbarOpen
+              ? 'bg-surface-elevated text-txt-primary border-border-def shadow-sm'
+              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
+          }`}
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            <Star className={`w-full h-full ${isFavoriteToolbarOpen ? 'fill-current text-txt-primary' : 'text-current'}`} />
+          </ToolIconWrapper>
+        </button>
+      </div>
     </aside>
   );
 };
