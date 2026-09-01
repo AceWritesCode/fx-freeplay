@@ -17,6 +17,7 @@ import {
 } from '@/utils/dataUtils';
 import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
+import { FavoriteDrawingToolbar } from '@/components/FavoriteDrawingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
@@ -2027,6 +2028,20 @@ export function ChartWorkspace() {
           setSelectedOverlayIds([]);
           runWorkspaceReconciliation(chartInstancesRef);
         }}
+      />
+
+      {/* Favorite Drawing Tools Floating Toolbar */}
+      <FavoriteDrawingToolbar
+        activeTool={drawingCoord.activeTool}
+        selectedCursorId={selectedCursorId}
+        setSelectedCursorId={setSelectedCursorId}
+        setSelectedLineToolId={setSelectedLineToolId}
+        setSelectedShapeToolId={setSelectedShapeToolId}
+        setSelectedTextToolId={setSelectedTextToolId}
+        setSelectedForecastToolId={setSelectedForecastToolId}
+        handleSelectTool={drawingCoord.handleSelectTool}
+        cancelDrawingSession={drawingCoord.cancelDrawingSession}
+        setActiveTool={drawingCoord.setActiveTool}
       />
 
       {/* Drawing Settings Dialog */}

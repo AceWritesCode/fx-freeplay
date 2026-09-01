@@ -52,6 +52,7 @@ interface DrawingState {
   favoriteTools: string[];
   isFavoriteToolbarOpen: boolean;
   toggleFavoriteTool: (toolId: string) => void;
+  reorderFavoriteTools: (newOrder: string[]) => void;
   setFavoriteToolbarOpen: (open: boolean) => void;
 }
 
@@ -293,6 +294,13 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
       } catch (_) {}
       return { favoriteTools: updated };
     });
+  },
+
+  reorderFavoriteTools: (newOrder: string[]) => {
+    try {
+      localStorage.setItem('fx_favorite_tools', JSON.stringify(newOrder));
+    } catch (_) {}
+    set({ favoriteTools: newOrder });
   },
 
   setFavoriteToolbarOpen: (open: boolean) => {
