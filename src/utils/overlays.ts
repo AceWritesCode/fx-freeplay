@@ -504,7 +504,7 @@ export function getInteractiveOverlayOptions(
         }
       }
 
-      if (draggedIndex === null) {
+      if (draggedIndex === null || toolName === 'brush' || event.overlay?.name === 'brush') {
         const startPoints = event.overlay.extendData?.startPoints;
         const startMousePixel = event.overlay.extendData?.startMousePixel;
         const startPointsPixels = event.overlay.extendData?.startPointsPixels;

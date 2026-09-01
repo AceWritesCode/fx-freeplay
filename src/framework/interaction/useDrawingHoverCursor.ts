@@ -149,7 +149,6 @@ export function useDrawingHoverCursor({
       const yVal = e.clientY - containerRect.top;
       const candidatesForAnchor = selectedOverlays.length > 0 ? selectedOverlays : interactiveOverlays;
       candidatesForAnchor.forEach((ov: any) => {
-        if (ov.name === 'brush') return;
         if (ov.points && Array.isArray(ov.points)) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
@@ -159,6 +158,9 @@ export function useDrawingHoverCursor({
           let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
           if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
             pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          }
+          if (ov.name === 'brush' && Array.isArray(pts) && pts.length >= 2) {
+            pts = [pts[0], pts[pts.length - 1]];
           }
           if ((ov.name === 'fxText' || ov.name === 'text') && Array.isArray(pts) && pts[0]) {
             const cs = ov.extendData?.customSettings || {};

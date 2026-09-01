@@ -192,8 +192,14 @@ export function useBrushDrawing({
         if (dist >= 2) {
           pts.push({ x: curX, y: curY });
 
-          activeChartRef.current.overrideOverlay({
+          const chart = activeChartRef.current;
+          const startPt = chart.convertFromPixel([pts[0]], { paneId: 'candle_pane' });
+          const curPt = chart.convertFromPixel([{ x: curX, y: curY }], { paneId: 'candle_pane' });
+          const liveChartPoints = (startPt && curPt) ? [startPt[0], curPt[0]] : undefined;
+
+          chart.overrideOverlay({
             id: drawingIdRef.current,
+            points: liveChartPoints,
             extendData: {
               order: activeOrderRef.current,
               groupId: activeGroupIdRef.current,
@@ -206,7 +212,7 @@ export function useBrushDrawing({
               liveBrushPoints: [...pts],
             },
           });
-          DrawingChartAdapter.invalidatePane(activeChartRef.current, 'candle_pane');
+          DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
         }
       }
     };
