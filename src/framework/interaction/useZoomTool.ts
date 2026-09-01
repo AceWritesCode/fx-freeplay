@@ -13,6 +13,10 @@ interface ZoomHistoryEntry {
   chartIndex: number;
   barSpace: number;
   offsetRightDistance: number;
+  yAxisState: {
+    wasManual: boolean;
+    range: any;
+  } | null;
 }
 
 export function useZoomTool({
@@ -44,7 +48,30 @@ export function useZoomTool({
         chart.setBarSpace(previousState.barSpace);
         chart.setOffsetRightDistance(previousState.offsetRightDistance);
 
-        const pane = chart.getDrawPaneById?.('candle_pane');
+        const pane =
+          chart.getDrawPaneById?.('candle_pane') ||
+          (chart as any)._chartStore?.getPaneStore?.()?.getPaneById?.('candle_pane');
+        const yAxis = pane?.getYAxisComponents?.()?.[0] || (chart as any)._candlePaneYAxis;
+
+        if (yAxis && previousState.yAxisState) {
+          if (previousState.yAxisState.wasManual && previousState.yAxisState.range) {
+            try {
+              yAxis.setRange({ ...previousState.yAxisState.range });
+            } catch (_) {
+              try {
+                yAxis.setRange(previousState.yAxisState.range.from, previousState.yAxisState.range.to);
+              } catch (__) {}
+            }
+            if (typeof yAxis.setAutoCalcTickFlag === 'function') {
+              yAxis.setAutoCalcTickFlag(false);
+            }
+          } else {
+            if (typeof yAxis.setAutoCalcTickFlag === 'function') {
+              yAxis.setAutoCalcTickFlag(true);
+            }
+          }
+        }
+
         if (pane) {
           if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
             pane.getWidget().invalidate();
@@ -191,43 +218,84 @@ export function useZoomTool({
       const startPos = startPosRef.current;
       const rect = container.getBoundingClientRect();
       const endX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+      const endY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
 
       clearPreview();
       chart.setScrollEnabled(true);
       chart.setZoomEnabled(true);
 
       const dx = Math.abs(endX - startPos.x);
-      if (dx >= 10) {
+      const dy = Math.abs(endY - startPos.y);
+
+      if (dx >= 10 || dy >= 10) {
         // Record current zoom state to history before applying new zoom
         const currentBarSpace = getChartBarSpace(chart);
         const currentOffset = getTrueOffsetRightDistance(chart);
+
+        const pane =
+          chart.getDrawPaneById?.('candle_pane') ||
+          (chart as any)._chartStore?.getPaneStore?.()?.getPaneById?.('candle_pane');
+        const yAxis = pane?.getYAxisComponents?.()?.[0] || (chart as any)._candlePaneYAxis;
+
+        let yAxisState: { wasManual: boolean; range: any } | null = null;
+        if (yAxis) {
+          const wasManual = typeof yAxis.getAutoCalcTickFlag === 'function' ? !yAxis.getAutoCalcTickFlag() : false;
+          const r = typeof yAxis.getRange === 'function' ? yAxis.getRange() : null;
+          yAxisState = {
+            wasManual,
+            range: r ? { ...r } : null,
+          };
+        }
 
         zoomHistoryRef.current.push({
           chartIndex: activeChartIndex,
           barSpace: currentBarSpace,
           offsetRightDistance: currentOffset,
+          yAxisState,
         });
         setCanZoomOut(true);
 
-        // Convert start and end X to chart data coordinates
+        // Convert start and end points to chart data coordinates
         const startCoord = chart.convertFromPixel({ x: startPos.x, y: startPos.y }, { paneId: 'candle_pane' });
-        const endCoord = chart.convertFromPixel({ x: endX, y: startPos.y }, { paneId: 'candle_pane' });
+        const endCoord = chart.convertFromPixel({ x: endX, y: endY }, { paneId: 'candle_pane' });
 
         const dataList = chart.getDataList?.() || [];
         if (dataList.length > 0 && startCoord && endCoord) {
-          const fromIdx = Math.max(0, Math.min(startCoord.dataIndex, endCoord.dataIndex));
-          const toIdx = Math.min(dataList.length - 1, Math.max(startCoord.dataIndex, endCoord.dataIndex));
-          const visibleBarsCount = Math.max(2, toIdx - fromIdx + 1);
+          // 1. Time / Bar Range Zoom (X-axis)
+          if (dx >= 10 && typeof startCoord.dataIndex === 'number' && typeof endCoord.dataIndex === 'number') {
+            const fromIdx = Math.max(0, Math.min(startCoord.dataIndex, endCoord.dataIndex));
+            const toIdx = Math.min(dataList.length - 1, Math.max(startCoord.dataIndex, endCoord.dataIndex));
+            const visibleBarsCount = Math.max(2, toIdx - fromIdx + 1);
 
-          const chartWidth = chart.getSize()?.width || rect.width || 800;
-          const desiredBarSpace = chartWidth / visibleBarsCount;
+            const chartWidth = chart.getSize()?.width || rect.width || 800;
+            const desiredBarSpace = chartWidth / visibleBarsCount;
 
-          chart.setBarSpace(desiredBarSpace);
-          const actualSpace = getChartBarSpace(chart);
-          const offsetRightDistance = (toIdx - dataList.length) * actualSpace;
-          chart.setOffsetRightDistance(offsetRightDistance);
+            chart.setBarSpace(desiredBarSpace);
+            const actualSpace = getChartBarSpace(chart);
+            const offsetRightDistance = (toIdx - dataList.length) * actualSpace;
+            chart.setOffsetRightDistance(offsetRightDistance);
+          }
 
-          const pane = chart.getDrawPaneById?.('candle_pane');
+          // 2. Price Range Zoom (Y-axis)
+          if (dy >= 10 && typeof startCoord.value === 'number' && typeof endCoord.value === 'number' && yAxis) {
+            const minPrice = Math.min(startCoord.value, endCoord.value);
+            const maxPrice = Math.max(startCoord.value, endCoord.value);
+            if (maxPrice > minPrice) {
+              try {
+                if (typeof yAxis.setRange === 'function') {
+                  yAxis.setRange({ from: minPrice, to: maxPrice });
+                }
+              } catch (_) {
+                try {
+                  yAxis.setRange(minPrice, maxPrice);
+                } catch (__) {}
+              }
+              if (typeof yAxis.setAutoCalcTickFlag === 'function') {
+                yAxis.setAutoCalcTickFlag(false);
+              }
+            }
+          }
+
           if (pane) {
             if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
               pane.getWidget().invalidate();
