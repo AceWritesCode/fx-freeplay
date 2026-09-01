@@ -10,6 +10,10 @@ import {
   ZoomIn,
   ZoomOut,
   Star,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
@@ -184,6 +188,10 @@ interface DrawingToolbarProps {
   magnetMenuRef: React.RefObject<HTMLDivElement | null>;
   canZoomOut?: boolean;
   handleZoomOut?: () => void;
+  isAllDrawingsLocked?: boolean;
+  isAllDrawingsHidden?: boolean;
+  onToggleLockAll?: () => void;
+  onToggleHideAll?: () => void;
   chartInstanceRef?: any;
   activeOverlayIdRef?: any;
 }
@@ -235,6 +243,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     selectMagnetMode,
     canZoomOut,
     handleZoomOut,
+    isAllDrawingsLocked = false,
+    isAllDrawingsHidden = false,
+    onToggleLockAll,
+    onToggleHideAll,
     cursorMenuRef,
     lineMenuRef,
     shapeMenuRef,
@@ -931,97 +943,99 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           );
         })}
 
+      {/* Divider 1: Separates Drawing Tools from Utilities */}
+      <div className="w-[44px] flex items-center justify-center my-0.5">
+        <div className="w-[30px] h-[1px] bg-border-sub/60" />
+      </div>
+
+      {/* --- GROUP 2: UTILITIES (Measure, Zoom In, Zoom Out) --- */}
       {/* Measure / Scale Tool */}
-      <button
-        title="Measure (Shift + Click & Drag)"
-        aria-label="Measure"
-        data-tooltip="Measure"
-        disabled={!hasData}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => {
-          closeAllMenus();
-          if (activeTool === 'measure') {
-            setActiveTool(null);
-          } else {
-            handleSelectTool('measure');
-          }
-        }}
-        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-          activeTool === 'measure'
-            ? 'bg-accent-muted text-accent'
-            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-        }`}
-        style={{ width: '34px', height: '34px' }}
-      >
-        <ToolIconWrapper>
-          <Ruler className="w-full h-full text-current" />
-        </ToolIconWrapper>
-      </button>
-
-      {/* Zoom In Tool */}
-      <button
-        title="Zoom in"
-        aria-label="Zoom in"
-        data-tooltip="Zoom in"
-        disabled={!hasData}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => {
-          closeAllMenus();
-          if (activeTool === 'zoomIn') {
-            setActiveTool(null);
-          } else {
-            handleSelectTool('zoomIn');
-          }
-        }}
-        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-          activeTool === 'zoomIn'
-            ? 'bg-accent-muted text-accent'
-            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-        }`}
-        style={{ width: '34px', height: '34px' }}
-      >
-        <ToolIconWrapper>
-          <ZoomIn className="w-full h-full text-current" />
-        </ToolIconWrapper>
-      </button>
-
-      {/* Zoom Out Tool (Appears when zoomed in) */}
-      {canZoomOut && (
+      <div className="w-[44px] flex items-center justify-center">
         <button
-          title="Zoom out"
-          aria-label="Zoom out"
-          data-tooltip="Zoom out"
+          title="Measure (Shift + Click & Drag)"
+          aria-label="Measure"
+          data-tooltip="Measure"
           disabled={!hasData}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             closeAllMenus();
-            handleZoomOut?.();
+            if (activeTool === 'measure') {
+              setActiveTool(null);
+            } else {
+              handleSelectTool('measure');
+            }
           }}
-          className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+            activeTool === 'measure'
+              ? 'bg-accent-muted text-accent'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+          }`}
           style={{ width: '34px', height: '34px' }}
         >
           <ToolIconWrapper>
-            <ZoomOut className="w-full h-full text-current" />
+            <Ruler className="w-full h-full text-current" />
           </ToolIconWrapper>
         </button>
+      </div>
+
+      {/* Zoom In Tool */}
+      <div className="w-[44px] flex items-center justify-center">
+        <button
+          title="Zoom in"
+          aria-label="Zoom in"
+          data-tooltip="Zoom in"
+          disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            if (activeTool === 'zoomIn') {
+              setActiveTool(null);
+            } else {
+              handleSelectTool('zoomIn');
+            }
+          }}
+          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+            activeTool === 'zoomIn'
+              ? 'bg-accent-muted text-accent'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+          }`}
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            <ZoomIn className="w-full h-full text-current" />
+          </ToolIconWrapper>
+        </button>
+      </div>
+
+      {/* Zoom Out Tool (Appears when zoomed in) */}
+      {canZoomOut && (
+        <div className="w-[44px] flex items-center justify-center">
+          <button
+            title="Zoom out"
+            aria-label="Zoom out"
+            data-tooltip="Zoom out"
+            disabled={!hasData}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              closeAllMenus();
+              handleZoomOut?.();
+            }}
+            className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+            style={{ width: '34px', height: '34px' }}
+          >
+            <ToolIconWrapper>
+              <ZoomOut className="w-full h-full text-current" />
+            </ToolIconWrapper>
+          </button>
+        </div>
       )}
 
-      <button
-        title="Clear Drawings"
-        disabled={!hasData}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => {
-          closeAllMenus();
-          handleClearDrawings();
-        }}
-        className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
-        style={{ width: '34px', height: '34px' }}
-      >
-        <ToolIconWrapper>
-          <Trash2 className="w-full h-full text-current" />
-        </ToolIconWrapper>
-      </button>
+      {/* Divider 2: Separates Utilities from Action Tools */}
+      <div className="w-[44px] flex items-center justify-center my-0.5">
+        <div className="w-[30px] h-[1px] bg-border-sub/60" />
+      </div>
 
+      {/* --- GROUP 3: ACTION TOOLS (Magnet, Lock All, Hide All) --- */}
       {/* Magnet Tool with Dropdown Chevron */}
       {(() => {
         const isMagnetActive = magnetMode !== 'normal';
@@ -1132,6 +1146,90 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           </div>
         );
       })()}
+
+      {/* Lock All Drawings */}
+      <div className="w-[44px] flex items-center justify-center">
+        <button
+          title={isAllDrawingsLocked ? "Unlock all drawings" : "Lock all drawings"}
+          aria-label="Lock all drawings"
+          data-tooltip="Lock all drawings"
+          disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            onToggleLockAll?.();
+          }}
+          className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+            isAllDrawingsLocked
+              ? 'border-transparent bg-accent-muted text-accent'
+              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+          }`}
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            {isAllDrawingsLocked ? (
+              <Lock className="w-full h-full text-current" />
+            ) : (
+              <Unlock className="w-full h-full text-current" />
+            )}
+          </ToolIconWrapper>
+        </button>
+      </div>
+
+      {/* Hide All Drawings */}
+      <div className="w-[44px] flex items-center justify-center">
+        <button
+          title={isAllDrawingsHidden ? "Show all drawings" : "Hide all drawings"}
+          aria-label="Hide all drawings"
+          data-tooltip="Hide all drawings"
+          disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            onToggleHideAll?.();
+          }}
+          className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+            isAllDrawingsHidden
+              ? 'border-transparent bg-accent-muted text-accent'
+              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+          }`}
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            {isAllDrawingsHidden ? (
+              <EyeOff className="w-full h-full text-current" />
+            ) : (
+              <Eye className="w-full h-full text-current" />
+            )}
+          </ToolIconWrapper>
+        </button>
+      </div>
+
+      {/* Divider 3: Separates Action Tools from Delete All Drawings */}
+      <div className="w-[44px] flex items-center justify-center my-0.5">
+        <div className="w-[30px] h-[1px] bg-border-sub/60" />
+      </div>
+
+      {/* --- GROUP 4: DELETE ALL DRAWINGS --- */}
+      <div className="w-[44px] flex items-center justify-center">
+        <button
+          title="Delete all drawings"
+          aria-label="Delete all drawings"
+          data-tooltip="Delete all drawings"
+          disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            handleClearDrawings();
+          }}
+          className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-status-error hover:bg-status-error/10 disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            <Trash2 className="w-full h-full text-current" />
+          </ToolIconWrapper>
+        </button>
+      </div>
 
       {/* Bottom Sidebar: Favorite Drawing Tools Toolbar Toggle */}
       <div className="mt-auto w-[44px] flex items-center justify-center pt-2 pb-0.5">

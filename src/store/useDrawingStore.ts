@@ -34,6 +34,8 @@ interface DrawingState {
   getSymbolDrawings: (symbol: string) => DrawingItem[];
   findSymbolByDrawingId: (id: string) => { symbol: string; drawing: DrawingItem } | null;
   removeSymbolDrawingById: (id: string) => void;
+  toggleLockAllDrawings: (symbol: string) => boolean;
+  toggleHideAllDrawings: (symbol: string) => boolean;
 
   // General & Legacy Store Actions
   setDrawings: (drawings: DrawingInstance[]) => void;
@@ -242,6 +244,42 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     if (resolved) {
       get().removeSymbolDrawing(resolved.symbol, originalId);
     }
+  },
+
+  toggleLockAllDrawings: (symbol) => {
+    if (!symbol) return false;
+    const key = symbol.toUpperCase();
+    const existing = get().drawingsBySymbol[key] || [];
+    if (existing.length === 0) return false;
+    const allLocked = existing.every((d) => d.lock === true);
+    const newLockState = !allLocked;
+    const updatedList = existing.map((d) => ({ ...d, lock: newLockState }));
+    set((state) => ({
+      drawingsBySymbol: {
+        ...state.drawingsBySymbol,
+        [key]: updatedList,
+      },
+    }));
+    drawingRepository.saveDrawings(key, updatedList);
+    return newLockState;
+  },
+
+  toggleHideAllDrawings: (symbol) => {
+    if (!symbol) return false;
+    const key = symbol.toUpperCase();
+    const existing = get().drawingsBySymbol[key] || [];
+    if (existing.length === 0) return false;
+    const allHidden = existing.every((d) => d.visible === false);
+    const newVisibleState = allHidden; // if all were hidden, make visible (true); else hide (false)
+    const updatedList = existing.map((d) => ({ ...d, visible: newVisibleState }));
+    set((state) => ({
+      drawingsBySymbol: {
+        ...state.drawingsBySymbol,
+        [key]: updatedList,
+      },
+    }));
+    drawingRepository.saveDrawings(key, updatedList);
+    return !newVisibleState;
   },
 
   // Legacy Actions (Preserved for compatibility)

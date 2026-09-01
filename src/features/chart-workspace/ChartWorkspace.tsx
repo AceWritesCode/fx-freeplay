@@ -1290,6 +1290,44 @@ export function ChartWorkspace() {
     drawingCoord.setDrawingTrigger((prev) => prev + 1);
   };
 
+  const activeSymbol = slots[activeChartIndex]?.symbol || (assetName !== 'No Asset Loaded' ? assetName : '');
+  const activeSymbolKey = activeSymbol ? activeSymbol.toUpperCase() : '';
+  const currentSymbolDrawings = useDrawingStore((state) => 
+    activeSymbolKey ? state.drawingsBySymbol[activeSymbolKey] || [] : []
+  );
+  const isAllDrawingsLocked = currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.lock === true);
+  const isAllDrawingsHidden = currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.visible === false);
+
+  const handleToggleLockAll = useCallback(() => {
+    if (!activeSymbol) return;
+    const isLocked = useDrawingStore.getState().toggleLockAllDrawings(activeSymbol);
+    chartInstancesRef.current.forEach((chart) => {
+      if (!chart) return;
+      const overlays = chart.getOverlays() || [];
+      overlays.forEach((ov: any) => {
+        chart.overrideOverlay({ id: ov.id, lock: isLocked });
+      });
+      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+    });
+    runWorkspaceReconciliation(chartInstancesRef);
+    drawingCoord.setDrawingTrigger((prev) => prev + 1);
+  }, [activeSymbol]);
+
+  const handleToggleHideAll = useCallback(() => {
+    if (!activeSymbol) return;
+    const isHidden = useDrawingStore.getState().toggleHideAllDrawings(activeSymbol);
+    chartInstancesRef.current.forEach((chart) => {
+      if (!chart) return;
+      const overlays = chart.getOverlays() || [];
+      overlays.forEach((ov: any) => {
+        chart.overrideOverlay({ id: ov.id, visible: !isHidden });
+      });
+      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+    });
+    runWorkspaceReconciliation(chartInstancesRef);
+    drawingCoord.setDrawingTrigger((prev) => prev + 1);
+  }, [activeSymbol]);
+
   // Render chart slots
   const renderSlot = (i: number) => (
     <ChartSlot
@@ -1525,6 +1563,10 @@ export function ChartWorkspace() {
           magnetMenuRef={magnetMenuRef}
           canZoomOut={canZoomOut}
           handleZoomOut={zoomOut}
+          isAllDrawingsLocked={isAllDrawingsLocked}
+          isAllDrawingsHidden={isAllDrawingsHidden}
+          onToggleLockAll={handleToggleLockAll}
+          onToggleHideAll={handleToggleHideAll}
           chartInstanceRef={{ current: chartInstancesRef.current[activeChartIndex] }}
           activeOverlayIdRef={activeOverlayIdRef}
         />
