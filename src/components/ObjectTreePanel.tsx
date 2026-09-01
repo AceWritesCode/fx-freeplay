@@ -3,6 +3,8 @@ import { Layers, Folder, FolderOpen, FolderPlus, Eye, EyeOff, Lock, Unlock, Tras
 import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
 import { drawingRepository } from '@/repository';
+import { ToolRegistry } from '@/framework/tools';
+import { TEXT_TOOLS } from '@/features/chart-workspace/components/DrawingToolbar';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -366,22 +368,52 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       isVisible: true,
       order: maxOrder + 10,
     };
-    setFolders(prev => [...prev, newFolder]);
+    const nextFolders = [...folders, newFolder];
+    setFolders(nextFolders);
+    if (activeSymbol) {
+      localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+    }
 
-    // If there are selected drawings, immediately move them to this folder
-    if (selectedOverlayIds.length > 0 && activeChart) {
-      selectedOverlayIds.forEach(id => {
-        const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
-        if (overlay) {
-          activeChart.overrideOverlay({
-            id,
-            extendData: {
-              ...overlay.extendData,
-              folderId: newFolder.id,
-            },
-          });
-        }
-      });
+    // If there are selected drawings, immediately move them to this folder in store & IndexedDB
+    if (selectedOverlayIds.length > 0) {
+      if (activeSymbol) {
+        const symbolKey = activeSymbol.toUpperCase();
+        const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+        const nextStoreDrawings = storeDrawings.map((d) => {
+          if (selectedOverlayIds.includes(d.id)) {
+            return {
+              ...d,
+              extendData: {
+                ...(d.extendData || {}),
+                folderId: newFolder.id,
+              },
+            };
+          }
+          return d;
+        });
+        useDrawingStore.setState((state) => ({
+          drawingsBySymbol: {
+            ...state.drawingsBySymbol,
+            [symbolKey]: nextStoreDrawings,
+          },
+        }));
+        drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+      }
+
+      if (activeChart) {
+        selectedOverlayIds.forEach(id => {
+          const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
+          if (overlay) {
+            activeChart.overrideOverlay({
+              id,
+              extendData: {
+                ...overlay.extendData,
+                folderId: newFolder.id,
+              },
+            });
+          }
+        });
+      }
       syncAllDrawings();
       setDrawingTrigger(prev => prev + 1);
     }
@@ -1069,11 +1101,39 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       return;
     }
 
+    const newName = renameValue.trim();
+
     if (isFolder) {
-      setFolders(prev =>
-        prev.map(f => (f.id === id ? { ...f, name: renameValue.trim() } : f))
-      );
+      const nextFolders = folders.map(f => (f.id === id ? { ...f, name: newName } : f));
+      setFolders(nextFolders);
+      if (activeSymbol) {
+        localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+      }
     } else {
+      if (activeSymbol) {
+        const symbolKey = activeSymbol.toUpperCase();
+        const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+        const nextStoreDrawings = storeDrawings.map((d) => {
+          if (d.id === id) {
+            return {
+              ...d,
+              extendData: {
+                ...(d.extendData || {}),
+                customName: newName,
+              }
+            };
+          }
+          return d;
+        });
+        useDrawingStore.setState((state) => ({
+          drawingsBySymbol: {
+            ...state.drawingsBySymbol,
+            [symbolKey]: nextStoreDrawings,
+          },
+        }));
+        drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+      }
+
       if (activeChart) {
         const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
         if (overlay) {
@@ -1081,13 +1141,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             id,
             extendData: {
               ...overlay.extendData,
-              customName: renameValue.trim(),
+              customName: newName,
             },
           });
-          syncAllDrawings();
-          setDrawingTrigger(prev => prev + 1);
         }
       }
+      syncAllDrawings();
+      setDrawingTrigger(prev => prev + 1);
     }
     setRenamingId(null);
   };
@@ -1099,56 +1159,106 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   };
 
   const handleLockSelected = () => {
-    if (selectedOverlayIds.length === 0 || !activeChart) return;
+    if (selectedOverlayIds.length === 0) return;
+    if (!activeSymbol) return;
+    const symbolKey = activeSymbol.toUpperCase();
+    const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+
     const isAnyUnlocked = selectedOverlayIds.some(id => {
-      const ov = activeChart.getOverlays().find((o: any) => o.id === id);
-      return ov && !ov.lock;
+      const d = storeDrawings.find(item => item.id === id);
+      return d && !d.lock;
     });
 
-    selectedOverlayIds.forEach(id => {
-      activeChart.overrideOverlay({
-        id,
-        lock: isAnyUnlocked,
-        styles: {
-          point: isAnyUnlocked ? {
-            radius: 0,
-            activeRadius: 0,
-            color: 'transparent',
-            borderColor: 'transparent',
-            borderSize: 0,
-            activeColor: 'transparent',
-            activeBorderColor: 'transparent',
-            activeBorderSize: 0
-          } : {
-            radius: 4.5,
-            activeRadius: 5.5,
-            color: '#ffffff',
-            borderColor: '#2196F3',
-            borderSize: 1.5,
-            activeColor: '#ffffff',
-            activeBorderColor: '#2196F3',
-            activeBorderSize: 2
-          }
-        }
-      });
+    const targetLock = isAnyUnlocked;
+
+    const nextStoreDrawings = storeDrawings.map((d) => {
+      if (selectedOverlayIds.includes(d.id)) {
+        return {
+          ...d,
+          lock: targetLock,
+        };
+      }
+      return d;
     });
+    useDrawingStore.setState((state) => ({
+      drawingsBySymbol: {
+        ...state.drawingsBySymbol,
+        [symbolKey]: nextStoreDrawings,
+      },
+    }));
+    drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+
+    if (activeChart) {
+      selectedOverlayIds.forEach(id => {
+        activeChart.overrideOverlay({
+          id,
+          lock: targetLock,
+          styles: {
+            point: targetLock ? {
+              radius: 0,
+              activeRadius: 0,
+              color: 'transparent',
+              borderColor: 'transparent',
+              borderSize: 0,
+              activeColor: 'transparent',
+              activeBorderColor: 'transparent',
+              activeBorderSize: 0
+            } : {
+              radius: 4.5,
+              activeRadius: 5.5,
+              color: '#ffffff',
+              borderColor: '#2196F3',
+              borderSize: 1.5,
+              activeColor: '#ffffff',
+              activeBorderColor: '#2196F3',
+              activeBorderSize: 2
+            }
+          }
+        });
+      });
+    }
     syncAllDrawings();
     setDrawingTrigger(prev => prev + 1);
   };
 
   const handleHideSelected = () => {
-    if (selectedOverlayIds.length === 0 || !activeChart) return;
+    if (selectedOverlayIds.length === 0) return;
+    if (!activeSymbol) return;
+    const symbolKey = activeSymbol.toUpperCase();
+    const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+
     const isAnyVisible = selectedOverlayIds.some(id => {
-      const ov = activeChart.getOverlays().find((o: any) => o.id === id);
-      return ov && ov.visible !== false;
+      const d = storeDrawings.find(item => item.id === id);
+      return d && d.visible !== false;
     });
 
-    selectedOverlayIds.forEach(id => {
-      activeChart.overrideOverlay({
-        id,
-        visible: !isAnyVisible,
-      });
+    const targetVisible = !isAnyVisible;
+
+    const nextStoreDrawings = storeDrawings.map((d) => {
+      if (selectedOverlayIds.includes(d.id)) {
+        return {
+          ...d,
+          visible: targetVisible,
+        };
+      }
+      return d;
     });
+    useDrawingStore.setState((state) => ({
+      drawingsBySymbol: {
+        ...state.drawingsBySymbol,
+        [symbolKey]: nextStoreDrawings,
+      },
+    }));
+    drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+
+    if (activeChart) {
+      selectedOverlayIds.forEach(id => {
+        activeChart.overrideOverlay({
+          id,
+          visible: targetVisible,
+        });
+      });
+    }
     syncAllDrawings();
     setDrawingTrigger(prev => prev + 1);
   };
@@ -1164,17 +1274,24 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Drawing helper
   const getDrawingIcon = (toolName: string) => {
-    // Custom SVG for Trendline matching TradingView style
-    if (toolName === 'trendLine') {
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-txt-muted">
-          <g fill="currentColor" fillRule="nonzero">
-            <path d="M7.354 21.354l14-14-.707-.707-14 14z"></path>
-            <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z"></path>
-          </g>
-        </svg>
+    // 1. Check ToolRegistry
+    const registeredTool =
+      ToolRegistry.get(toolName) ||
+      ToolRegistry.getAll().find(
+        (t: any) => t.id === toolName || t.createOverlayDef?.().name === toolName
       );
+    if (registeredTool && registeredTool.icon) {
+      const ToolIcon = registeredTool.icon;
+      return <ToolIcon className="w-4 h-4 text-txt-muted" />;
     }
+
+    // 2. Check TEXT_TOOLS
+    const textTool = TEXT_TOOLS.find((t) => t.id === toolName);
+    if (textTool && textTool.icon) {
+      const ToolIcon = textTool.icon;
+      return <ToolIcon className="w-4 h-4 text-txt-muted" />;
+    }
+
     // Fallback line icon
     return (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-txt-muted">
@@ -1185,8 +1302,27 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   const getDrawingLabel = (ov: any) => {
     if (ov.extendData?.customName) return ov.extendData.customName;
-    if (ov.name === 'trendLine') return 'Trendline';
-    return ov.name;
+    const toolName = ov.name || '';
+
+    // Check ToolRegistry
+    const registeredTool =
+      ToolRegistry.get(toolName) ||
+      ToolRegistry.getAll().find(
+        (t: any) => t.id === toolName || t.createOverlayDef?.().name === toolName
+      );
+    if (registeredTool && registeredTool.name) {
+      return registeredTool.name;
+    }
+
+    // Check TEXT_TOOLS
+    const textTool = TEXT_TOOLS.find((t) => t.id === toolName);
+    if (textTool && textTool.name) {
+      return textTool.name;
+    }
+
+    // Fallback capitalize first letter
+    if (!toolName) return 'Drawing';
+    return toolName.charAt(0).toUpperCase() + toolName.slice(1);
   };
 
   // Group drawings by folder
