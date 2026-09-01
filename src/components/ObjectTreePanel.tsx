@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Layers, Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Layers, Folder, FolderOpen, FolderPlus, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
 import { drawingRepository } from '@/repository';
@@ -1274,9 +1274,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       {activeTab === 'objectTree' ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           
-          {/* ── Toolbar buttons matching TradingView ── */}
+          {/* ── Toolbar buttons matching sidebar theme ── */}
           <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-sub bg-surface">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               
               {/* Create Group */}
               <button
@@ -1284,11 +1284,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleGroupSelected}
                 title="Create a group of drawings"
-                className="p-1.5 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-txt-primary hover:bg-surface-hover disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="18" height="18" fill="none">
-                  <path fill="currentColor" fillRule="evenodd" clip-rule="evenodd" d="M5.5 6C4.67 6 4 6.67 4 7.5V20.5c0 .83.67 1.5 1.5 1.5H16v-1H5.5a.5.5 0 0 1-.5-.5V12h16v1h1V9.5c0-.83-.67-1.5-1.5-1.5h-8.8L9.86 6.15 9.71 6H5.5zM21 11H5V7.5c0-.28.22-.5.5-.5h3.8l1.85 1.85.14.15h9.21c.28 0 .5.22.5.5V11zm1 11v-3h3v-1h-3v-3h-1v3h-3v1h3v3h1z"></path>
-                </svg>
+                <FolderPlus className="w-4 h-4 text-current" />
               </button>
 
               {/* Toggle Lock selected */}
@@ -1297,9 +1295,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleLockSelected}
                 title="Toggle Lock selected"
-                className="p-1.5 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-txt-primary hover:bg-surface-hover disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
               >
-                <Lock className="w-4.5 h-4.5" />
+                <Lock className="w-4 h-4 text-current" />
               </button>
 
               {/* Toggle Hide selected */}
@@ -1308,9 +1306,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleHideSelected}
                 title="Toggle Hide/Show selected"
-                className="p-1.5 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-txt-primary hover:bg-surface-hover disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
               >
-                <Eye className="w-4.5 h-4.5" />
+                <Eye className="w-4 h-4 text-current" />
               </button>
 
               {/* Delete selected */}
@@ -1319,9 +1317,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 disabled={selectedOverlayIds.length === 0}
                 onClick={handleDeleteSelected}
                 title="Delete selected"
-                className="p-1.5 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-status-error hover:bg-status-error/10 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
               >
-                <Trash2 className="w-4.5 h-4.5" />
+                <Trash2 className="w-4 h-4 text-current" />
               </button>
 
             </div>
