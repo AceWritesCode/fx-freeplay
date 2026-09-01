@@ -7,6 +7,8 @@ import {
   Table as TableIcon,
   MessageSquare,
   Ruler,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 
@@ -178,6 +180,8 @@ interface DrawingToolbarProps {
   textMenuRef: React.RefObject<HTMLDivElement | null>;
   forecastMenuRef: React.RefObject<HTMLDivElement | null>;
   magnetMenuRef: React.RefObject<HTMLDivElement | null>;
+  canZoomOut?: boolean;
+  handleZoomOut?: () => void;
   chartInstanceRef?: any;
   activeOverlayIdRef?: any;
 }
@@ -227,6 +231,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     handleClearDrawings,
     handleToggleMagnet,
     selectMagnetMode,
+    canZoomOut,
+    handleZoomOut,
     cursorMenuRef,
     lineMenuRef,
     shapeMenuRef,
@@ -926,6 +932,54 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           <Ruler className="w-full h-full text-current" />
         </ToolIconWrapper>
       </button>
+
+      {/* Zoom In Tool */}
+      <button
+        title="Zoom in"
+        aria-label="Zoom in"
+        data-tooltip="Zoom in"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          if (activeTool === 'zoomIn') {
+            setActiveTool(null);
+          } else {
+            handleSelectTool('zoomIn');
+          }
+        }}
+        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          activeTool === 'zoomIn'
+            ? 'bg-accent-muted text-accent'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <ZoomIn className="w-full h-full text-current" />
+        </ToolIconWrapper>
+      </button>
+
+      {/* Zoom Out Tool (Appears when zoomed in) */}
+      {canZoomOut && (
+        <button
+          title="Zoom out"
+          aria-label="Zoom out"
+          data-tooltip="Zoom out"
+          disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            handleZoomOut?.();
+          }}
+          className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            <ZoomOut className="w-full h-full text-current" />
+          </ToolIconWrapper>
+        </button>
+      )}
 
       <button
         title="Clear Drawings"

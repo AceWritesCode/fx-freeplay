@@ -20,7 +20,7 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
-import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing, useEraserDrawing, useMeasurementTool } from '@/framework/interaction';
+import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing, useEraserDrawing, useMeasurementTool, useZoomTool } from '@/framework/interaction';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -928,6 +928,15 @@ export function ChartWorkspace() {
     setActiveTool: drawingCoord.setActiveTool,
   });
 
+  // Zoom In marquee selection & reversible Zoom Out
+  const { canZoomOut, zoomOut } = useZoomTool({
+    chartContainersRef,
+    chartInstancesRef,
+    activeTool: drawingCoord.activeTool,
+    activeChartIndex,
+    setActiveTool: drawingCoord.setActiveTool,
+  });
+
   // Close custom timezone and flyouts when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1513,6 +1522,8 @@ export function ChartWorkspace() {
           textMenuRef={textMenuRef}
           forecastMenuRef={forecastMenuRef}
           magnetMenuRef={magnetMenuRef}
+          canZoomOut={canZoomOut}
+          handleZoomOut={zoomOut}
           chartInstanceRef={{ current: chartInstancesRef.current[activeChartIndex] }}
           activeOverlayIdRef={activeOverlayIdRef}
         />

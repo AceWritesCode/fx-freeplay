@@ -163,6 +163,7 @@ export function useDrawingHoverCursor({
                     drawingCoord.activeTool &&
                     drawingCoord.activeTool !== 'eraser' &&
                     drawingCoord.activeTool !== 'measure' &&
+                    drawingCoord.activeTool !== 'zoomIn' &&
                     drawingCoord.activeTool !== 'brush' &&
                     drawingCoord.activeTool !== 'highlighter'
                   ) {
