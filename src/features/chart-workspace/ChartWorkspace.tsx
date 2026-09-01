@@ -1276,6 +1276,8 @@ export function ChartWorkspace() {
   );
   const isAllDrawingsLocked =
     currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.lock === true);
+  const isAllDrawingsHidden =
+    currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.visible === false);
 
   const handleToggleLockAllDrawings = useCallback(() => {
     const symbol = activeWatchlistSymbol;
@@ -1311,6 +1313,47 @@ export function ChartWorkspace() {
     });
 
     if (nextLock) {
+      setSelectedOverlayIds([]);
+    }
+
+    runWorkspaceReconciliation(chartInstancesRef);
+    drawingCoord.setDrawingTrigger((prev) => prev + 1);
+  }, [activeWatchlistSymbol, setSelectedOverlayIds, drawingCoord]);
+
+  const handleToggleHideAllDrawings = useCallback(() => {
+    const symbol = activeWatchlistSymbol;
+    if (!symbol) return;
+    const key = symbol.toUpperCase();
+    const existing = useDrawingStore.getState().drawingsBySymbol[key] || [];
+    if (existing.length === 0) return;
+
+    const allHidden = existing.every((d) => d.visible === false);
+    const nextVisible = allHidden; // If all were hidden, unhide (true); else hide (false)
+
+    const updatedList = existing.map((d) => ({ ...d, visible: nextVisible }));
+    useDrawingStore.setState((state) => ({
+      drawingsBySymbol: {
+        ...state.drawingsBySymbol,
+        [key]: updatedList,
+      },
+    }));
+    drawingRepository.saveDrawings(key, updatedList);
+
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        existing.forEach((d) => {
+          try {
+            chart.overrideOverlay({ id: d.id, visible: nextVisible });
+          } catch (_) {}
+          try {
+            chart.overrideOverlay({ id: `sync_${d.id}_from_${chart._chartIndex}`, visible: nextVisible });
+          } catch (_) {}
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      }
+    });
+
+    if (!nextVisible) {
       setSelectedOverlayIds([]);
     }
 
@@ -1577,6 +1620,8 @@ export function ChartWorkspace() {
           activeOverlayIdRef={activeOverlayIdRef}
           isAllDrawingsLocked={isAllDrawingsLocked}
           handleToggleLockAllDrawings={handleToggleLockAllDrawings}
+          isAllDrawingsHidden={isAllDrawingsHidden}
+          handleToggleHideAllDrawings={handleToggleHideAllDrawings}
         />
 
         <main className={`flex-1 h-full relative overflow-hidden bg-app-bg ${layoutType !== '1' ? 'p-1' : 'p-0'} flex`}>

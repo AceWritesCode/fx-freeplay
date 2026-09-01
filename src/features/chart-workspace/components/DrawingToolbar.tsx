@@ -238,6 +238,8 @@ interface DrawingToolbarProps {
   activeOverlayIdRef?: any;
   isAllDrawingsLocked?: boolean;
   handleToggleLockAllDrawings?: () => void;
+  isAllDrawingsHidden?: boolean;
+  handleToggleHideAllDrawings?: () => void;
 }
 
 export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
@@ -295,13 +297,16 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     magnetMenuRef,
     isAllDrawingsLocked: externalIsAllDrawingsLocked,
     handleToggleLockAllDrawings,
+    isAllDrawingsHidden: externalIsAllDrawingsHidden,
+    handleToggleHideAllDrawings,
   } = props;
 
   const [isDrawModeLocked, setIsDrawModeLocked] = React.useState(false);
   const [localIsAllDrawingsLocked, setLocalIsAllDrawingsLocked] = React.useState(false);
-  const [isAllDrawingsHidden, setIsAllDrawingsHidden] = React.useState(false);
+  const [localIsAllDrawingsHidden, setLocalIsAllDrawingsHidden] = React.useState(false);
 
   const isAllDrawingsLocked = externalIsAllDrawingsLocked ?? localIsAllDrawingsLocked;
+  const isAllDrawingsHidden = externalIsAllDrawingsHidden ?? localIsAllDrawingsHidden;
 
   const {
     favoriteTools,
@@ -1244,7 +1249,11 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => {
           closeAllMenus();
-          setIsAllDrawingsHidden(!isAllDrawingsHidden);
+          if (handleToggleHideAllDrawings) {
+            handleToggleHideAllDrawings();
+          } else {
+            setLocalIsAllDrawingsHidden(!isAllDrawingsHidden);
+          }
         }}
         className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isAllDrawingsHidden
