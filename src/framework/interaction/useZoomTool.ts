@@ -13,9 +13,10 @@ interface ZoomHistoryEntry {
   chartIndex: number;
   barSpace: number;
   offsetRightDistance: number;
-  yAxisState: {
+  yAxisRange: {
     wasManual: boolean;
-    range: any;
+    from?: number;
+    to?: number;
   } | null;
 }
 
@@ -53,22 +54,33 @@ export function useZoomTool({
           (chart as any)._chartStore?.getPaneStore?.()?.getPaneById?.('candle_pane');
         const yAxis = pane?.getYAxisComponents?.()?.[0] || (chart as any)._candlePaneYAxis;
 
-        if (yAxis && previousState.yAxisState) {
-          if (previousState.yAxisState.wasManual && previousState.yAxisState.range) {
+        if (yAxis) {
+          if (
+            previousState.yAxisRange?.wasManual &&
+            typeof previousState.yAxisRange.from === 'number' &&
+            typeof previousState.yAxisRange.to === 'number' &&
+            isFinite(previousState.yAxisRange.from) &&
+            isFinite(previousState.yAxisRange.to) &&
+            previousState.yAxisRange.to > previousState.yAxisRange.from
+          ) {
+            const minP = previousState.yAxisRange.from;
+            const maxP = previousState.yAxisRange.to;
+            const span = maxP - minP;
             try {
-              yAxis.setRange({ ...previousState.yAxisState.range });
+              yAxis.setRange({
+                from: minP,
+                to: maxP,
+                range: span,
+                realFrom: minP,
+                realTo: maxP,
+                realRange: span,
+              });
+              yAxis.setAutoCalcTickFlag?.(false);
             } catch (_) {
-              try {
-                yAxis.setRange(previousState.yAxisState.range.from, previousState.yAxisState.range.to);
-              } catch (__) {}
-            }
-            if (typeof yAxis.setAutoCalcTickFlag === 'function') {
-              yAxis.setAutoCalcTickFlag(false);
+              yAxis.setAutoCalcTickFlag?.(true);
             }
           } else {
-            if (typeof yAxis.setAutoCalcTickFlag === 'function') {
-              yAxis.setAutoCalcTickFlag(true);
-            }
+            yAxis.setAutoCalcTickFlag?.(true);
           }
         }
 
@@ -237,32 +249,41 @@ export function useZoomTool({
           (chart as any)._chartStore?.getPaneStore?.()?.getPaneById?.('candle_pane');
         const yAxis = pane?.getYAxisComponents?.()?.[0] || (chart as any)._candlePaneYAxis;
 
-        let yAxisState: { wasManual: boolean; range: any } | null = null;
+        let wasManual = false;
+        let prevFrom: number | undefined;
+        let prevTo: number | undefined;
         if (yAxis) {
-          const wasManual = typeof yAxis.getAutoCalcTickFlag === 'function' ? !yAxis.getAutoCalcTickFlag() : false;
+          wasManual = typeof yAxis.getAutoCalcTickFlag === 'function' ? !yAxis.getAutoCalcTickFlag() : false;
           const r = typeof yAxis.getRange === 'function' ? yAxis.getRange() : null;
-          yAxisState = {
-            wasManual,
-            range: r ? { ...r } : null,
-          };
+          if (r && typeof r.from === 'number' && typeof r.to === 'number') {
+            prevFrom = r.from;
+            prevTo = r.to;
+          }
         }
 
         zoomHistoryRef.current.push({
           chartIndex: activeChartIndex,
           barSpace: currentBarSpace,
           offsetRightDistance: currentOffset,
-          yAxisState,
+          yAxisRange: {
+            wasManual,
+            from: prevFrom,
+            to: prevTo,
+          },
         });
         setCanZoomOut(true);
 
-        // Convert start and end points to chart data coordinates
-        const startCoord = chart.convertFromPixel({ x: startPos.x, y: startPos.y }, { paneId: 'candle_pane' });
-        const endCoord = chart.convertFromPixel({ x: endX, y: endY }, { paneId: 'candle_pane' });
+        // Convert start and end points to chart data coordinates safely
+        const rawStart = chart.convertFromPixel([{ x: startPos.x, y: startPos.y }], { paneId: 'candle_pane' });
+        const startCoord = Array.isArray(rawStart) ? rawStart[0] : rawStart;
+
+        const rawEnd = chart.convertFromPixel([{ x: endX, y: endY }], { paneId: 'candle_pane' });
+        const endCoord = Array.isArray(rawEnd) ? rawEnd[0] : rawEnd;
 
         const dataList = chart.getDataList?.() || [];
         if (dataList.length > 0 && startCoord && endCoord) {
           // 1. Time / Bar Range Zoom (X-axis)
-          if (dx >= 10 && typeof startCoord.dataIndex === 'number' && typeof endCoord.dataIndex === 'number') {
+          if (typeof startCoord.dataIndex === 'number' && typeof endCoord.dataIndex === 'number') {
             const fromIdx = Math.max(0, Math.min(startCoord.dataIndex, endCoord.dataIndex));
             const toIdx = Math.min(dataList.length - 1, Math.max(startCoord.dataIndex, endCoord.dataIndex));
             const visibleBarsCount = Math.max(2, toIdx - fromIdx + 1);
@@ -277,23 +298,50 @@ export function useZoomTool({
           }
 
           // 2. Price Range Zoom (Y-axis)
-          if (dy >= 10 && typeof startCoord.value === 'number' && typeof endCoord.value === 'number' && yAxis) {
-            const minPrice = Math.min(startCoord.value, endCoord.value);
-            const maxPrice = Math.max(startCoord.value, endCoord.value);
-            if (maxPrice > minPrice) {
+          // Extract price values safely
+          const startPrice =
+            typeof yAxis?.convertFromPixel === 'function'
+              ? yAxis.convertFromPixel(startPos.y)
+              : startCoord?.value;
+          const endPrice =
+            typeof yAxis?.convertFromPixel === 'function'
+              ? yAxis.convertFromPixel(endY)
+              : endCoord?.value;
+
+          if (
+            dy >= 20 &&
+            typeof startPrice === 'number' &&
+            typeof endPrice === 'number' &&
+            isFinite(startPrice) &&
+            isFinite(endPrice) &&
+            !isNaN(startPrice) &&
+            !isNaN(endPrice) &&
+            yAxis
+          ) {
+            const minPrice = Math.min(startPrice, endPrice);
+            const maxPrice = Math.max(startPrice, endPrice);
+            const priceSpan = maxPrice - minPrice;
+
+            if (priceSpan > 0.000001 && minPrice > 0) {
               try {
-                if (typeof yAxis.setRange === 'function') {
-                  yAxis.setRange({ from: minPrice, to: maxPrice });
-                }
+                yAxis.setRange({
+                  from: minPrice,
+                  to: maxPrice,
+                  range: priceSpan,
+                  realFrom: minPrice,
+                  realTo: maxPrice,
+                  realRange: priceSpan,
+                });
+                yAxis.setAutoCalcTickFlag?.(false);
               } catch (_) {
-                try {
-                  yAxis.setRange(minPrice, maxPrice);
-                } catch (__) {}
+                yAxis.setAutoCalcTickFlag?.(true);
               }
-              if (typeof yAxis.setAutoCalcTickFlag === 'function') {
-                yAxis.setAutoCalcTickFlag(false);
-              }
+            } else {
+              yAxis.setAutoCalcTickFlag?.(true);
             }
+          } else if (yAxis) {
+            // Auto-calculate Y-axis based on visible candles in the zoomed time range
+            yAxis.setAutoCalcTickFlag?.(true);
           }
 
           if (pane) {
