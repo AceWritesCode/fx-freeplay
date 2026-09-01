@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, ArrowRight, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { SearchableDropdown } from './DrawingSettingsDialog';
 import { useDrawingTemplates } from '@/framework/tools/useDrawingTemplates';
@@ -440,26 +440,60 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Text Color */}
-        <div className="relative">
-          <ToolbarButton 
-            active={activeDropdown === 'textColor'}
-            onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
-            title="Text color"
-          >
-            <Baseline className="w-4 h-4" />
-            <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
-          </ToolbarButton>
-          
-          {activeDropdown === 'textColor' && (
-            <div className="absolute top-full mt-2 left-0 z-50">
-              <ColorPicker 
-                color={textColor} 
-                onChange={(c) => handleUpdate({ textColor: c }, false)} 
-              />
-            </div>
-          )}
-        </div>
+        {/* Arrowhead Option for Line Tools */}
+        {!isText && !isRiskReward && firstOverlay?.name !== 'brush' && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'arrow'}
+              onClick={() => setActiveDropdown(activeDropdown === 'arrow' ? null : 'arrow')}
+              title="Arrow options"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </ToolbarButton>
+            
+            {activeDropdown === 'arrow' && (
+              <div className="absolute top-full mt-2 left-0 w-36 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
+                {[
+                  { id: 'none', label: 'None' },
+                  { id: 'start', label: 'Starting Point' },
+                  { id: 'end', label: 'End Point' },
+                  { id: 'both', label: 'Both' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => handleUpdate({ arrowType: opt.id })}
+                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${opt.id === (customSettings.arrowType || 'none') ? 'text-accent font-bold' : ''}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Text Color for Text Tool */}
+        {isText && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'textColor'}
+              onClick={() => setActiveDropdown(activeDropdown === 'textColor' ? null : 'textColor')}
+              title="Text color"
+            >
+              <Baseline className="w-4 h-4" />
+              <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: textColor }} />
+            </ToolbarButton>
+            
+            {activeDropdown === 'textColor' && (
+              <div className="absolute top-full mt-2 left-0 z-50">
+                <ColorPicker 
+                  color={textColor} 
+                  onChange={(c) => handleUpdate({ textColor: c }, false)} 
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Profit Background Color */}
         {isRiskReward && (

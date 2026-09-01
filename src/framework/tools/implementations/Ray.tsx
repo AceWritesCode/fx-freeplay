@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '../ToolRegistry';
-import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
+import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
 
 // Robust extrapolation calculation extending in the direction of p2
 const extrapolateRay = (
@@ -94,14 +94,16 @@ export const RayTool: ToolDefinition = {
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
       const lineStyle = customSettings.lineStyle || 'solid';
+      const arrowType = customSettings.arrowType || 'none';
 
       let style = 'solid';
       let dashedValue = [4, 4];
       if (lineStyle === 'dashed') {
         style = 'dashed';
+        dashedValue = [6, 6];
       } else if (lineStyle === 'dotted') {
         style = 'dashed';
-        dashedValue = [2, 2];
+        dashedValue = [2, 3];
       }
 
       const figures: any[] = [];
@@ -127,6 +129,9 @@ export const RayTool: ToolDefinition = {
           },
           ignoreEvent: false
         });
+
+        // Draw arrowheads at anchor points based on arrowType setting ('none' | 'start' | 'end' | 'both')
+        drawArrowHeads(figures, coordinates[0], coordinates[1], arrowType, lineColor, lineWidth);
 
         // Selection / In-progress creation / Hover grab handles
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;

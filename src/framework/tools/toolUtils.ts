@@ -74,6 +74,58 @@ export const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: bo
 };
 
 /**
+ * Shared arrowhead renderer for line overlays (TrendLine, Ray, Arrow, etc.).
+ * Places arrowheads at the anchor points based on arrowType ('none' | 'start' | 'end' | 'both').
+ */
+export const drawArrowHeads = (
+  figures: any[],
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  arrowType: 'none' | 'start' | 'end' | 'both' | string | undefined,
+  lineColor: string,
+  lineWidth: number = 1
+) => {
+  if (!arrowType || arrowType === 'none') return;
+  const headLength = 10 + Math.max(1, lineWidth) * 1.5;
+
+  if (arrowType === 'end' || arrowType === 'both') {
+    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const pLeft = {
+      x: p2.x - headLength * Math.cos(angle - Math.PI / 6),
+      y: p2.y - headLength * Math.sin(angle - Math.PI / 6)
+    };
+    const pRight = {
+      x: p2.x - headLength * Math.cos(angle + Math.PI / 6),
+      y: p2.y - headLength * Math.sin(angle + Math.PI / 6)
+    };
+    figures.push({
+      type: 'polygon',
+      attrs: { coordinates: [p2, pLeft, pRight] },
+      styles: { style: 'fill', color: lineColor },
+      ignoreEvent: true
+    });
+  }
+
+  if (arrowType === 'start' || arrowType === 'both') {
+    const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
+    const pLeft = {
+      x: p1.x - headLength * Math.cos(angle - Math.PI / 6),
+      y: p1.y - headLength * Math.sin(angle - Math.PI / 6)
+    };
+    const pRight = {
+      x: p1.x - headLength * Math.cos(angle + Math.PI / 6),
+      y: p1.y - headLength * Math.sin(angle + Math.PI / 6)
+    };
+    figures.push({
+      type: 'polygon',
+      attrs: { coordinates: [p1, pLeft, pRight] },
+      styles: { style: 'fill', color: lineColor },
+      ignoreEvent: true
+    });
+  }
+};
+
+/**
  * Returns a fully opaque version of an RGBA, HSLA, or hex color string.
  */
 export function makeOpaqueColor(colorStr: string): string {
