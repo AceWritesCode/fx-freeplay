@@ -22,8 +22,15 @@ export interface DrawingHoverCursorConfig {
 const ERASER_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="rgba(239,68,68,0.25)" stroke="#ef4444" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#ef4444"/></svg>`;
 const ERASER_CURSOR = `url("data:image/svg+xml;base64,${btoa(ERASER_CURSOR_SVG)}") 12 12, crosshair`;
 
-const DOT_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="4.5" fill="rgba(99,102,241,0.25)" stroke="#6366f1" stroke-width="1.8"/><circle cx="9" cy="9" r="1.5" fill="#6366f1"/></svg>`;
-const DOT_CURSOR = `url("data:image/svg+xml;base64,${btoa(DOT_CURSOR_SVG)}") 9 9, crosshair`;
+export const getDotCursor = (): string => {
+  let color = '#ffffff';
+  if (typeof document !== 'undefined') {
+    const computed = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim();
+    if (computed) color = computed;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5" fill="${color}"/></svg>`;
+  return `url("data:image/svg+xml;base64,${btoa(svg)}") 8 8, crosshair`;
+};
 
 /**
  * Custom hook to manage global mouse interactions, brush stroke finalization,
@@ -454,7 +461,7 @@ export function useDrawingHoverCursor({
       if (selectedCursorId === 'arrow') {
         baseCursor = 'default';
       } else if (selectedCursorId === 'dot') {
-        baseCursor = DOT_CURSOR;
+        baseCursor = getDotCursor();
       } else if (selectedCursorId === 'eraser' || drawingCoord.activeTool === 'eraser') {
         baseCursor = ERASER_CURSOR;
       }
