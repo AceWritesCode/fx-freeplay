@@ -5,7 +5,8 @@ import {
   Type,
   FileText,
   Table as TableIcon,
-  MessageSquare
+  MessageSquare,
+  Ruler,
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 
@@ -898,6 +899,33 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             </button>
           );
         })}
+
+      {/* Measure / Scale Tool */}
+      <button
+        title="Measure (Shift + Click & Drag)"
+        aria-label="Measure"
+        data-tooltip="Measure"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          if (activeTool === 'measure') {
+            setActiveTool(null);
+          } else {
+            handleSelectTool('measure');
+          }
+        }}
+        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          activeTool === 'measure'
+            ? 'bg-accent-muted text-accent'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <Ruler className="w-full h-full text-current" />
+        </ToolIconWrapper>
+      </button>
 
       <button
         title="Clear Drawings"

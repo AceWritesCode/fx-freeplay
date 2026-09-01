@@ -193,8 +193,8 @@ export function useDrawingCoordinator(
     const activeFolder = parsedFolders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
     const activeGroupId = activeFolder?.id || undefined;
 
-    // For freehand Brush, Highlighter, and Eraser tools, don't pre-create an overlay
-    if (toolName === 'brush' || toolName === 'highlighter' || toolName === 'eraser') {
+    // For freehand Brush, Highlighter, Eraser, and Measure tools, don't pre-create an overlay
+    if (toolName === 'brush' || toolName === 'highlighter' || toolName === 'eraser' || toolName === 'measure') {
       return;
     }
 
