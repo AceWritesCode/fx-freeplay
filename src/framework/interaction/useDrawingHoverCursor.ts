@@ -42,37 +42,6 @@ export function useDrawingHoverCursor({
       chartInstancesRef.current.forEach((chart, index) => {
         if (chart) {
           chart._isMouseDown = false;
-          if (chart._activeTool === 'brush' || chart._activeTool === 'highlighter') {
-            const overlays = chart.getOverlays();
-            const activeBrush = overlays.find(
-              (ov: any) => (ov.name === 'brush' || ov.name === 'highlighter') && ov.points.length < 9999
-            );
-            if (activeBrush) {
-              const brushPoints = activeBrush.extendData?.brushPoints || [];
-              if (brushPoints.length > 0) {
-                const chartPoints = chart.convertFromPixel(brushPoints, { paneId: 'candle_pane' });
-                chart.overrideOverlay({
-                  id: activeBrush.id,
-                  points: chartPoints,
-                  totalStep: chartPoints.length,
-                });
-                chart.overrideOverlay({
-                  id: activeBrush.id,
-                  extendData: {
-                    ...(activeBrush.extendData || {}),
-                    brushPoints: [],
-                  },
-                });
-                drawingCoord.setActiveTool(null);
-                chart.setScrollEnabled(true);
-                chart.setZoomEnabled(true);
-                setTimeout(() => {
-                  drawingCoord.syncAllDrawings();
-                  drawingCoord.setDrawingTrigger((prev) => prev + 1);
-                }, 50);
-              }
-            }
-          }
 
           // Clear selection & reset active tool to Crosshair on empty space click (unless dialog is open or clicking on UI)
           const container = chartContainersRef.current[index];
@@ -247,7 +216,7 @@ export function useDrawingHoverCursor({
         } else if (
           ov.points &&
           ov.points.length >= 2 &&
-          ['trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)
+          ['brush', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)
         ) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
@@ -258,25 +227,27 @@ export function useDrawingHoverCursor({
           if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
             pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
           }
-          if (
-            pts &&
-            pts[0] &&
-            pts[1] &&
-            Number.isFinite(pts[0].x) &&
-            Number.isFinite(pts[0].y) &&
-            Number.isFinite(pts[1].x) &&
-            Number.isFinite(pts[1].y)
-          ) {
-            const p1 = pts[0];
-            const p2 = pts[1];
-            const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
-            let dist = Infinity;
-            if (l2 > 0) {
-              let t = ((xVal - p1.x) * (p2.x - p1.x) + (yVal - p1.y) * (p2.y - p1.y)) / l2;
-              t = Math.max(0, Math.min(1, t));
-              dist = Math.sqrt((xVal - (p1.x + t * (p2.x - p1.x))) ** 2 + (yVal - (p1.y + t * (p2.y - p1.y))) ** 2);
+          if (Array.isArray(pts) && pts.length >= 2) {
+            let minDistToStroke = Infinity;
+            for (let i = 0; i < pts.length - 1; i++) {
+              const p1 = pts[i];
+              const p2 = pts[i + 1];
+              if (p1 && p2 && Number.isFinite(p1.x) && Number.isFinite(p1.y) && Number.isFinite(p2.x) && Number.isFinite(p2.y)) {
+                const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                let dist = Infinity;
+                if (l2 > 0) {
+                  let t = ((xVal - p1.x) * (p2.x - p1.x) + (yVal - p1.y) * (p2.y - p1.y)) / l2;
+                  t = Math.max(0, Math.min(1, t));
+                  dist = Math.sqrt((xVal - (p1.x + t * (p2.x - p1.x))) ** 2 + (yVal - (p1.y + t * (p2.y - p1.y))) ** 2);
+                } else {
+                  dist = Math.sqrt((xVal - p1.x) ** 2 + (yVal - p1.y) ** 2);
+                }
+                if (dist < minDistToStroke) {
+                  minDistToStroke = dist;
+                }
+              }
             }
-            if (dist <= 12) {
+            if (minDistToStroke <= 12) {
               hoveredInteractiveOverlay = ov;
             }
           }
@@ -292,6 +263,7 @@ export function useDrawingHoverCursor({
       interactiveOverlays.forEach((ov: any) => {
         if (
           [
+            'brush',
             'rectangle',
             'fxText',
             'text',

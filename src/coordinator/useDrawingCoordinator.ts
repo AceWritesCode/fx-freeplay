@@ -193,6 +193,11 @@ export function useDrawingCoordinator(
     const activeFolder = parsedFolders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
     const activeGroupId = activeFolder?.id || undefined;
 
+    // For freehand Brush tool, the continuous stroke is initiated upon pointerdown via useBrushDrawing
+    if (toolName === 'brush') {
+      return;
+    }
+
     const registeredTool = ToolRegistry.get(toolName);
     const overlayName = registeredTool?.createOverlayDef()?.name || toolName;
 

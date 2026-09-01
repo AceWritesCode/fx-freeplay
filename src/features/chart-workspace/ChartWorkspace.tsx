@@ -20,7 +20,7 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
-import { useDrawingInteraction, useDrawingHoverCursor } from '@/framework/interaction';
+import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing } from '@/framework/interaction';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -883,7 +883,7 @@ export function ChartWorkspace() {
     };
   }, []);
 
-  // Synchronize brush strokes, empty space deselection, and anchor/body hover hit testing
+  // Synchronize empty space deselection and anchor/body hover hit testing
   useDrawingHoverCursor({
     chartContainersRef,
     chartInstancesRef,
@@ -893,6 +893,19 @@ export function ChartWorkspace() {
     handleSelectOverlayIds,
     drawingCoord,
     isDrawingSettingsOpen,
+  });
+
+  // Continuous freehand pointer tracking and persistence for the Brush tool
+  useBrushDrawing({
+    chartContainersRef,
+    chartInstancesRef,
+    activeTool: drawingCoord.activeTool,
+    activeChartIndex,
+    slots,
+    onSelectOverlayIds: handleSelectOverlayIds,
+    setActiveTool: drawingCoord.setActiveTool,
+    syncAllDrawings: drawingCoord.syncAllDrawings,
+    setDrawingTrigger: drawingCoord.setDrawingTrigger,
   });
 
   // Close custom timezone and flyouts when clicking outside

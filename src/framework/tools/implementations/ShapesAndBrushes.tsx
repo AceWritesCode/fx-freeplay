@@ -68,11 +68,11 @@ const CurveIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 
 const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
   name: id,
-  totalStep: 9999,
+  totalStep: 2,
   needDefaultPointFigure: false,
   needDefaultXAxisFigure: false,
   needDefaultYAxisFigure: false,
-  createPointFigures: ({ overlay, coordinates, chart }: any) => {
+  createPointFigures: ({ overlay, chart }: any) => {
     if (chart && !isOverlayVisible(overlay, chart)) {
       return [];
     }
@@ -81,38 +81,24 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
     const color = customSettings.lineColor || (isHighlighter ? 'rgba(255, 235, 59, 0.4)' : '#2196F3');
     const width = customSettings.lineWidth || (isHighlighter ? 10 : 3);
 
-    // Collect points in extendData while drawing
-    const pts = chart.convertToPixel(overlay.points, { paneId: 'candle_pane' });
+    // If active live drawing, render liveBrushPoints directly (pixels)
+    const livePoints = (overlay?.extendData as any)?.liveBrushPoints;
+    let renderPoints: any[];
 
-    // Handle mouse drag accumulation during drawing
-    if (chart && chart._isMouseDown && coordinates.length > 0 && (!overlay.points || overlay.points.length <= 2)) {
-      const currentPoints = (overlay.extendData as any)?.brushPoints || [];
-      const movingPoint = coordinates[coordinates.length - 1];
-
-      if (movingPoint) {
-        if (currentPoints.length === 0) {
-          currentPoints.push(movingPoint);
-          overlay.extendData = { ...(overlay.extendData as any), brushPoints: currentPoints };
-        } else {
-          const lastPt = currentPoints[currentPoints.length - 1];
-          const dist = Math.sqrt((movingPoint.x - lastPt.x) ** 2 + (movingPoint.y - lastPt.y) ** 2);
-          if (dist > 3) {
-            currentPoints.push(movingPoint);
-            overlay.extendData = { ...(overlay.extendData as any), brushPoints: currentPoints };
-          }
-        }
-      }
+    if (Array.isArray(livePoints) && livePoints.length > 0) {
+      renderPoints = livePoints;
+    } else {
+      const pts = chart ? chart.convertToPixel(overlay.points || [], { paneId: 'candle_pane' }) : [];
+      renderPoints = Array.isArray(pts)
+        ? pts.filter((p: any) => p && typeof p.x === 'number' && typeof p.y === 'number')
+        : [];
     }
-
-    const renderPoints = (overlay.points && overlay.points.length > 2)
-      ? pts
-      : ((overlay.extendData as any)?.brushPoints || coordinates);
 
     if (renderPoints.length < 2) return [];
 
     const figures: any[] = [];
     
-    // Draw connecting segments
+    // Draw connecting stroke segments
     figures.push({
       type: 'line',
       attrs: { coordinates: renderPoints },
@@ -134,16 +120,6 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
     }
 
     return figures;
-  },
-  onDrawEnd: (event: any) => {
-    const brushPoints = (event.overlay.extendData as any)?.brushPoints || [];
-    if (brushPoints.length > 0) {
-      const chartPoints = event.chart.convertFromPixel(brushPoints, { paneId: 'candle_pane' });
-      event.chart.overrideOverlay({
-        id: event.overlay.id,
-        points: chartPoints
-      });
-    }
   }
 });
 
