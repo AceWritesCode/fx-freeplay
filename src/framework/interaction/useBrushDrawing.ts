@@ -50,9 +50,15 @@ export function useBrushDrawing({
   const setDrawingTriggerRef = useRef(setDrawingTrigger);
   setDrawingTriggerRef.current = setDrawingTrigger;
 
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   useEffect(() => {
     if (activeTool !== 'brush') {
       // If tool deactivated while drawing, clean up
+      if (previewCanvasRef.current) {
+        previewCanvasRef.current.remove();
+        previewCanvasRef.current = null;
+      }
       if (isDrawingRef.current && drawingIdRef.current && activeChartRef.current) {
         activeChartRef.current.removeOverlay({ id: drawingIdRef.current });
         activeChartRef.current.setScrollEnabled(true);
@@ -142,31 +148,37 @@ export function useBrushDrawing({
       activeChartRef.current = chart;
       activeOrderRef.current = newOrder;
       activeGroupIdRef.current = activeGroupId;
-      livePointsRef.current = [{ x: startX, y: startY }, { x: startX + 0.1, y: startY + 0.1 }];
+      livePointsRef.current = [{ x: startX, y: startY }];
 
-      // Create live freehand preview overlay with 2 points so KLineCharts activates the overlay immediately
-      const startChartPoint = chart.convertFromPixel([{ x: startX, y: startY }, { x: startX + 0.1, y: startY + 0.1 }], { paneId: 'candle_pane' });
-      chart.createOverlay({
-        name: 'brush',
-        id: newDrawingId,
-        totalStep: 2,
-        needDefaultPointFigure: false,
-        needDefaultXAxisFigure: false,
-        needDefaultYAxisFigure: false,
-        points: (startChartPoint && startChartPoint.length >= 2) ? startChartPoint : (startChartPoint || []),
-        extendData: {
-          order: newOrder,
-          groupId: activeGroupId,
-          sourceSlotIndex: activeChartIndex,
-          customSettings: {
-            lineColor: brushSettingsRef.current.lineColor,
-            lineWidth: brushSettingsRef.current.lineWidth,
-          },
-          isLiveDrawing: true,
-          liveBrushPoints: [{ x: startX, y: startY }, { x: startX + 0.1, y: startY + 0.1 }],
-        },
-      });
-      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+      // Setup dedicated high-performance hardware-accelerated preview canvas
+      let pCanvas = container.querySelector('.brush-preview-canvas') as HTMLCanvasElement;
+      if (!pCanvas) {
+        pCanvas = document.createElement('canvas');
+        pCanvas.className = 'brush-preview-canvas';
+        pCanvas.style.position = 'absolute';
+        pCanvas.style.top = '0';
+        pCanvas.style.left = '0';
+        pCanvas.style.width = '100%';
+        pCanvas.style.height = '100%';
+        pCanvas.style.pointerEvents = 'none';
+        pCanvas.style.zIndex = '30';
+        container.appendChild(pCanvas);
+      }
+      const dpr = window.devicePixelRatio || 1;
+      pCanvas.width = rect.width * dpr;
+      pCanvas.height = rect.height * dpr;
+      const ctx = pCanvas.getContext('2d');
+      if (ctx) {
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.strokeStyle = brushSettingsRef.current.lineColor;
+        ctx.lineWidth = brushSettingsRef.current.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+      }
+      previewCanvasRef.current = pCanvas;
 
       try {
         container.setPointerCapture(e.pointerId);
@@ -189,31 +201,15 @@ export function useBrushDrawing({
 
       if (lastPt) {
         const dist = Math.sqrt((curX - lastPt.x) ** 2 + (curY - lastPt.y) ** 2);
-        // Record smooth high-frequency point trail (minimum 2px movement)
-        if (dist >= 2) {
+        // Record smooth high-frequency point trail (minimum 1.5px movement)
+        if (dist >= 1.5) {
           pts.push({ x: curX, y: curY });
 
-          const chart = activeChartRef.current;
-          const startPt = chart.convertFromPixel([pts[0]], { paneId: 'candle_pane' });
-          const curPt = chart.convertFromPixel([{ x: curX, y: curY }], { paneId: 'candle_pane' });
-          const liveChartPoints = (startPt && curPt) ? [startPt[0], curPt[0]] : undefined;
-
-          chart.overrideOverlay({
-            id: drawingIdRef.current,
-            points: liveChartPoints,
-            extendData: {
-              order: activeOrderRef.current,
-              groupId: activeGroupIdRef.current,
-              sourceSlotIndex: activeChartIndex,
-              customSettings: {
-                lineColor: brushSettingsRef.current.lineColor,
-                lineWidth: brushSettingsRef.current.lineWidth,
-              },
-              isLiveDrawing: true,
-              liveBrushPoints: [...pts],
-            },
-          });
-          DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+          const ctx = previewCanvasRef.current?.getContext('2d');
+          if (ctx) {
+            ctx.lineTo(curX, curY);
+            ctx.stroke();
+          }
         }
       }
     };
@@ -222,6 +218,12 @@ export function useBrushDrawing({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerCancel);
+
+      // Clean up live preview canvas
+      if (previewCanvasRef.current) {
+        previewCanvasRef.current.remove();
+        previewCanvasRef.current = null;
+      }
 
       if (!isDrawingRef.current || !drawingIdRef.current || !activeChartRef.current) {
         return;
@@ -291,9 +293,14 @@ export function useBrushDrawing({
       // 1. Commit to authoritative Zustand store
       useDrawingStore.getState().addSymbolDrawing(currentSymbol, drawingObj);
 
-      // 2. Override overlay with finalized candle points and clean extendData (clearing liveBrushPoints)
-      chartInstance.overrideOverlay({
+      // 2. Create overlay on chart instance
+      chartInstance.createOverlay({
+        name: 'brush',
         id: targetId,
+        totalStep: 2,
+        needDefaultPointFigure: false,
+        needDefaultXAxisFigure: false,
+        needDefaultYAxisFigure: false,
         points: cleanChartPoints,
         extendData: {
           ...cleanExtendData,

@@ -75,20 +75,21 @@ export const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: bo
 
 /**
  * Shared arrowhead renderer for line overlays (TrendLine, Ray, Arrow, etc.).
- * Places arrowheads at the anchor points based on arrowType ('none' | 'start' | 'end' | 'both').
+ * Places arrowheads at the anchor points based on startArrow ('normal' | 'arrow') and endArrow ('normal' | 'arrow').
  */
 export const drawArrowHeads = (
   figures: any[],
   p1: { x: number; y: number },
   p2: { x: number; y: number },
-  arrowType: 'none' | 'start' | 'end' | 'both' | string | undefined,
+  startArrow: 'normal' | 'arrow' | string | undefined,
+  endArrow: 'normal' | 'arrow' | string | undefined,
   lineColor: string,
   lineWidth: number = 1
 ) => {
-  if (!arrowType || arrowType === 'none') return;
+  if (!p1 || !p2) return;
   const headLength = 10 + Math.max(1, lineWidth) * 1.5;
 
-  if (arrowType === 'end' || arrowType === 'both') {
+  if (endArrow === 'arrow') {
     const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
     const pLeft = {
       x: p2.x - headLength * Math.cos(angle - Math.PI / 6),
@@ -106,7 +107,7 @@ export const drawArrowHeads = (
     });
   }
 
-  if (arrowType === 'start' || arrowType === 'both') {
+  if (startArrow === 'arrow') {
     const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
     const pLeft = {
       x: p1.x - headLength * Math.cos(angle - Math.PI / 6),

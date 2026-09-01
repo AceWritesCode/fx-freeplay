@@ -205,6 +205,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [lineColor, setLineColor] = useState('#2196F3');
   const [lineWidth, setLineWidth] = useState(1);
   const [lineStyle, setLineStyle] = useState('solid');
+  const [startArrow, setStartArrow] = useState('normal');
+  const [endArrow, setEndArrow] = useState('normal');
   const [extendType, setExtendType] = useState('none');
   const [fillColor, setFillColor] = useState('rgba(33, 150, 243, 0.1)');
   const [fillBackground, setFillBackground] = useState(true);
@@ -253,7 +255,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
   
   // Custom dropdowns for style selectors
-  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | 'textPlacement' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'lineWidth' | 'lineStyle' | 'extend' | 'fontSize' | 'valign' | 'halign' | 'actLineWidth' | 'actLineStyle' | 'textPlacement' | 'startArrow' | 'endArrow' | null>(null);
 
   const prec = pricePrecision !== undefined ? pricePrecision : 4;
 
@@ -294,6 +296,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setLineColor(customSettings.lineColor || '#2196F3');
     setLineWidth(customSettings.lineWidth || 1);
     setLineStyle(customSettings.lineStyle || 'solid');
+    setStartArrow(customSettings.startArrow || 'normal');
+    setEndArrow(customSettings.endArrow || (overlay.name === 'arrow' ? 'arrow' : 'normal'));
     setExtendType(customSettings.extendType || 'none');
     setFillColor(customSettings.fillColor || 'rgba(33, 150, 243, 0.1)');
     setFillBackground(customSettings.fillBackground !== false);
@@ -436,6 +440,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineColor,
       lineWidth,
       lineStyle,
+      startArrow,
+      endArrow,
       extendType,
       fillColor,
       fillBackground,
@@ -526,7 +532,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const pointsToSave = activeTab === 'coordinates' ? updatedPoints : (overlay.points || backupPointsRef.current || updatedPoints);
     onSave(updatedSettings, pointsToSave);
-  }, [lineColor, lineWidth, lineStyle, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
+  }, [lineColor, lineWidth, lineStyle, startArrow, endArrow, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
 
   if (!isOpen || !overlay) return null;
 
@@ -859,6 +865,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       lineColor,
       lineWidth,
       lineStyle,
+      startArrow,
+      endArrow,
       extendType,
       fillColor,
       fillBackground,
@@ -1066,6 +1074,106 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                               {s}
                             </button>
                           ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Start Endpoint (Left) Arrow */}
+                {['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(overlay.name) && (
+                  <div className="relative">
+                    <button
+                      onClick={() => { setActiveSelect(activeSelect === 'startArrow' ? null : 'startArrow'); setActiveColorPicker(null); }}
+                      className={`flex items-center justify-center border ${startArrow === 'arrow' ? 'border-accent bg-accent-muted text-accent' : 'border-border-def bg-app-bg text-txt-primary hover:border-border-focus hover:bg-surface-hover'} rounded-lg w-10 h-8 cursor-pointer transition-all active:scale-95`}
+                      title="Left endpoint"
+                    >
+                      {startArrow === 'arrow' ? (
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="16" y1="10" x2="4" y2="10" />
+                          <polyline points="9 5 4 10 9 15" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <circle cx="5" cy="10" r="2.5" fill="currentColor" />
+                          <line x1="7.5" y1="10" x2="16" y2="10" strokeWidth="2" />
+                        </svg>
+                      )}
+                    </button>
+                    {activeSelect === 'startArrow' && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                        <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 py-1.5 w-32 overflow-hidden">
+                          <button
+                            onClick={() => { setStartArrow('normal'); setActiveSelect(null); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${startArrow === 'normal' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <circle cx="5" cy="10" r="2.5" fill="currentColor" />
+                              <line x1="7.5" y1="10" x2="16" y2="10" strokeWidth="2" />
+                            </svg>
+                            <span>Normal</span>
+                          </button>
+                          <button
+                            onClick={() => { setStartArrow('arrow'); setActiveSelect(null); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${startArrow === 'arrow' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="16" y1="10" x2="4" y2="10" />
+                              <polyline points="9 5 4 10 9 15" />
+                            </svg>
+                            <span>Arrow</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* End Endpoint (Right) Arrow */}
+                {['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(overlay.name) && (
+                  <div className="relative">
+                    <button
+                      onClick={() => { setActiveSelect(activeSelect === 'endArrow' ? null : 'endArrow'); setActiveColorPicker(null); }}
+                      className={`flex items-center justify-center border ${endArrow === 'arrow' ? 'border-accent bg-accent-muted text-accent' : 'border-border-def bg-app-bg text-txt-primary hover:border-border-focus hover:bg-surface-hover'} rounded-lg w-10 h-8 cursor-pointer transition-all active:scale-95`}
+                      title="Right endpoint"
+                    >
+                      {endArrow === 'arrow' ? (
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="4" y1="10" x2="16" y2="10" />
+                          <polyline points="11 5 16 10 11 15" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <line x1="4" y1="10" x2="12.5" y2="10" strokeWidth="2" />
+                          <circle cx="15" cy="10" r="2.5" fill="currentColor" />
+                        </svg>
+                      )}
+                    </button>
+                    {activeSelect === 'endArrow' && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                        <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 py-1.5 w-32 overflow-hidden">
+                          <button
+                            onClick={() => { setEndArrow('normal'); setActiveSelect(null); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${endArrow === 'normal' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <line x1="4" y1="10" x2="12.5" y2="10" strokeWidth="2" />
+                              <circle cx="15" cy="10" r="2.5" fill="currentColor" />
+                            </svg>
+                            <span>Normal</span>
+                          </button>
+                          <button
+                            onClick={() => { setEndArrow('arrow'); setActiveSelect(null); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${endArrow === 'arrow' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="4" y1="10" x2="16" y2="10" />
+                              <polyline points="11 5 16 10 11 15" />
+                            </svg>
+                            <span>Arrow</span>
+                          </button>
                         </div>
                       </>
                     )}

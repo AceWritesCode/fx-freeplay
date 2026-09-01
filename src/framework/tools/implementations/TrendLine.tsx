@@ -75,20 +75,7 @@ export const TrendLineTool: ToolDefinition = {
       defaultValue: 'solid',
       options: [
         { label: 'Solid', value: 'solid' },
-        { label: 'Dashed', value: 'dashed' },
-        { label: 'Dotted', value: 'dotted' }
-      ]
-    },
-    {
-      id: 'arrowType',
-      label: 'Arrow',
-      type: 'select',
-      defaultValue: 'none',
-      options: [
-        { label: 'None', value: 'none' },
-        { label: 'Starting Point', value: 'start' },
-        { label: 'End Point', value: 'end' },
-        { label: 'Both', value: 'both' }
+        { label: 'Dashed', value: 'dashed' }
       ]
     }
   ],
@@ -99,8 +86,7 @@ export const TrendLineTool: ToolDefinition = {
       name: 'Default',
       commonSettings: {
         lineWidth: 1,
-        lineStyle: 'solid',
-        arrowType: 'none'
+        lineStyle: 'solid'
       }
     }
   ],
@@ -122,16 +108,20 @@ export const TrendLineTool: ToolDefinition = {
       const lineWidth = customSettings.lineWidth || 1;
       const lineStyle = customSettings.lineStyle || 'solid';
       const extendType = customSettings.extendType || 'none';
-      const arrowType = customSettings.arrowType || 'none';
+      
+      // Text configurations
+      const text = customSettings.text || '';
+      const fontSize = customSettings.fontSize || 14;
+      const textValign = customSettings.textPosition?.vertical || 'middle';
+      const textHalign = customSettings.textPosition?.horizontal || 'right';
       
       let style = 'solid';
       let dashedValue = [4, 4];
       if (lineStyle === 'dashed') {
         style = 'dashed';
-        dashedValue = [6, 6];
       } else if (lineStyle === 'dotted') {
         style = 'dashed';
-        dashedValue = [2, 3];
+        dashedValue = [2, 2];
       }
 
       const figures: any[] = [];
@@ -153,7 +143,93 @@ export const TrendLineTool: ToolDefinition = {
           p2 = extrapolateLine(coordinates[0], coordinates[1], 'right', width, height);
         }
 
-        // 1. Transparent full-length line figure for reliable event hit-testing
+        const hasActualText = typeof text === 'string' && text.trim() !== '';
+        const isLineDrawn = overlay?.points && overlay.points.length >= 2;
+        const isSelected = (overlay?.extendData as any)?.isSelected || false;
+        const isHovered = (overlay?.extendData as any)?.isHovered || false;
+        const isEditingText = (overlay?.extendData as any)?.isEditingText || false;
+        const measuredTextWidth = (overlay?.extendData as any)?.textWidth || 0;
+
+        let textToShow = '';
+        if (hasActualText) {
+          textToShow = text;
+        } else if (isLineDrawn && isSelected && (isHovered || isEditingText)) {
+          textToShow = '+ Add text';
+        }
+        
+        // The line adjusts and makes a gap whenever text (or + Add text placeholder) is active and centered on the line
+        const hasTextGap = isLineDrawn && Boolean(textToShow) && textValign === 'middle';
+
+        const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+
+        // Always define pLeft and pRight
+        const pLeft = p1.x < p2.x ? p1 : p2;
+        const pRight = p1.x < p2.x ? p2 : p1;
+
+        if (hasTextGap) {
+          const dx = pRight.x - pLeft.x;
+          const dy = pRight.y - pLeft.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const calculatedWidth = textToShow.length * (fontSize * 0.5) + 6;
+          const textWidth = measuredTextWidth
+            ? Math.min(measuredTextWidth, calculatedWidth + 6)
+            : calculatedWidth;
+
+          if (len > 0.0001) {
+            const ux = dx / len;
+            const uy = dy / len;
+
+            if (textHalign === 'center') {
+              const midX = (pLeft.x + pRight.x) / 2;
+              const midY = (pLeft.y + pRight.y) / 2;
+              const gapHalf = (textWidth / 2) + 2;
+
+              if (len > textWidth) {
+                drawSegments.push({
+                  x1: pLeft.x,
+                  y1: pLeft.y,
+                  x2: midX - gapHalf * ux,
+                  y2: midY - gapHalf * uy
+                });
+                drawSegments.push({
+                  x1: midX + gapHalf * ux,
+                  y1: midY + gapHalf * uy,
+                  x2: pRight.x,
+                  y2: pRight.y
+                });
+              }
+            } else if (textHalign === 'left') {
+              const trimLen = textWidth + 4;
+              if (len > trimLen) {
+                drawSegments.push({
+                  x1: pLeft.x + trimLen * ux,
+                  y1: pLeft.y + trimLen * uy,
+                  x2: pRight.x,
+                  y2: pRight.y
+                });
+              }
+            } else if (textHalign === 'right') {
+              const trimLen = textWidth + 4;
+              if (len > trimLen) {
+                drawSegments.push({
+                  x1: pLeft.x,
+                  y1: pLeft.y,
+                  x2: pRight.x - trimLen * ux,
+                  y2: pRight.y - trimLen * uy
+                });
+              }
+            }
+          }
+        } else {
+          drawSegments.push({
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y
+          });
+        }
+
+        // 1. Transparent full-length line figure for reliable event hit-testing across text gaps
         figures.push({
           type: 'line',
           attrs: { coordinates: [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }] },
@@ -165,26 +241,28 @@ export const TrendLineTool: ToolDefinition = {
           ignoreEvent: false,
         });
 
-        // 2. Draw visible line
-        figures.push({
-          type: 'line',
-          attrs: { coordinates: [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }] },
-          styles: {
-            style,
-            color: lineColor,
-            size: lineWidth,
-            dashedValue
-          },
-          ignoreEvent: false,
+        // 2. Draw visible line segments (with text gap if active)
+        drawSegments.forEach(seg => {
+          figures.push({
+            type: 'line',
+            attrs: { coordinates: [{ x: seg.x1, y: seg.y1 }, { x: seg.x2, y: seg.y2 }] },
+            styles: {
+              style,
+              color: lineColor,
+              size: lineWidth,
+              dashedValue
+            },
+            ignoreEvent: false,
+          });
         });
 
-        // 3. Draw arrowheads at anchor points based on arrowType setting ('none' | 'start' | 'end' | 'both')
-        drawArrowHeads(figures, coordinates[0], coordinates[1], arrowType, lineColor, lineWidth);
+        // 3. Draw arrowheads at endpoints based on startArrow and endArrow settings
+        const startArrow = customSettings.startArrow || 'normal';
+        const endArrow = customSettings.endArrow || (overlay.name === 'arrow' ? 'arrow' : 'normal');
+        drawArrowHeads(figures, coordinates[0], coordinates[1], startArrow, endArrow, lineColor, lineWidth);
 
-        // 4. Selection / In-progress creation / Hover grab handles
+        // Selection / In-progress creation / Hover grab handles
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
-        const isSelected = (overlay?.extendData as any)?.isSelected || false;
-        const isHovered = (overlay?.extendData as any)?.isHovered || false;
         if (isSelected || isHovered || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false);
         }

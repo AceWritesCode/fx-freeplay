@@ -94,16 +94,14 @@ export const RayTool: ToolDefinition = {
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
       const lineStyle = customSettings.lineStyle || 'solid';
-      const arrowType = customSettings.arrowType || 'none';
 
       let style = 'solid';
       let dashedValue = [4, 4];
       if (lineStyle === 'dashed') {
         style = 'dashed';
-        dashedValue = [6, 6];
       } else if (lineStyle === 'dotted') {
         style = 'dashed';
-        dashedValue = [2, 3];
+        dashedValue = [2, 2];
       }
 
       const figures: any[] = [];
@@ -130,8 +128,10 @@ export const RayTool: ToolDefinition = {
           ignoreEvent: false
         });
 
-        // Draw arrowheads at anchor points based on arrowType setting ('none' | 'start' | 'end' | 'both')
-        drawArrowHeads(figures, coordinates[0], coordinates[1], arrowType, lineColor, lineWidth);
+        // Draw arrowheads at endpoints based on startArrow and endArrow settings
+        const startArrow = customSettings.startArrow || 'normal';
+        const endArrow = customSettings.endArrow || 'normal';
+        drawArrowHeads(figures, coordinates[0], coordinates[1], startArrow, endArrow, lineColor, lineWidth);
 
         // Selection / In-progress creation / Hover grab handles
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;

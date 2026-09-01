@@ -93,6 +93,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isBrush = firstOverlay?.name === 'brush';
+  const isLineTool = ['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const textAlign = customSettings.textAlign || 'left';
@@ -100,6 +101,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
   const lineColor = customSettings.lineColor || '#2196F3';
   const textColor = customSettings.textColor || '#2196F3';
+  const startArrow = customSettings.startArrow || 'normal';
+  const endArrow = customSettings.endArrow || (firstOverlay?.name === 'arrow' ? 'arrow' : 'normal');
   const profitColor = customSettings.profitColor || 'rgba(76, 175, 80, 0.12)';
   const lossColor = customSettings.lossColor || 'rgba(244, 67, 54, 0.12)';
   const lineWidth = customSettings.lineWidth || 1;
@@ -714,6 +717,102 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                     {s}
                   </button>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Start Endpoint (Left) Arrow */}
+        {isLineTool && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'startArrow' || startArrow === 'arrow'}
+              onClick={() => setActiveDropdown(activeDropdown === 'startArrow' ? null : 'startArrow')}
+              title="Start endpoint style"
+            >
+              {startArrow === 'arrow' ? (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="16" y1="10" x2="4" y2="10" />
+                  <polyline points="9 5 4 10 9 15" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="5" cy="10" r="2.5" fill="currentColor" />
+                  <line x1="7.5" y1="10" x2="16" y2="10" strokeWidth="2" />
+                </svg>
+              )}
+            </ToolbarButton>
+            
+            {activeDropdown === 'startArrow' && (
+              <div className="absolute top-full mt-2 left-0 w-32 bg-modal-bg border border-border-def rounded-xl py-1.5 flex flex-col shadow-xl z-50 text-txt-secondary">
+                <button
+                  onClick={() => handleUpdate({ startArrow: 'normal' })}
+                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center gap-2 ${startArrow !== 'arrow' ? 'text-accent font-bold' : ''}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="5" cy="10" r="2.5" fill="currentColor" />
+                    <line x1="7.5" y1="10" x2="16" y2="10" strokeWidth="2" />
+                  </svg>
+                  <span>Normal</span>
+                </button>
+                <button
+                  onClick={() => handleUpdate({ startArrow: 'arrow' })}
+                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center gap-2 ${startArrow === 'arrow' ? 'text-accent font-bold' : ''}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="16" y1="10" x2="4" y2="10" />
+                    <polyline points="9 5 4 10 9 15" />
+                  </svg>
+                  <span>Arrow</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* End Endpoint (Right) Arrow */}
+        {isLineTool && (
+          <div className="relative">
+            <ToolbarButton 
+              active={activeDropdown === 'endArrow' || endArrow === 'arrow'}
+              onClick={() => setActiveDropdown(activeDropdown === 'endArrow' ? null : 'endArrow')}
+              title="End endpoint style"
+            >
+              {endArrow === 'arrow' ? (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="4" y1="10" x2="16" y2="10" />
+                  <polyline points="11 5 16 10 11 15" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <line x1="4" y1="10" x2="12.5" y2="10" strokeWidth="2" />
+                  <circle cx="15" cy="10" r="2.5" fill="currentColor" />
+                </svg>
+              )}
+            </ToolbarButton>
+            
+            {activeDropdown === 'endArrow' && (
+              <div className="absolute top-full mt-2 left-0 w-32 bg-modal-bg border border-border-def rounded-xl py-1.5 flex flex-col shadow-xl z-50 text-txt-secondary">
+                <button
+                  onClick={() => handleUpdate({ endArrow: 'normal' })}
+                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center gap-2 ${endArrow !== 'arrow' ? 'text-accent font-bold' : ''}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <line x1="4" y1="10" x2="12.5" y2="10" strokeWidth="2" />
+                    <circle cx="15" cy="10" r="2.5" fill="currentColor" />
+                  </svg>
+                  <span>Normal</span>
+                </button>
+                <button
+                  onClick={() => handleUpdate({ endArrow: 'arrow' })}
+                  className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center gap-2 ${endArrow === 'arrow' ? 'text-accent font-bold' : ''}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="10" x2="16" y2="10" />
+                    <polyline points="11 5 16 10 11 15" />
+                  </svg>
+                  <span>Arrow</span>
+                </button>
               </div>
             )}
           </div>
