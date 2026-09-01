@@ -302,8 +302,8 @@ export function useBrushDrawing({
       // 1. Commit to authoritative Zustand store
       useDrawingStore.getState().addSymbolDrawing(currentSymbol, drawingObj);
 
-      // 2. Create overlay on chart instance
-      chartInstance.createOverlay({
+      // 2. Create overlay on chart instance with interactive handlers
+      DrawingChartAdapter.createOverlay(chartInstance, {
         name: targetToolName,
         id: targetId,
         totalStep: 2,
