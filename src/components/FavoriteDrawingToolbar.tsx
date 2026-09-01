@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { GripVertical, Ruler, ZoomIn } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
-import { CURSOR_TOOLS, TEXT_TOOLS } from '@/features/chart-workspace/components/toolbarConstants';
+import { CURSOR_TOOLS, TEXT_TOOLS } from '@/features/chart-workspace/components/DrawingToolbar';
 
 interface FavoriteDrawingToolbarProps {
   activeTool: string | null;

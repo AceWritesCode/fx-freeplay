@@ -2,32 +2,185 @@ import React, { useEffect } from 'react';
 import { 
   Magnet, 
   Trash2,
+  Type,
+  FileText,
+  Table as TableIcon,
+  MessageSquare,
   Ruler,
   ZoomIn,
   ZoomOut,
   Star,
-  Lock,
-  Unlock,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
-import {
-  TEXT_TOOLS,
-  ToolIconWrapper,
-  WeakMagnetIcon,
-  StrongMagnetIcon,
-  CURSOR_TOOLS,
-} from './toolbarConstants';
 
-export {
-  TEXT_TOOLS,
-  ToolIconWrapper,
-  WeakMagnetIcon,
-  StrongMagnetIcon,
-  CURSOR_TOOLS,
-};
+export const TEXT_TOOLS = [
+  {
+    id: 'text',
+    name: 'Text',
+    icon: Type,
+  },
+  {
+    id: 'note',
+    name: 'Note',
+    icon: FileText,
+  },
+  {
+    id: 'table',
+    name: 'Table',
+    icon: TableIcon,
+  },
+  {
+    id: 'callout',
+    name: 'Callout',
+    icon: MessageSquare,
+  },
+];
+
+export const ToolIconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span className="w-[22px] h-[22px] flex items-center justify-center flex-shrink-0 text-current pointer-events-none select-none">
+    {children}
+  </span>
+);
+
+export const WeakMagnetIcon = ({ className = "w-full h-full", style }: { className?: string; style?: React.CSSProperties }) => (
+  <svg
+    className={className}
+    style={style}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 16V10a6 6 0 0 1 12 0v6" />
+    <path d="M10 16V10a2 2 0 0 1 4 0v6" />
+    <path d="M6 16h4" />
+    <path d="M14 16h4" />
+    <path d="M6 13h4" />
+    <path d="M14 13h4" />
+  </svg>
+);
+
+export const StrongMagnetIcon = ({ className = "w-full h-full", style }: { className?: string; style?: React.CSSProperties }) => (
+  <svg
+    className={className}
+    style={style}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 13V9a6 6 0 0 1 12 0v4" />
+    <path d="M10 13V9a2 2 0 0 1 4 0v4" />
+    <path d="M6 13h4" />
+    <path d="M14 13h4" />
+    <path d="M6 11h4" />
+    <path d="M14 11h4" />
+    <path d="M7 16l.5 1.5l-.5 1.5" />
+    <path d="M9 16l.5 1.5l-.5 1.5" />
+    <path d="M15 16l.5 1.5l-.5 1.5" />
+    <path d="M17 16l.5 1.5l-.5 1.5" />
+  </svg>
+);
+
+export const StayInDrawingModeIcon = ({ className = "w-full h-full text-current" }: { className?: string }) => (
+  <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path
+      d="M6.5 16.5L5.5 20.5L9.5 19.5L19 10L16 7L6.5 16.5Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M14.5 8.5L17.5 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <rect x="16" y="16.5" width="7" height="6" rx="1" stroke="currentColor" strokeWidth="1.4" fill="none" />
+    <path d="M17.5 16.5V14.5C17.5 13.4 18.4 12.5 19.5 12.5C20.6 12.5 21.5 13.4 21.5 14.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+export const LockAllDrawingsIcon = ({ className = "w-full h-full text-current", locked = false }: { className?: string; locked?: boolean }) => (
+  <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect x="6.5" y="11.5" width="15" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
+    <circle cx="14" cy="17.5" r="1.5" fill="currentColor" />
+    {locked ? (
+      <path d="M9.5 11.5V8.5C9.5 6 11.5 4 14 4C16.5 4 18.5 6 18.5 8.5V11.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    ) : (
+      <path d="M9.5 11.5V8.5C9.5 6 11.5 4 14 4C16.5 4 18.5 6 18.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    )}
+  </svg>
+);
+
+export const HideAllDrawingsIcon = ({ className = "w-full h-full text-current", hidden = false }: { className?: string; hidden?: boolean }) => (
+  <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path
+      d="M4.5 13.5C4.5 13.5 8 7.5 14 7.5C20 7.5 23.5 13.5 23.5 13.5C23.5 13.5 20 19.5 14 19.5C8 19.5 4.5 13.5 4.5 13.5Z"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="14" cy="13.5" r="3" stroke="currentColor" strokeWidth="1.6" />
+    {hidden && (
+      <path d="M5 23L23 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    )}
+    <path
+      d="M17.5 20.5L19.5 22.5C20 23 20.8 23 21.3 22.5C21.8 22 21.8 21.2 21.3 20.7L19.5 18.5"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const CURSOR_TOOLS = [
+  {
+    id: 'cross',
+    name: 'Cross',
+    icon: ({ className = "w-full h-full text-current" }: { className?: string } = {}) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
+        <g fill="currentColor">
+          <path d="M18 15h8v-1h-8z"></path>
+          <path d="M14 18v8h1v-8zM14 3v8h1v-8zM3 15h8v-1h-8z"></path>
+        </g>
+      </svg>
+    )
+  },
+  {
+    id: 'dot',
+    name: 'Dot',
+    icon: ({ className = "w-full h-full text-current" }: { className?: string } = {}) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
+        <circle fill="currentColor" cx="14" cy="14" r="3"></circle>
+      </svg>
+    )
+  },
+  {
+    id: 'arrow',
+    name: 'Arrow',
+    icon: ({ className = "w-full h-full text-current" }: { className?: string } = {}) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
+        <path fill="currentColor" d="M11.682 16.09l3.504 6.068 1.732-1-3.497-6.057 3.595-2.1L8 7.74v10.512l3.682-2.163zm-.362 1.372L7 20V6l12 7-4.216 2.462 3.5 6.062-3.464 2-3.5-6.062z"></path>
+      </svg>
+    )
+  },
+  {
+    id: 'eraser',
+    name: 'Eraser',
+    icon: ({ className = "w-full h-full text-current" }: { className?: string } = {}) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 31" className={className}>
+        <g fill="currentColor" fillRule="nonzero">
+          <path d="M15.3 22l8.187-8.187c.394-.394.395-1.028.004-1.418l-4.243-4.243c-.394-.394-1.019-.395-1.407-.006l-11.325 11.325c-.383.383-.383 1.018.007 1.407l1.121 1.121h7.656zm-9.484-.414c-.781-.781-.779-2.049-.007-2.821l11.325-11.325c.777-.777 2.035-.78 2.821.006l4.243 4.243c.781.781.78 2.048-.004 2.832l-8.48 8.48h-8.484l-1.414-1.414z"></path>
+          <path d="M13.011 22.999h7.999v-1h-7.999zM13.501 11.294l6.717 6.717.707-.707-6.717-6.717z"></path>
+        </g>
+      </svg>
+    )
+  }
+];
 
 interface DrawingToolbarProps {
   hasData: boolean;
@@ -81,10 +234,6 @@ interface DrawingToolbarProps {
   magnetMenuRef: React.RefObject<HTMLDivElement | null>;
   canZoomOut?: boolean;
   handleZoomOut?: () => void;
-  isAllDrawingsLocked?: boolean;
-  isAllDrawingsHidden?: boolean;
-  onToggleLockAll?: () => void;
-  onToggleHideAll?: () => void;
   chartInstanceRef?: any;
   activeOverlayIdRef?: any;
 }
@@ -136,10 +285,6 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     selectMagnetMode,
     canZoomOut,
     handleZoomOut,
-    isAllDrawingsLocked = false,
-    isAllDrawingsHidden = false,
-    onToggleLockAll,
-    onToggleHideAll,
     cursorMenuRef,
     lineMenuRef,
     shapeMenuRef,
@@ -147,6 +292,10 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     forecastMenuRef,
     magnetMenuRef,
   } = props;
+
+  const [isDrawModeLocked, setIsDrawModeLocked] = React.useState(false);
+  const [isAllDrawingsLocked, setIsAllDrawingsLocked] = React.useState(false);
+  const [isAllDrawingsHidden, setIsAllDrawingsHidden] = React.useState(false);
 
   const {
     favoriteTools,
@@ -836,99 +985,89 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
           );
         })}
 
-      {/* Divider 1: Separates Drawing Tools from Utilities */}
-      <div className="w-[44px] flex items-center justify-center my-0.5">
-        <div className="w-[30px] h-[1px] bg-border-sub/60" />
-      </div>
+      {/* Divider 1: End of Drawing Tools */}
+      <div className="w-[34px] border-t border-border-def/60 my-0.5" />
 
-      {/* --- GROUP 2: UTILITIES (Measure, Zoom In, Zoom Out) --- */}
+      {/* --- UTILITIES GROUP (Measure & Zoom) --- */}
       {/* Measure / Scale Tool */}
-      <div className="w-[44px] flex items-center justify-center">
-        <button
-          title="Measure (Shift + Click & Drag)"
-          aria-label="Measure"
-          data-tooltip="Measure"
-          disabled={!hasData}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            closeAllMenus();
-            if (activeTool === 'measure') {
-              setActiveTool(null);
-            } else {
-              handleSelectTool('measure');
-            }
-          }}
-          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-            activeTool === 'measure'
-              ? 'bg-accent-muted text-accent'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-          }`}
-          style={{ width: '34px', height: '34px' }}
-        >
-          <ToolIconWrapper>
-            <Ruler className="w-full h-full text-current" />
-          </ToolIconWrapper>
-        </button>
-      </div>
+      <button
+        title="Measure (Shift + Click & Drag)"
+        aria-label="Measure"
+        data-tooltip="Measure"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          if (activeTool === 'measure') {
+            setActiveTool(null);
+          } else {
+            handleSelectTool('measure');
+          }
+        }}
+        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          activeTool === 'measure'
+            ? 'bg-accent-muted text-accent'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <Ruler className="w-full h-full text-current" />
+        </ToolIconWrapper>
+      </button>
 
       {/* Zoom In Tool */}
-      <div className="w-[44px] flex items-center justify-center">
-        <button
-          title="Zoom in"
-          aria-label="Zoom in"
-          data-tooltip="Zoom in"
-          disabled={!hasData}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            closeAllMenus();
-            if (activeTool === 'zoomIn') {
-              setActiveTool(null);
-            } else {
-              handleSelectTool('zoomIn');
-            }
-          }}
-          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-            activeTool === 'zoomIn'
-              ? 'bg-accent-muted text-accent'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-          }`}
-          style={{ width: '34px', height: '34px' }}
-        >
-          <ToolIconWrapper>
-            <ZoomIn className="w-full h-full text-current" />
-          </ToolIconWrapper>
-        </button>
-      </div>
+      <button
+        title="Zoom in"
+        aria-label="Zoom in"
+        data-tooltip="Zoom in"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          if (activeTool === 'zoomIn') {
+            setActiveTool(null);
+          } else {
+            handleSelectTool('zoomIn');
+          }
+        }}
+        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          activeTool === 'zoomIn'
+            ? 'bg-accent-muted text-accent'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <ZoomIn className="w-full h-full text-current" />
+        </ToolIconWrapper>
+      </button>
 
       {/* Zoom Out Tool (Appears when zoomed in) */}
       {canZoomOut && (
-        <div className="w-[44px] flex items-center justify-center">
-          <button
-            title="Zoom out"
-            aria-label="Zoom out"
-            data-tooltip="Zoom out"
-            disabled={!hasData}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              closeAllMenus();
-              handleZoomOut?.();
-            }}
-            className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
-            style={{ width: '34px', height: '34px' }}
-          >
-            <ToolIconWrapper>
-              <ZoomOut className="w-full h-full text-current" />
-            </ToolIconWrapper>
-          </button>
-        </div>
+        <button
+          title="Zoom out"
+          aria-label="Zoom out"
+          data-tooltip="Zoom out"
+          disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            handleZoomOut?.();
+          }}
+          className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            <ZoomOut className="w-full h-full text-current" />
+          </ToolIconWrapper>
+        </button>
       )}
 
-      {/* Divider 2: Separates Utilities from Action Tools */}
-      <div className="w-[44px] flex items-center justify-center my-0.5">
-        <div className="w-[30px] h-[1px] bg-border-sub/60" />
-      </div>
+      {/* Divider 2: End of Utilities */}
+      <div className="w-[34px] border-t border-border-def/60 my-0.5" />
 
-      {/* --- GROUP 3: ACTION TOOLS (Magnet, Lock All, Hide All) --- */}
+      {/* --- ACTION TOOLS GROUP (Magnet, Stay in Drawing Mode, Lock All, Hide All) --- */}
       {/* Magnet Tool with Dropdown Chevron */}
       {(() => {
         const isMagnetActive = magnetMode !== 'normal';
@@ -1040,89 +1179,96 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         );
       })()}
 
+      {/* Stay in Drawing Mode */}
+      <button
+        title={isDrawModeLocked ? 'Stay in Drawing Mode (Active)' : 'Stay in Drawing Mode'}
+        aria-label="Stay in Drawing Mode"
+        data-tooltip="Stay in Drawing Mode"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          setIsDrawModeLocked(!isDrawModeLocked);
+        }}
+        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          isDrawModeLocked
+            ? 'border-transparent bg-accent-muted text-accent'
+            : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <StayInDrawingModeIcon className="w-full h-full text-current" />
+        </ToolIconWrapper>
+      </button>
+
       {/* Lock All Drawings */}
-      <div className="w-[44px] flex items-center justify-center">
-        <button
-          title={isAllDrawingsLocked ? "Unlock all drawings" : "Lock all drawings"}
-          aria-label="Lock all drawings"
-          data-tooltip="Lock all drawings"
-          disabled={!hasData}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            closeAllMenus();
-            onToggleLockAll?.();
-          }}
-          className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-            isAllDrawingsLocked
-              ? 'border-transparent bg-accent-muted text-accent'
-              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-          }`}
-          style={{ width: '34px', height: '34px' }}
-        >
-          <ToolIconWrapper>
-            {isAllDrawingsLocked ? (
-              <Lock className="w-full h-full text-current" />
-            ) : (
-              <Unlock className="w-full h-full text-current" />
-            )}
-          </ToolIconWrapper>
-        </button>
-      </div>
+      <button
+        title={isAllDrawingsLocked ? 'Unlock All Drawing Tools' : 'Lock All Drawing Tools'}
+        aria-label="Lock All Drawing Tools"
+        data-tooltip="Lock All Drawing Tools"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          setIsAllDrawingsLocked(!isAllDrawingsLocked);
+        }}
+        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          isAllDrawingsLocked
+            ? 'border-transparent bg-accent-muted text-accent'
+            : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <LockAllDrawingsIcon className="w-full h-full text-current" locked={isAllDrawingsLocked} />
+        </ToolIconWrapper>
+      </button>
 
       {/* Hide All Drawings */}
-      <div className="w-[44px] flex items-center justify-center">
-        <button
-          title={isAllDrawingsHidden ? "Show all drawings" : "Hide all drawings"}
-          aria-label="Hide all drawings"
-          data-tooltip="Hide all drawings"
-          disabled={!hasData}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            closeAllMenus();
-            onToggleHideAll?.();
-          }}
-          className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-            isAllDrawingsHidden
-              ? 'border-transparent bg-accent-muted text-accent'
-              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-          }`}
-          style={{ width: '34px', height: '34px' }}
-        >
-          <ToolIconWrapper>
-            {isAllDrawingsHidden ? (
-              <EyeOff className="w-full h-full text-current" />
-            ) : (
-              <Eye className="w-full h-full text-current" />
-            )}
-          </ToolIconWrapper>
-        </button>
-      </div>
+      <button
+        title={isAllDrawingsHidden ? 'Show All Drawings' : 'Hide All Drawings'}
+        aria-label="Hide All Drawings"
+        data-tooltip="Hide All Drawings"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          setIsAllDrawingsHidden(!isAllDrawingsHidden);
+        }}
+        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          isAllDrawingsHidden
+            ? 'border-transparent bg-accent-muted text-accent'
+            : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+        }`}
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <HideAllDrawingsIcon className="w-full h-full text-current" hidden={isAllDrawingsHidden} />
+        </ToolIconWrapper>
+      </button>
 
-      {/* Divider 3: Separates Action Tools from Delete All Drawings */}
-      <div className="w-[44px] flex items-center justify-center my-0.5">
-        <div className="w-[30px] h-[1px] bg-border-sub/60" />
-      </div>
+      {/* Divider 3: End of Action Tools */}
+      <div className="w-[34px] border-t border-border-def/60 my-0.5" />
 
-      {/* --- GROUP 4: DELETE ALL DRAWINGS --- */}
-      <div className="w-[44px] flex items-center justify-center">
-        <button
-          title="Delete all drawings"
-          aria-label="Delete all drawings"
-          data-tooltip="Delete all drawings"
-          disabled={!hasData}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            closeAllMenus();
-            handleClearDrawings();
-          }}
-          className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-status-error hover:bg-status-error/10 disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
-          style={{ width: '34px', height: '34px' }}
-        >
-          <ToolIconWrapper>
-            <Trash2 className="w-full h-full text-current" />
-          </ToolIconWrapper>
-        </button>
-      </div>
+      {/* --- DELETE ALL DRAWINGS --- */}
+      <button
+        title="Remove All Drawings"
+        aria-label="Remove All Drawings"
+        data-tooltip="Remove All Drawings"
+        disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          closeAllMenus();
+          handleClearDrawings();
+        }}
+        className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-status-error hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+        style={{ width: '34px', height: '34px' }}
+      >
+        <ToolIconWrapper>
+          <Trash2 className="w-full h-full text-current" />
+        </ToolIconWrapper>
+      </button>
 
       {/* Bottom Sidebar: Favorite Drawing Tools Toolbar Toggle */}
       <div className="mt-auto w-[44px] flex items-center justify-center pt-2 pb-0.5">

@@ -1290,49 +1290,6 @@ export function ChartWorkspace() {
     drawingCoord.setDrawingTrigger((prev) => prev + 1);
   };
 
-  const activeSymbol = slots[activeChartIndex]?.symbol || (assetName !== 'No Asset Loaded' ? assetName : '');
-  const activeSymbolKey = activeSymbol ? activeSymbol.toUpperCase() : '';
-  const isAllDrawingsLocked = useDrawingStore((state) => {
-    if (!activeSymbolKey) return false;
-    const list = state.drawingsBySymbol[activeSymbolKey];
-    return Array.isArray(list) && list.length > 0 && list.every((d) => d.lock === true);
-  });
-  const isAllDrawingsHidden = useDrawingStore((state) => {
-    if (!activeSymbolKey) return false;
-    const list = state.drawingsBySymbol[activeSymbolKey];
-    return Array.isArray(list) && list.length > 0 && list.every((d) => d.visible === false);
-  });
-
-  const handleToggleLockAll = useCallback(() => {
-    if (!activeSymbol) return;
-    const isLocked = useDrawingStore.getState().toggleLockAllDrawings(activeSymbol);
-    chartInstancesRef.current.forEach((chart) => {
-      if (!chart) return;
-      const overlays = chart.getOverlays() || [];
-      overlays.forEach((ov: any) => {
-        chart.overrideOverlay({ id: ov.id, lock: isLocked });
-      });
-      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
-    });
-    runWorkspaceReconciliation(chartInstancesRef);
-    drawingCoord.setDrawingTrigger((prev) => prev + 1);
-  }, [activeSymbol]);
-
-  const handleToggleHideAll = useCallback(() => {
-    if (!activeSymbol) return;
-    const isHidden = useDrawingStore.getState().toggleHideAllDrawings(activeSymbol);
-    chartInstancesRef.current.forEach((chart) => {
-      if (!chart) return;
-      const overlays = chart.getOverlays() || [];
-      overlays.forEach((ov: any) => {
-        chart.overrideOverlay({ id: ov.id, visible: !isHidden });
-      });
-      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
-    });
-    runWorkspaceReconciliation(chartInstancesRef);
-    drawingCoord.setDrawingTrigger((prev) => prev + 1);
-  }, [activeSymbol]);
-
   // Render chart slots
   const renderSlot = (i: number) => (
     <ChartSlot
@@ -1568,10 +1525,6 @@ export function ChartWorkspace() {
           magnetMenuRef={magnetMenuRef}
           canZoomOut={canZoomOut}
           handleZoomOut={zoomOut}
-          isAllDrawingsLocked={isAllDrawingsLocked}
-          isAllDrawingsHidden={isAllDrawingsHidden}
-          onToggleLockAll={handleToggleLockAll}
-          onToggleHideAll={handleToggleHideAll}
           chartInstanceRef={{ current: chartInstancesRef.current[activeChartIndex] }}
           activeOverlayIdRef={activeOverlayIdRef}
         />
