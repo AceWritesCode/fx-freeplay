@@ -236,6 +236,8 @@ interface DrawingToolbarProps {
   handleZoomOut?: () => void;
   chartInstanceRef?: any;
   activeOverlayIdRef?: any;
+  isAllDrawingsLocked?: boolean;
+  handleToggleLockAllDrawings?: () => void;
 }
 
 export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
@@ -291,11 +293,15 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     textMenuRef,
     forecastMenuRef,
     magnetMenuRef,
+    isAllDrawingsLocked: externalIsAllDrawingsLocked,
+    handleToggleLockAllDrawings,
   } = props;
 
   const [isDrawModeLocked, setIsDrawModeLocked] = React.useState(false);
-  const [isAllDrawingsLocked, setIsAllDrawingsLocked] = React.useState(false);
+  const [localIsAllDrawingsLocked, setLocalIsAllDrawingsLocked] = React.useState(false);
   const [isAllDrawingsHidden, setIsAllDrawingsHidden] = React.useState(false);
+
+  const isAllDrawingsLocked = externalIsAllDrawingsLocked ?? localIsAllDrawingsLocked;
 
   const {
     favoriteTools,
@@ -1211,7 +1217,11 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => {
           closeAllMenus();
-          setIsAllDrawingsLocked(!isAllDrawingsLocked);
+          if (handleToggleLockAllDrawings) {
+            handleToggleLockAllDrawings();
+          } else {
+            setLocalIsAllDrawingsLocked(!isAllDrawingsLocked);
+          }
         }}
         className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isAllDrawingsLocked

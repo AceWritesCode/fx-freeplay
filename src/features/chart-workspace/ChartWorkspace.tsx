@@ -12,6 +12,7 @@ import {
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
 import { DrawingChartAdapter, getOriginalDrawingId } from '@/engine/charting';
+import { drawingRepository } from '@/repository';
 import {
   detectPricePrecision,
 } from '@/utils/dataUtils';
@@ -1270,6 +1271,53 @@ export function ChartWorkspace() {
     return null;
   };
 
+  const currentSymbolDrawings = useDrawingStore(
+    (s) => (activeWatchlistSymbol ? s.drawingsBySymbol[activeWatchlistSymbol.toUpperCase()] || [] : [])
+  );
+  const isAllDrawingsLocked =
+    currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.lock === true);
+
+  const handleToggleLockAllDrawings = useCallback(() => {
+    const symbol = activeWatchlistSymbol;
+    if (!symbol) return;
+    const key = symbol.toUpperCase();
+    const existing = useDrawingStore.getState().drawingsBySymbol[key] || [];
+    if (existing.length === 0) return;
+
+    const allLocked = existing.every((d) => d.lock === true);
+    const nextLock = !allLocked;
+
+    const updatedList = existing.map((d) => ({ ...d, lock: nextLock }));
+    useDrawingStore.setState((state) => ({
+      drawingsBySymbol: {
+        ...state.drawingsBySymbol,
+        [key]: updatedList,
+      },
+    }));
+    drawingRepository.saveDrawings(key, updatedList);
+
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        existing.forEach((d) => {
+          try {
+            chart.overrideOverlay({ id: d.id, lock: nextLock });
+          } catch (_) {}
+          try {
+            chart.overrideOverlay({ id: `sync_${d.id}_from_${chart._chartIndex}`, lock: nextLock });
+          } catch (_) {}
+        });
+        DrawingChartAdapter.invalidatePane(chart);
+      }
+    });
+
+    if (nextLock) {
+      setSelectedOverlayIds([]);
+    }
+
+    runWorkspaceReconciliation(chartInstancesRef);
+    drawingCoord.setDrawingTrigger((prev) => prev + 1);
+  }, [activeWatchlistSymbol, setSelectedOverlayIds, drawingCoord]);
+
   const handleClearDrawings = () => {
     chartInstancesRef.current.forEach((c) => {
       if (!c) return;
@@ -1527,6 +1575,8 @@ export function ChartWorkspace() {
           handleZoomOut={zoomOut}
           chartInstanceRef={{ current: chartInstancesRef.current[activeChartIndex] }}
           activeOverlayIdRef={activeOverlayIdRef}
+          isAllDrawingsLocked={isAllDrawingsLocked}
+          handleToggleLockAllDrawings={handleToggleLockAllDrawings}
         />
 
         <main className={`flex-1 h-full relative overflow-hidden bg-app-bg ${layoutType !== '1' ? 'p-1' : 'p-0'} flex`}>
