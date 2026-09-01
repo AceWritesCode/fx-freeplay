@@ -902,7 +902,6 @@ export function ChartWorkspace() {
     activeTool: drawingCoord.activeTool,
     activeChartIndex,
     slots,
-    hoveredOverlayId,
     isSpacePressedRef: drawingInteraction.isSpacePressedRef,
     onSelectOverlayIds: handleSelectOverlayIds,
     setActiveTool: drawingCoord.setActiveTool,

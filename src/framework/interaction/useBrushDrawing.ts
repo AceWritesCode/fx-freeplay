@@ -8,7 +8,6 @@ export interface BrushDrawingConfig {
   activeTool: string | null;
   activeChartIndex: number;
   slots: any[];
-  hoveredOverlayId: string | null;
   isSpacePressedRef: React.MutableRefObject<boolean>;
   onSelectOverlayIds: (ids: string[]) => void;
   setActiveTool: (tool: string | null) => void;
@@ -26,7 +25,6 @@ export function useBrushDrawing({
   activeTool,
   activeChartIndex,
   slots,
-  hoveredOverlayId,
   isSpacePressedRef,
   onSelectOverlayIds,
   setActiveTool,
@@ -40,6 +38,17 @@ export function useBrushDrawing({
   const activeOrderRef = useRef<number>(1);
   const activeGroupIdRef = useRef<string | undefined>(undefined);
   const brushSettingsRef = useRef<{ lineColor: string; lineWidth: number }>({ lineColor: '#2196F3', lineWidth: 3 });
+
+  const slotsRef = useRef(slots);
+  slotsRef.current = slots;
+  const onSelectOverlayIdsRef = useRef(onSelectOverlayIds);
+  onSelectOverlayIdsRef.current = onSelectOverlayIds;
+  const setActiveToolRef = useRef(setActiveTool);
+  setActiveToolRef.current = setActiveTool;
+  const syncAllDrawingsRef = useRef(syncAllDrawings);
+  syncAllDrawingsRef.current = syncAllDrawings;
+  const setDrawingTriggerRef = useRef(setDrawingTrigger);
+  setDrawingTriggerRef.current = setDrawingTrigger;
 
   useEffect(() => {
     if (activeTool !== 'brush') {
@@ -91,11 +100,6 @@ export function useBrushDrawing({
         return;
       }
 
-      // If pointer is over an existing drawing / anchor, do not start a new brush stroke (allows selecting & dragging existing drawing)
-      if (hoveredOverlayId) {
-        return;
-      }
-
       const rect = container.getBoundingClientRect();
       const startX = e.clientX - rect.left;
       const startY = e.clientY - rect.top;
@@ -108,14 +112,14 @@ export function useBrushDrawing({
       e.stopPropagation();
 
       // Clear previous selection so focus moves to the new stroke
-      onSelectOverlayIds([]);
+      onSelectOverlayIdsRef.current([]);
 
       // Temporarily disable chart pan/zoom while drawing
       chart.setScrollEnabled(false);
       chart.setZoomEnabled(false);
 
       // Determine order and folder group
-      const currentSymbol = slots[activeChartIndex]?.symbol || 'INGEST';
+      const currentSymbol = slotsRef.current[activeChartIndex]?.symbol || 'INGEST';
       let activeGroupId: string | undefined = undefined;
       try {
         const folderSettings = localStorage.getItem(`fx_folders_${currentSymbol}`);
@@ -255,7 +259,7 @@ export function useBrushDrawing({
         return;
       }
 
-      const currentSymbol = (slots[activeChartIndex]?.symbol || 'INGEST').toUpperCase();
+      const currentSymbol = (slotsRef.current[activeChartIndex]?.symbol || 'INGEST').toUpperCase();
 
       const cleanExtendData = {
         order: activeOrderRef.current,
@@ -293,18 +297,18 @@ export function useBrushDrawing({
       DrawingChartAdapter.invalidatePane(chartInstance, 'candle_pane');
 
       // 3. Immediately select the newly created brush stroke
-      onSelectOverlayIds([targetId]);
+      onSelectOverlayIdsRef.current([targetId]);
       chartInstance._clickedOnOverlay = true;
       if (chartInstance._setSelectedOverlayIds) {
         chartInstance._setSelectedOverlayIds([targetId]);
       }
 
       // 4. Reconcile across all chart slots
-      syncAllDrawings();
+      syncAllDrawingsRef.current();
       runWorkspaceReconciliation(chartInstancesRef);
 
       // 5. Trigger UI notification (tool remains active for continuous freehand painting)
-      setDrawingTrigger((prev) => prev + 1);
+      setDrawingTriggerRef.current((prev) => prev + 1);
     };
 
     const handlePointerUp = (e: PointerEvent) => {
@@ -329,12 +333,7 @@ export function useBrushDrawing({
     activeChartIndex,
     chartContainersRef,
     chartInstancesRef,
-    slots,
-    hoveredOverlayId,
     isSpacePressedRef,
-    onSelectOverlayIds,
-    setActiveTool,
-    syncAllDrawings,
-    setDrawingTrigger,
   ]);
 }
+
