@@ -293,6 +293,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               aria-label={activeCursorTool.name}
               data-tooltip={activeCursorTool.name}
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
                 if (activeCursorTool.id === 'eraser') {
@@ -305,7 +306,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                   cancelDrawingSession();
                 }
               }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -319,6 +320,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title="More cursor tools"
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -327,7 +329,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 closeAllMenus('cursor');
                 setIsCursorMenuOpen(nextState);
               }}
-              className={`border rounded-md transition-all flex items-center justify-center ${
+              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isCursorMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -421,11 +423,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeLineTool.name}
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
                 handleSelectTool(activeLineTool.id);
               }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -439,6 +442,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title="More line tools"
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -447,7 +451,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 closeAllMenus('line');
                 setIsLineMenuOpen(nextState);
               }}
-              className={`border rounded-md transition-all flex items-center justify-center ${
+              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isLineMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -534,11 +538,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeShapeTool.name}
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
                 handleSelectTool(activeShapeTool.id);
               }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -552,6 +557,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title="More shapes & brushes"
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -560,7 +566,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 closeAllMenus('shape');
                 setIsShapeMenuOpen(nextState);
               }}
-              className={`border rounded-md transition-all flex items-center justify-center ${
+              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isShapeMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -668,13 +674,14 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeTextTool.name}
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
                 if (activeTextTool.id === 'text') {
                   handleSelectTool('text');
                 }
               }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -688,6 +695,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title="More text & notes tools"
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -696,7 +704,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 closeAllMenus('text');
                 setIsTextMenuOpen(nextState);
               }}
-              className={`border rounded-md transition-all flex items-center justify-center ${
+              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isTextMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -772,11 +780,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title={activeForecastTool.name}
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
                 handleSelectTool(activeForecastTool.id);
               }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isGroupActive
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -790,6 +799,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             <button
               title="More forecasting tools"
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -798,7 +808,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 closeAllMenus('forecast');
                 setIsForecastMenuOpen(nextState);
               }}
-              className={`border rounded-md transition-all flex items-center justify-center ${
+              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isForecastMenuOpen
                   ? 'border-transparent bg-accent-muted text-accent z-10'
                   : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -870,11 +880,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               key={tool.id}
               title={tool.name}
               disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
                 handleSelectTool(tool.id);
               }}
-              className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isActive
                   ? 'bg-accent-muted text-accent'
                   : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
@@ -891,11 +902,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
       <button
         title="Clear Drawings"
         disabled={!hasData}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => {
           closeAllMenus();
           handleClearDrawings();
         }}
-        className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center"
+        className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
         style={{ width: '34px', height: '34px' }}
       >
         <ToolIconWrapper>
@@ -907,6 +919,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         <button
           title="Magnet Mode (Snap to OHLC) — right-click for options"
           disabled={!hasData}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             closeAllMenus();
             handleToggleMagnet();
@@ -920,7 +933,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
             closeAllMenus('magnet');
             setIsMagnetMenuOpen(nextState);
           }}
-          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center ${
+          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
             magnetMode !== 'normal'
               ? 'bg-accent-muted text-accent'
               : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
