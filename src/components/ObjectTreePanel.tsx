@@ -1167,7 +1167,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     // Custom SVG for Trendline matching TradingView style
     if (toolName === 'trendLine') {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-gray-400">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-txt-muted">
           <g fill="currentColor" fillRule="nonzero">
             <path d="M7.354 21.354l14-14-.707-.707-14 14z"></path>
             <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z"></path>
@@ -1177,7 +1177,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     }
     // Fallback line icon
     return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-gray-400">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-txt-muted">
         <path stroke="currentColor" strokeWidth="2" d="M5 23L23 5" />
       </svg>
     );
@@ -1275,7 +1275,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           
           {/* ── Toolbar buttons matching TradingView ── */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-800/70 bg-[#171a26]/40">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-sub bg-surface">
             <div className="flex items-center gap-1.5">
               
               {/* Create Group */}
@@ -1329,7 +1329,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
           {/* ── Tree Object List ── */}
           <div
-            className="flex-1 overflow-y-auto px-1 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-gray-800"
+            className="flex-1 overflow-y-auto px-1 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-border-def"
             onDragOver={handleDragOver}
             onDrop={handleDropOnRoot}
           >
@@ -1512,13 +1512,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                     {/* Child Drawings List */}
                     {!folder.isCollapsed && (
                       <div
-                        className="pl-6 pr-1 py-0.5 space-y-0.5 border-l border-gray-800/40 ml-4 mt-0.5"
+                        className="pl-6 pr-1 py-0.5 space-y-0.5 border-l border-border-sub ml-4 mt-0.5"
                         onDragOver={(e) => handleDragOverFolder(e, folder.id)}
                         onDragLeave={handleDragLeaveFolder}
                         onDrop={(e) => handleDropOnFolder(e, folder.id)}
                       >
                         {childDrawings.length === 0 ? (
-                          <div className="text-[10px] text-gray-500 italic py-1 pl-2">Empty folder</div>
+                          <div className="text-[10px] text-txt-muted italic py-1 pl-2">Empty folder</div>
                         ) : (
                           childDrawings.map(d => {
                             const isSelected = selectedOverlayIds.includes(d.id);
@@ -1626,7 +1626,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                     className={`p-1 rounded transition-colors ${
                                       !isVisible
                                         ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                                        : 'text-gray-400 hover:text-white hover:bg-[#121420]'
+                                        : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                                     }`}
                                   >
                                     {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -1638,7 +1638,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                       e.stopPropagation();
                                       handleDeleteDrawing(d.id);
                                     }}
-                                    className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-[#121420] transition-colors"
+                                    className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1867,8 +1867,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             })}
 
             {drawings.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 px-6">
-                <Layers className="w-8 h-8 text-gray-600 mb-2 opacity-50" />
+              <div className="flex flex-col items-center justify-center py-16 text-center text-txt-muted px-6">
+                <Layers className="w-8 h-8 text-txt-muted mb-2 opacity-50" />
                 <p className="text-[11px] leading-relaxed">No drawings on the chart.</p>
               </div>
             )}
@@ -1876,8 +1876,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         </div>
       ) : (
         /* ── Data Window Tab Placeholder ── */
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" className="text-gray-600 mb-2 opacity-50">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-txt-muted">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" className="text-txt-muted mb-2 opacity-50">
             <path stroke="currentColor" strokeWidth="2" d="M3 6h22M3 12h22M3 18h22" />
           </svg>
           <p className="text-[11px] leading-relaxed">Hover over a candle to view data window stats.</p>
