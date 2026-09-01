@@ -907,6 +907,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
       <div 
         ref={containerRef}
+        role="dialog"
+        data-no-deselect="true"
         className="fixed bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[420px] flex flex-col z-50 text-txt-secondary select-none overflow-visible animate-in fade-in zoom-in-95 duration-150"
         style={{ 
           left: `${position.x}px`, 

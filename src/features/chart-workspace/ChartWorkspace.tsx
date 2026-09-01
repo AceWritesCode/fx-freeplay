@@ -892,6 +892,7 @@ export function ChartWorkspace() {
     setHoveredOverlayId,
     handleSelectOverlayIds,
     drawingCoord,
+    isDrawingSettingsOpen,
   });
 
   // Close custom timezone and flyouts when clicking outside

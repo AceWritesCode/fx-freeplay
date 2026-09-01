@@ -14,6 +14,7 @@ export interface DrawingHoverCursorConfig {
     syncAllDrawings: () => void;
     setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
   };
+  isDrawingSettingsOpen?: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ export function useDrawingHoverCursor({
   setHoveredOverlayId,
   handleSelectOverlayIds,
   drawingCoord,
+  isDrawingSettingsOpen = false,
 }: DrawingHoverCursorConfig) {
   useEffect(() => {
     const handleMouseDown = () => {
@@ -72,7 +74,7 @@ export function useDrawingHoverCursor({
             }
           }
 
-          // Clear selection & reset active tool to Crosshair on empty space click
+          // Clear selection & reset active tool to Crosshair on empty space click (unless dialog is open or clicking on UI)
           const container = chartContainersRef.current[index];
           if (container) {
             const rect = container.getBoundingClientRect();
@@ -83,9 +85,10 @@ export function useDrawingHoverCursor({
               e.clientY <= rect.bottom;
 
             const isUIInteraction =
-              e.target instanceof Element &&
-              (!!e.target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect]') ||
-                !!e.target.closest('button, input, select, textarea, [role="button"], [role="dialog"], [role="menu"]'));
+              isDrawingSettingsOpen ||
+              (e.target instanceof Element &&
+                (!!e.target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect], [role="dialog"]') ||
+                  !!e.target.closest('button, input, select, textarea, [role="button"], [role="dialog"], [role="menu"]')));
 
             if (clickInside && !isUIInteraction) {
               setTimeout(() => {
@@ -389,5 +392,6 @@ export function useDrawingHoverCursor({
     setHoveredOverlayId,
     handleSelectOverlayIds,
     drawingCoord,
+    isDrawingSettingsOpen,
   ]);
 }
