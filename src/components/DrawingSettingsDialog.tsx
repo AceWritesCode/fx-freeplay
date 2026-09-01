@@ -966,11 +966,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       {/* Tabs navigation */}
       <div className="flex px-5 border-b border-border-def text-[12px] font-semibold gap-5 overflow-x-auto select-none bg-surface">
         {(
-          overlay.name === 'longPosition' || overlay.name === 'shortPosition'
-            ? ['style', 'inputs', 'visibility'] as const
-            : (overlay.name === 'fxText' || overlay.name === 'text')
-              ? ['text', 'coordinates', 'visibility'] as const
-              : ['style', 'text', 'coordinates', 'visibility'] as const
+          overlay.name === 'brush'
+            ? ['style', 'visibility'] as const
+            : overlay.name === 'longPosition' || overlay.name === 'shortPosition'
+              ? ['style', 'inputs', 'visibility'] as const
+              : (overlay.name === 'fxText' || overlay.name === 'text')
+                ? ['text', 'coordinates', 'visibility'] as const
+                : ['style', 'text', 'coordinates', 'visibility'] as const
         ).map(tab => (
           <button
             key={tab}

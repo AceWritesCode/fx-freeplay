@@ -130,13 +130,6 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
       ignoreEvent: false
     });
 
-    // Draw grab handles at start/end if selected
-    if ((overlay.extendData as any)?.isSelected && renderPoints.length > 0) {
-      const isLocked = overlay.lock || false;
-      const handles = [renderPoints[0], renderPoints[renderPoints.length - 1]];
-      drawGrabHandles(figures, handles, isLocked);
-    }
-
     return figures;
   }
 });

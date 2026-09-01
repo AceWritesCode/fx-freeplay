@@ -149,6 +149,7 @@ export function useDrawingHoverCursor({
       const yVal = e.clientY - containerRect.top;
       const candidatesForAnchor = selectedOverlays.length > 0 ? selectedOverlays : interactiveOverlays;
       candidatesForAnchor.forEach((ov: any) => {
+        if (ov.name === 'brush') return;
         if (ov.points && Array.isArray(ov.points)) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),

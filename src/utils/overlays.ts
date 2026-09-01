@@ -414,7 +414,7 @@ export function getInteractiveOverlayOptions(
         });
       }
 
-      const isHandle = minDistance <= 22;
+      const isHandle = (toolName !== 'brush' && event.overlay?.name !== 'brush') && minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
       // Set drag index on BOTH chart references before selection fires reconciliation
