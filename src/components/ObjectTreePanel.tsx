@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
+import { drawingRepository } from '@/repository';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -12,7 +13,7 @@ interface ObjectTreePanelProps {
   activeSymbol: string;
   activeTimeframe: string;
   /** Creates an overlay with the full set of interactive event handlers (onClick, onDrawEnd, etc.) */
-  createOverlayWithHandlers: (chart: any, overlayData: any) => void;
+  createOverlayWithHandlers?: (chart: any, overlayData: any) => void;
 }
 
 interface FolderItem {
@@ -32,7 +33,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   setDrawingTrigger,
   activeSymbol,
   activeTimeframe,
-  createOverlayWithHandlers,
+  createOverlayWithHandlers: _createOverlayWithHandlers,
 }) => {
   const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('objectTree');
 
@@ -163,45 +164,51 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     // Update candles order on chart
     activeChart._candlesOrder = candlesOrder;
 
-    // 4. Map updated overlays with new order
-    const updatedOverlays = filtered.map((ov: any) => {
-      const info = updatedOverlaysMap.get(ov.id);
-      const nextOrder = info ? info.order : (ov.extendData?.order ?? 0);
-      const folderId = info ? info.folderId : (ov.extendData?.folderId || null);
-      return {
-        ...ov,
-        extendData: {
-          ...ov.extendData,
-          folderId,
-          order: nextOrder
+    // 4. Map and update overlays in useDrawingStore & drawingRepository
+    if (activeSymbol) {
+      const symbolKey = activeSymbol.toUpperCase();
+      const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+      const nextStoreDrawings = storeDrawings.map((d) => {
+        const info = updatedOverlaysMap.get(d.id);
+        if (info) {
+          return {
+            ...d,
+            extendData: {
+              ...(d.extendData || {}),
+              order: info.order,
+              folderId: info.folderId
+            }
+          };
         }
-      };
-    });
-
-    // 5. Remove all overlays
-    filtered.forEach((ov: any) => {
-      activeChart.removeOverlay({ id: ov.id });
-    });
-
-    // 6. Recreate overlays in ascending order of their 'order' value.
-    //    Overlays with order < candlesOrder are created first (rendered behind candles).
-    //    Overlays with order > candlesOrder are created last (rendered on top of candles).
-    //    Use createOverlayWithHandlers so all event handlers (onClick, onDrawEnd, etc.) are preserved.
-    updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
-    updatedOverlays.forEach((ov: any) => {
-      createOverlayWithHandlers(activeChart, {
-        name: ov.name,
-        id: ov.id,
-        paneId: ov.paneId || 'candle_pane',
-        points: ov.points,
-        extendData: ov.extendData,
-        lock: ov.lock,
-        visible: ov.visible !== false,
-        styles: ov.styles
+        return d;
       });
+      useDrawingStore.setState((state) => ({
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [symbolKey]: nextStoreDrawings,
+        },
+      }));
+      drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+    }
+
+    // 5. Update live chart overlays directly without removing/recreating
+    filtered.forEach((ov: any) => {
+      const info = updatedOverlaysMap.get(ov.id);
+      if (info) {
+        try {
+          activeChart.overrideOverlay({
+            id: ov.id,
+            extendData: {
+              ...(ov.extendData || {}),
+              folderId: info.folderId,
+              order: info.order
+            }
+          });
+        } catch (_) {}
+      }
     });
 
-    // 7. Save and update react states
+    // 6. Save and update react states
     setFolders(nextFolders);
     localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
     syncAllDrawings();
@@ -403,12 +410,30 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Toggle folder visible status
   const handleToggleFolderVisible = (folderId: string, currentVisible: boolean) => {
+    const nextVisible = !currentVisible;
     setFolders(prev =>
-      prev.map(f => (f.id === folderId ? { ...f, isVisible: !currentVisible } : f))
+      prev.map(f => (f.id === folderId ? { ...f, isVisible: nextVisible } : f))
     );
 
+    if (activeSymbol) {
+      const symbolKey = activeSymbol.toUpperCase();
+      const drawings = useDrawingStore.getState().getSymbolDrawings(symbolKey);
+      const updatedList = drawings.map((d) => {
+        if (d.extendData?.folderId === folderId) {
+          return { ...d, visible: nextVisible };
+        }
+        return d;
+      });
+      useDrawingStore.setState((state) => ({
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [symbolKey]: updatedList,
+        },
+      }));
+      drawingRepository.saveDrawings(symbolKey, updatedList);
+    }
+
     if (activeChart) {
-      const nextVisible = !currentVisible;
       const overlays = activeChart.getOverlays();
       overlays.forEach((ov: any) => {
         if (ov.extendData?.folderId === folderId) {
@@ -425,12 +450,30 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Toggle folder lock status
   const handleToggleFolderLock = (folderId: string, currentLocked: boolean) => {
+    const nextLocked = !currentLocked;
     setFolders(prev =>
-      prev.map(f => (f.id === folderId ? { ...f, isLocked: !currentLocked } : f))
+      prev.map(f => (f.id === folderId ? { ...f, isLocked: nextLocked } : f))
     );
 
+    if (activeSymbol) {
+      const symbolKey = activeSymbol.toUpperCase();
+      const drawings = useDrawingStore.getState().getSymbolDrawings(symbolKey);
+      const updatedList = drawings.map((d) => {
+        if (d.extendData?.folderId === folderId) {
+          return { ...d, lock: nextLocked };
+        }
+        return d;
+      });
+      useDrawingStore.setState((state) => ({
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [symbolKey]: updatedList,
+        },
+      }));
+      drawingRepository.saveDrawings(symbolKey, updatedList);
+    }
+
     if (activeChart) {
-      const nextLocked = !currentLocked;
       const overlays = activeChart.getOverlays();
       overlays.forEach((ov: any) => {
         if (ov.extendData?.folderId === folderId) {
@@ -617,40 +660,52 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           : 0;
 
         const folder = folders.find(f => f.id === targetFolderId);
-        const updatedOverlays = filtered.map((ov: any) => {
-          if (ov.id === dragId) {
-            return {
-              ...ov,
-              visible: folder ? folder.isVisible : ov.visible !== false,
-              lock: folder ? folder.isLocked : ov.lock,
-              extendData: {
-                ...ov.extendData,
-                folderId: targetFolderId,
-                order: folderChildren.length > 0 ? maxChildOrder + 1 : (ov.extendData?.order ?? 0)
-              },
-            };
-          }
-          return ov;
-        });
+        const nextOrder = folderChildren.length > 0 ? maxChildOrder + 1 : 100;
+        const nextVisible = folder ? folder.isVisible : true;
+        const nextLock = folder ? folder.isLocked : false;
 
-        // Remove and recreate all overlays in ascending order (lowest order = created first = underneath)
-        filtered.forEach((ov: any) => {
-          activeChart.removeOverlay({ id: ov.id });
-        });
-
-        updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
-        updatedOverlays.forEach((ov: any) => {
-          createOverlayWithHandlers(activeChart, {
-            name: ov.name,
-            id: ov.id,
-            paneId: ov.paneId || 'candle_pane',
-            points: ov.points,
-            extendData: ov.extendData,
-            lock: ov.lock,
-            visible: ov.visible !== false,
-            styles: ov.styles
+        // Update in useDrawingStore & drawingRepository
+        if (activeSymbol) {
+          const symbolKey = activeSymbol.toUpperCase();
+          const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+          const nextStoreDrawings = storeDrawings.map((d) => {
+            if (d.id === dragId) {
+              return {
+                ...d,
+                visible: nextVisible,
+                lock: nextLock,
+                extendData: {
+                  ...(d.extendData || {}),
+                  folderId: targetFolderId,
+                  order: nextOrder
+                }
+              };
+            }
+            return d;
           });
-        });
+          useDrawingStore.setState((state) => ({
+            drawingsBySymbol: {
+              ...state.drawingsBySymbol,
+              [symbolKey]: nextStoreDrawings,
+            },
+          }));
+          drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+        }
+
+        // Update activeChart overlay
+        const draggedOv = filtered.find((ov: any) => ov.id === dragId);
+        if (draggedOv) {
+          activeChart.overrideOverlay({
+            id: dragId,
+            visible: nextVisible,
+            lock: nextLock,
+            extendData: {
+              ...(draggedOv.extendData || {}),
+              folderId: targetFolderId,
+              order: nextOrder
+            }
+          });
+        }
 
         syncAllDrawings();
         setDrawingTrigger(prev => prev + 1);
@@ -698,48 +753,56 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           const reordered = [...filtered];
           const [draggedItem] = reordered.splice(draggedIndex, 1);
 
-          // Clear folderId on the dragged drawing
-          draggedItem.extendData = {
-            ...draggedItem.extendData,
-            folderId: null,
-          };
-
           // Append to the end of the list (bottom of the Object Tree)
           reordered.push(draggedItem);
 
-          // Assign new order values (multiples of 100, descending by index so index 0 = top = highest order)
-          const updatedOverlays = reordered.map((ov: any, idx: number) => {
+          const updatedOverlaysMap = new Map<string, { order: number, folderId: string | null }>();
+          reordered.forEach((ov: any, idx: number) => {
             const nextOrder = (reordered.length - idx) * 100;
-            return {
-              ...ov,
-              extendData: {
-                ...ov.extendData,
-                order: nextOrder
+            const folderId = ov.id === dragId ? null : (ov.extendData?.folderId ?? null);
+            updatedOverlaysMap.set(ov.id, { order: nextOrder, folderId });
+          });
+
+          // Update useDrawingStore & drawingRepository
+          if (activeSymbol) {
+            const symbolKey = activeSymbol.toUpperCase();
+            const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+            const nextStoreDrawings = storeDrawings.map((d) => {
+              const info = updatedOverlaysMap.get(d.id);
+              if (info) {
+                return {
+                  ...d,
+                  extendData: {
+                    ...(d.extendData || {}),
+                    order: info.order,
+                    folderId: info.folderId
+                  }
+                };
               }
-            };
-          });
-
-          // Remove and recreate in ascending order (lowest order first = underneath)
-          filtered.forEach((ov: any) => {
-            activeChart.removeOverlay({ id: ov.id });
-          });
-
-          // Re-set candlesOrder to the slot where the dragged drawing ends up
-          // (it was pushed to end = bottom of tree = lowest visual position)
-          // candlesOrder stays unchanged since we only moved a drawing to root
-
-          updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
-          updatedOverlays.forEach((ov: any) => {
-            createOverlayWithHandlers(activeChart, {
-              name: ov.name,
-              id: ov.id,
-              paneId: ov.paneId || 'candle_pane',
-              points: ov.points,
-              extendData: ov.extendData,
-              lock: ov.lock,
-              visible: ov.visible !== false,
-              styles: ov.styles
+              return d;
             });
+            useDrawingStore.setState((state) => ({
+              drawingsBySymbol: {
+                ...state.drawingsBySymbol,
+                [symbolKey]: nextStoreDrawings,
+              },
+            }));
+            drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+          }
+
+          // Override activeChart overlays
+          reordered.forEach((ov: any) => {
+            const info = updatedOverlaysMap.get(ov.id);
+            if (info) {
+              activeChart.overrideOverlay({
+                id: ov.id,
+                extendData: {
+                  ...(ov.extendData || {}),
+                  folderId: info.folderId,
+                  order: info.order
+                }
+              });
+            }
           });
 
           syncAllDrawings();
@@ -771,14 +834,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         });
 
         const draggedIndex = combinedRoot.findIndex(item => item.id === dragId && item.type === dragType);
-        if (draggedIndex === -1) return;
+        if (draggedIndex !== -1) {
+          const reordered = [...combinedRoot];
+          const [draggedItem] = reordered.splice(draggedIndex, 1);
+          reordered.push(draggedItem);
 
-        const reordered = [...combinedRoot];
-        const [draggedItem] = reordered.splice(draggedIndex, 1);
-        reordered.push(draggedItem);
-
-        // Delegate folder/candles reorder to the single source of truth
-        recalculateAndRecreateOverlays(folders, reordered);
+          // Delegate folder/candles reorder to the single source of truth
+          recalculateAndRecreateOverlays(folders, reordered);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -867,40 +930,54 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         const targetOverlay = filtered.find((ov: any) => ov.id === targetId);
         const targetFolderId = targetOverlay?.extendData?.folderId || null;
 
-        // Map and update order + folder parameters in a single configuration step.
-        // reordered[0] = top of tree (drawn last = on top = created last = highest order).
-        // Use (length - idx) * 100 so index 0 (top) gets highest order.
-        const updatedOverlays = reordered.map((ov: any, idx: number) => {
+        const updatedOverlaysMap = new Map<string, { order: number, folderId: string | null }>();
+        reordered.forEach((ov: any, idx: number) => {
           const nextOrder = (reordered.length - idx) * 100;
           const isDraggedItem = (ov.id === dragId);
-          
-          return {
-            ...ov,
-            extendData: {
-              ...ov.extendData,
-              order: nextOrder,
-              ...(isDraggedItem ? { folderId: targetFolderId } : {})
+          const folderId = isDraggedItem ? targetFolderId : (ov.extendData?.folderId ?? null);
+          updatedOverlaysMap.set(ov.id, { order: nextOrder, folderId });
+        });
+
+        // Update useDrawingStore & drawingRepository
+        if (activeSymbol) {
+          const symbolKey = activeSymbol.toUpperCase();
+          const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
+          const nextStoreDrawings = storeDrawings.map((d) => {
+            const info = updatedOverlaysMap.get(d.id);
+            if (info) {
+              return {
+                ...d,
+                extendData: {
+                  ...(d.extendData || {}),
+                  order: info.order,
+                  folderId: info.folderId
+                }
+              };
             }
-          };
-        });
-
-        // Remove and recreate in ascending order (lowest order first = underneath)
-        filtered.forEach((ov: any) => {
-          activeChart.removeOverlay({ id: ov.id });
-        });
-
-        updatedOverlays.sort((a: any, b: any) => (a.extendData?.order ?? 0) - (b.extendData?.order ?? 0));
-        updatedOverlays.forEach((ov: any) => {
-          createOverlayWithHandlers(activeChart, {
-            name: ov.name,
-            id: ov.id,
-            paneId: ov.paneId || 'candle_pane',
-            points: ov.points,
-            extendData: ov.extendData,
-            lock: ov.lock,
-            visible: ov.visible !== false,
-            styles: ov.styles
+            return d;
           });
+          useDrawingStore.setState((state) => ({
+            drawingsBySymbol: {
+              ...state.drawingsBySymbol,
+              [symbolKey]: nextStoreDrawings,
+            },
+          }));
+          drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+        }
+
+        // Override activeChart overlays
+        reordered.forEach((ov: any) => {
+          const info = updatedOverlaysMap.get(ov.id);
+          if (info) {
+            activeChart.overrideOverlay({
+              id: ov.id,
+              extendData: {
+                ...(ov.extendData || {}),
+                folderId: info.folderId,
+                order: info.order
+              }
+            });
+          }
         });
 
         syncAllDrawings();
@@ -919,8 +996,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Toggle drawing visibility
   const handleToggleDrawingVisible = (id: string, currentVisible: boolean) => {
+    const nextVisible = !currentVisible;
+    if (activeSymbol) {
+      const symbolKey = activeSymbol.toUpperCase();
+      useDrawingStore.getState().updateSymbolDrawing(symbolKey, id, { visible: nextVisible });
+    }
     if (activeChart) {
-      const nextVisible = !currentVisible;
       activeChart.overrideOverlay({
         id,
         visible: nextVisible,
@@ -932,8 +1013,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Toggle drawing lock
   const handleToggleDrawingLock = (id: string, currentLocked: boolean) => {
+    const nextLocked = !currentLocked;
+    if (activeSymbol) {
+      const symbolKey = activeSymbol.toUpperCase();
+      useDrawingStore.getState().updateSymbolDrawing(symbolKey, id, { lock: nextLocked });
+    }
     if (activeChart) {
-      const nextLocked = !currentLocked;
       activeChart.overrideOverlay({
         id,
         lock: nextLocked,
