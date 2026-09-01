@@ -1118,7 +1118,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             )}
 
             {/* Arrow Row */}
-            {overlay.name === 'trendLine' && (
+            {overlay && (['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'extendedLine', 'parallelChannel'].includes(overlay.name) || (overlay.name !== 'brush' && overlay.name !== 'highlighter' && overlay.name !== 'rectangle' && overlay.name !== 'circle' && overlay.name !== 'text' && overlay.name !== 'fxText' && overlay.name !== 'longPosition' && overlay.name !== 'shortPosition')) && (
               <div className="flex items-center justify-between min-h-[36px]">
                 <span className="text-txt-muted font-medium">Arrow</span>
                 <div className="relative">

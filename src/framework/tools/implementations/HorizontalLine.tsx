@@ -1,18 +1,16 @@
 import type { ToolDefinition } from '../ToolRegistry';
-import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
+import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
 
-const HorizontalLineIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
-    <g fill="currentColor" fillRule="nonzero">
-      <path d="M4 15h8.5v-1h-8.5zM16.5 15h8.5v-1h-8.5z" />
-      <path d="M14.5 16c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z" />
-    </g>
+const HorizontalLineIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <circle cx="12" cy="12" r="2" />
   </svg>
 );
 
 export const HorizontalLineTool: ToolDefinition = {
   id: 'horizontalLine',
-  name: 'Horizontal line',
+  name: 'Horizontal Line',
   icon: HorizontalLineIcon,
   group: 'lines',
   hotkey: 'Alt + H',
@@ -43,6 +41,18 @@ export const HorizontalLineTool: ToolDefinition = {
         { label: 'Dashed', value: 'dashed' },
         { label: 'Dotted', value: 'dotted' }
       ]
+    },
+    {
+      id: 'arrowType',
+      label: 'Arrow',
+      type: 'select',
+      defaultValue: 'none',
+      options: [
+        { label: 'None', value: 'none' },
+        { label: 'Starting Point', value: 'start' },
+        { label: 'End Point', value: 'end' },
+        { label: 'Both', value: 'both' }
+      ]
     }
   ],
   
@@ -52,7 +62,8 @@ export const HorizontalLineTool: ToolDefinition = {
       name: 'Default',
       commonSettings: {
         lineWidth: 1,
-        lineStyle: 'solid'
+        lineStyle: 'solid',
+        arrowType: 'none'
       }
     }
   ],
@@ -72,21 +83,25 @@ export const HorizontalLineTool: ToolDefinition = {
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
       const lineStyle = customSettings.lineStyle || 'solid';
+      const arrowType = customSettings.arrowType || 'none';
 
       let style = 'solid';
       let dashedValue = [4, 4];
       if (lineStyle === 'dashed') {
         style = 'dashed';
+        dashedValue = [6, 6];
       } else if (lineStyle === 'dotted') {
         style = 'dashed';
-        dashedValue = [2, 2];
+        dashedValue = [2, 3];
       }
 
       const figures: any[] = [];
       if (coordinates.length === 1 && bounding) {
+        const pStart = { x: 0, y: coordinates[0].y };
+        const pEnd = { x: bounding.width, y: coordinates[0].y };
         figures.push({
           type: 'line',
-          attrs: { coordinates: [{ x: 0, y: coordinates[0].y }, { x: bounding.width, y: coordinates[0].y }] },
+          attrs: { coordinates: [pStart, pEnd] },
           styles: {
             style,
             color: lineColor,
@@ -95,6 +110,8 @@ export const HorizontalLineTool: ToolDefinition = {
           },
           ignoreEvent: false
         });
+
+        drawArrowHeads(figures, pStart, pEnd, arrowType, lineColor, lineWidth);
 
         // Selection / Hover grab handle
         const isSelected = (overlay?.extendData as any)?.isSelected;

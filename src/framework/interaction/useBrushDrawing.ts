@@ -142,10 +142,10 @@ export function useBrushDrawing({
       activeChartRef.current = chart;
       activeOrderRef.current = newOrder;
       activeGroupIdRef.current = activeGroupId;
-      livePointsRef.current = [{ x: startX, y: startY }];
+      livePointsRef.current = [{ x: startX, y: startY }, { x: startX + 0.1, y: startY + 0.1 }];
 
-      // Create live freehand preview overlay
-      const startChartPoint = chart.convertFromPixel([{ x: startX, y: startY }], { paneId: 'candle_pane' });
+      // Create live freehand preview overlay with 2 points so KLineCharts activates the overlay immediately
+      const startChartPoint = chart.convertFromPixel([{ x: startX, y: startY }, { x: startX + 0.1, y: startY + 0.1 }], { paneId: 'candle_pane' });
       chart.createOverlay({
         name: 'brush',
         id: newDrawingId,
@@ -153,7 +153,7 @@ export function useBrushDrawing({
         needDefaultPointFigure: false,
         needDefaultXAxisFigure: false,
         needDefaultYAxisFigure: false,
-        points: startChartPoint || [],
+        points: (startChartPoint && startChartPoint.length >= 2) ? startChartPoint : (startChartPoint || []),
         extendData: {
           order: newOrder,
           groupId: activeGroupId,
@@ -163,9 +163,10 @@ export function useBrushDrawing({
             lineWidth: brushSettingsRef.current.lineWidth,
           },
           isLiveDrawing: true,
-          liveBrushPoints: [{ x: startX, y: startY }],
+          liveBrushPoints: [{ x: startX, y: startY }, { x: startX + 0.1, y: startY + 0.1 }],
         },
       });
+      DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
 
       try {
         container.setPointerCapture(e.pointerId);
