@@ -30,7 +30,7 @@ export function useZoomTool({
   const isDraggingRef = useRef(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const zoomHistoryRef = useRef<ZoomHistoryEntry[]>([]);
+  const savedZoomStateRef = useRef<ZoomHistoryEntry | null>(null);
   const [canZoomOut, setCanZoomOut] = useState(false);
 
   const activeToolRef = useRef(activeTool);
@@ -39,9 +39,9 @@ export function useZoomTool({
   setActiveToolRef.current = setActiveTool;
 
   const zoomOut = useCallback(() => {
-    if (zoomHistoryRef.current.length === 0) return;
-    const previousState = zoomHistoryRef.current.pop();
-    setCanZoomOut(zoomHistoryRef.current.length > 0);
+    const previousState = savedZoomStateRef.current;
+    savedZoomStateRef.current = null;
+    setCanZoomOut(false);
 
     if (previousState) {
       const chart = chartInstancesRef.current[previousState.chartIndex];
@@ -240,38 +240,40 @@ export function useZoomTool({
       const dy = Math.abs(endY - startPos.y);
 
       if (dx >= 10 || dy >= 10) {
-        // Record current zoom state to history before applying new zoom
-        const currentBarSpace = getChartBarSpace(chart);
-        const currentOffset = getTrueOffsetRightDistance(chart);
-
         const pane =
           chart.getDrawPaneById?.('candle_pane') ||
           (chart as any)._chartStore?.getPaneStore?.()?.getPaneById?.('candle_pane');
         const yAxis = pane?.getYAxisComponents?.()?.[0] || (chart as any)._candlePaneYAxis;
 
-        let wasManual = false;
-        let prevFrom: number | undefined;
-        let prevTo: number | undefined;
-        if (yAxis) {
-          wasManual = typeof yAxis.getAutoCalcTickFlag === 'function' ? !yAxis.getAutoCalcTickFlag() : false;
-          const r = typeof yAxis.getRange === 'function' ? yAxis.getRange() : null;
-          if (r && typeof r.from === 'number' && typeof r.to === 'number') {
-            prevFrom = r.from;
-            prevTo = r.to;
-          }
-        }
+        if (!savedZoomStateRef.current) {
+          // Record baseline zoom state prior to zoom in
+          const currentBarSpace = getChartBarSpace(chart);
+          const currentOffset = getTrueOffsetRightDistance(chart);
 
-        zoomHistoryRef.current.push({
-          chartIndex: activeChartIndex,
-          barSpace: currentBarSpace,
-          offsetRightDistance: currentOffset,
-          yAxisRange: {
-            wasManual,
-            from: prevFrom,
-            to: prevTo,
-          },
-        });
-        setCanZoomOut(true);
+          let wasManual = false;
+          let prevFrom: number | undefined;
+          let prevTo: number | undefined;
+          if (yAxis) {
+            wasManual = typeof yAxis.getAutoCalcTickFlag === 'function' ? !yAxis.getAutoCalcTickFlag() : false;
+            const r = typeof yAxis.getRange === 'function' ? yAxis.getRange() : null;
+            if (r && typeof r.from === 'number' && typeof r.to === 'number') {
+              prevFrom = r.from;
+              prevTo = r.to;
+            }
+          }
+
+          savedZoomStateRef.current = {
+            chartIndex: activeChartIndex,
+            barSpace: currentBarSpace,
+            offsetRightDistance: currentOffset,
+            yAxisRange: {
+              wasManual,
+              from: prevFrom,
+              to: prevTo,
+            },
+          };
+          setCanZoomOut(true);
+        }
 
         // Convert start and end points to chart data coordinates safely
         const rawStart = chart.convertFromPixel([{ x: startPos.x, y: startPos.y }], { paneId: 'candle_pane' });
@@ -298,7 +300,6 @@ export function useZoomTool({
           }
 
           // 2. Price Range Zoom (Y-axis)
-          // Extract price values safely
           const startPrice =
             typeof yAxis?.convertFromPixel === 'function'
               ? yAxis.convertFromPixel(startPos.y)
