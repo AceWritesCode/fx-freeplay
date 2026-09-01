@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '../ToolRegistry';
-import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
+import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
 
 const VerticalLineIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
@@ -12,7 +12,7 @@ const VerticalLineIcon = ({ className = "w-5 h-5" }: { className?: string }) => 
 
 export const VerticalLineTool: ToolDefinition = {
   id: 'verticalLine',
-  name: 'Vertical Line',
+  name: 'Vertical line',
   icon: VerticalLineIcon,
   group: 'lines',
   hotkey: 'Alt + V',
@@ -43,18 +43,6 @@ export const VerticalLineTool: ToolDefinition = {
         { label: 'Dashed', value: 'dashed' },
         { label: 'Dotted', value: 'dotted' }
       ]
-    },
-    {
-      id: 'arrowType',
-      label: 'Arrow',
-      type: 'select',
-      defaultValue: 'none',
-      options: [
-        { label: 'None', value: 'none' },
-        { label: 'Starting Point', value: 'start' },
-        { label: 'End Point', value: 'end' },
-        { label: 'Both', value: 'both' }
-      ]
     }
   ],
   
@@ -64,8 +52,7 @@ export const VerticalLineTool: ToolDefinition = {
       name: 'Default',
       commonSettings: {
         lineWidth: 1,
-        lineStyle: 'solid',
-        arrowType: 'none'
+        lineStyle: 'solid'
       }
     }
   ],
@@ -85,25 +72,21 @@ export const VerticalLineTool: ToolDefinition = {
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
       const lineStyle = customSettings.lineStyle || 'solid';
-      const arrowType = customSettings.arrowType || 'none';
 
       let style = 'solid';
       let dashedValue = [4, 4];
       if (lineStyle === 'dashed') {
         style = 'dashed';
-        dashedValue = [6, 6];
       } else if (lineStyle === 'dotted') {
         style = 'dashed';
-        dashedValue = [2, 3];
+        dashedValue = [2, 2];
       }
 
       const figures: any[] = [];
       if (coordinates.length === 1 && bounding) {
-        const pStart = { x: coordinates[0].x, y: 0 };
-        const pEnd = { x: coordinates[0].x, y: bounding.height };
         figures.push({
           type: 'line',
-          attrs: { coordinates: [pStart, pEnd] },
+          attrs: { coordinates: [{ x: coordinates[0].x, y: 0 }, { x: coordinates[0].x, y: bounding.height }] },
           styles: {
             style,
             color: lineColor,
@@ -112,8 +95,6 @@ export const VerticalLineTool: ToolDefinition = {
           },
           ignoreEvent: false
         });
-
-        drawArrowHeads(figures, pStart, pEnd, arrowType, lineColor, lineWidth);
 
         // Selection / Hover grab handle
         const isSelected = (overlay?.extendData as any)?.isSelected;

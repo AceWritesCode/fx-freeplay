@@ -1968,7 +1968,6 @@ export function ChartWorkspace() {
                   if (ovOriginalId === originalId) {
                     chart.overrideOverlay({
                       id: ov.id,
-                      points: JSON.parse(JSON.stringify(ov.points || [])),
                       extendData: mergedExtendData,
                     });
                     DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
@@ -2037,7 +2036,7 @@ export function ChartWorkspace() {
                 if (ovOriginalId === originalId) {
                   chart.overrideOverlay({
                     id: ov.id,
-                    points: JSON.parse(JSON.stringify(updatedPoints && updatedPoints.length > 0 ? updatedPoints : (ov.points || []))),
+                    ...(updatedPoints && updatedPoints.length > 0 ? { points: updatedPoints } : {}),
                     extendData: mergedExtendData,
                   });
                   DrawingChartAdapter.invalidatePane(chart, 'candle_pane');

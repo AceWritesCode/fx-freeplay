@@ -1,6 +1,6 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
-import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
+import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -176,32 +176,9 @@ export const ArrowTool: ToolDefinition = {
   group: 'shapes',
   settingsSchema: [
     { id: 'lineColor', label: 'Color', type: 'color', defaultValue: '#2196F3' },
-    { id: 'lineWidth', label: 'Width', type: 'number', defaultValue: 1, min: 1, max: 5, step: 1 },
-    {
-      id: 'lineStyle',
-      label: 'Line Style',
-      type: 'select',
-      defaultValue: 'solid',
-      options: [
-        { label: 'Solid', value: 'solid' },
-        { label: 'Dashed', value: 'dashed' },
-        { label: 'Dotted', value: 'dotted' }
-      ]
-    },
-    {
-      id: 'arrowType',
-      label: 'Arrow',
-      type: 'select',
-      defaultValue: 'end',
-      options: [
-        { label: 'None', value: 'none' },
-        { label: 'Starting Point', value: 'start' },
-        { label: 'End Point', value: 'end' },
-        { label: 'Both', value: 'both' }
-      ]
-    }
+    { id: 'lineWidth', label: 'Width', type: 'number', defaultValue: 1, min: 1, max: 5, step: 1 }
   ],
-  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { lineWidth: 1, lineStyle: 'solid', arrowType: 'end', lineColor: '#2196F3' } }],
+  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { lineWidth: 1, lineColor: '#2196F3' } }],
   createOverlayDef: () => ({
     name: 'arrow',
     totalStep: 3,
@@ -216,21 +193,24 @@ export const ArrowTool: ToolDefinition = {
       const customSettings = (overlay?.extendData as any)?.customSettings || {};
       const lineColor = customSettings.lineColor || '#2196F3';
       const lineWidth = customSettings.lineWidth || 1;
-      const lineStyle = customSettings.lineStyle || 'solid';
-      const arrowType = customSettings.arrowType || 'end';
-
-      let style = 'solid';
-      let dashedValue = [4, 4];
-      if (lineStyle === 'dashed') {
-        style = 'dashed';
-        dashedValue = [6, 6];
-      } else if (lineStyle === 'dotted') {
-        style = 'dashed';
-        dashedValue = [2, 3];
-      }
 
       const p1 = coordinates[0];
       const p2 = coordinates[1];
+
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const angle = Math.atan2(dy, dx);
+      const headLength = 12 + lineWidth; 
+
+      // Arrowhead points
+      const pLeft = {
+        x: p2.x - headLength * Math.cos(angle - Math.PI / 6),
+        y: p2.y - headLength * Math.sin(angle - Math.PI / 6)
+      };
+      const pRight = {
+        x: p2.x - headLength * Math.cos(angle + Math.PI / 6),
+        y: p2.y - headLength * Math.sin(angle + Math.PI / 6)
+      };
 
       const figures: any[] = [];
 
@@ -238,17 +218,17 @@ export const ArrowTool: ToolDefinition = {
       figures.push({
         type: 'line',
         attrs: { coordinates: [p1, p2] },
-        styles: {
-          style,
-          color: lineColor,
-          size: lineWidth,
-          dashedValue
-        },
+        styles: { color: lineColor, size: lineWidth },
         ignoreEvent: false
       });
 
       // Head Polygon
-      drawArrowHeads(figures, p1, p2, arrowType, lineColor, lineWidth);
+      figures.push({
+        type: 'polygon',
+        attrs: { coordinates: [p2, pLeft, pRight] },
+        styles: { style: 'fill', color: lineColor },
+        ignoreEvent: true
+      });
 
       // Grab Handles
       if ((overlay.extendData as any)?.isSelected) {
