@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Layers, Folder, FolderOpen, FolderPlus, Eye, EyeOff, Lock, Unlock, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Layers, Folder, FolderOpen, FolderPlus, Eye, EyeOff, Lock, Unlock, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
 import { drawingRepository } from '@/repository';
 import { ToolRegistry } from '@/framework/tools';
-import { TEXT_TOOLS } from '@/features/chart-workspace/components/DrawingToolbar';
+import { TEXT_TOOLS, DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -1455,7 +1455,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 title="Delete selected"
                 className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-status-error hover:bg-status-error/10 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
               >
-                <Trash2 className="w-4 h-4 text-current" />
+                <DeleteIcon className="w-4 h-4 text-current" />
               </button>
 
             </div>
@@ -1637,7 +1637,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                           }}
                           className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <DeleteIcon className="w-3.5 h-3.5 text-current" />
                         </button>
 
                       </div>
@@ -1774,7 +1774,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                                     }}
                                     className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <DeleteIcon className="w-3.5 h-3.5 text-current" />
                                   </button>
                                 </div>
                               </div>
@@ -1992,7 +1992,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         }}
                         className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <DeleteIcon className="w-3.5 h-3.5 text-current" />
                       </button>
                     </div>
                   </div>

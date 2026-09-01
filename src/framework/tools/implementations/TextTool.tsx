@@ -1,5 +1,4 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
-import { Type } from 'lucide-react';
 import { isOverlayVisible } from '../toolUtils';
 
 // Fixed font stack constant shared exactly between canvas drawing and HTML textarea
@@ -77,10 +76,16 @@ const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number, 
   return lines.length > 0 ? lines : [''];
 };
 
+const TextIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
+    <path fill="currentColor" d="M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z" />
+  </svg>
+);
+
 export const TextTool: ToolDefinition = {
   id: 'text',
   name: 'Text',
-  icon: Type,
+  icon: TextIcon,
   group: 'text',
   settingsSchema: [
     { id: 'text', label: 'Text', type: 'color', defaultValue: '' },

@@ -1,12 +1,13 @@
 import type { ToolDefinition } from '../ToolRegistry';
 import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
 
-// Simple SVG icon for TrendLine
-const TrendLineIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="7" y1="17" x2="17" y2="7" />
-    <circle cx="7" cy="17" r="2" />
-    <circle cx="17" cy="7" r="2" />
+// SVG icon for TrendLine matching TradingView
+const TrendLineIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
+    <g fill="currentColor" fillRule="nonzero">
+      <path d="M7.354 21.354l14-14-.707-.707-14 14z"></path>
+      <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z"></path>
+    </g>
   </svg>
 );
 
