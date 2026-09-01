@@ -414,7 +414,7 @@ export function getInteractiveOverlayOptions(
         });
       }
 
-      const isHandle = (toolName !== 'brush' && event.overlay?.name !== 'brush') && minDistance <= 22;
+      const isHandle = (toolName !== 'brush' && toolName !== 'highlighter' && event.overlay?.name !== 'brush' && event.overlay?.name !== 'highlighter') && minDistance <= 22;
       const currentDraggedIndex = isHandle ? closestIndex : null;
 
       // Set drag index on BOTH chart references before selection fires reconciliation
@@ -504,7 +504,7 @@ export function getInteractiveOverlayOptions(
         }
       }
 
-      if (draggedIndex === null || toolName === 'brush' || event.overlay?.name === 'brush') {
+      if (draggedIndex === null || toolName === 'brush' || toolName === 'highlighter' || event.overlay?.name === 'brush' || event.overlay?.name === 'highlighter') {
         const startPoints = event.overlay.extendData?.startPoints;
         const startMousePixel = event.overlay.extendData?.startMousePixel;
         const startPointsPixels = event.overlay.extendData?.startPointsPixels;

@@ -159,7 +159,7 @@ export function useDrawingHoverCursor({
           if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
             pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
           }
-          if (ov.name === 'brush' && Array.isArray(pts) && pts.length >= 2) {
+          if ((ov.name === 'brush' || ov.name === 'highlighter') && Array.isArray(pts) && pts.length >= 2) {
             pts = [pts[0], pts[pts.length - 1]];
           }
           if ((ov.name === 'fxText' || ov.name === 'text') && Array.isArray(pts) && pts[0]) {
@@ -219,7 +219,7 @@ export function useDrawingHoverCursor({
         } else if (
           ov.points &&
           ov.points.length >= 2 &&
-          ['brush', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)
+          ['brush', 'highlighter', 'trendLine', 'ray', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(ov.name)
         ) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),

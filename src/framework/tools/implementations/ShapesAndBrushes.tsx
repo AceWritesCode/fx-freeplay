@@ -66,6 +66,30 @@ const CurveIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 
 // ─── 1. Brush / Highlighter Tool ──────────────────────────────────────────────
 
+function chaikinSmooth(points: { x: number; y: number }[], iterations: number = 2): { x: number; y: number }[] {
+  if (points.length <= 2) return points;
+  let current = points;
+  for (let it = 0; it < iterations; it++) {
+    const smoothed: { x: number; y: number }[] = [];
+    smoothed.push(current[0]);
+    for (let i = 0; i < current.length - 1; i++) {
+      const p0 = current[i];
+      const p1 = current[i + 1];
+      smoothed.push({
+        x: 0.75 * p0.x + 0.25 * p1.x,
+        y: 0.75 * p0.y + 0.25 * p1.y,
+      });
+      smoothed.push({
+        x: 0.25 * p0.x + 0.75 * p1.x,
+        y: 0.25 * p0.y + 0.75 * p1.y,
+      });
+    }
+    smoothed.push(current[current.length - 1]);
+    current = smoothed;
+  }
+  return current;
+}
+
 const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
   name: id,
   totalStep: 2,
@@ -78,8 +102,8 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
     }
 
     const customSettings = (overlay?.extendData as any)?.customSettings || {};
-    const color = customSettings.lineColor || (isHighlighter ? 'rgba(255, 235, 59, 0.4)' : '#2196F3');
-    const width = customSettings.lineWidth || (isHighlighter ? 10 : 3);
+    const color = customSettings.lineColor || (isHighlighter ? 'rgba(33, 150, 243, 0.4)' : '#2196F3');
+    const width = customSettings.lineWidth || (isHighlighter ? 32 : 3);
 
     // If active live drawing stroke in progress, render live pixel trail directly
     const isLive = !!(overlay?.extendData as any)?.isLiveDrawing;
@@ -114,12 +138,13 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
 
     if (renderPoints.length < 2) return [];
 
+    const strokePoints = isHighlighter ? chaikinSmooth(renderPoints, 2) : renderPoints;
     const figures: any[] = [];
     
     // Draw connecting stroke segments
     figures.push({
       type: 'line',
-      attrs: { coordinates: renderPoints },
+      attrs: { coordinates: strokePoints },
       styles: {
         style: 'solid',
         color: color,
@@ -130,20 +155,22 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
       ignoreEvent: false
     });
 
-    // Draw arrowheads at endpoints if configured
-    const startArrow = customSettings.startArrow || 'normal';
-    const endArrow = customSettings.endArrow || 'normal';
-    if ((startArrow === 'arrow' || endArrow === 'arrow') && renderPoints.length >= 2) {
-      const pStart = renderPoints[0];
-      const pStartTangent = renderPoints[Math.min(renderPoints.length - 1, 4)];
-      const pEnd = renderPoints[renderPoints.length - 1];
-      const pEndTangent = renderPoints[Math.max(0, renderPoints.length - 5)];
+    // Draw arrowheads at endpoints if configured (brush only, highlighter has no arrows)
+    if (!isHighlighter) {
+      const startArrow = customSettings.startArrow || 'normal';
+      const endArrow = customSettings.endArrow || 'normal';
+      if ((startArrow === 'arrow' || endArrow === 'arrow') && renderPoints.length >= 2) {
+        const pStart = renderPoints[0];
+        const pStartTangent = renderPoints[Math.min(renderPoints.length - 1, 4)];
+        const pEnd = renderPoints[renderPoints.length - 1];
+        const pEndTangent = renderPoints[Math.max(0, renderPoints.length - 5)];
 
-      if (endArrow === 'arrow') {
-        drawArrowHeads(figures, pEndTangent, pEnd, 'normal', 'arrow', color, width);
-      }
-      if (startArrow === 'arrow') {
-        drawArrowHeads(figures, pStartTangent, pStart, 'normal', 'arrow', color, width);
+        if (endArrow === 'arrow') {
+          drawArrowHeads(figures, pEndTangent, pEnd, 'normal', 'arrow', color, width);
+        }
+        if (startArrow === 'arrow') {
+          drawArrowHeads(figures, pStartTangent, pStart, 'normal', 'arrow', color, width);
+        }
       }
     }
 
@@ -177,10 +204,10 @@ export const HighlighterTool: ToolDefinition = {
   icon: HighlighterIcon,
   group: 'shapes',
   settingsSchema: [
-    { id: 'lineColor', label: 'Color', type: 'color', defaultValue: 'rgba(255, 235, 59, 0.4)' },
-    { id: 'lineWidth', label: 'Width', type: 'number', defaultValue: 10, min: 5, max: 25, step: 1 }
+    { id: 'lineColor', label: 'Color', type: 'color', defaultValue: 'rgba(33, 150, 243, 0.4)' },
+    { id: 'lineWidth', label: 'Width', type: 'number', defaultValue: 32, min: 8, max: 96, step: 1 }
   ],
-  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { lineWidth: 10, lineColor: 'rgba(255, 235, 59, 0.4)' } }],
+  defaultTemplates: [{ id: 'default', name: 'Default', commonSettings: { lineWidth: 32, lineColor: 'rgba(33, 150, 243, 0.4)' } }],
   createOverlayDef: () => createBrushOverlayDef('highlighter', true)
 };
 

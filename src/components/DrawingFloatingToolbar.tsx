@@ -93,6 +93,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isBrush = firstOverlay?.name === 'brush';
+  const isHighlighter = firstOverlay?.name === 'highlighter';
   const isLineTool = ['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
@@ -652,22 +653,28 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             <button 
               onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
               className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'width' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
-              title="Line width"
+              title={isHighlighter ? "Highlighter stroke width" : "Line width"}
             >
-              <Minus className="w-4 h-4 stroke-[3px]" />
+              {isHighlighter ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 16c2-4 4-7 7-7s4 6 9 2" />
+                </svg>
+              ) : (
+                <Minus className="w-4 h-4 stroke-[3px]" />
+              )}
               <span className="text-[11px] font-semibold">{lineWidth}px</span>
             </button>
             
             {activeDropdown === 'width' && (
-              <div className="absolute top-full mt-2 left-0 w-24 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary">
-                {[1, 2, 3, 4].map(w => (
+              <div className="absolute top-full mt-2 left-0 w-24 bg-modal-bg border border-border-def rounded-lg py-1 flex flex-col shadow-xl z-50 text-txt-secondary max-h-60 overflow-y-auto">
+                {(isHighlighter ? [8, 12, 20, 32, 48, 64, 80, 96] : [1, 2, 3, 4]).map(w => (
                   <button
                     key={w}
                     onClick={() => handleUpdate({ lineWidth: w })}
-                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === lineWidth ? 'text-accent font-bold' : ''}`}
+                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === lineWidth ? 'text-accent font-bold bg-accent-muted' : ''}`}
                   >
-                    {w}px
-                    <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />
+                    <span>{w}px</span>
+                    {!isHighlighter && <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />}
                   </button>
                 ))}
               </div>
@@ -676,7 +683,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* Line Style */}
-        {!isText && !isBrush && (
+        {!isText && !isBrush && !isHighlighter && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'style'}
@@ -723,7 +730,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* Start Endpoint (Left) Arrow */}
-        {isLineTool && (
+        {isLineTool && !isHighlighter && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'startArrow' || startArrow === 'arrow'}
@@ -771,7 +778,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* End Endpoint (Right) Arrow */}
-        {isLineTool && (
+        {isLineTool && !isHighlighter && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'endArrow' || endArrow === 'arrow'}

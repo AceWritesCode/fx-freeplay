@@ -41,6 +41,8 @@ export function useBrushDrawing({
 
   const slotsRef = useRef(slots);
   slotsRef.current = slots;
+  const activeToolRef = useRef(activeTool);
+  activeToolRef.current = activeTool;
   const onSelectOverlayIdsRef = useRef(onSelectOverlayIds);
   onSelectOverlayIdsRef.current = onSelectOverlayIds;
   const setActiveToolRef = useRef(setActiveTool);
@@ -53,7 +55,7 @@ export function useBrushDrawing({
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    if (activeTool !== 'brush') {
+    if (activeTool !== 'brush' && activeTool !== 'highlighter') {
       // If tool deactivated while drawing, clean up
       if (previewCanvasRef.current) {
         previewCanvasRef.current.remove();
@@ -74,16 +76,21 @@ export function useBrushDrawing({
     const chart = chartInstancesRef.current[activeChartIndex];
     if (!container || !chart) return;
 
-    // Load current default brush settings
+    // Load current default tool settings (brush or highlighter)
+    const isHighlighter = activeTool === 'highlighter';
+    brushSettingsRef.current = {
+      lineColor: isHighlighter ? 'rgba(33, 150, 243, 0.4)' : '#2196F3',
+      lineWidth: isHighlighter ? 32 : 3,
+    };
     try {
-      const savedTemplates = localStorage.getItem('fx_templates_brush');
+      const savedTemplates = localStorage.getItem(`fx_templates_${activeTool}`);
       if (savedTemplates) {
         const parsed = JSON.parse(savedTemplates);
         const def = parsed.find((t: any) => t.id === 'default') || parsed[0];
         if (def && def.commonSettings) {
           brushSettingsRef.current = {
-            lineColor: def.commonSettings.lineColor || '#2196F3',
-            lineWidth: def.commonSettings.lineWidth || 3,
+            lineColor: def.commonSettings.lineColor || brushSettingsRef.current.lineColor,
+            lineWidth: def.commonSettings.lineWidth || brushSettingsRef.current.lineWidth,
           };
         }
       }
@@ -280,9 +287,11 @@ export function useBrushDrawing({
         },
       };
 
+      const targetToolName = activeToolRef.current || activeTool || 'brush';
+
       const drawingObj = {
         id: targetId,
-        name: 'brush',
+        name: targetToolName,
         points: cleanChartPoints,
         extendData: cleanExtendData,
         lock: false,
@@ -295,7 +304,7 @@ export function useBrushDrawing({
 
       // 2. Create overlay on chart instance
       chartInstance.createOverlay({
-        name: 'brush',
+        name: targetToolName,
         id: targetId,
         totalStep: 2,
         needDefaultPointFigure: false,

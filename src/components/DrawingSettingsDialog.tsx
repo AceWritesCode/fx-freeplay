@@ -964,7 +964,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         className="flex justify-between items-center px-5 py-4 border-b border-border-def cursor-move active:cursor-grabbing hover:bg-surface-hover transition-colors rounded-t-xl"
       >
         <span className="font-semibold text-[13.5px] tracking-wide text-txt-primary capitalize">
-          {overlay.name === 'trendLine' ? 'Trendline' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
+          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
         </span>
         <button onClick={handleCancel} className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer">
           <X className="w-4 h-4" />
@@ -974,7 +974,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       {/* Tabs navigation */}
       <div className="flex px-5 border-b border-border-def text-[12px] font-semibold gap-5 overflow-x-auto select-none bg-surface">
         {(
-          overlay.name === 'brush'
+          overlay.name === 'brush' || overlay.name === 'highlighter'
             ? ['style', 'visibility'] as const
             : overlay.name === 'longPosition' || overlay.name === 'shortPosition'
               ? ['style', 'inputs', 'visibility'] as const
@@ -1036,8 +1036,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                   {activeSelect === 'lineWidth' && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
-                        {[1, 2, 3, 4].map(w => (
+                      <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden max-h-60 overflow-y-auto">
+                        {(overlay.name === 'highlighter' ? [8, 12, 20, 32, 48, 64, 80, 96] : [1, 2, 3, 4]).map(w => (
                           <button
                             key={w}
                             onClick={() => { setLineWidth(w); setActiveSelect(null); }}
@@ -1052,7 +1052,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 </div>
 
                 {/* Line Style Dropdown */}
-                {overlay.name !== 'brush' && (
+                {overlay.name !== 'brush' && overlay.name !== 'highlighter' && (
                   <div className="relative">
                     <button
                       onClick={() => { setActiveSelect(activeSelect === 'lineStyle' ? null : 'lineStyle'); setActiveColorPicker(null); }}
