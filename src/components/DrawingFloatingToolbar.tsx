@@ -93,7 +93,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isRiskReward = firstOverlay?.name === 'longPosition' || firstOverlay?.name === 'shortPosition';
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isBrush = firstOverlay?.name === 'brush';
-  const isLineTool = ['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
+  const isLineTool = ['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const textAlign = customSettings.textAlign || 'left';

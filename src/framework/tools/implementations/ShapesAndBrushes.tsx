@@ -1,6 +1,6 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
-import { drawGrabHandles, isOverlayVisible } from '../toolUtils';
+import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -129,6 +129,23 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
       },
       ignoreEvent: false
     });
+
+    // Draw arrowheads at endpoints if configured
+    const startArrow = customSettings.startArrow || 'normal';
+    const endArrow = customSettings.endArrow || 'normal';
+    if ((startArrow === 'arrow' || endArrow === 'arrow') && renderPoints.length >= 2) {
+      const pStart = renderPoints[0];
+      const pStartTangent = renderPoints[Math.min(renderPoints.length - 1, 4)];
+      const pEnd = renderPoints[renderPoints.length - 1];
+      const pEndTangent = renderPoints[Math.max(0, renderPoints.length - 5)];
+
+      if (endArrow === 'arrow') {
+        drawArrowHeads(figures, pEndTangent, pEnd, 'normal', 'arrow', color, width);
+      }
+      if (startArrow === 'arrow') {
+        drawArrowHeads(figures, pStartTangent, pStart, 'normal', 'arrow', color, width);
+      }
+    }
 
     // Draw grab handles at the two endpoints (start and end) if selected
     if ((overlay.extendData as any)?.isSelected && renderPoints.length >= 2) {

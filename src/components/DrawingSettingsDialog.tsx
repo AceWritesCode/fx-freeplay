@@ -1081,7 +1081,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 )}
 
                 {/* Start Endpoint (Left) Arrow */}
-                {['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(overlay.name) && (
+                {['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(overlay.name) && (
                   <div className="relative">
                     <button
                       onClick={() => { setActiveSelect(activeSelect === 'startArrow' ? null : 'startArrow'); setActiveColorPicker(null); }}
@@ -1131,7 +1131,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 )}
 
                 {/* End Endpoint (Right) Arrow */}
-                {['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(overlay.name) && (
+                {['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(overlay.name) && (
                   <div className="relative">
                     <button
                       onClick={() => { setActiveSelect(activeSelect === 'endArrow' ? null : 'endArrow'); setActiveColorPicker(null); }}
