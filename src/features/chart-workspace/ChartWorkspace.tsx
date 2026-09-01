@@ -64,6 +64,10 @@ import { workspaceLayoutRepository, settingsRepository } from '@/repository';
 
 const HEADER_TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
 
+// Stable empty array to prevent useDrawingStore selectors from returning new [] instances on every render
+// (which would cause "getSnapshot should be cached" infinite loop)
+const EMPTY_DRAWING_LIST: ReturnType<typeof useDrawingStore.getState>['drawingsBySymbol'][string] = [];
+
 const layoutsList = [
   {
     type: '1',
@@ -1272,7 +1276,7 @@ export function ChartWorkspace() {
   };
 
   const currentSymbolDrawings = useDrawingStore(
-    (s) => (activeWatchlistSymbol ? s.drawingsBySymbol[activeWatchlistSymbol.toUpperCase()] || [] : [])
+    (s) => (activeWatchlistSymbol ? s.drawingsBySymbol[activeWatchlistSymbol.toUpperCase()] ?? EMPTY_DRAWING_LIST : EMPTY_DRAWING_LIST)
   );
   const isAllDrawingsLocked =
     currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.lock === true);
