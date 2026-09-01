@@ -81,16 +81,34 @@ const createBrushOverlayDef = (id: string, isHighlighter: boolean) => ({
     const color = customSettings.lineColor || (isHighlighter ? 'rgba(255, 235, 59, 0.4)' : '#2196F3');
     const width = customSettings.lineWidth || (isHighlighter ? 10 : 3);
 
-    // If active live drawing, render liveBrushPoints directly (pixels)
+    // If active live drawing stroke in progress, render live pixel trail directly
+    const isLive = !!(overlay?.extendData as any)?.isLiveDrawing;
     const livePoints = (overlay?.extendData as any)?.liveBrushPoints;
     let renderPoints: any[];
 
-    if (Array.isArray(livePoints) && livePoints.length > 0) {
+    if (isLive && Array.isArray(livePoints) && livePoints.length > 0) {
       renderPoints = livePoints;
     } else {
-      const pts = chart ? chart.convertToPixel(overlay.points || [], { paneId: 'candle_pane' }) : [];
+      // Finalized stroke: dynamically convert stored chart points ({timestamp, value, dataIndex}) to current viewport pixels
+      const rawPoints = overlay?.points || [];
+      const cleanPts = rawPoints.map((p: any) => ({
+        ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+        ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+        value: p.value,
+      }));
+      let pts = chart ? chart.convertToPixel(cleanPts, { paneId: 'candle_pane' }) : [];
+      if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
+        pts = chart ? chart.convertToPixel(rawPoints, { paneId: 'candle_pane' }) : [];
+      }
       renderPoints = Array.isArray(pts)
-        ? pts.filter((p: any) => p && typeof p.x === 'number' && typeof p.y === 'number')
+        ? pts.filter(
+            (p: any) =>
+              p &&
+              typeof p.x === 'number' &&
+              typeof p.y === 'number' &&
+              Number.isFinite(p.x) &&
+              Number.isFinite(p.y)
+          )
         : [];
     }
 

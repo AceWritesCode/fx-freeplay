@@ -233,6 +233,8 @@ export function getInteractiveOverlayOptions(
         delete cleanExtendData.startPointsPixels;
         delete cleanExtendData.startMousePixel;
         delete cleanExtendData.startMousePt;
+        delete cleanExtendData.liveBrushPoints;
+        delete cleanExtendData.isLiveDrawing;
 
         const drawingObj = {
           id: event.overlay.id,

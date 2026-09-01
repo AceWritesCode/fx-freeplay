@@ -143,6 +143,7 @@ export function useBrushDrawing({
             lineColor: brushSettingsRef.current.lineColor,
             lineWidth: brushSettingsRef.current.lineWidth,
           },
+          isLiveDrawing: true,
           liveBrushPoints: [{ x: startX, y: startY }],
         },
       });
@@ -182,6 +183,7 @@ export function useBrushDrawing({
                 lineColor: brushSettingsRef.current.lineColor,
                 lineWidth: brushSettingsRef.current.lineWidth,
               },
+              isLiveDrawing: true,
               liveBrushPoints: [...pts],
             },
           });
@@ -215,33 +217,46 @@ export function useBrushDrawing({
       // If user merely clicked with no drag movement, discard the stroke without creating a phantom line
       if (pts.length < 2) {
         chartInstance.removeOverlay({ id: targetId });
-        setActiveTool(null);
         return;
       }
 
-      // Convert recorded pixel path to chart candle coordinates
-      const chartPoints = chartInstance.convertFromPixel(pts, { paneId: 'candle_pane' });
-      if (!chartPoints || chartPoints.length < 2) {
+      // Convert recorded pixel path to chart candle coordinates ({ timestamp, value, dataIndex })
+      const rawChartPoints = chartInstance.convertFromPixel(pts, { paneId: 'candle_pane' });
+      if (!rawChartPoints || rawChartPoints.length < 2) {
         chartInstance.removeOverlay({ id: targetId });
-        setActiveTool(null);
+        return;
+      }
+
+      const cleanChartPoints = rawChartPoints
+        .filter((p: any) => p && typeof p.value === 'number' && Number.isFinite(p.value))
+        .map((p: any) => ({
+          ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+          ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+          value: p.value,
+        }));
+
+      if (cleanChartPoints.length < 2) {
+        chartInstance.removeOverlay({ id: targetId });
         return;
       }
 
       const currentSymbol = (slots[activeChartIndex]?.symbol || 'INGEST').toUpperCase();
 
+      const cleanExtendData = {
+        order: activeOrderRef.current,
+        groupId: activeGroupIdRef.current,
+        sourceSlotIndex: activeChartIndex,
+        customSettings: {
+          lineColor: brushSettingsRef.current.lineColor,
+          lineWidth: brushSettingsRef.current.lineWidth,
+        },
+      };
+
       const drawingObj = {
         id: targetId,
         name: 'brush',
-        points: chartPoints,
-        extendData: {
-          order: activeOrderRef.current,
-          groupId: activeGroupIdRef.current,
-          sourceSlotIndex: activeChartIndex,
-          customSettings: {
-            lineColor: brushSettingsRef.current.lineColor,
-            lineWidth: brushSettingsRef.current.lineWidth,
-          },
-        },
+        points: cleanChartPoints,
+        extendData: cleanExtendData,
         lock: false,
         visible: true,
         symbol: currentSymbol,
@@ -250,23 +265,23 @@ export function useBrushDrawing({
       // 1. Commit to authoritative Zustand store
       useDrawingStore.getState().addSymbolDrawing(currentSymbol, drawingObj);
 
-      // 2. Override overlay with finalized candle points and clean extendData
+      // 2. Override overlay with finalized candle points and clean extendData (clearing liveBrushPoints)
       chartInstance.overrideOverlay({
         id: targetId,
-        points: chartPoints,
-        extendData: drawingObj.extendData,
+        points: cleanChartPoints,
+        extendData: {
+          ...cleanExtendData,
+          isLiveDrawing: false,
+          liveBrushPoints: undefined,
+        },
       });
       DrawingChartAdapter.invalidatePane(chartInstance, 'candle_pane');
 
-      // 3. Auto-select the newly created brush stroke
-      onSelectOverlayIds([targetId]);
-
-      // 4. Reconcile across all chart slots
+      // 3. Reconcile across all chart slots
       syncAllDrawings();
       runWorkspaceReconciliation(chartInstancesRef);
 
-      // 5. Exit brush tool mode
-      setActiveTool(null);
+      // 4. Trigger UI notification (tool remains active for continuous freehand painting)
       setDrawingTrigger((prev) => prev + 1);
     };
 
