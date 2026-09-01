@@ -51,7 +51,11 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     autoResizeTextarea();
   }, [inputText, fontSize, isEditing, customSettings.boxWidth]);
 
-  // When selected, activate edit mode and auto-focus immediately
+  const isSelectedRef = useRef(isSelected);
+  const inputTextRef = useRef(inputText);
+  inputTextRef.current = inputText;
+
+  // When selected, activate edit mode and auto-focus immediately; on deselection, flush text & deactivate isEditingText
   useEffect(() => {
     if (isSelected && !isAnchorHovered && !isDragging) {
       setIsEditing(true);
@@ -77,8 +81,24 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         }
       }, 50);
       return () => clearTimeout(timer);
+    } else if (!isSelected && isSelectedRef.current) {
+      setIsEditing(false);
+      onTextChange(inputTextRef.current);
+      try {
+        if (chart && overlay?.id) {
+          chart.overrideOverlay({
+            id: overlay.id,
+            extendData: {
+              ...(overlay.extendData || {}),
+              isEditingText: false
+            }
+          });
+          DrawingChartAdapter.invalidatePane(chart);
+        }
+      } catch (_) {}
     }
-  }, [isSelected]);
+    isSelectedRef.current = isSelected;
+  }, [isSelected, isAnchorHovered, isDragging]);
 
   // When mouse hovers over anchor or starts dragging, deactivate typing and save text immediately
   useEffect(() => {
