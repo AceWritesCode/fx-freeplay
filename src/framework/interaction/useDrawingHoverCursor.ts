@@ -442,11 +442,14 @@ export function useDrawingHoverCursor({
         }
       });
 
+const ERASER_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="rgba(239,68,68,0.25)" stroke="#ef4444" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#ef4444"/></svg>`;
+const ERASER_CURSOR = `url("data:image/svg+xml;base64,${btoa(ERASER_CURSOR_SVG)}") 12 12, crosshair`;
+
       let finalCursor = 'default';
       if (chart._isSpacePressedRef?.current) {
         finalCursor = isMouseDown ? 'grabbing' : 'grab';
       } else if (drawingCoord.activeTool === 'eraser') {
-        finalCursor = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><circle cx=\'12\' cy=\'12\' r=\'7\' fill=\'rgba(239,68,68,0.15)\' stroke=\'%23ef4444\' stroke-width=\'2\'/><circle cx=\'12\' cy=\'12\' r=\'1.5\' fill=\'%23ef4444\'/></svg>") 12 12, crosshair';
+        finalCursor = ERASER_CURSOR;
       } else if (isInsideBody) {
         finalCursor = 'grab';
       } else if (drawingCoord.activeTool === 'brush' || drawingCoord.activeTool === 'highlighter') {
@@ -455,6 +458,10 @@ export function useDrawingHoverCursor({
 
       if (container.style.cursor !== finalCursor) {
         container.style.cursor = finalCursor;
+        const canvases = container.querySelectorAll('canvas');
+        canvases.forEach((c) => {
+          c.style.cursor = finalCursor;
+        });
       }
     };
 

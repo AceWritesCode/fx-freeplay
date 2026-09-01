@@ -20,7 +20,7 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
-import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing } from '@/framework/interaction';
+import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing, useEraserDrawing } from '@/framework/interaction';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -907,6 +907,14 @@ export function ChartWorkspace() {
     setActiveTool: drawingCoord.setActiveTool,
     syncAllDrawings: drawingCoord.syncAllDrawings,
     setDrawingTrigger: drawingCoord.setDrawingTrigger,
+  });
+
+  // Eraser custom cursor & Shift+drag whiteboard erasing trail
+  useEraserDrawing({
+    chartContainersRef,
+    chartInstancesRef,
+    activeTool: drawingCoord.activeTool,
+    activeChartIndex,
   });
 
   // Close custom timezone and flyouts when clicking outside

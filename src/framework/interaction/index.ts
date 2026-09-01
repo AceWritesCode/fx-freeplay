@@ -4,3 +4,4 @@ export * from './DrawingKeyboardShortcuts';
 export * from './DrawingInteractionManager';
 export * from './useDrawingHoverCursor';
 export * from './useBrushDrawing';
+export * from './useEraserDrawing';
