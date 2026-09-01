@@ -1134,7 +1134,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
       })()}
 
       {/* Bottom Sidebar: Favorite Drawing Tools Toolbar Toggle */}
-      <div className="mt-auto flex flex-col items-start gap-2 pt-2">
+      <div className="mt-auto w-[44px] flex items-center justify-center pt-2 pb-0.5">
         <button
           title="Favorite Drawing Tools Toolbar"
           aria-label="Favorite Drawing Tools Toolbar"
