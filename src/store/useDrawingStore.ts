@@ -66,7 +66,8 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
   favoriteTools: (() => {
     try {
       const saved = localStorage.getItem('fx_favorite_tools');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch (_) {
       return [];
     }

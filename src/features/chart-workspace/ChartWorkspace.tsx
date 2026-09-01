@@ -1292,9 +1292,7 @@ export function ChartWorkspace() {
 
   const activeSymbol = slots[activeChartIndex]?.symbol || (assetName !== 'No Asset Loaded' ? assetName : '');
   const activeSymbolKey = activeSymbol ? activeSymbol.toUpperCase() : '';
-  const currentSymbolDrawings = useDrawingStore((state) => 
-    activeSymbolKey ? state.drawingsBySymbol[activeSymbolKey] || [] : []
-  );
+  const currentSymbolDrawings = (activeSymbolKey && drawingsBySymbol[activeSymbolKey]) || [];
   const isAllDrawingsLocked = currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.lock === true);
   const isAllDrawingsHidden = currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.visible === false);
 
