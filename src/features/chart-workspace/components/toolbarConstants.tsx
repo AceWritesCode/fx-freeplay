@@ -1,6 +1,35 @@
 import React from 'react';
 import { Type, FileText, Table as TableIcon, MessageSquare } from 'lucide-react';
 
+export const TEXT_TOOLS = [
+  {
+    id: 'text',
+    name: 'Text',
+    icon: Type,
+  },
+  {
+    id: 'note',
+    name: 'Note',
+    icon: FileText,
+  },
+  {
+    id: 'table',
+    name: 'Table',
+    icon: TableIcon,
+  },
+  {
+    id: 'callout',
+    name: 'Callout',
+    icon: MessageSquare,
+  },
+];
+
+export const ToolIconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span className="w-[22px] h-[22px] flex items-center justify-center flex-shrink-0 text-current pointer-events-none select-none">
+    {children}
+  </span>
+);
+
 export const WeakMagnetIcon = ({ className = "w-full h-full", style }: { className?: string; style?: React.CSSProperties }) => (
   <svg
     className={className}
@@ -88,27 +117,4 @@ export const CURSOR_TOOLS = [
       </svg>
     )
   }
-];
-
-export const TEXT_TOOLS = [
-  {
-    id: 'text',
-    name: 'Text',
-    icon: Type,
-  },
-  {
-    id: 'note',
-    name: 'Note',
-    icon: FileText,
-  },
-  {
-    id: 'table',
-    name: 'Table',
-    icon: TableIcon,
-  },
-  {
-    id: 'callout',
-    name: 'Callout',
-    icon: MessageSquare,
-  },
 ];

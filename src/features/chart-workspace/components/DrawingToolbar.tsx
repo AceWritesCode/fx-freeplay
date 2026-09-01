@@ -13,20 +13,21 @@ import {
 } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
-import { 
-  WeakMagnetIcon, 
-  StrongMagnetIcon, 
-  CURSOR_TOOLS, 
-  TEXT_TOOLS 
-} from './drawingToolbarConstants';
+import {
+  TEXT_TOOLS,
+  ToolIconWrapper,
+  WeakMagnetIcon,
+  StrongMagnetIcon,
+  CURSOR_TOOLS,
+} from './toolbarConstants';
 
-export { WeakMagnetIcon, StrongMagnetIcon, CURSOR_TOOLS, TEXT_TOOLS };
-
-export const ToolIconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="w-[22px] h-[22px] flex items-center justify-center flex-shrink-0 text-current pointer-events-none select-none">
-    {children}
-  </span>
-);
+export {
+  TEXT_TOOLS,
+  ToolIconWrapper,
+  WeakMagnetIcon,
+  StrongMagnetIcon,
+  CURSOR_TOOLS,
+};
 
 interface DrawingToolbarProps {
   hasData: boolean;

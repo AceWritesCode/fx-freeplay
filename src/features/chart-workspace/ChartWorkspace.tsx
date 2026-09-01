@@ -1292,9 +1292,16 @@ export function ChartWorkspace() {
 
   const activeSymbol = slots[activeChartIndex]?.symbol || (assetName !== 'No Asset Loaded' ? assetName : '');
   const activeSymbolKey = activeSymbol ? activeSymbol.toUpperCase() : '';
-  const currentSymbolDrawings = (activeSymbolKey && drawingsBySymbol[activeSymbolKey]) || [];
-  const isAllDrawingsLocked = currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.lock === true);
-  const isAllDrawingsHidden = currentSymbolDrawings.length > 0 && currentSymbolDrawings.every((d) => d.visible === false);
+  const isAllDrawingsLocked = useDrawingStore((state) => {
+    if (!activeSymbolKey) return false;
+    const list = state.drawingsBySymbol[activeSymbolKey];
+    return Array.isArray(list) && list.length > 0 && list.every((d) => d.lock === true);
+  });
+  const isAllDrawingsHidden = useDrawingStore((state) => {
+    if (!activeSymbolKey) return false;
+    const list = state.drawingsBySymbol[activeSymbolKey];
+    return Array.isArray(list) && list.length > 0 && list.every((d) => d.visible === false);
+  });
 
   const handleToggleLockAll = useCallback(() => {
     if (!activeSymbol) return;

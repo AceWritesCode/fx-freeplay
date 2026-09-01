@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { GripVertical, Ruler, ZoomIn } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
-import { CURSOR_TOOLS, TEXT_TOOLS } from '@/features/chart-workspace/components/drawingToolbarConstants';
+import { CURSOR_TOOLS, TEXT_TOOLS } from '@/features/chart-workspace/components/toolbarConstants';
 
 interface FavoriteDrawingToolbarProps {
   activeTool: string | null;
@@ -29,9 +29,7 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
   cancelDrawingSession,
   setActiveTool,
 }) => {
-  const favoriteTools = useDrawingStore((state) => state.favoriteTools) || [];
-  const isFavoriteToolbarOpen = useDrawingStore((state) => state.isFavoriteToolbarOpen);
-  const reorderFavoriteTools = useDrawingStore((state) => state.reorderFavoriteTools);
+  const { favoriteTools, isFavoriteToolbarOpen, reorderFavoriteTools } = useDrawingStore();
 
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
