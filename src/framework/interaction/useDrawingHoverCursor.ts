@@ -16,7 +16,14 @@ export interface DrawingHoverCursorConfig {
     setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
   };
   isDrawingSettingsOpen?: boolean;
+  selectedCursorId?: string;
 }
+
+const ERASER_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="rgba(239,68,68,0.25)" stroke="#ef4444" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#ef4444"/></svg>`;
+const ERASER_CURSOR = `url("data:image/svg+xml;base64,${btoa(ERASER_CURSOR_SVG)}") 12 12, crosshair`;
+
+const DOT_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="4.5" fill="rgba(99,102,241,0.25)" stroke="#6366f1" stroke-width="1.8"/><circle cx="9" cy="9" r="1.5" fill="#6366f1"/></svg>`;
+const DOT_CURSOR = `url("data:image/svg+xml;base64,${btoa(DOT_CURSOR_SVG)}") 9 9, crosshair`;
 
 /**
  * Custom hook to manage global mouse interactions, brush stroke finalization,
@@ -31,6 +38,7 @@ export function useDrawingHoverCursor({
   handleSelectOverlayIds,
   drawingCoord,
   isDrawingSettingsOpen = false,
+  selectedCursorId = 'cross',
 }: DrawingHoverCursorConfig) {
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -442,10 +450,16 @@ export function useDrawingHoverCursor({
         }
       });
 
-const ERASER_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="rgba(239,68,68,0.25)" stroke="#ef4444" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#ef4444"/></svg>`;
-const ERASER_CURSOR = `url("data:image/svg+xml;base64,${btoa(ERASER_CURSOR_SVG)}") 12 12, crosshair`;
+      let baseCursor = 'crosshair';
+      if (selectedCursorId === 'arrow') {
+        baseCursor = 'default';
+      } else if (selectedCursorId === 'dot') {
+        baseCursor = DOT_CURSOR;
+      } else if (selectedCursorId === 'eraser' || drawingCoord.activeTool === 'eraser') {
+        baseCursor = ERASER_CURSOR;
+      }
 
-      let finalCursor = 'default';
+      let finalCursor = baseCursor;
       if (chart._isSpacePressedRef?.current) {
         finalCursor = isMouseDown ? 'grabbing' : 'grab';
       } else if (drawingCoord.activeTool === 'eraser') {
@@ -482,5 +496,6 @@ const ERASER_CURSOR = `url("data:image/svg+xml;base64,${btoa(ERASER_CURSOR_SVG)}
     handleSelectOverlayIds,
     drawingCoord,
     isDrawingSettingsOpen,
+    selectedCursorId,
   ]);
 }

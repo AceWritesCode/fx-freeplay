@@ -589,9 +589,10 @@ export function ChartWorkspace() {
         chart._selectedOverlayIds = selectedOverlayIds;
         chart._setSelectedOverlayIds = handleSelectOverlayIds;
         chart._activeTool = drawingCoord.activeTool;
+        chart._activeCursorTool = selectedCursorId;
       }
     });
-  }, [selectedOverlayIds, handleSelectOverlayIds, drawingCoord.activeTool]);
+  }, [selectedOverlayIds, handleSelectOverlayIds, drawingCoord.activeTool, selectedCursorId]);
 
   // Deselection transition effect: when a selected drawing is deselected, compare its chart state against stored record and commit changes
   const prevSelectedOverlayIdsRef = useRef<string[]>([]);
@@ -893,6 +894,7 @@ export function ChartWorkspace() {
     handleSelectOverlayIds,
     drawingCoord,
     isDrawingSettingsOpen,
+    selectedCursorId,
   });
 
   // Continuous freehand pointer tracking and persistence for the Brush tool
