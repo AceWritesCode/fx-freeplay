@@ -159,7 +159,13 @@ export function useDrawingHoverCursor({
               setTimeout(() => {
                 if (!chart._clickedOnOverlay && !chart._activeDrawingId) {
                   handleSelectOverlayIds([]);
-                  if (drawingCoord.activeTool && drawingCoord.activeTool !== 'eraser') {
+                  if (
+                    drawingCoord.activeTool &&
+                    drawingCoord.activeTool !== 'eraser' &&
+                    drawingCoord.activeTool !== 'measure' &&
+                    drawingCoord.activeTool !== 'brush' &&
+                    drawingCoord.activeTool !== 'highlighter'
+                  ) {
                     drawingCoord.setActiveTool(null);
                     chart.setScrollEnabled(true);
                     chart.setZoomEnabled(true);

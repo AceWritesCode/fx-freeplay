@@ -37,6 +37,14 @@ export function useMeasurementTool({
     const chart = chartInstancesRef.current[activeChartIndex];
     if (!container || !chart) return;
 
+    if (activeTool === 'measure') {
+      container.style.cursor = 'crosshair';
+      const canvases = container.querySelectorAll('canvas');
+      canvases.forEach((c) => {
+        c.style.cursor = 'crosshair';
+      });
+    }
+
     // Helper: format volume
     const formatVolume = (vol: number): string => {
       if (!vol || isNaN(vol)) return '0';
@@ -63,6 +71,26 @@ export function useMeasurementTool({
       return `${minutes}m`;
     };
 
+    // Thorough canvas clear across all scale transforms and devices
+    const clearMeasurementCanvas = () => {
+      for (let i = 0; i < chartContainersRef.current.length; i++) {
+        const c = chartContainersRef.current[i];
+        if (c) {
+          const canvases = c.querySelectorAll('.measurement-preview-canvas');
+          canvases.forEach((cv: any) => {
+            const ctx = cv.getContext('2d');
+            if (ctx) {
+              ctx.save();
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+              ctx.clearRect(0, 0, cv.width, cv.height);
+              ctx.restore();
+            }
+          });
+        }
+      }
+      measurementRef.current = null;
+    };
+
     // Render measurement box, coordinate lines with arrows, and info card
     const renderMeasurement = () => {
       const state = measurementRef.current;
@@ -81,9 +109,14 @@ export function useMeasurementTool({
         pCanvas.height = rect.height * dpr;
       }
 
+      // Complete clear of the full canvas buffer
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+      ctx.restore();
+
       ctx.save();
       ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, rect.width, rect.height);
 
       const { startX, startY, currentX, currentY } = state;
       const left = Math.min(startX, currentX);
@@ -173,7 +206,7 @@ export function useMeasurementTool({
       // 3. Compute measurement metrics
       const pricePercent = startPrice !== 0 ? (priceDiff / startPrice) * 100 : 0;
 
-      // Estimate ticks / points (e.g. priceDiff / 0.01)
+      // Estimate ticks / points
       const absDiff = Math.abs(priceDiff);
       let precision = 2;
       if (absDiff < 0.01 && absDiff > 0) precision = 5;
@@ -253,18 +286,6 @@ export function useMeasurementTool({
       ctx.restore();
     };
 
-    const clearMeasurementCanvas = () => {
-      const pCanvas = previewCanvasRef.current;
-      if (pCanvas) {
-        const ctx = pCanvas.getContext('2d');
-        if (ctx) {
-          const rect = container.getBoundingClientRect();
-          ctx.clearRect(0, 0, rect.width, rect.height);
-        }
-      }
-      measurementRef.current = null;
-    };
-
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
 
@@ -277,17 +298,16 @@ export function useMeasurementTool({
         return;
       }
 
-      // If we already have a completed measurement on canvas, dismiss it on next click
-      if (measurementRef.current?.isComplete) {
-        clearMeasurementCanvas();
-        if (activeToolRef.current === 'measure') {
-          setActiveToolRef.current(null);
-        }
-        return;
-      }
-
       const isShift = e.shiftKey;
       const isMeasureTool = activeToolRef.current === 'measure';
+
+      // If we already have a completed measurement on canvas, dismiss it
+      if (measurementRef.current?.isComplete) {
+        clearMeasurementCanvas();
+        if (!isMeasureTool && !isShift) {
+          return;
+        }
+      }
 
       if (!isMeasureTool && !isShift) {
         return;
@@ -356,11 +376,23 @@ export function useMeasurementTool({
       const state = measurementRef.current;
       if (!state || !state.isActive || state.isComplete) return;
 
-      state.isActive = false;
-      state.isComplete = true; // Mark complete but keep visible on screen!
-
       chart.setScrollEnabled(true);
       chart.setZoomEnabled(true);
+
+      const dx = Math.abs(state.currentX - state.startX);
+      const dy = Math.abs(state.currentY - state.startY);
+
+      if (dx < 4 && dy < 4) {
+        // Single click without dragging - clear canvas
+        clearMeasurementCanvas();
+        if (activeToolRef.current === 'measure') {
+          setActiveToolRef.current(null);
+        }
+        return;
+      }
+
+      state.isActive = false;
+      state.isComplete = true; // Mark complete but keep visible on screen!
 
       renderMeasurement();
     };
