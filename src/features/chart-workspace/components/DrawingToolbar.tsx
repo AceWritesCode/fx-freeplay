@@ -915,98 +915,116 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         </ToolIconWrapper>
       </button>
 
-      <div className="relative">
-        <button
-          title="Magnet Mode (Snap to OHLC) — right-click for options"
-          disabled={!hasData}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            closeAllMenus();
-            handleToggleMagnet();
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            if (!hasData) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            setMagnetMenuPos({ x: rect.right, y: rect.top });
-            const nextState = !isMagnetMenuOpen;
-            closeAllMenus('magnet');
-            setIsMagnetMenuOpen(nextState);
-          }}
-          className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-            magnetMode !== 'normal'
-              ? 'bg-accent-muted text-accent'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-          }`}
-          style={{ width: '34px', height: '34px' }}
-        >
-          <ToolIconWrapper>
-            {magnetMode === 'strong_magnet' && (
-              <StrongMagnetIcon className="w-full h-full text-current" />
-            )}
-            {magnetMode === 'weak_magnet' && (
-              <WeakMagnetIcon className="w-full h-full text-current" />
-            )}
-            {(magnetMode === 'normal_magnet' || magnetMode === 'normal') && (
-              <Magnet className="w-full h-full text-current" />
-            )}
-          </ToolIconWrapper>
-        </button>
+      {/* Magnet Tool with Dropdown Chevron */}
+      {(() => {
+        const isMagnetActive = magnetMode !== 'normal';
+        return (
+          <div className="relative flex items-center bg-transparent rounded-lg">
+            <button
+              title="Magnet Mode (Snap to OHLC)"
+              disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                closeAllMenus();
+                handleToggleMagnet();
+              }}
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+                isMagnetActive
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+              }`}
+              style={{ width: '34px', height: '34px' }}
+            >
+              <ToolIconWrapper>
+                {magnetMode === 'strong_magnet' && (
+                  <StrongMagnetIcon className="w-full h-full text-current" />
+                )}
+                {magnetMode === 'weak_magnet' && (
+                  <WeakMagnetIcon className="w-full h-full text-current" />
+                )}
+                {(magnetMode === 'normal_magnet' || magnetMode === 'normal') && (
+                  <Magnet className="w-full h-full text-current" />
+                )}
+              </ToolIconWrapper>
+            </button>
+            <button
+              title="More magnet options"
+              disabled={!hasData}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMagnetMenuPos({ x: rect.right, y: rect.top });
+                const nextState = !isMagnetMenuOpen;
+                closeAllMenus('magnet');
+                setIsMagnetMenuOpen(nextState);
+              }}
+              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+                isMagnetMenuOpen
+                  ? 'border-transparent bg-accent-muted text-accent z-10'
+                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+              }`}
+              style={{ width: '12px', height: '34px' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+                <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
 
-        {isMagnetMenuOpen && (
-          <div
-            ref={magnetMenuRef}
-            className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1.5 text-sm min-w-[170px] text-txt-secondary select-none"
-            style={{
-              left: `${magnetMenuPos.x + 6}px`,
-              top: `${magnetMenuPos.y}px`,
-            }}
-          >
-            <button
-              onClick={() => {
-                selectMagnetMode('weak_magnet');
-                setIsMagnetMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
-                magnetMode === 'weak_magnet'
-                  ? 'bg-accent-muted text-accent font-medium'
-                  : 'text-txt-secondary hover:bg-surface-hover hover:text-txt-primary'
-              }`}
-            >
-              <WeakMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'weak_magnet' ? 'text-accent' : 'text-txt-muted'} />
-              <span>Weak magnet</span>
-            </button>
-            <button
-              onClick={() => {
-                selectMagnetMode('normal_magnet');
-                setIsMagnetMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
-                magnetMode === 'normal_magnet'
-                  ? 'bg-accent-muted text-accent font-medium'
-                  : 'text-txt-secondary hover:bg-surface-hover hover:text-txt-primary'
-              }`}
-            >
-              <Magnet style={{ width: '20px', height: '20px' }} className={magnetMode === 'normal_magnet' ? 'text-accent' : 'text-txt-muted'} />
-              <span>Normal magnet</span>
-            </button>
-            <button
-              onClick={() => {
-                selectMagnetMode('strong_magnet');
-                setIsMagnetMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
-                magnetMode === 'strong_magnet'
-                  ? 'bg-accent-muted text-accent font-medium'
-                  : 'text-txt-secondary hover:bg-surface-hover hover:text-txt-primary'
-              }`}
-            >
-              <StrongMagnetIcon style={{ width: '20px', height: '20px' }} className={magnetMode === 'strong_magnet' ? 'text-accent' : 'text-txt-muted'} />
-              <span>Strong magnet</span>
-            </button>
+            {isMagnetMenuOpen && (
+              <div
+                ref={magnetMenuRef}
+                className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1 text-sm min-w-[200px] text-txt-secondary select-none"
+                style={{
+                  left: `${magnetMenuPos.x + 6}px`,
+                  top: `${magnetMenuPos.y}px`,
+                }}
+              >
+                {/* Header */}
+                <div className="px-3.5 py-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
+                  Magnet Mode
+                </div>
+
+                {/* Items */}
+                <div className="flex flex-col">
+                  {[
+                    { id: 'weak_magnet', name: 'Weak Magnet', icon: WeakMagnetIcon },
+                    { id: 'strong_magnet', name: 'Strong Magnet', icon: StrongMagnetIcon },
+                  ].map((item) => {
+                    const ItemIcon = item.icon;
+                    const isSelected = magnetMode === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          selectMagnetMode(item.id as 'weak_magnet' | 'strong_magnet');
+                          setIsMagnetMenuOpen(false);
+                        }}
+                        className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${
+                          isSelected
+                            ? 'bg-surface-elevated text-txt-primary font-medium'
+                            : 'hover:bg-surface-hover text-txt-secondary'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`w-7 h-7 flex items-center justify-center rounded ${
+                              isSelected ? 'text-accent' : 'text-txt-muted group-hover:text-txt-primary'
+                            }`}
+                          >
+                            <ItemIcon className="w-5 h-5 text-current" />
+                          </span>
+                          <span className="text-xs">{item.name}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })()}
     </aside>
   );
 };
