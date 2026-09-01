@@ -19,6 +19,7 @@ export interface ModifierKeyState {
   isShiftPressed: boolean;
   isAltPressed: boolean;
   isMetaPressed: boolean;
+  isSpacePressed: boolean;
 }
 
 export class ModifierKeyTracker {
@@ -27,6 +28,7 @@ export class ModifierKeyTracker {
     isShiftPressed: false,
     isAltPressed: false,
     isMetaPressed: false,
+    isSpacePressed: false,
   };
 
   private _listeners: Set<(state: ModifierKeyState) => void> = new Set();
@@ -79,6 +81,10 @@ export class ModifierKeyTracker {
     return this._state.isAltPressed;
   }
 
+  public get isSpacePressed(): boolean {
+    return this._state.isSpacePressed;
+  }
+
   public subscribe(listener: (state: ModifierKeyState) => void): () => void {
     this._listeners.add(listener);
     return () => this._listeners.delete(listener);
@@ -105,6 +111,10 @@ export class ModifierKeyTracker {
       this._state.isAltPressed = true;
       changed = true;
     }
+    if ((e.key === ' ' || e.code === 'Space') && !this._state.isSpacePressed) {
+      this._state.isSpacePressed = true;
+      changed = true;
+    }
 
     if (changed) {
       this._notify();
@@ -129,6 +139,10 @@ export class ModifierKeyTracker {
       this._state.isAltPressed = false;
       changed = true;
     }
+    if ((e.key === ' ' || e.code === 'Space') && this._state.isSpacePressed) {
+      this._state.isSpacePressed = false;
+      changed = true;
+    }
 
     if (changed) {
       this._notify();
@@ -150,13 +164,15 @@ export class ModifierKeyTracker {
       this._state.isCtrlPressed ||
       this._state.isMetaPressed ||
       this._state.isShiftPressed ||
-      this._state.isAltPressed
+      this._state.isAltPressed ||
+      this._state.isSpacePressed
     ) {
       this._state = {
         isCtrlPressed: false,
         isShiftPressed: false,
         isAltPressed: false,
         isMetaPressed: false,
+        isSpacePressed: false,
       };
       this._notify();
     }

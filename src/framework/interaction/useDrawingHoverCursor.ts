@@ -107,7 +107,7 @@ export function useDrawingHoverCursor({
       const chart = chartInstancesRef.current[activeIndex];
       if (!chart) return;
 
-      if (drawingCoord.activeTool) return;
+      if (drawingCoord.activeTool && drawingCoord.activeTool !== 'brush') return;
 
       const overlays = chart.getOverlays();
       const interactiveOverlays = overlays.filter(
@@ -342,7 +342,15 @@ export function useDrawingHoverCursor({
         }
       });
 
-      const finalCursor = isInsideBody ? 'grab' : 'default';
+      let finalCursor = 'default';
+      if (chart._isSpacePressedRef?.current) {
+        finalCursor = isMouseDown ? 'grabbing' : 'grab';
+      } else if (isInsideBody) {
+        finalCursor = 'grab';
+      } else if (drawingCoord.activeTool === 'brush') {
+        finalCursor = isAnchorHit ? 'pointer' : 'crosshair';
+      }
+
       if (container.style.cursor !== finalCursor) {
         container.style.cursor = finalCursor;
       }

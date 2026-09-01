@@ -22,6 +22,7 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
   // Expose modifier ref on chart instances for overlay clicks
   const isCtrlPressedRef = useRef(false);
   const isShiftPressedRef = useRef(false);
+  const isSpacePressedRef = useRef(false);
 
   useEffect(() => {
     modifierTracker.start();
@@ -29,11 +30,13 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
     const unsubscribe = modifierTracker.subscribe((state) => {
       isCtrlPressedRef.current = state.isCtrlPressed || state.isMetaPressed;
       isShiftPressedRef.current = state.isShiftPressed;
+      isSpacePressedRef.current = state.isSpacePressed;
 
       config.chartInstancesRef.current.forEach((chart) => {
         if (chart) {
           chart._isCtrlPressedRef = isCtrlPressedRef;
           chart._isShiftPressedRef = isShiftPressedRef;
+          chart._isSpacePressedRef = isSpacePressedRef;
         }
       });
     });
@@ -42,6 +45,7 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
       if (chart) {
         chart._isCtrlPressedRef = isCtrlPressedRef;
         chart._isShiftPressedRef = isShiftPressedRef;
+        chart._isSpacePressedRef = isSpacePressedRef;
       }
     });
 
@@ -125,5 +129,6 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
     modifierTracker,
     isCtrlPressedRef,
     isShiftPressedRef,
+    isSpacePressedRef,
   };
 }

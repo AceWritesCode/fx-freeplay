@@ -556,7 +556,7 @@ export function ChartWorkspace() {
   );
 
   // Initialize Drawing Interaction Layer (modifier keys, marquee selection, keyboard shortcuts)
-  useDrawingInteraction({
+  const drawingInteraction = useDrawingInteraction({
     chartContainersRef,
     chartInstancesRef,
     activeTool: drawingCoord.activeTool,
@@ -902,6 +902,8 @@ export function ChartWorkspace() {
     activeTool: drawingCoord.activeTool,
     activeChartIndex,
     slots,
+    hoveredOverlayId,
+    isSpacePressedRef: drawingInteraction.isSpacePressedRef,
     onSelectOverlayIds: handleSelectOverlayIds,
     setActiveTool: drawingCoord.setActiveTool,
     syncAllDrawings: drawingCoord.syncAllDrawings,

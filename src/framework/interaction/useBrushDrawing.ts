@@ -8,6 +8,8 @@ export interface BrushDrawingConfig {
   activeTool: string | null;
   activeChartIndex: number;
   slots: any[];
+  hoveredOverlayId: string | null;
+  isSpacePressedRef: React.MutableRefObject<boolean>;
   onSelectOverlayIds: (ids: string[]) => void;
   setActiveTool: (tool: string | null) => void;
   syncAllDrawings: () => void;
@@ -24,6 +26,8 @@ export function useBrushDrawing({
   activeTool,
   activeChartIndex,
   slots,
+  hoveredOverlayId,
+  isSpacePressedRef,
   onSelectOverlayIds,
   setActiveTool,
   syncAllDrawings,
@@ -74,6 +78,9 @@ export function useBrushDrawing({
       // Only handle primary button (left-click)
       if (e.button !== 0) return;
 
+      // If Space is held, Brush drawing is suspended (allows navigation / moving / clicking existing drawings)
+      if (isSpacePressedRef?.current) return;
+
       // Ignore clicks on floating UI, dialogs, buttons, toolbars
       const target = e.target as Element;
       if (
@@ -81,6 +88,11 @@ export function useBrushDrawing({
         (target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect], [role="dialog"]') ||
           target.closest('button, input, select, textarea, [role="button"], [role="menu"]'))
       ) {
+        return;
+      }
+
+      // If pointer is over an existing drawing / anchor, do not start a new brush stroke (allows selecting & dragging existing drawing)
+      if (hoveredOverlayId) {
         return;
       }
 
@@ -94,6 +106,9 @@ export function useBrushDrawing({
 
       e.preventDefault();
       e.stopPropagation();
+
+      // Clear previous selection so focus moves to the new stroke
+      onSelectOverlayIds([]);
 
       // Temporarily disable chart pan/zoom while drawing
       chart.setScrollEnabled(false);
@@ -277,11 +292,18 @@ export function useBrushDrawing({
       });
       DrawingChartAdapter.invalidatePane(chartInstance, 'candle_pane');
 
-      // 3. Reconcile across all chart slots
+      // 3. Immediately select the newly created brush stroke
+      onSelectOverlayIds([targetId]);
+      chartInstance._clickedOnOverlay = true;
+      if (chartInstance._setSelectedOverlayIds) {
+        chartInstance._setSelectedOverlayIds([targetId]);
+      }
+
+      // 4. Reconcile across all chart slots
       syncAllDrawings();
       runWorkspaceReconciliation(chartInstancesRef);
 
-      // 4. Trigger UI notification (tool remains active for continuous freehand painting)
+      // 5. Trigger UI notification (tool remains active for continuous freehand painting)
       setDrawingTrigger((prev) => prev + 1);
     };
 
@@ -308,6 +330,8 @@ export function useBrushDrawing({
     chartContainersRef,
     chartInstancesRef,
     slots,
+    hoveredOverlayId,
+    isSpacePressedRef,
     onSelectOverlayIds,
     setActiveTool,
     syncAllDrawings,
