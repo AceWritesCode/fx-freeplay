@@ -51,11 +51,7 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
     autoResizeTextarea();
   }, [inputText, fontSize, isEditing, customSettings.boxWidth]);
 
-  const isSelectedRef = useRef(isSelected);
-  const inputTextRef = useRef(inputText);
-  inputTextRef.current = inputText;
-
-  // When selected, activate edit mode and auto-focus immediately; on deselection, flush text & deactivate isEditingText
+  // When selected, activate edit mode and auto-focus immediately
   useEffect(() => {
     if (isSelected && !isAnchorHovered && !isDragging) {
       setIsEditing(true);
@@ -81,24 +77,8 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         }
       }, 50);
       return () => clearTimeout(timer);
-    } else if (!isSelected && isSelectedRef.current) {
-      setIsEditing(false);
-      onTextChange(inputTextRef.current);
-      try {
-        if (chart && overlay?.id) {
-          chart.overrideOverlay({
-            id: overlay.id,
-            extendData: {
-              ...(overlay.extendData || {}),
-              isEditingText: false
-            }
-          });
-          DrawingChartAdapter.invalidatePane(chart);
-        }
-      } catch (_) {}
     }
-    isSelectedRef.current = isSelected;
-  }, [isSelected, isAnchorHovered, isDragging]);
+  }, [isSelected]);
 
   // When mouse hovers over anchor or starts dragging, deactivate typing and save text immediately
   useEffect(() => {
@@ -243,6 +223,22 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
           setInputText(val);
           onTextChange(val);
           autoResizeTextarea();
+        }}
+        onBlur={() => {
+          setIsEditing(false);
+          onTextChange(inputText);
+          try {
+            if (chart && overlay?.id) {
+              chart.overrideOverlay({
+                id: overlay.id,
+                extendData: {
+                  ...(overlay.extendData || {}),
+                  isEditingText: false
+                }
+              });
+              DrawingChartAdapter.invalidatePane(chart);
+            }
+          } catch (_) {}
         }}
         onKeyDown={(e) => {
           e.stopPropagation();
