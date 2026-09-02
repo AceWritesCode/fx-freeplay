@@ -15,9 +15,7 @@ const WatchlistTabIcon = ({ className = "w-full h-full" }: { className?: string 
 
 const ObjectTreeTabIcon = ({ className = "w-full h-full" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" className={className}>
-    <path fill="currentColor" fillRule="evenodd" d="m22 11 11 11-11 11-11-11 11-11Zm0 1.414L12.414 22 22 31.586 31.586 22 22 12.414Z"></path>
-    <path fill="currentColor" fillRule="evenodd" d="m22 15 7 7-7 7-7-7 7-7Zm0 1.414L16.414 22 22 27.586 27.586 22 22 16.414Z"></path>
-    <path fill="currentColor" d="m22 19 3 3-3 3-3-3 3-3Z"></path>
+    <path fill="currentColor" d="M21.34 12.13a1 1 0 0 1 .98 0l10.41 5.93a1 1 0 0 1 0 1.73l-10.4 5.93a1 1 0 0 1-.99 0L10.78 19.8a1 1 0 0 1 0-1.75l10.56-5.92Zm.49.87-10.56 5.93 10.56 5.93 10.4-5.93L21.84 13ZM33.5 24.86l-11.66 6.8L10 25l.5-.87 11.33 6.38L32.99 24l.5.87Z"></path>
   </svg>
 );
 import { ObjectTreePanel } from '@/components/ObjectTreePanel';
@@ -130,7 +128,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           }`}
           title="Watchlist Panel"
         >
-          <WatchlistTabIcon className="w-[22px] h-[22px]" />
+          <WatchlistTabIcon className="w-7 h-7" />
         </button>
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
@@ -139,7 +137,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           }`}
           title="Object Tree Panel"
         >
-          <ObjectTreeTabIcon className="w-[22px] h-[22px]" />
+          <ObjectTreeTabIcon className="w-7 h-7" />
         </button>
       </div>
 
