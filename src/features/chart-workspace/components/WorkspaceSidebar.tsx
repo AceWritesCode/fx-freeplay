@@ -1,11 +1,25 @@
 import React, { useRef } from 'react';
 import { 
-  Folder, 
-  List, 
   Plus, 
   X, 
   AlertCircle
 } from 'lucide-react';
+
+// TradingView sidebar panel icons
+const WatchlistTabIcon = ({ className = "w-full h-full" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" className={className}>
+    <path fill="currentColor" d="M28 16H16v1h12v-1ZM28 20H16v1h12v-1ZM16 24h12v1H16v-1Z"></path>
+    <path fill="currentColor" fillRule="evenodd" d="m22 30-10 4V12a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v22l-10-4Zm-9 2.52V12h18v20.52l-9-3.6-9 3.6Z"></path>
+  </svg>
+);
+
+const ObjectTreeTabIcon = ({ className = "w-full h-full" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" className={className}>
+    <path fill="currentColor" fillRule="evenodd" d="m22 11 11 11-11 11-11-11 11-11Zm0 1.414L12.414 22 22 31.586 31.586 22 22 12.414Z"></path>
+    <path fill="currentColor" fillRule="evenodd" d="m22 15 7 7-7 7-7-7 7-7Zm0 1.414L16.414 22 22 27.586 27.586 22 22 16.414Z"></path>
+    <path fill="currentColor" d="m22 19 3 3-3 3-3-3 3-3Z"></path>
+  </svg>
+);
 import { ObjectTreePanel } from '@/components/ObjectTreePanel';
 
 interface WorkspaceSidebarProps {
@@ -116,7 +130,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           }`}
           title="Watchlist Panel"
         >
-          <List className="w-4 h-4" />
+          <WatchlistTabIcon className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
@@ -125,7 +139,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           }`}
           title="Object Tree Panel"
         >
-          <Folder className="w-4 h-4" />
+          <ObjectTreeTabIcon className="w-4 h-4" />
         </button>
       </div>
 
@@ -137,7 +151,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               {/* Panel header */}
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-sub">
                 <div className="flex items-center gap-2">
-                  <List className="w-3.5 h-3.5 text-accent" />
+                  <WatchlistTabIcon className="w-3.5 h-3.5 text-accent" />
                   <span className="text-xs font-bold uppercase tracking-widest text-txt-primary">Watchlist</span>
                   {watchlistSymbols.length > 0 && (
                     <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent-muted text-accent border border-accent/30 rounded-full">
@@ -195,7 +209,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         {importMode === 'folder' ? (
-                          <Folder className={`w-3.5 h-3.5 ${isSelected ? 'text-accent' : 'text-txt-muted group-hover/item:text-txt-primary'}`} />
+                          <ObjectTreeTabIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-accent' : 'text-txt-muted group-hover/item:text-txt-primary'}`} />
                         ) : (
                           <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-accent' : 'bg-surface-active group-hover:bg-txt-muted'}`} />
                         )}
