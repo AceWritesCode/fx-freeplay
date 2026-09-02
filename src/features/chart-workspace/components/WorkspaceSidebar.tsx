@@ -130,7 +130,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           }`}
           title="Watchlist Panel"
         >
-          <WatchlistTabIcon className="w-4 h-4" />
+          <WatchlistTabIcon className="w-[22px] h-[22px]" />
         </button>
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
@@ -139,7 +139,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           }`}
           title="Object Tree Panel"
         >
-          <ObjectTreeTabIcon className="w-4 h-4" />
+          <ObjectTreeTabIcon className="w-[22px] h-[22px]" />
         </button>
       </div>
 
