@@ -9,6 +9,8 @@ interface ChartSlotProps {
   settings: any;
   isSelectingCutPoint: boolean;
   cutPointHoverX: number | null;
+  isSettingResetView?: boolean;
+  resetViewHoverX?: number | null;
   isDrawingBlocked: boolean;
   selectedOverlayIds: string[];
   hoveredOverlayId: string | null;
@@ -27,6 +29,8 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
   settings,
   isSelectingCutPoint,
   cutPointHoverX,
+  isSettingResetView = false,
+  resetViewHoverX = null,
   isDrawingBlocked,
   selectedOverlayIds,
   hoveredOverlayId,
@@ -47,7 +51,13 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
     >
       <div
         ref={setContainerRef}
-        className={`w-full h-full ${isSelectingCutPoint && isActive ? 'cursor-cell' : ''}`}
+        className={`w-full h-full ${
+          isSelectingCutPoint && isActive
+            ? 'cursor-cell'
+            : isSettingResetView && isActive
+            ? 'cursor-crosshair'
+            : ''
+        }`}
         style={{
           background:
             settings.backgroundType === 'None'
@@ -92,6 +102,18 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
           className="absolute top-0 bottom-0 w-px border-l border-dashed border-status-error pointer-events-none z-30"
           style={{ left: `${cutPointHoverX}px` }}
         />
+      )}
+
+      {/* Vertical Reset View Point Selection Line */}
+      {isSettingResetView && isActive && resetViewHoverX !== null && (
+        <div
+          className="absolute top-0 bottom-0 w-px border-l border-dashed border-accent pointer-events-none z-30"
+          style={{ left: `${resetViewHoverX}px` }}
+        >
+          <div className="absolute top-12 -left-14 px-2 py-0.5 rounded bg-surface-elevated/95 border border-accent text-[10px] font-semibold text-accent shadow-md backdrop-blur-xs whitespace-nowrap select-none">
+            Reset View Point
+          </div>
+        </div>
       )}
 
       {/* Slot Info Badge */}

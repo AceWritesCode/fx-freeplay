@@ -293,6 +293,13 @@ export function ChartWorkspace() {
   const [hoveredOverlayId, setHoveredOverlayId] = useState<string | null>(null);
   const [isHoveringBottom10, setIsHoveringBottom10] = useState<boolean>(false);
 
+  // Reset View interactive configuration states
+  const [isSettingResetView, setIsSettingResetView] = useState<boolean>(false);
+  const [resetViewHoverX, setResetViewHoverX] = useState<number | null>(null);
+  const [isHoldingResetView, setIsHoldingResetView] = useState<boolean>(false);
+  const resetViewHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const resetViewHoldStartTimeRef = useRef<number>(0);
+
   const handleCanvasContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const distanceFromBottom = rect.bottom - e.clientY;
@@ -801,8 +808,9 @@ export function ChartWorkspace() {
             chart.setMaxOffsetLeftDistance(10000);
             chart.setMaxOffsetRightDistance(10000);
             
-            chart.setSymbol({ ticker: slots[i]?.symbol || 'INGEST', pricePrecision: settings.pricePrecision, volumePrecision: 4 });
-            chart.setPeriod(parseTimeframeToPeriod(slots[i]?.timeframe || '1m'));
+            const slotTf = slots[i]?.timeframe || '1m';
+            chart.setPeriod(parseTimeframeToPeriod(slotTf));
+            (chart as any)._loadedTimeframe = slotTf;
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
               handleCrosshairSync(i, params);
@@ -1183,7 +1191,8 @@ export function ChartWorkspace() {
         }
       } catch (_) {}
       
-      const targetOffset = chartWidth / 2;
+      const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
+      const targetOffset = chartWidth * resetRatio;
       chart.resize();
       chart.setOffsetRightDistance(targetOffset);
       chart.scrollToDataIndex(activeData.length - 1);
@@ -1194,6 +1203,85 @@ export function ChartWorkspace() {
       });
     });
   };
+
+  // Interactive listener for setting custom reset view point
+  useEffect(() => {
+    if (!isSettingResetView) return;
+
+    const container = chartContainersRef.current[activeChartIndex];
+    if (!container) return;
+
+    const handleContainerClick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = container.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const chartWidth = rect.width;
+      if (chartWidth <= 0) return;
+
+      const distanceFromRight = chartWidth - clickX;
+      const ratio = Math.max(0.05, Math.min(0.95, distanceFromRight / chartWidth));
+
+      // Save setting
+      const updated = { ...settings, resetViewOffsetRatio: ratio };
+      setSettings(updated);
+      settingsRepository.saveSettings(updated).catch(console.error);
+
+      setIsSettingResetView(false);
+      setResetViewHoverX(null);
+
+      // Slide all chart instances to the new reset view point
+      chartInstancesRef.current.forEach((chart, idx) => {
+        if (!chart) return;
+        const width = chart.getSize() && chart.getSize().width > 0 ? chart.getSize().width : chartWidth;
+        const targetOffset = width * ratio;
+        const slot = slots[idx];
+        const tfData = workspaceCoord.allTimeframesData[slot?.timeframe || '1m'] || [];
+        const lastIdx = tfData.length > 0 ? tfData.length - 1 : 0;
+        chart.resize();
+        chart.setOffsetRightDistance(targetOffset);
+        chart.scrollToDataIndex(lastIdx);
+        requestAnimationFrame(() => {
+          chart.setOffsetRightDistance(targetOffset);
+        });
+      });
+
+      setWatchlistToast({
+        msg: `Reset view point set to ${Math.round(ratio * 100)}% from right edge.`,
+        type: 'success',
+      });
+      setTimeout(() => setWatchlistToast(null), 3000);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      setResetViewHoverX(e.clientX - rect.left);
+    };
+
+    const handleMouseLeave = () => {
+      setResetViewHoverX(null);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsSettingResetView(false);
+        setResetViewHoverX(null);
+      }
+    };
+
+    container.addEventListener('click', handleContainerClick, true);
+    container.addEventListener('mousemove', handleMouseMove, true);
+    container.addEventListener('mouseleave', handleMouseLeave, true);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      container.removeEventListener('click', handleContainerClick, true);
+      container.removeEventListener('mousemove', handleMouseMove, true);
+      container.removeEventListener('mouseleave', handleMouseLeave, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSettingResetView, activeChartIndex, settings, setSettings, slots, workspaceCoord.allTimeframesData]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -1397,6 +1485,8 @@ export function ChartWorkspace() {
       settings={settings}
       isSelectingCutPoint={replayCoord.isSelectingCutPoint}
       cutPointHoverX={replayCoord.cutPointHoverX}
+      isSettingResetView={isSettingResetView}
+      resetViewHoverX={resetViewHoverX}
       isDrawingBlocked={drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i}
       selectedOverlayIds={selectedOverlayIds}
       hoveredOverlayId={hoveredOverlayId}
@@ -1773,16 +1863,63 @@ export function ChartWorkspace() {
                 <div className="w-8 h-8 rounded-full border-[3px] border-border-def border-t-accent animate-spin" />
               </div>
             )}
-            {hasData && (
+            {/* Reset View Point Setting Active Banner */}
+            {isSettingResetView && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-surface-elevated/95 border border-accent shadow-xl backdrop-blur-md text-[11px] font-semibold text-accent select-none">
+                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+                <span>Click anywhere on the chart to set your new Reset View point</span>
+                <button
+                  onClick={() => {
+                    setIsSettingResetView(false);
+                    setResetViewHoverX(null);
+                  }}
+                  className="ml-2 px-2 py-0.5 rounded text-[10px] text-txt-muted hover:text-txt-primary hover:bg-surface-hover cursor-pointer"
+                >
+                  Cancel (Esc)
+                </button>
+              </div>
+            )}
+            {hasData && !isSettingResetView && (
               <button
-                onClick={resetChartView}
-                title="Reset view (center last candle)"
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  resetViewHoldStartTimeRef.current = Date.now();
+                  setIsHoldingResetView(true);
+                  resetViewHoldTimerRef.current = setTimeout(() => {
+                    setIsHoldingResetView(false);
+                    setIsSettingResetView(true);
+                    setWatchlistToast({
+                      msg: 'Click anywhere on the chart canvas to set the new Reset View point (Esc to cancel).',
+                      type: 'info',
+                    });
+                    setTimeout(() => setWatchlistToast(null), 4000);
+                  }, 2000);
+                }}
+                onPointerUp={() => {
+                  if (resetViewHoldTimerRef.current) {
+                    clearTimeout(resetViewHoldTimerRef.current);
+                    resetViewHoldTimerRef.current = null;
+                  }
+                  const elapsed = Date.now() - resetViewHoldStartTimeRef.current;
+                  setIsHoldingResetView(false);
+                  if (elapsed < 2000 && !isSettingResetView) {
+                    resetChartView();
+                  }
+                }}
+                onPointerLeave={() => {
+                  if (resetViewHoldTimerRef.current) {
+                    clearTimeout(resetViewHoldTimerRef.current);
+                    resetViewHoldTimerRef.current = null;
+                  }
+                  setIsHoldingResetView(false);
+                }}
+                title="Click to reset view • Hold 2s to set reset view point"
                 className={`
                   absolute bottom-8 left-1/2 -translate-x-1/2 z-20
-                  flex items-center gap-1.5
+                  relative overflow-hidden flex items-center gap-1.5
                   px-3.5 py-1.5
                   bg-surface-elevated/90 hover:bg-surface-hover
-                  border border-border-def hover:border-border-focus
+                  border ${isHoldingResetView ? 'border-accent shadow-accent/20' : 'border-border-def hover:border-border-focus'}
                   text-txt-secondary hover:text-txt-primary
                   text-[10px] font-semibold tracking-wider uppercase
                   rounded-full
@@ -1791,14 +1928,34 @@ export function ChartWorkspace() {
                   transition-all duration-200
                   select-none
                   cursor-pointer
-                  ${isHoveringBottom10 ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'}
+                  ${isHoveringBottom10 || isHoldingResetView ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'}
                 `}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                {/* Hold visual progress indicator */}
+                {isHoldingResetView && (
+                  <span
+                    className="absolute inset-0 bg-accent/20 transition-all duration-[2000ms] ease-linear"
+                    style={{ width: isHoldingResetView ? '100%' : '0%' }}
+                  />
+                )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={isHoldingResetView ? 'animate-spin text-accent' : ''}
+                >
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                   <path d="M3 3v5h5"/>
                 </svg>
-                Reset View
+                <span className="relative z-10">
+                  {isHoldingResetView ? 'Hold to Set...' : 'Reset View'}
+                </span>
               </button>
             )}
           </div>
