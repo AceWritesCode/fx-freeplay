@@ -5,6 +5,45 @@ import type {
   StorageRecordItem,
 } from './DataManagementRepository';
 
+function isDrawingTemplateOrPresetKey(key: string): boolean {
+  return (
+    key.startsWith('fx_templates_') ||
+    key.startsWith('fx_default_settings_') ||
+    key.startsWith('fx_folders_') ||
+    key === 'fx_favorite_tools' ||
+    key === 'fx_favorite_toolbar_pos' ||
+    key === 'fx_favorite_toolbar_open' ||
+    key === 'fx_recent_colors' ||
+    key === 'fx_custom_theme' ||
+    key === 'fx_saved_custom_themes' ||
+    key === 'fx_custom_theme_presets'
+  );
+}
+
+function isApplicationSettingLocalStorageKey(key: string): boolean {
+  return (
+    key === 'fx_theme_mode' ||
+    key === 'fx_sync_chart_bg' ||
+    key === 'fx_magnet_mode' ||
+    key === 'tv_clone_settings'
+  );
+}
+
+function isWorkspaceLayoutLocalStorageKey(key: string): boolean {
+  return (
+    key === 'layout_type' ||
+    key === 'layout_slots' ||
+    key === 'layout_sizes' ||
+    key === 'active_layout_config'
+  );
+}
+
+function formatToolLabel(toolName: string): string {
+  if (!toolName) return 'Tool';
+  const spaced = toolName.replace(/([A-Z])/g, ' $1').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 export class DataManagementRepositoryImpl implements DataManagementRepository {
   async getStorageOverview(): Promise<CategoryStorageSummary[]> {
     const categories: CategoryStorageSummary[] = [];
@@ -52,6 +91,9 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
 
       for (const key of keys) {
         const keyStr = String(key);
+        // Exclude folders:* keys from pure drawings count
+        if (keyStr.startsWith('folders:')) continue;
+
         const val = await executeTx<any>(STORES.DRAWINGS, 'readonly', (store) => store.get(keyStr));
         if (Array.isArray(val)) {
           totalDrawings += val.length;
@@ -120,15 +162,36 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
 
     // 4. Workspace Layouts
     try {
-      const val = await executeTx<any>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.get('active_layout'));
-      const sizeBytes = val ? JSON.stringify(val).length : 0;
+      const keys = await executeTx<IDBValidKey[]>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.getAllKeys());
+      let totalBytes = 0;
+      let recordCount = 0;
+
+      for (const key of keys) {
+        const val = await executeTx<any>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.get(String(key)));
+        if (val) {
+          recordCount += 1;
+          totalBytes += JSON.stringify(val).length;
+        }
+      }
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && isWorkspaceLayoutLocalStorageKey(k)) {
+          const val = localStorage.getItem(k);
+          if (val) {
+            recordCount += 1;
+            totalBytes += val.length;
+          }
+        }
+      }
+
       categories.push({
         id: 'workspace_layout',
         name: 'Workspace Layouts',
         description: 'Saved window grid layouts, slot symbol configurations, and sync settings.',
         type: 'workspace_layout',
-        recordCount: val ? 1 : 0,
-        estimatedSizeBytes: sizeBytes,
+        recordCount,
+        estimatedSizeBytes: totalBytes,
       });
     } catch (err) {
       console.error('[DataManagementRepository] Failed to inspect workspace_layout store:', err);
@@ -144,15 +207,36 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
 
     // 5. Application Settings
     try {
-      const val = await executeTx<any>(STORES.SETTINGS, 'readonly', (store) => store.get('app_settings'));
-      const sizeBytes = val ? JSON.stringify(val).length : 0;
+      const keys = await executeTx<IDBValidKey[]>(STORES.SETTINGS, 'readonly', (store) => store.getAllKeys());
+      let totalBytes = 0;
+      let recordCount = 0;
+
+      for (const key of keys) {
+        const val = await executeTx<any>(STORES.SETTINGS, 'readonly', (store) => store.get(String(key)));
+        if (val) {
+          recordCount += 1;
+          totalBytes += JSON.stringify(val).length;
+        }
+      }
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && isApplicationSettingLocalStorageKey(k)) {
+          const val = localStorage.getItem(k);
+          if (val) {
+            recordCount += 1;
+            totalBytes += val.length;
+          }
+        }
+      }
+
       categories.push({
         id: 'settings',
         name: 'Application Preferences',
         description: 'Global chart settings, price precision, timezone, and theme preferences.',
         type: 'settings',
-        recordCount: val ? 1 : 0,
-        estimatedSizeBytes: sizeBytes,
+        recordCount,
+        estimatedSizeBytes: totalBytes,
       });
     } catch (err) {
       console.error('[DataManagementRepository] Failed to inspect settings store:', err);
@@ -173,7 +257,7 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
 
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('fx_templates_') || key.startsWith('fx_folders_') || key === 'fx_custom_theme_presets' || key === 'fx_recent_colors')) {
+        if (key && isDrawingTemplateOrPresetKey(key)) {
           templateCount += 1;
           const val = localStorage.getItem(key);
           if (val) {
@@ -182,10 +266,23 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
         }
       }
 
+      // Also check IndexedDB for folders:* records in DRAWINGS store
+      const drawingKeys = await executeTx<IDBValidKey[]>(STORES.DRAWINGS, 'readonly', (store) => store.getAllKeys());
+      for (const dKey of drawingKeys) {
+        const kStr = String(dKey);
+        if (kStr.startsWith('folders:')) {
+          const val = await executeTx<any>(STORES.DRAWINGS, 'readonly', (store) => store.get(kStr));
+          if (val) {
+            templateCount += 1;
+            templateBytes += JSON.stringify(val).length;
+          }
+        }
+      }
+
       categories.push({
         id: 'drawing_templates',
         name: 'Drawing Templates & Presets',
-        description: 'Saved drawing tool style templates, drawing folder hierarchies, and custom theme presets.',
+        description: 'Saved drawing tool style templates, tool default properties, favorite tools, and theme presets.',
         type: 'drawing_templates',
         recordCount: templateCount,
         estimatedSizeBytes: templateBytes,
@@ -195,7 +292,7 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
       categories.push({
         id: 'drawing_templates',
         name: 'Drawing Templates & Presets',
-        description: 'Saved drawing tool style templates, drawing folder hierarchies, and custom theme presets.',
+        description: 'Saved drawing tool style templates, tool default properties, favorite tools, and theme presets.',
         type: 'drawing_templates',
         recordCount: 0,
         estimatedSizeBytes: 0,
@@ -275,7 +372,7 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
     } else if (categoryId === 'drawing_templates') {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('fx_templates_') || key.startsWith('fx_folders_') || key === 'fx_custom_theme_presets' || key === 'fx_recent_colors')) {
+        if (key && isDrawingTemplateOrPresetKey(key)) {
           if (searchQuery && !key.toLowerCase().includes(searchQuery.toLowerCase())) continue;
           const val = localStorage.getItem(key);
           const sizeBytes = val ? val.length : 0;
@@ -283,39 +380,182 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
           try {
             parsedVal = val ? JSON.parse(val) : val;
           } catch (e) {}
+
+          let title = key;
+          let subtitle = 'Template / Preset';
+
+          if (key.startsWith('fx_templates_')) {
+            const toolName = key.replace('fx_templates_', '');
+            title = `${formatToolLabel(toolName)} Templates`;
+            const count = Array.isArray(parsedVal) ? parsedVal.length : 1;
+            subtitle = `${count} Saved Template(s)`;
+          } else if (key.startsWith('fx_default_settings_')) {
+            const toolName = key.replace('fx_default_settings_', '');
+            title = `${formatToolLabel(toolName)} Default Style`;
+            subtitle = 'Tool Default Properties (Colors, Styles, Opacity)';
+          } else if (key.startsWith('fx_folders_')) {
+            const sym = key.replace('fx_folders_', '');
+            title = `Drawing Folders (${sym.toUpperCase()})`;
+            const count = Array.isArray(parsedVal) ? parsedVal.length : 0;
+            subtitle = `${count} Folder(s) Configured`;
+          } else if (key === 'fx_favorite_tools') {
+            title = 'Favorite Drawing Tools';
+            const count = Array.isArray(parsedVal) ? parsedVal.length : 0;
+            subtitle = `${count} Pinned Tools`;
+          } else if (key === 'fx_favorite_toolbar_pos') {
+            title = 'Favorite Toolbar Position';
+            subtitle = `Floating Coordinates: X=${parsedVal?.x ?? 0}, Y=${parsedVal?.y ?? 0}`;
+          } else if (key === 'fx_favorite_toolbar_open') {
+            title = 'Favorite Toolbar Visible';
+            subtitle = `Visible: ${val}`;
+          } else if (key === 'fx_recent_colors') {
+            title = 'Recent Color Palette';
+            const count = Array.isArray(parsedVal) ? parsedVal.length : 0;
+            subtitle = `${count} Color Swatches`;
+          } else if (key === 'fx_custom_theme') {
+            title = 'Active Custom Theme';
+            subtitle = 'Custom Colors & Token Palette';
+          } else if (key === 'fx_saved_custom_themes' || key === 'fx_custom_theme_presets') {
+            title = 'Custom Theme Presets';
+            const count = Array.isArray(parsedVal) ? parsedVal.length : 0;
+            subtitle = `${count} Saved Theme Preset(s)`;
+          }
+
           items.push({
             id: key,
             category: 'drawing_templates',
-            title: key,
-            subtitle: key.startsWith('fx_templates_') ? 'Drawing Tool Template' : 'LocalStorage Preset',
+            title,
+            subtitle,
             sizeBytes,
             metadata: { key, value: parsedVal },
           });
         }
       }
+
+      // Also include IndexedDB folders if present in DRAWINGS store
+      const drawingKeys = await executeTx<IDBValidKey[]>(STORES.DRAWINGS, 'readonly', (store) => store.getAllKeys());
+      for (const dKey of drawingKeys) {
+        const kStr = String(dKey);
+        if (kStr.startsWith('folders:')) {
+          if (searchQuery && !kStr.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+          const val = await executeTx<any>(STORES.DRAWINGS, 'readonly', (store) => store.get(kStr));
+          if (val) {
+            const sym = kStr.replace('folders:', '');
+            const count = Array.isArray(val) ? val.length : 0;
+            items.push({
+              id: `idb:${kStr}`,
+              category: 'drawing_templates',
+              title: `Drawing Folders DB (${sym.toUpperCase()})`,
+              subtitle: `${count} Folder(s) in IndexedDB`,
+              sizeBytes: JSON.stringify(val).length,
+              metadata: { key: kStr, folders: val },
+            });
+          }
+        }
+      }
     } else if (categoryId === 'workspace_layout') {
-      const val = await executeTx<any>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.get('active_layout'));
-      if (val) {
-        items.push({
-          id: 'active_layout',
-          category: 'workspace_layout',
-          title: `Active Layout (${val.layoutType || '1'})`,
-          subtitle: `${val.slots?.length || 0} Slots Configured`,
-          sizeBytes: JSON.stringify(val).length,
-          metadata: val,
-        });
+      const keys = await executeTx<IDBValidKey[]>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.getAllKeys());
+      for (const key of keys) {
+        const keyStr = String(key);
+        if (searchQuery && !keyStr.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+        const val = await executeTx<any>(STORES.WORKSPACE_LAYOUT, 'readonly', (store) => store.get(keyStr));
+        if (val) {
+          const slotCount = Array.isArray(val.slots) ? val.slots.length : 0;
+          const assignedCount = Array.isArray(val.slots) ? val.slots.filter((s: any) => s?.symbol).length : 0;
+          const title = keyStr === 'current_layout_config' ? 'Current Workspace Layout' : keyStr;
+          const subtitle = `Layout Type: ${val.layoutType || '1'} • ${assignedCount}/${slotCount} Active Slots`;
+          items.push({
+            id: keyStr,
+            category: 'workspace_layout',
+            title,
+            subtitle,
+            sizeBytes: JSON.stringify(val).length,
+            metadata: val,
+          });
+        }
+      }
+
+      // Also include any localStorage layout keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && isWorkspaceLayoutLocalStorageKey(k)) {
+          if (searchQuery && !k.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+          const raw = localStorage.getItem(k);
+          let parsed: any = raw;
+          try {
+            parsed = raw ? JSON.parse(raw) : raw;
+          } catch {}
+          items.push({
+            id: `ls:${k}`,
+            category: 'workspace_layout',
+            title: `Layout Cache: ${k}`,
+            subtitle: typeof parsed === 'object' && parsed !== null ? `${Object.keys(parsed).length} Entries` : String(parsed),
+            sizeBytes: raw ? raw.length : 0,
+            metadata: { key: k, value: parsed },
+          });
+        }
       }
     } else if (categoryId === 'settings') {
-      const val = await executeTx<any>(STORES.SETTINGS, 'readonly', (store) => store.get('app_settings'));
-      if (val) {
-        items.push({
-          id: 'app_settings',
-          category: 'settings',
-          title: 'Global Application Settings',
-          subtitle: `Timezone: ${val.timezone || 'UTC'} • Theme: ${val.theme || 'dark'}`,
-          sizeBytes: JSON.stringify(val).length,
-          metadata: val,
-        });
+      const keys = await executeTx<IDBValidKey[]>(STORES.SETTINGS, 'readonly', (store) => store.getAllKeys());
+      for (const key of keys) {
+        const keyStr = String(key);
+        if (searchQuery && !keyStr.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+        const val = await executeTx<any>(STORES.SETTINGS, 'readonly', (store) => store.get(keyStr));
+        if (val) {
+          let title = keyStr;
+          let subtitle = 'Application Setting';
+          if (keyStr === 'global_settings') {
+            title = 'Global Chart & Application Settings';
+            subtitle = `Precision: ${val.pricePrecision ?? 'Auto'} • Timezone: ${val.userTimezoneLabel || 'UTC'} • Candle, Grid & Scales`;
+          } else if (keyStr === 'custom_timeframes') {
+            title = 'Custom Timeframes';
+            subtitle = `${Array.isArray(val) ? val.length : 0} Custom Timeframe Option(s)`;
+          }
+          items.push({
+            id: keyStr,
+            category: 'settings',
+            title,
+            subtitle,
+            sizeBytes: JSON.stringify(val).length,
+            metadata: val,
+          });
+        }
+      }
+
+      // Also include localStorage application preferences
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && isApplicationSettingLocalStorageKey(k)) {
+          if (searchQuery && !k.toLowerCase().includes(searchQuery.toLowerCase())) continue;
+          const raw = localStorage.getItem(k);
+          let parsed: any = raw;
+          try {
+            parsed = raw ? JSON.parse(raw) : raw;
+          } catch {}
+          let title = k;
+          let subtitle = 'Preference';
+          if (k === 'fx_theme_mode') {
+            title = 'Theme Mode Preference';
+            subtitle = `Active Theme: ${raw}`;
+          } else if (k === 'fx_sync_chart_bg') {
+            title = 'Sync Chart Background with Theme';
+            subtitle = `Enabled: ${raw}`;
+          } else if (k === 'fx_magnet_mode') {
+            title = 'Magnet Snapping Mode';
+            subtitle = `Active Mode: ${raw}`;
+          } else if (k === 'tv_clone_settings') {
+            title = 'Legacy Chart Settings Mirror';
+            subtitle = 'Synchronized Chart Settings';
+          }
+          items.push({
+            id: `ls:${k}`,
+            category: 'settings',
+            title,
+            subtitle,
+            sizeBytes: raw ? raw.length : 0,
+            metadata: { key: k, value: parsed },
+          });
+        }
       }
     }
 
@@ -360,11 +600,26 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
         console.warn('[DataManagementRepository] Store sync warning:', e);
       }
     } else if (categoryId === 'drawing_templates') {
-      localStorage.removeItem(recordId);
+      if (recordId.startsWith('idb:')) {
+        const key = recordId.replace('idb:', '');
+        await executeTx(STORES.DRAWINGS, 'readwrite', (store) => store.delete(key));
+      } else {
+        localStorage.removeItem(recordId);
+      }
     } else if (categoryId === 'workspace_layout') {
-      await executeTx(STORES.WORKSPACE_LAYOUT, 'readwrite', (store) => store.delete(recordId));
+      if (recordId.startsWith('ls:')) {
+        const key = recordId.replace('ls:', '');
+        localStorage.removeItem(key);
+      } else {
+        await executeTx(STORES.WORKSPACE_LAYOUT, 'readwrite', (store) => store.delete(recordId));
+      }
     } else if (categoryId === 'settings') {
-      await executeTx(STORES.SETTINGS, 'readwrite', (store) => store.delete(recordId));
+      if (recordId.startsWith('ls:')) {
+        const key = recordId.replace('ls:', '');
+        localStorage.removeItem(key);
+      } else {
+        await executeTx(STORES.SETTINGS, 'readwrite', (store) => store.delete(recordId));
+      }
     }
   }
 
@@ -395,17 +650,30 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
       }
     } else if (categoryId === 'workspace_layout') {
       await executeTx(STORES.WORKSPACE_LAYOUT, 'readwrite', (store) => store.clear());
+      const keysToRemove = ['layout_type', 'layout_slots', 'layout_sizes', 'active_layout_config'];
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     } else if (categoryId === 'settings') {
       await executeTx(STORES.SETTINGS, 'readwrite', (store) => store.clear());
+      const keysToRemove = ['fx_theme_mode', 'fx_sync_chart_bg', 'fx_magnet_mode', 'tv_clone_settings'];
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     } else if (categoryId === 'drawing_templates') {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('fx_templates_') || key.startsWith('fx_folders_') || key === 'fx_custom_theme_presets' || key === 'fx_recent_colors')) {
+        if (key && isDrawingTemplateOrPresetKey(key)) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      // Also clear folder entries in DRAWINGS store
+      const drawingKeys = await executeTx<IDBValidKey[]>(STORES.DRAWINGS, 'readonly', (store) => store.getAllKeys());
+      for (const dKey of drawingKeys) {
+        const kStr = String(dKey);
+        if (kStr.startsWith('folders:')) {
+          await executeTx(STORES.DRAWINGS, 'readwrite', (store) => store.delete(kStr));
+        }
+      }
     }
   }
 
