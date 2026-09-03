@@ -8,8 +8,7 @@ export function registerCustomOverlays() {
   // Initialize new tool framework
   initializeToolFramework();
 
-  // Custom drawing tools (rect, priceChannel) have been removed for the new framework.
-  // Their original code is backed up in src/utils/old-overlays-backup.ts.
+  // Custom drawing tools are registered via the tool framework.
 
   // 1. Custom Last Price Line (Unclamped)
   registerOverlay({

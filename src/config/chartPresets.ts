@@ -54,11 +54,15 @@ export interface ChartSettings {
 
   // Theme Sync Settings
   syncChartBackgroundWithTheme?: boolean; // When true, chart background changes with app theme (default: false)
+
+  // Reset View Settings
+  resetViewOffsetRatio?: number; // Preferred distance of last candle from right edge as a ratio of chart width (0.05-0.95, default: 0.5)
 }
 
 export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
   classic: {
     syncChartBackgroundWithTheme: false,
+    resetViewOffsetRatio: 0.5,
     showBody: true,
     bullColor: '#089981',
     bearColor: '#F23645',
@@ -103,6 +107,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
   },
   obsidian: {
     syncChartBackgroundWithTheme: false,
+    resetViewOffsetRatio: 0.5,
     showBody: true,
     bullColor: '#00E676',
     bearColor: '#FF3D00',
@@ -147,6 +152,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
   },
   matrix: {
     syncChartBackgroundWithTheme: false,
+    resetViewOffsetRatio: 0.5,
     showBody: true,
     bullColor: '#00FF66',
     bearColor: '#FF0055',

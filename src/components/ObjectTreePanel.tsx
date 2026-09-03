@@ -4,7 +4,8 @@ import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
 import { drawingRepository } from '@/repository';
 import { ToolRegistry } from '@/framework/tools';
-import { TEXT_TOOLS, DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
+import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
+import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -65,23 +66,28 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Load and sync folders per symbol
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`fx_folders_${activeSymbol}`);
-      const parsed = saved ? JSON.parse(saved) : [];
-      const initialized = parsed.map((f: any, idx: number) => ({
-        ...f,
-        order: f.order ?? (parsed.length - idx) * 100
-      }));
-      setFolders(initialized);
-    } catch {
+    if (!activeSymbol) {
       setFolders([]);
+      return;
     }
+    drawingRepository
+      .getFolders(activeSymbol)
+      .then((items) => {
+        const initialized = (items || []).map((f: any, idx: number) => ({
+          ...f,
+          order: f.order ?? ((items || []).length - idx) * 100,
+        }));
+        setFolders(initialized);
+      })
+      .catch(() => {
+        setFolders([]);
+      });
   }, [activeSymbol, setFolders]);
 
   // Persist folders
   useEffect(() => {
     if (activeSymbol && folders.length > 0) {
-      localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(folders));
+      drawingRepository.saveFolders(activeSymbol, folders);
     }
   }, [folders, activeSymbol]);
 
@@ -212,7 +218,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
     // 6. Save and update react states
     setFolders(nextFolders);
-    localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+    drawingRepository.saveFolders(activeSymbol, nextFolders);
     syncAllDrawings();
     setDrawingTrigger(prev => prev + 1);
   };
@@ -314,7 +320,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
     activeChart._candlesOrder = newCandlesOrder;
     setFolders(nextFolders);
-    localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+    drawingRepository.saveFolders(activeSymbol, nextFolders);
   }, [activeChart, folders, drawings, activeSymbol]);
 
   // Read drawings from chart
@@ -371,7 +377,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     const nextFolders = [...folders, newFolder];
     setFolders(nextFolders);
     if (activeSymbol) {
-      localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+      drawingRepository.saveFolders(activeSymbol, nextFolders);
     }
 
     // If there are selected drawings, immediately move them to this folder in store & IndexedDB
@@ -1107,7 +1113,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       const nextFolders = folders.map(f => (f.id === id ? { ...f, name: newName } : f));
       setFolders(nextFolders);
       if (activeSymbol) {
-        localStorage.setItem(`fx_folders_${activeSymbol}`, JSON.stringify(nextFolders));
+        drawingRepository.saveFolders(activeSymbol, nextFolders);
       }
     } else {
       if (activeSymbol) {
@@ -1285,13 +1291,6 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       return <ToolIcon className="w-4 h-4 text-txt-muted" />;
     }
 
-    // 2. Check TEXT_TOOLS
-    const textTool = TEXT_TOOLS.find((t) => t.id === toolName);
-    if (textTool && textTool.icon) {
-      const ToolIcon = textTool.icon;
-      return <ToolIcon className="w-4 h-4 text-txt-muted" />;
-    }
-
     // Fallback line icon
     return (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" className="text-txt-muted">
@@ -1312,12 +1311,6 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       );
     if (registeredTool && registeredTool.name) {
       return registeredTool.name;
-    }
-
-    // Check TEXT_TOOLS
-    const textTool = TEXT_TOOLS.find((t) => t.id === toolName);
-    if (textTool && textTool.name) {
-      return textTool.name;
     }
 
     // Fallback capitalize first letter
@@ -2009,13 +2002,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           </div>
         </div>
       ) : (
-        /* ── Data Window Tab Placeholder ── */
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-txt-muted">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" className="text-txt-muted mb-2 opacity-50">
-            <path stroke="currentColor" strokeWidth="2" d="M3 6h22M3 12h22M3 18h22" />
-          </svg>
-          <p className="text-[11px] leading-relaxed">Hover over a candle to view data window stats.</p>
-        </div>
+        <DataWindow
+          chartInstancesRef={chartInstancesRef}
+          activeChartIndex={activeChartIndex}
+          activeSymbol={activeSymbol}
+          activeTimeframe={activeTimeframe}
+        />
       )}
     </div>
   );

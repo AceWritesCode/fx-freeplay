@@ -11,24 +11,6 @@ export const TextIcon = ({ className = "w-full h-full text-current", style }: { 
   </svg>
 );
 
-export const NoteIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
-    <path fill="currentColor" fillRule="evenodd" d="M5 3h17v13H5V3Zm8 14H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h17a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-8v4.05a2.5 2.5 0 1 1-1 0V17Zm.5 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM14 5h3a1 1 0 0 1 1 1v2h-1V6h-3v7h2v1h-5v-1h2V6h-3v2H9V6a1 1 0 0 1 1-1h4Z" />
-  </svg>
-);
-
-export const TableIconComponent = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
-    <path fill="currentColor" fillRule="evenodd" d="M4 5a1 1 0 0 0-1 1v17a1 1 0 0 0 1 1h20a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H4Zm0 1h5v5H4V6Zm0 12v5h5v-5H4Zm6 0v5h14v-5H10Zm14-1v-5H10v5h14ZM9 17H4v-5h5v5Zm1-6V6h14v5H10Z" />
-  </svg>
-);
-
-export const CalloutIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
-    <path fill="currentColor" fillRule="nonzero" d="M6 21.586l3.586-3.586h13.407c.004 0 .007-11.993.007-11.993 0-.007-17-.007-17-.007v15.586zm-1 2.414v-18.005c0-.549.451-.995.995-.995h17.01c.549 0 .995.45.995 1.007v11.986c0 .556-.45 1.007-1.007 1.007h-12.993l-5 5z" />
-  </svg>
-);
-
 export const DeleteIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
     <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5.46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z" />
@@ -40,21 +22,6 @@ export const TEXT_TOOLS = [
     id: 'text',
     name: 'Text',
     icon: TextIcon,
-  },
-  {
-    id: 'note',
-    name: 'Note',
-    icon: NoteIcon,
-  },
-  {
-    id: 'table',
-    name: 'Table',
-    icon: TableIconComponent,
-  },
-  {
-    id: 'callout',
-    name: 'Callout',
-    icon: CalloutIcon,
   },
 ];
 
@@ -756,11 +723,13 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         );
       })()}
 
-      {/* Grouped Drawing Tools: Text & Notes */}
+      {/* Grouped Drawing Tools: Text */}
       {(() => {
-        const activeTextTool = TEXT_TOOLS.find(t => t.id === selectedTextToolId) || TEXT_TOOLS[0];
+        const textTools = ToolRegistry.getAll().filter(tool => tool.group === 'text');
+        const activeTextTool = ToolRegistry.get(selectedTextToolId) || textTools[0] || ToolRegistry.get('text');
+        if (!activeTextTool) return null;
         const Icon = activeTextTool.icon;
-        const isGroupActive = activeTool && (activeTool === 'text' || activeTool === 'note' || activeTool === 'table' || activeTool === 'callout');
+        const isGroupActive = activeTool && ToolRegistry.get(activeTool)?.group === 'text';
         return (
           <div className="relative flex items-center bg-transparent rounded-lg">
             <button
@@ -769,9 +738,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 closeAllMenus();
-                if (activeTextTool.id === 'text') {
-                  handleSelectTool('text');
-                }
+                handleSelectTool(activeTextTool.id);
               }}
               className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isGroupActive
@@ -785,7 +752,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               </ToolIconWrapper>
             </button>
             <button
-              title="More text & notes tools"
+              title="More text tools"
               disabled={!hasData}
               onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
@@ -819,12 +786,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               >
                 {/* Header */}
                 <div className="px-3.5 py-1.5 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
-                  Text & Notes
+                  Text
                 </div>
 
                 {/* Items */}
                 <div className="flex flex-col">
-                  {TEXT_TOOLS.map(tool => {
+                  {textTools.map(tool => {
                     const ToolIcon = tool.icon;
                     const isSelected = selectedTextToolId === tool.id;
                     return (
@@ -832,9 +799,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                         key={tool.id}
                         onClick={() => {
                           setSelectedTextToolId(tool.id);
-                          if (tool.id === 'text') {
-                            handleSelectTool('text');
-                          }
+                          handleSelectTool(tool.id);
                           closeAllMenus();
                         }}
                         className={`group flex items-center justify-between px-3.5 py-1.5 w-full text-left transition-colors ${

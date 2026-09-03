@@ -189,9 +189,8 @@ export function useDrawingCoordinator(
     chart._activeDrawingId = newDrawingId;
     const newOrder = maxOrder + 1;
 
-    const folderSettings = localStorage.getItem(`fx_folders_${slots[activeChartIndex]?.symbol || 'INGEST'}`);
-    const parsedFolders = folderSettings ? JSON.parse(folderSettings) : [];
-    const activeFolder = parsedFolders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
+    const folders = useDrawingStore.getState().folders;
+    const activeFolder = folders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
     const activeGroupId = activeFolder?.id || undefined;
 
     // For freehand Brush, Highlighter, Eraser, Measure, and ZoomIn tools, don't pre-create an overlay
