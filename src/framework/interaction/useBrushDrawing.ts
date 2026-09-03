@@ -132,14 +132,14 @@ export function useBrushDrawing({
       chart.setZoomEnabled(false);
 
       // Determine order and folder group
-      const currentSymbol = slotsRef.current[activeChartIndex]?.symbol || 'INGEST';
       let activeGroupId: string | undefined = undefined;
       try {
-        const folderSettings = localStorage.getItem(`fx_folders_${currentSymbol}`);
-        const parsedFolders = folderSettings ? JSON.parse(folderSettings) : [];
-        const activeFolder = parsedFolders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
+        const folders = useDrawingStore.getState().folders;
+        const activeFolder = folders.find((f: any) => !f.isCollapsed && !f.isLocked && f.isVisible);
         activeGroupId = activeFolder?.id || undefined;
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[useBrushDrawing] Folder resolution error:', err);
+      }
 
       const overlays = (chart as any).getOverlays?.() || [];
       const maxOrder = overlays.reduce((max: number, ov: any) => {

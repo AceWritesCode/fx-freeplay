@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { GripVertical } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
-import { CURSOR_TOOLS, TEXT_TOOLS, MeasureIcon, ZoomInIcon } from '@/features/chart-workspace/components/DrawingToolbar';
+import { CURSOR_TOOLS, MeasureIcon, ZoomInIcon } from '@/features/chart-workspace/components/DrawingToolbar';
 
 interface FavoriteDrawingToolbarProps {
   activeTool: string | null;
@@ -142,27 +142,7 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
       };
     }
 
-    // 2. Text Tools
-    const text = TEXT_TOOLS.find((t) => t.id === toolId);
-    if (text) {
-      const isSelected = activeTool === toolId;
-      return {
-        id: text.id,
-        name: text.name,
-        icon: text.icon,
-        isActive: isSelected,
-        onClick: () => {
-          setSelectedTextToolId(toolId);
-          if (activeTool === toolId) {
-            cancelDrawingSession();
-          } else {
-            handleSelectTool(toolId);
-          }
-        },
-      };
-    }
-
-    // 3. Special Tools
+    // 2. Special Tools
     if (toolId === 'measure') {
       return {
         id: 'measure',
@@ -195,7 +175,7 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
       };
     }
 
-    // 4. Registry Tools
+    // 3. Registry Tools (Lines, Shapes, Text, Forecast)
     const registered = ToolRegistry.get(toolId);
     if (registered) {
       const isSelected = activeTool === toolId;
@@ -208,6 +188,7 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
           if (registered.group === 'lines') setSelectedLineToolId(toolId);
           if (registered.group === 'shapes') setSelectedShapeToolId(toolId);
           if (registered.group === 'forecast') setSelectedForecastToolId(toolId);
+          if (registered.group === 'text') setSelectedTextToolId(toolId);
 
           if (activeTool === toolId) {
             cancelDrawingSession();
