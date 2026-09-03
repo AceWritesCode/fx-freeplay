@@ -1,6 +1,6 @@
 import type { KLineData } from '@/utils/dataUtils';
 import type { ChartSettings, TimeframeOption } from '@/config';
-import type { WatchlistSymbol, SlotConfig, LayoutSizes } from '@/store/types';
+import type { WatchlistSymbol, SlotConfig, LayoutSizes, FolderItem } from '@/store/types';
 
 export interface MigrationScript {
   version: number;
@@ -54,6 +54,8 @@ export interface DrawingRepository {
   getDrawings(symbol: string): Promise<any[]>;
   saveDrawings(symbol: string, drawings: any[]): Promise<void>;
   clearDrawings(symbol: string): Promise<void>;
+  getFolders(symbol: string): Promise<FolderItem[]>;
+  saveFolders(symbol: string, folders: FolderItem[]): Promise<void>;
 }
 
 export interface SettingsRepository {

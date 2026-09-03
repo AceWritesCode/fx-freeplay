@@ -381,7 +381,7 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
       await executeTx(STORES.DRAWINGS, 'readwrite', (store) => store.clear());
       try {
         const { useDrawingStore } = await import('@/store');
-        useDrawingStore.setState({ drawingsBySymbol: {}, drawings: [] });
+        useDrawingStore.setState({ drawingsBySymbol: {} });
       } catch (e) {
         console.warn('[DataManagementRepository] Store sync warning:', e);
       }
@@ -457,7 +457,6 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
 
       useDrawingStore.setState({
         drawingsBySymbol: {},
-        drawings: [],
         folders: [],
         selectedOverlayIds: [],
       });

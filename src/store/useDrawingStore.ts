@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DrawingInstance, FolderItem } from './types';
+import type { FolderItem } from './types';
 import { drawingRepository } from '@/repository';
 import { getOriginalDrawingId } from '@/engine/charting';
 
@@ -18,8 +18,7 @@ interface DrawingState {
   // Authoritative Symbol-Keyed State
   drawingsBySymbol: Record<string, DrawingItem[]>;
   
-  // Legacy / UI Selection & Folder State
-  drawings: DrawingInstance[];
+  // UI Selection & Folder State
   folders: FolderItem[];
   selectedOverlayIds: string[];
 
@@ -35,13 +34,9 @@ interface DrawingState {
   findSymbolByDrawingId: (id: string) => { symbol: string; drawing: DrawingItem } | null;
   removeSymbolDrawingById: (id: string) => void;
 
-  // General & Legacy Store Actions
-  setDrawings: (drawings: DrawingInstance[]) => void;
-  addDrawing: (drawing: DrawingInstance) => void;
-  updateDrawing: (id: string, updates: Partial<DrawingInstance>) => void;
-  removeDrawing: (id: string) => void;
-  clearDrawings: () => void;
-  
+  // Folder & Selection Actions
+  loadSymbolFolders: (symbol: string) => Promise<FolderItem[]>;
+  saveSymbolFolders: (symbol: string, folders: FolderItem[]) => Promise<void>;
   setFolders: (folders: FolderItem[] | ((prev: FolderItem[]) => FolderItem[])) => void;
   addFolder: (folder: FolderItem) => void;
   updateFolder: (id: string, updates: Partial<FolderItem>) => void;
@@ -62,7 +57,6 @@ interface DrawingState {
 
 export const useDrawingStore = create<DrawingState>((set, get) => ({
   drawingsBySymbol: {},
-  drawings: [],
   folders: [],
   selectedOverlayIds: [],
   favoriteTools: (() => {
@@ -248,22 +242,23 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     }
   },
 
-  // Legacy Actions (Preserved for compatibility)
-  setDrawings: (drawings) => set(() => ({ drawings })),
+  loadSymbolFolders: async (symbol: string) => {
+    if (!symbol) return [];
+    try {
+      const loaded = await drawingRepository.getFolders(symbol);
+      set({ folders: loaded });
+      return loaded;
+    } catch (err) {
+      console.error(`[useDrawingStore] Failed to load folders for ${symbol}:`, err);
+      return [];
+    }
+  },
 
-  addDrawing: (drawing) => set((state) => ({ drawings: [...state.drawings, drawing] })),
-
-  updateDrawing: (id, updates) =>
-    set((state) => ({
-      drawings: state.drawings.map((d) => (d.id === id ? { ...d, ...updates } : d)),
-    })),
-
-  removeDrawing: (id) =>
-    set((state) => ({
-      drawings: state.drawings.filter((d) => d.id !== id),
-    })),
-
-  clearDrawings: () => set(() => ({ drawings: [], selectedOverlayIds: [] })),
+  saveSymbolFolders: async (symbol: string, folders: FolderItem[]) => {
+    if (!symbol) return;
+    set({ folders });
+    await drawingRepository.saveFolders(symbol, folders);
+  },
 
   setFolders: (folders) =>
     set((state) => ({

@@ -25,30 +25,6 @@ export interface WatchlistSymbol {
   settings?: any;
 }
 
-/**
- * Represents a single coordinate point of a drawing anchor on the chart canvas.
- */
-export interface DrawingPoint {
-  timestamp?: number;
-  dataIndex?: number;
-  value?: number;
-}
-
-/**
- * Represents a user-drawn overlay shape instance metadata.
- */
-export interface DrawingInstance {
-  id: string;             // Unique ID for the specific drawing
-  toolId: string;         // References the ToolDefinition in the registry
-  name: string;           // Custom user-defined name
-  groupId?: string;       // Folder group reference ID
-  isVisible: boolean;     // Toggle visibility state
-  isLocked: boolean;      // Position modification lock flag
-  templateId?: string;    // Reference to a custom style template
-  settings: Record<string, any>; // Color, style, and extension configuration overrides
-  points: DrawingPoint[]; // Coordinate points of anchors
-  chartId: string;        // ID of the target chart slot
-}
 
 /**
  * Represents a folder node for organizing visual chart drawing shapes.
