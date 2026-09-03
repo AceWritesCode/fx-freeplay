@@ -1,7 +1,12 @@
+import { getTimeframeMinutes } from '@/domain/market';
+
 /**
  * Timeframe parser helper for drawing overlays visibility checks.
  */
 export const parseTimeframe = (tf: string): { value: number; unit: string } => {
+  if (tf === 'D' || tf === '1D') return { value: 1, unit: 'days' };
+  if (tf === 'W' || tf === '1W') return { value: 1, unit: 'weeks' };
+  if (tf === 'M' || tf === '1M') return { value: 1, unit: 'months' };
   const match = tf.match(/^(\d+)([a-zA-Z]+)$/);
   if (!match) return { value: 1, unit: 'minutes' };
   const val = parseInt(match[1]);
@@ -14,6 +19,34 @@ export const parseTimeframe = (tf: string): { value: number; unit: string } => {
   else if (unitChar === 'w' || unitChar === 'W') unit = 'weeks';
   else if (unitChar === 'M') unit = 'months';
   return { value: val, unit };
+};
+
+/**
+ * Detects the candle interval in milliseconds directly from candlestick dataList,
+ * falling back to the chart's timeframe or 1 minute.
+ */
+export const getCandleIntervalMs = (
+  dataList: { timestamp: number }[],
+  tfFallback?: string,
+  chart?: { _loadedTimeframe?: string }
+): number => {
+  if (dataList && dataList.length >= 2) {
+    const len = dataList.length;
+    let minDiff = Infinity;
+    const sampleCount = Math.min(len - 1, 10);
+    for (let i = len - 1; i >= len - sampleCount; i--) {
+      const diff = dataList[i].timestamp - dataList[i - 1].timestamp;
+      if (diff > 0 && diff < minDiff) {
+        minDiff = diff;
+      }
+    }
+    if (isFinite(minDiff) && minDiff > 0) {
+      return minDiff;
+    }
+  }
+
+  const tf = tfFallback || chart?._loadedTimeframe || '1m';
+  return getTimeframeMinutes(tf) * 60 * 1000;
 };
 
 /**

@@ -1,6 +1,7 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
-import { isOverlayVisible, parseTimeframe, makeOpaqueColor, boostColorOpacity } from '../toolUtils';
+import { isOverlayVisible, makeOpaqueColor, boostColorOpacity, getCandleIntervalMs } from '../toolUtils';
+import { findCandleIndexByTimestamp } from '@/engine/replay';
 
 // ─── Long Position Icon ──────────────────────────────────────────────────────
 const LongPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
@@ -194,13 +195,7 @@ const computeDefaultRRPoints = (
   const tpVal = isLong ? entryVal + diff : entryVal - diff;
   const slVal = isLong ? entryVal - diff : entryVal + diff;
 
-  const { value, unit } = parseTimeframe(tf);
-  let tfMinutes = value;
-  if (unit === 'hours') tfMinutes = value * 60;
-  else if (unit === 'days') tfMinutes = value * 1440;
-  else if (unit === 'weeks') tfMinutes = value * 10080;
-  else if (unit === 'months') tfMinutes = value * 43200;
-  const tfMs = tfMinutes * 60 * 1000;
+  const candleIntervalMs = getCandleIntervalMs(dataList, tf, chart);
 
   const diMin = entryDi;
   // Do NOT clamp diMax to dataList.length-1 — doing so causes the right edge
@@ -209,9 +204,17 @@ const computeDefaultRRPoints = (
   // timestamp arithmetic so the box always extends 30 bars to the right.
   const diMax = diMin + 30;
   const xMin = entryTs;
-  const xMax = diMax < dataList.length
-    ? dataList[diMax].timestamp
-    : entryTs + 30 * tfMs;
+
+  let xMax: number;
+  if (dataList && dataList.length > 0 && diMax < dataList.length && diMax >= 0) {
+    xMax = dataList[diMax].timestamp;
+  } else if (dataList && dataList.length > 0) {
+    const lastCandle = dataList[dataList.length - 1];
+    const barsBeyondLast = diMax - (dataList.length - 1);
+    xMax = lastCandle.timestamp + barsBeyondLast * candleIntervalMs;
+  } else {
+    xMax = entryTs + 30 * candleIntervalMs;
+  }
 
   return [
     { timestamp: xMin, value: tpVal, dataIndex: diMin },
@@ -731,8 +734,29 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
   if (points.length >= 6) return;
 
   const p0       = points[0];
-  const dataList = event.chart.getDataList();
+  const dataList = event.chart.getDataList() || [];
   const tf       = event.chart?._loadedTimeframe || '1m';
+
+  // Accurately resolve entry candle dataIndex from entry timestamp
+  let entryDi = p0.dataIndex;
+  if (typeof entryDi !== 'number' || entryDi === undefined || entryDi < 0) {
+    if (dataList.length > 0) {
+      const foundIdx = findCandleIndexByTimestamp(dataList, p0.timestamp);
+      if (foundIdx >= 0) {
+        entryDi = foundIdx;
+      } else {
+        const lastCandle = dataList[dataList.length - 1];
+        const interval = getCandleIntervalMs(dataList, tf, event.chart);
+        if (p0.timestamp > lastCandle.timestamp) {
+          entryDi = (dataList.length - 1) + Math.round((p0.timestamp - lastCandle.timestamp) / interval);
+        } else {
+          entryDi = 0;
+        }
+      }
+    } else {
+      entryDi = 0;
+    }
+  }
 
   let initialSizePercent = 18;
   try {
@@ -748,7 +772,7 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
   } catch (_) {}
 
   const newPoints = computeDefaultRRPoints(
-    p0.value, p0.timestamp, p0.dataIndex ?? 0, isLong, dataList, tf, event.chart, initialSizePercent
+    p0.value, p0.timestamp, entryDi, isLong, dataList, tf, event.chart, initialSizePercent
   );
 
   // ── Synchronous call ────────────────────────────────────────────────────
@@ -772,21 +796,15 @@ const onDrawEndRiskReward = (event: any, isLong: boolean) => {
 
 const onPressedMovingRiskReward = (event: any, draggedIndex: number | null, isLong: boolean) => {
   if (draggedIndex === null) return false;
-  let points = [...event.overlay.points];
+  const points = [...event.overlay.points];
   if (points.length < 6) {
     return false;
   }
 
   const chart = event.chart;
-  const dataList = chart.getDataList();
+  const dataList = chart.getDataList() || [];
   const tf = chart?._loadedTimeframe || '1m';
-  const { value: tfVal, unit: tfUnit } = parseTimeframe(tf);
-  let tfMinutes = tfVal;
-  if (tfUnit === 'hours') tfMinutes = tfVal * 60;
-  else if (tfUnit === 'days') tfMinutes = tfVal * 1440;
-  else if (tfUnit === 'weeks') tfMinutes = tfVal * 10080;
-  else if (tfUnit === 'months') tfMinutes = tfVal * 43200;
-  const tfMs = tfMinutes * 60 * 1000;
+  const tfMs = getCandleIntervalMs(dataList, tf, chart);
 
   const mousePt = chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
   if (!mousePt) {
