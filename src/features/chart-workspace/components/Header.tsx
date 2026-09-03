@@ -8,6 +8,7 @@ import {
   Database
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
+import { CaptureButton } from '@/features/capture-recording';
 
 interface HeaderProps {
   assetName: string;
@@ -501,6 +502,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
             )}
           </div>
         )}
+
+        <CaptureButton />
 
         {onOpenDataManagementModal && (
           <button

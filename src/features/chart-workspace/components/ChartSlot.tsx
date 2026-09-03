@@ -42,6 +42,9 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
 }) => {
   return (
     <div
+      data-chart-slot-index={slotIndex}
+      data-chart-symbol={slotInfo?.symbol || ''}
+      data-chart-timeframe={slotInfo?.timeframe || ''}
       onClick={() => onSelectSlot(slotIndex)}
       className={`
         relative w-full h-full bg-slot-bg overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
