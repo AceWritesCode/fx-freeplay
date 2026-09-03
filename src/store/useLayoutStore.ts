@@ -15,8 +15,12 @@ interface LayoutState {
   syncDateRange: boolean;
   syncDrawings: boolean;
 
+  // Lifecycle
+  isBootstrapped: boolean;
+
   // Actions
   setInitialState: (config: Partial<LayoutState>) => void;
+  setIsBootstrapped: (val: boolean) => void;
   setLayoutType: (type: string) => void;
   setActiveChartIndex: (index: number) => void;
   setSlots: (slots: SlotConfig[]) => void;
@@ -71,16 +75,22 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   syncDateRange: true,
   syncDrawings: true,
 
+  isBootstrapped: false,
+
   setInitialState: (config) =>
     set((state) => ({
       ...state,
       ...config,
+      isBootstrapped: true,
       layoutSizes: {
         ...DEFAULT_LAYOUT_SIZES,
         ...state.layoutSizes,
         ...(config.layoutSizes || {}),
       },
     })),
+
+  setIsBootstrapped: (val) =>
+    set(() => ({ isBootstrapped: val })),
 
   setLayoutType: (type) =>
     set(() => ({ layoutType: type })),

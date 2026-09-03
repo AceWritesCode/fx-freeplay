@@ -232,6 +232,10 @@ export function useWorkspaceCoordinator(
         }
       } catch (err) {
         console.error('Failed to bootstrap workspace repositories:', err);
+      } finally {
+        if (isMounted) {
+          useLayoutStore.getState().setIsBootstrapped(true);
+        }
       }
     }
 

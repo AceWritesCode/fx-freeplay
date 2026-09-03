@@ -230,6 +230,7 @@ export function ChartWorkspace() {
     syncDateRange,
     syncDrawings,
     setSyncSetting,
+    isBootstrapped,
   } = useLayoutStore();
 
   const {
@@ -321,7 +322,7 @@ export function ChartWorkspace() {
 
   // Derived states
   const hasData = slots.some((s) => s.symbol !== null);
-  const assetName = slots[activeChartIndex]?.symbol || 'No Asset Loaded';
+  const assetName = slots[activeChartIndex]?.symbol || (isBootstrapped ? 'No Asset Loaded' : '');
   const activeTimeframe = slots[activeChartIndex]?.timeframe || '1m';
 
   // Hydrate UI Theme CSS variables from storage on mount
@@ -1723,6 +1724,10 @@ export function ChartWorkspace() {
                   </>
                 )}
               </div>
+            </div>
+          ) : !isBootstrapped ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-app-bg select-none">
+              <div className="w-8 h-8 rounded-full border-[3px] border-border-def border-t-accent animate-spin" />
             </div>
           ) : !hasData ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-app-bg p-6 text-center select-none">
