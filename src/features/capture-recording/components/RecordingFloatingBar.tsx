@@ -141,12 +141,12 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span
               className={`w-2 h-2 rounded-full ${
-                recordingStatus === 'recording' ? 'bg-status-error animate-pulse' : 'bg-amber-500'
+                recordingStatus === 'recording' ? 'bg-status-error animate-pulse' : 'bg-status-warning'
               }`}
             />
             <span
               className={`font-mono text-xs font-bold tracking-wider flex-shrink-0 transition-colors duration-300 ${
-                recordingStatus === 'recording' ? 'text-status-error' : 'text-amber-500'
+                recordingStatus === 'recording' ? 'text-status-error' : 'text-status-warning'
               }`}
             >
               {recordingStatus === 'recording' ? 'REC' : 'PAUSED'} {formatTime(recordingElapsedSeconds)}
@@ -198,7 +198,7 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
                 type="button"
                 onClick={() => void stopVideoRecordingSession()}
                 title="Stop recording"
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold text-white bg-status-error hover:bg-status-error/90 transition-colors cursor-pointer shadow-xs"
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold text-txt-inverse bg-status-error hover:bg-status-error/90 transition-colors cursor-pointer shadow-xs"
               >
                 <Square className="w-2.5 h-2.5 fill-current" />
                 <span>Stop</span>

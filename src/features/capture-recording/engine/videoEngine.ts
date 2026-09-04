@@ -14,6 +14,7 @@ export interface VideoEngineOptions {
   format?: 'webm' | 'mp4';
   mimeType?: string;
   timesliceMs?: number;
+  onError?: (error: Error) => void;
 }
 
 export interface VideoEngineResult {
@@ -82,6 +83,19 @@ export function getSupportedVideoMimeType(format: 'webm' | 'mp4' = 'webm'): stri
   return format === 'mp4' ? null : 'video/webm';
 }
 
+/**
+ * Safely revokes an object URL created for a video result.
+ */
+export function revokeVideoObjectUrl(url?: string | null): void {
+  if (url && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // Ignore revocation errors
+    }
+  }
+}
+
 export class VideoEngine {
   private mediaRecorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;
@@ -94,6 +108,7 @@ export class VideoEngine {
   private stopPromiseResolve: ((result: VideoEngineResult) => void) | null = null;
   private stopPromiseReject: ((reason?: unknown) => void) | null = null;
   private isCancelling: boolean = false;
+  private onErrorCallback: ((error: Error) => void) | null = null;
 
   /**
    * Returns current recording state: 'inactive' | 'recording' | 'paused'
@@ -120,6 +135,7 @@ export class VideoEngine {
     this.startTime = performance.now();
     this.pausedDuration = 0;
     this.pauseStartTime = 0;
+    this.onErrorCallback = options.onError ?? null;
 
     const format = options.format || 'webm';
 
@@ -164,12 +180,20 @@ export class VideoEngine {
 
     this.mediaRecorder.onerror = (event: Event) => {
       const errorMsg = (event as ErrorEvent).message || 'MediaRecorder runtime error';
+      const err = new Error(errorMsg);
+      const callback = this.onErrorCallback;
+
       if (this.stopPromiseReject) {
-        this.stopPromiseReject(new Error(errorMsg));
+        this.stopPromiseReject(err);
         this.stopPromiseReject = null;
         this.stopPromiseResolve = null;
       }
+
       this.cleanup();
+
+      if (callback) {
+        callback(err);
+      }
     };
 
     this.mediaRecorder.onstop = () => {
@@ -208,7 +232,20 @@ export class VideoEngine {
     if (track) {
       track.onended = () => {
         if (this.state === 'recording' || this.state === 'paused') {
-          void this.stop();
+          const err = new Error('Video recording stream track ended unexpectedly');
+          const callback = this.onErrorCallback;
+
+          if (this.stopPromiseReject) {
+            this.stopPromiseReject(err);
+            this.stopPromiseReject = null;
+            this.stopPromiseResolve = null;
+          }
+
+          this.cleanup();
+
+          if (callback) {
+            callback(err);
+          }
         }
       };
     }
@@ -293,6 +330,8 @@ export class VideoEngine {
     }
 
     this.isCancelling = true;
+    this.onErrorCallback = null; // Do not fire error callback when intentionally cancelling
+
     if (this.stopPromiseReject) {
       this.stopPromiseReject(new Error('Recording cancelled'));
       this.stopPromiseReject = null;
@@ -320,6 +359,7 @@ export class VideoEngine {
     this.startTime = 0;
     this.pausedDuration = 0;
     this.pauseStartTime = 0;
+    this.onErrorCallback = null;
 
     if (this.mediaRecorder) {
       this.mediaRecorder.ondataavailable = null;

@@ -12,6 +12,7 @@ import type {
   PersistedCaptureDefaults,
   ScreenshotResult,
   VideoResult,
+  GifEditorSession,
 } from '../types';
 import { isSingleChartMode, getSingleChartTarget } from '../utils/targetResolver';
 import {
@@ -24,6 +25,7 @@ import {
   saveBlobToDevice,
   copyBlobToClipboard,
 } from '../engine/screenshotEngine';
+import { revokeVideoObjectUrl } from '../engine/videoEngine';
 import { startVideoRecordingSession } from '../coordinator/useVideoCoordinator';
 
 // ─── Default Configurations ──────────────────────────────────────────────────
@@ -33,6 +35,24 @@ export const DEFAULT_CUSTOM_RECT: CustomRect = {
   y: 120,
   width: 800,
   height: 500,
+};
+
+export const DEFAULT_GIF_EDITOR_SESSION: GifEditorSession = {
+  isOpen: false,
+  sourceBlob: null,
+  sourceUrl: null,
+  durationMs: 0,
+  sourceWidth: 0,
+  sourceHeight: 0,
+  startTime: 0,
+  endTime: 0,
+  cropRect: { x: 0, y: 0, width: 0, height: 0 },
+  fps: 15,
+  resolutionScale: 1,
+  loop: true,
+  isExporting: false,
+  exportProgress: 0,
+  exportError: null,
 };
 
 export const DEFAULT_SCREENSHOT_CONFIG: ScreenshotConfig = {
@@ -143,7 +163,18 @@ export interface CaptureState {
 
   // Video Engine & Result State
   latestVideoResult: VideoResult | null;
-  isVideoPreviewOpen: boolean;
+
+  // GIF Editor State & Actions
+  gifEditorSession: GifEditorSession;
+  openGifEditor: (blob: Blob, url: string, durationMs: number, width: number, height: number) => void;
+  closeGifEditor: () => void;
+  setGifTimeRange: (startTime: number, endTime: number) => void;
+  setGifCropRect: (crop: CustomRect) => void;
+  setGifFps: (fps: 10 | 15 | 24) => void;
+  setGifResolutionScale: (scale: 0.5 | 0.75 | 1) => void;
+  setGifLoop: (loop: boolean) => void;
+  setGifExporting: (isExporting: boolean, progress?: number) => void;
+  setGifExportError: (error: string | null) => void;
 
   // Screenshot Engine Actions
   executeScreenshot: (target: CaptureTarget) => Promise<void>;
@@ -186,7 +217,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   isSilentToastVisible: false,
 
   latestVideoResult: null,
-  isVideoPreviewOpen: false,
+  gifEditorSession: { ...DEFAULT_GIF_EDITOR_SESSION },
 
   // Menu Actions
   openCaptureMenu: () => {
@@ -216,6 +247,21 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
 
   // Flow State Transitions
   selectCaptureType: (type: CaptureType, skipConfig?: boolean) => {
+    if (type === 'gif') {
+      const target: CaptureTarget = { type: 'workspace' };
+      set({
+        activeCaptureType: 'gif',
+        isCaptureMenuOpen: false,
+        selectedTarget: target,
+        flowStep: 'idle',
+        recordingStatus: 'recording',
+        recordingElapsedSeconds: 0,
+        errorMessage: null,
+      });
+      void startVideoRecordingSession(target);
+      return;
+    }
+
     const { rememberSettings, persistedDefaults } = get();
     const isRemembered = rememberSettings[type];
     const shouldSkip = skipConfig ?? isRemembered;
@@ -224,7 +270,6 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     if (!isRemembered) {
       if (type === 'screenshot') configReset.screenshotConfig = { ...persistedDefaults.screenshot };
       if (type === 'video') configReset.videoConfig = { ...persistedDefaults.video };
-      if (type === 'gif') configReset.gifConfig = { ...persistedDefaults.gif };
     }
 
     if (!shouldSkip) {
@@ -244,13 +289,14 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   },
 
   openConfigModal: (type: CaptureType) => {
+    if (type === 'gif') return;
+
     const { rememberSettings, persistedDefaults } = get();
     const isRemembered = rememberSettings[type];
     const configReset: Partial<CaptureState> = {};
     if (!isRemembered) {
       if (type === 'screenshot') configReset.screenshotConfig = { ...persistedDefaults.screenshot };
       if (type === 'video') configReset.videoConfig = { ...persistedDefaults.video };
-      if (type === 'gif') configReset.gifConfig = { ...persistedDefaults.gif };
     }
 
     set({
@@ -291,6 +337,22 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   proceedToSelection: () => {
     const { activeCaptureType, videoConfig } = get();
 
+    // 0. GIF Mode: automatically captures ENTIRE chart workspace / ALL canvases!
+    if (activeCaptureType === 'gif') {
+      const target: CaptureTarget = { type: 'workspace' };
+      if (videoConfig.countdownSeconds > 0) {
+        set({
+          flowStep: 'countdown',
+          selectedTarget: target,
+          countdownValue: videoConfig.countdownSeconds,
+          hoveredTarget: null,
+        });
+      } else {
+        get().confirmTargetSelection(target);
+      }
+      return;
+    }
+
     // 1. Video with Custom Area: show resizable rectangle overlay
     if (activeCaptureType === 'video' && videoConfig.areaMode === 'custom') {
       set({
@@ -300,7 +362,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       return;
     }
 
-    // 2. Canvas Mode (Screenshot, GIF, or Video Canvas): Check if Single Chart Mode!
+    // 2. Canvas Mode (Screenshot or Video Canvas): Check if Single Chart Mode!
     if (isSingleChartMode()) {
       const target: CaptureTarget = { type: 'canvas', canvas: getSingleChartTarget() };
       if (activeCaptureType === 'video' && videoConfig.countdownSeconds > 0) {
@@ -551,7 +613,13 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       // Trigger headless recording session via coordinator
       void startVideoRecordingSession(target);
     } else if (activeCaptureType === 'gif') {
-      console.log('[Capture] GIF capture started', targetPayload);
+      console.log('[Capture] GIF recording started', targetPayload);
+      set({
+        recordingStatus: 'recording',
+        recordingElapsedSeconds: 0,
+        errorMessage: null,
+      });
+      void startVideoRecordingSession(target);
     }
   },
 
@@ -567,22 +635,21 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   },
 
   stopRecording: () => {
-    console.log('[Capture] Video recording stopped');
-    console.log('[Capture] Processing recording');
     set({ recordingStatus: 'processing' });
-    setTimeout(() => {
-      console.log('[Capture] Recording completed');
-      set({ recordingStatus: 'completed' });
-    }, 1200);
   },
 
   cancelRecording: () => {
     console.log('[Capture] Recording cancelled');
+    const prev = get().latestVideoResult;
+    if (prev?.objectUrl) {
+      revokeVideoObjectUrl(prev.objectUrl);
+    }
     set({
       recordingStatus: 'idle',
       recordingElapsedSeconds: 0,
       errorMessage: null,
       selectedTarget: null,
+      latestVideoResult: null,
     });
   },
 
@@ -591,10 +658,15 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   },
 
   resetRecording: () => {
+    const prev = get().latestVideoResult;
+    if (prev?.objectUrl) {
+      revokeVideoObjectUrl(prev.objectUrl);
+    }
     set({
       recordingStatus: 'idle',
       recordingElapsedSeconds: 0,
       errorMessage: null,
+      latestVideoResult: null,
     });
   },
 
@@ -680,5 +752,113 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       return true;
     }
     return false;
+  },
+
+  // GIF Editor Actions
+  openGifEditor: (blob: Blob, url: string, durationMs: number, width: number, height: number) => {
+    const prevUrl = get().gifEditorSession.sourceUrl;
+    if (prevUrl && prevUrl !== url) {
+      URL.revokeObjectURL(prevUrl);
+    }
+    const currentFps = get().gifConfig?.fps || 15;
+    const currentScale = get().gifConfig?.resolutionScale || 1;
+    const currentLoop = get().gifConfig?.loop ?? true;
+    set({
+      recordingStatus: 'idle',
+      flowStep: 'idle',
+      gifEditorSession: {
+        isOpen: true,
+        sourceBlob: blob,
+        sourceUrl: url,
+        durationMs,
+        sourceWidth: width,
+        sourceHeight: height,
+        startTime: 0,
+        endTime: durationMs > 0 ? durationMs / 1000 : 5,
+        cropRect: { x: 0, y: 0, width, height },
+        fps: currentFps,
+        resolutionScale: currentScale,
+        loop: currentLoop,
+        isExporting: false,
+        exportProgress: 0,
+        exportError: null,
+      },
+    });
+  },
+
+  closeGifEditor: () => {
+    const currentUrl = get().gifEditorSession.sourceUrl;
+    if (currentUrl) {
+      URL.revokeObjectURL(currentUrl);
+    }
+    set({
+      gifEditorSession: { ...DEFAULT_GIF_EDITOR_SESSION },
+    });
+  },
+
+  setGifTimeRange: (startTime: number, endTime: number) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        startTime,
+        endTime,
+      },
+    }));
+  },
+
+  setGifCropRect: (cropRect: CustomRect) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        cropRect,
+      },
+    }));
+  },
+
+  setGifFps: (fps: 10 | 15 | 24) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        fps,
+      },
+    }));
+  },
+
+  setGifResolutionScale: (resolutionScale: 0.5 | 0.75 | 1) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        resolutionScale,
+      },
+    }));
+  },
+
+  setGifLoop: (loop: boolean) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        loop,
+      },
+    }));
+  },
+
+  setGifExporting: (isExporting: boolean, exportProgress = 0) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        isExporting,
+        exportProgress,
+        exportError: isExporting ? null : s.gifEditorSession.exportError,
+      },
+    }));
+  },
+
+  setGifExportError: (exportError: string | null) => {
+    set((s) => ({
+      gifEditorSession: {
+        ...s.gifEditorSession,
+        exportError,
+      },
+    }));
   },
 }));

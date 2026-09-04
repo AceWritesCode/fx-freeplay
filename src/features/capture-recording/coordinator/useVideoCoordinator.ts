@@ -9,7 +9,12 @@
  */
 
 import { useCaptureStore } from '../store/useCaptureStore';
-import { VideoEngine, getSupportedVideoMimeType } from '../engine/videoEngine';
+import {
+  VideoEngine,
+  getSupportedVideoMimeType,
+  revokeVideoObjectUrl,
+} from '../engine/videoEngine';
+export { revokeVideoObjectUrl };
 import { DynamicCaptureCompositor } from '../engine/dynamicCaptureCompositor';
 import type { CaptureRectResolver } from '../engine/compositorUtils';
 import {
@@ -19,6 +24,11 @@ import {
   getChartWorkspaceBounds,
 } from '../engine/compositorUtils';
 import { saveBlobToDevice } from '../engine/screenshotEngine';
+import {
+  handleGifRecordingComplete,
+  clearGifAutoStopTimer,
+  armGifAutoStopTimer,
+} from './useGifCoordinator';
 import type { CaptureTarget, VideoResult } from '../types';
 
 let activeVideoEngine: VideoEngine | null = null;
@@ -27,8 +37,10 @@ let coordinatorSessionStatus: 'idle' | 'starting' | 'recording' | 'stopping' = '
 
 /**
  * Disposes active compositor and video engine cleanly.
+ * Completely idempotent: calling multiple times is safe and will not throw.
  */
-function cleanupEngineInstances(): void {
+export function cleanupEngineInstances(): void {
+  clearGifAutoStopTimer();
   if (activeVideoEngine) {
     try {
       activeVideoEngine.cancel();
@@ -99,12 +111,18 @@ export function formatVideoFilename(target: CaptureTarget, format: 'webm' | 'mp4
  */
 export async function startVideoRecordingSession(target: CaptureTarget): Promise<void> {
   // Guard against re-entrant starts or starting while already running/stopping
-  if (coordinatorSessionStatus === 'starting' || coordinatorSessionStatus === 'recording') {
+  if (coordinatorSessionStatus !== 'idle') {
     return;
   }
 
   coordinatorSessionStatus = 'starting';
-  const { videoConfig, setRecordingError } = useCaptureStore.getState();
+  const { videoConfig, setRecordingError, latestVideoResult } = useCaptureStore.getState();
+
+  // Revoke previous video result object URL before starting a new recording session
+  if (latestVideoResult?.objectUrl) {
+    revokeVideoObjectUrl(latestVideoResult.objectUrl);
+    useCaptureStore.setState({ latestVideoResult: null });
+  }
 
   // Validate format capability before starting capture pipeline
   const requestedFormat = videoConfig.format || 'webm';
@@ -147,9 +165,28 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
       fps: videoConfig.fps || 60,
       quality: videoConfig.quality || 'high',
       format: requestedFormat,
+      onError: (err) => {
+        console.error('[Video Coordinator] Runtime MediaRecorder error:', err);
+        coordinatorSessionStatus = 'idle';
+        cleanupEngineInstances();
+        useCaptureStore.getState().setRecordingError(err.message || 'MediaRecorder runtime error');
+      },
     });
 
+    if (coordinatorSessionStatus !== 'starting') {
+      cleanupEngineInstances();
+      return;
+    }
+
     coordinatorSessionStatus = 'recording';
+    useCaptureStore.setState({
+      recordingStatus: 'recording',
+      recordingElapsedSeconds: 0,
+      errorMessage: null,
+    });
+    if (useCaptureStore.getState().activeCaptureType === 'gif') {
+      armGifAutoStopTimer(60000);
+    }
     console.log(`[Video Coordinator] Recording session started successfully via canvas compositor (${requestedFormat.toUpperCase()})`);
   } catch (err: unknown) {
     coordinatorSessionStatus = 'idle';
@@ -166,6 +203,7 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
 export function pauseVideoRecordingSession(): void {
   if (activeVideoEngine && activeVideoEngine.getState() === 'recording') {
     activeVideoEngine.pause();
+    activeCompositor?.pause();
     useCaptureStore.getState().pauseRecording();
   }
 }
@@ -176,6 +214,7 @@ export function pauseVideoRecordingSession(): void {
 export function resumeVideoRecordingSession(): void {
   if (activeVideoEngine && activeVideoEngine.getState() === 'paused') {
     activeVideoEngine.resume();
+    activeCompositor?.resume();
     useCaptureStore.getState().resumeRecording();
   }
 }
@@ -185,7 +224,8 @@ export function resumeVideoRecordingSession(): void {
  * compiles the video Blob (MP4 or WebM directly), and stores the resulting VideoResult.
  */
 export async function stopVideoRecordingSession(): Promise<VideoResult | null> {
-  const { selectedTarget, videoConfig } = useCaptureStore.getState();
+  clearGifAutoStopTimer();
+  const { selectedTarget, videoConfig, latestVideoResult } = useCaptureStore.getState();
   const target = selectedTarget || { type: 'custom', rect: useCaptureStore.getState().customRect };
 
   if (!activeVideoEngine || coordinatorSessionStatus !== 'recording') {
@@ -199,11 +239,26 @@ export async function stopVideoRecordingSession(): Promise<VideoResult | null> {
   useCaptureStore.setState({ recordingStatus: 'processing' });
 
   try {
-    // Stop engine and retrieve native Blob
+    // 1. Stop engine and retrieve native Blob
     const engineResult = await activeVideoEngine.stop();
 
-    // Cleanup compositor and streams
+    // 2. Immediately stop/cleanup compositor and all recording stream resources
+    cleanupEngineInstances();
     coordinatorSessionStatus = 'idle';
+
+    // 2b. If active capture type is GIF, transition directly to GIF Editor without downloading video
+    const { activeCaptureType } = useCaptureStore.getState();
+    if (activeCaptureType === 'gif') {
+      await handleGifRecordingComplete(engineResult);
+      return null;
+    }
+
+    // 3. Revoke any previous video result object URL before creating a new one
+    if (latestVideoResult?.objectUrl) {
+      revokeVideoObjectUrl(latestVideoResult.objectUrl);
+    }
+
+    // 4. Create new VideoResult and trigger device download
     const format = videoConfig.format || 'webm';
     const filename = formatVideoFilename(target, format);
     const objectUrl = URL.createObjectURL(engineResult.blob);
@@ -245,7 +300,21 @@ export async function stopVideoRecordingSession(): Promise<VideoResult | null> {
  * Cancels the active recording session, discarding all accumulated data.
  */
 export async function cancelVideoRecordingSession(): Promise<void> {
+  clearGifAutoStopTimer();
   coordinatorSessionStatus = 'idle';
   cleanupEngineInstances();
   useCaptureStore.getState().cancelRecording();
+}
+
+// Ensure clean teardown when window/page unloads
+if (typeof window !== 'undefined') {
+  const handlePageTeardown = () => {
+    cleanupEngineInstances();
+    const prev = useCaptureStore.getState().latestVideoResult;
+    if (prev?.objectUrl) {
+      revokeVideoObjectUrl(prev.objectUrl);
+    }
+  };
+  window.addEventListener('pagehide', handlePageTeardown);
+  window.addEventListener('beforeunload', handlePageTeardown);
 }

@@ -90,6 +90,35 @@ export interface GifConfig {
   resolutionScale: 0.5 | 0.75 | 1;
 }
 
+export interface GifEditorSession {
+  isOpen: boolean;
+  sourceBlob: Blob | null;
+  sourceUrl: string | null;
+  durationMs: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  startTime: number; // in seconds
+  endTime: number; // in seconds
+  cropRect: CustomRect; // in source video pixels: { x, y, width, height }
+  fps: 10 | 15 | 24;
+  resolutionScale: 0.5 | 0.75 | 1;
+  loop: boolean;
+  isExporting: boolean;
+  exportProgress: number; // 0 to 1
+  exportError: string | null;
+}
+
+export interface GifResult {
+  success: boolean;
+  blob?: Blob;
+  objectUrl?: string;
+  filename?: string;
+  dimensions: { width: number; height: number };
+  durationMs: number;
+  target: CaptureTarget;
+  error?: string;
+}
+
 // ─── Flow & Recording States ────────────────────────────────────────────────
 
 export type CaptureFlowStep =
@@ -119,13 +148,3 @@ export interface PersistedCaptureDefaults {
   gif: GifConfig;
 }
 
-// ─── Conceptual Request Payload ─────────────────────────────────────────────
-
-export interface CaptureRequest {
-  type: CaptureType;
-  target: CaptureTarget;
-  screenshotConfig?: ScreenshotConfig;
-  videoConfig?: VideoConfig;
-  gifConfig?: GifConfig;
-  timestamp: number;
-}

@@ -28,7 +28,7 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, disabled
     }`}
   >
     <span
-      className={`block w-3.5 h-3.5 rounded-full bg-white transition-transform duration-200 shadow-sm ${
+      className={`block w-3.5 h-3.5 rounded-full bg-txt-inverse transition-transform duration-200 shadow-sm ${
         checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
       }`}
     />

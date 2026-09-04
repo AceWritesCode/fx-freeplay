@@ -58,8 +58,11 @@ export function calculateFitDimensions(
   return { width, height, scale };
 }
 
+const slotBgCache = new WeakMap<HTMLElement, { bg: string; timestamp: number }>();
+
 /**
  * Helper to determine slot background color/gradient from chart slot element.
+ * Cached to prevent costly getComputedStyle layout thrashing inside 60 FPS compositor loops.
  */
 export function getSlotBackgroundColor(slotEl: HTMLElement): string | null {
   const bg = slotEl.getAttribute('data-chart-bg');
@@ -70,13 +73,27 @@ export function getSlotBackgroundColor(slotEl: HTMLElement): string | null {
     return innerEl.style.backgroundColor;
   }
 
-  const computed = window.getComputedStyle(innerEl || slotEl);
-  const compBg = computed.backgroundColor;
-  if (compBg && compBg !== 'rgba(0, 0, 0, 0)' && compBg !== 'transparent') {
-    return compBg;
+  const now = performance.now();
+  const cached = slotBgCache.get(slotEl);
+  if (cached && now - cached.timestamp < 1000) {
+    return cached.bg;
   }
 
-  return '#131722'; // Default dark fallback
+  const targetEl = innerEl || slotEl;
+  let compBg = '#131722';
+  if (typeof window !== 'undefined') {
+    try {
+      const computed = window.getComputedStyle(targetEl);
+      if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)' && computed.backgroundColor !== 'transparent') {
+        compBg = computed.backgroundColor;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  slotBgCache.set(slotEl, { bg: compBg, timestamp: now });
+  return compBg;
 }
 
 /**

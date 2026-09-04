@@ -262,36 +262,36 @@ export const CustomRegionOverlay: React.FC = () => {
         {/* Corners */}
         <div
           onPointerDown={(e) => handlePointerDown(e, 'nw')}
-          className="absolute -top-2 -left-2 w-4 h-4 bg-accent border-2 border-white rounded-xs cursor-nwse-resize shadow-lg z-20"
+          className="absolute -top-2 -left-2 w-4 h-4 bg-accent border-2 border-border-focus rounded-xs cursor-nwse-resize shadow-lg z-20"
         />
         <div
           onPointerDown={(e) => handlePointerDown(e, 'ne')}
-          className="absolute -top-2 -right-2 w-4 h-4 bg-accent border-2 border-white rounded-xs cursor-nesw-resize shadow-lg z-20"
+          className="absolute -top-2 -right-2 w-4 h-4 bg-accent border-2 border-border-focus rounded-xs cursor-nesw-resize shadow-lg z-20"
         />
         <div
           onPointerDown={(e) => handlePointerDown(e, 'sw')}
-          className="absolute -bottom-2 -left-2 w-4 h-4 bg-accent border-2 border-white rounded-xs cursor-nesw-resize shadow-lg z-20"
+          className="absolute -bottom-2 -left-2 w-4 h-4 bg-accent border-2 border-border-focus rounded-xs cursor-nesw-resize shadow-lg z-20"
         />
         <div
           onPointerDown={(e) => handlePointerDown(e, 'se')}
-          className="absolute -bottom-2 -right-2 w-4 h-4 bg-accent border-2 border-white rounded-xs cursor-nwse-resize shadow-lg z-20"
+          className="absolute -bottom-2 -right-2 w-4 h-4 bg-accent border-2 border-border-focus rounded-xs cursor-nwse-resize shadow-lg z-20"
         />
         {/* Edges */}
         <div
           onPointerDown={(e) => handlePointerDown(e, 'n')}
-          className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-8 h-2.5 bg-accent border border-white rounded-full cursor-ns-resize z-20"
+          className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-8 h-2.5 bg-accent border border-border-focus rounded-full cursor-ns-resize z-20"
         />
         <div
           onPointerDown={(e) => handlePointerDown(e, 's')}
-          className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-8 h-2.5 bg-accent border border-white rounded-full cursor-ns-resize z-20"
+          className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-8 h-2.5 bg-accent border border-border-focus rounded-full cursor-ns-resize z-20"
         />
         <div
           onPointerDown={(e) => handlePointerDown(e, 'w')}
-          className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-2.5 h-8 bg-accent border border-white rounded-full cursor-ew-resize z-20"
+          className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-2.5 h-8 bg-accent border border-border-focus rounded-full cursor-ew-resize z-20"
         />
         <div
           onPointerDown={(e) => handlePointerDown(e, 'e')}
-          className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-2.5 h-8 bg-accent border border-white rounded-full cursor-ew-resize z-20"
+          className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-2.5 h-8 bg-accent border border-border-focus rounded-full cursor-ew-resize z-20"
         />
       </div>
 
@@ -361,7 +361,7 @@ export const CustomRegionOverlay: React.FC = () => {
           <button
             type="button"
             onClick={handleStartRecording}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-status-error hover:bg-status-error/90 text-white rounded-lg text-xs font-bold shadow-lg shadow-status-error/20 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-status-error hover:bg-status-error/90 text-txt-inverse rounded-lg text-xs font-bold shadow-lg shadow-status-error/20 transition-all cursor-pointer"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
             <span>Start Recording</span>

@@ -128,9 +128,9 @@ export class DynamicCaptureCompositor {
   }
 
   /**
-   * Pauses / stops the rendering RAF loop without destroying stream tracks.
+   * Pauses the rendering RAF loop without affecting stream tracks.
    */
-  public stop(): void {
+  public pause(): void {
     if (this.state === 'running') {
       this.state = 'idle';
       if (this.rafId !== null) {
@@ -138,6 +138,24 @@ export class DynamicCaptureCompositor {
         this.rafId = null;
       }
     }
+  }
+
+  /**
+   * Resumes the rendering RAF loop after being paused.
+   */
+  public resume(): void {
+    if (this.state === 'idle' && this.stream) {
+      this.state = 'running';
+      this.lastFrameTimestamp = performance.now();
+      this.scheduleNextFrame();
+    }
+  }
+
+  /**
+   * Stops the rendering RAF loop.
+   */
+  public stop(): void {
+    this.pause();
   }
 
   /**

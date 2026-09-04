@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Video, Film, Download, Copy, Settings, ArrowLeft } from 'lucide-react';
 import { useCaptureStore } from '../store/useCaptureStore';
+import { startGifRecordingWorkflow } from '../coordinator/useGifCoordinator';
 import { CaptureModal } from './CaptureModal';
 import { CanvasSelectionOverlay } from './CanvasSelectionOverlay';
 import { CustomRegionOverlay } from './CustomRegionOverlay';
 import { CountdownOverlay } from './CountdownOverlay';
 import { ScreenshotPreviewModal } from './ScreenshotPreviewModal';
 import { ScreenshotSilentToast } from './ScreenshotSilentToast';
+import { GifEditorModal } from './GifEditorModal';
 import type { CaptureType } from '../types';
 
 export const CaptureButton: React.FC = () => {
@@ -187,11 +189,14 @@ export const CaptureButton: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Option 3: GIF Creation */}
+                  {/* Option 3: GIF Recording */}
                   <div className="flex items-center group rounded-lg hover:bg-surface-hover transition-colors">
                     <button
                       role="menuitem"
-                      onClick={() => handleSelect('gif')}
+                      onClick={() => {
+                        setMenuView('main');
+                        void startGifRecordingWorkflow();
+                      }}
                       className="flex-1 flex items-start gap-3 p-2 text-left cursor-pointer min-w-0"
                     >
                       <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-accent-muted border border-border-sub text-txt-secondary group-hover:text-accent flex-shrink-0 transition-colors">
@@ -202,22 +207,9 @@ export const CaptureButton: React.FC = () => {
                           GIF
                         </div>
                         <div className="text-[11px] text-txt-muted leading-snug mt-0.5">
-                          {rememberSettings.gif
-                            ? 'Create GIF with saved preferences'
-                            : 'Create an animated GIF'}
+                          Record chart workspace to animated GIF (max 60s)
                         </div>
                       </div>
-                    </button>
-                    <button
-                      type="button"
-                      title="Configure GIF Settings"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openConfigModal('gif');
-                      }}
-                      className="p-1.5 mr-1.5 rounded-md text-txt-muted hover:text-txt-primary hover:bg-surface-elevated transition-colors cursor-pointer"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </>
@@ -304,6 +296,9 @@ export const CaptureButton: React.FC = () => {
       {/* Screenshot Result Feedback Overlays */}
       <ScreenshotPreviewModal />
       <ScreenshotSilentToast />
+
+      {/* GIF Editor Modal */}
+      <GifEditorModal />
     </>
   );
 };

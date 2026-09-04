@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
-import { Camera, Video, Film, X, ArrowRight, Bookmark } from 'lucide-react';
+import { Camera, Video, X, ArrowRight, Bookmark } from 'lucide-react';
 import { useCaptureStore } from '../store/useCaptureStore';
 import { ScreenshotSettingsView } from './ScreenshotSettingsView';
 import { VideoSettingsView } from './VideoSettingsView';
-import { GifSettingsView } from './GifSettingsView';
 
 export const CaptureModal: React.FC = () => {
   const {
@@ -46,12 +45,7 @@ export const CaptureModal: React.FC = () => {
       title: 'Video Recording Configuration',
       subtitle: 'Configure container format, frame rate, and audio commentary',
     },
-    gif: {
-      icon: <Film className="w-5 h-5 text-purple-400" />,
-      title: 'GIF Creation Configuration',
-      subtitle: 'Set animation duration, frame rate, and continuous loop behavior',
-    },
-  }[activeCaptureType];
+  }[activeCaptureType === 'video' ? 'video' : 'screenshot'];
 
   return (
     <div
@@ -92,7 +86,6 @@ export const CaptureModal: React.FC = () => {
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           {activeCaptureType === 'screenshot' && <ScreenshotSettingsView />}
           {activeCaptureType === 'video' && <VideoSettingsView />}
-          {activeCaptureType === 'gif' && <GifSettingsView />}
         </div>
 
         {/* ─── MODAL FOOTER ─────────────────────────────────────────────── */}
@@ -116,7 +109,7 @@ export const CaptureModal: React.FC = () => {
             >
               <div
                 className={`w-3 h-3 rounded-full absolute top-[1px] left-[1px] transition-transform duration-200 ${
-                  rememberSettings[activeCaptureType] ? 'bg-white translate-x-[13px]' : 'bg-txt-muted translate-x-0'
+                  rememberSettings[activeCaptureType] ? 'bg-txt-inverse translate-x-[13px]' : 'bg-txt-muted translate-x-0'
                 }`}
               />
             </div>
