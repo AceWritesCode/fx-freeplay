@@ -78,6 +78,7 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
     recordingStatus === 'recording' ||
     recordingStatus === 'paused' ||
     recordingStatus === 'processing' ||
+    recordingStatus === 'converting' ||
     recordingStatus === 'completed' ||
     recordingStatus === 'error';
 
