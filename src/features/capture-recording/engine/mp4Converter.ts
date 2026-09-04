@@ -10,6 +10,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 export interface Mp4ConversionOptions {
+  durationMs?: number;
   onProgress?: (progress: number) => void; // 0.0 to 1.0
 }
 
@@ -80,18 +81,31 @@ async function getOrInitFFmpeg(): Promise<FFmpeg> {
 }
 
 /**
+ * Warm up FFmpeg WASM core in the background so conversion begins immediately on stop.
+ */
+export async function preloadMp4Converter(): Promise<void> {
+  try {
+    await getOrInitFFmpeg();
+  } catch (err) {
+    console.warn('[mp4Converter] Background preload error (will retry upon conversion):', err);
+  }
+}
+
+/**
  * Converts a WebM video Blob to an H.264 MP4 Blob.
  *
  * Uses:
  * - `-c:v libx264`: standard H.264 video codec
- * - `-preset ultrafast`: fast encoding in WebAssembly
- * - `-crf 22`: balanced visual quality
+ * - `-preset ultrafast`: fastest x264 encoding preset
+ * - `-tune zerolatency`: removes lookahead buffering and B-frame delays for maximum WebAssembly encoding speed
+ * - `-crf 22`: visually lossless/sharp chart graphic rendering
  * - `-pix_fmt yuv420p`: universal player compatibility (QuickTime, Windows Media, browsers)
- * - `-movflags +faststart`: moves moov atom to beginning of MP4
+ * - `-threads 1`: avoids multi-threading contention in single-threaded WASM runtime
+ * - `-movflags +faststart`: places moov atom at beginning of MP4 for streaming and instant playback
  * - `-an`: disables audio processing for canvas video
  *
  * @param webmBlob The input WebM Blob from VideoEngine
- * @param options Optional progress callback
+ * @param options Optional durationMs and progress callback
  * @returns A Promise resolving to the transcoded video/mp4 Blob
  */
 export async function convertWebmToMp4(
@@ -109,20 +123,53 @@ export async function convertWebmToMp4(
   const inputName = `input_${uniqueId}.webm`;
   const outputName = `output_${uniqueId}.mp4`;
 
-  const progressHandler = ({ progress }: { progress: number }) => {
-    if (options?.onProgress && progress >= 0 && progress <= 1) {
-      options.onProgress(progress);
+  let lastReportedProgress = 0;
+  const updateProgress = (ratio: number) => {
+    if (ratio > lastReportedProgress && ratio <= 0.99) {
+      lastReportedProgress = ratio;
+      options?.onProgress?.(ratio);
+    }
+  };
+
+  // Dual-source progress tracking:
+  // Source A: FFmpeg progress event (passes time in microseconds)
+  const progressHandler = ({ progress, time }: { progress: number; time: number }) => {
+    if (progress > 0 && progress <= 1) {
+      updateProgress(progress);
+    } else if (time > 0 && options?.durationMs && options.durationMs > 0) {
+      const durationSec = options.durationMs / 1000;
+      const currentSec = time / 1_000_000;
+      updateProgress(currentSec / durationSec);
+    }
+  };
+
+  // Source B: FFmpeg log event parser (extracts time=HH:MM:SS.XX from ffmpeg stderr)
+  const logHandler = ({ message }: { message: string }) => {
+    const match = message.match(/time=(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+    if (match && options?.durationMs && options.durationMs > 0) {
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const seconds = parseFloat(match[3]);
+      const currentSec = hours * 3600 + minutes * 60 + seconds;
+      const durationSec = options.durationMs / 1000;
+      updateProgress(currentSec / durationSec);
     }
   };
 
   ffmpeg.on('progress', progressHandler);
+  ffmpeg.on('log', logHandler);
 
   try {
     // 1. Write WebM into virtual filesystem
     const inputData = await fetchFile(webmBlob);
     await ffmpeg.writeFile(inputName, inputData);
 
-    // 2. Execute conversion command
+    // Initial signal that conversion is starting
+    options?.onProgress?.(0.01);
+
+    const conversionStartTime = performance.now();
+
+    // 2. Execute conversion command with ultrafast + zerolatency optimization
     const exitCode = await ffmpeg.exec([
       '-i',
       inputName,
@@ -130,19 +177,28 @@ export async function convertWebmToMp4(
       'libx264',
       '-preset',
       'ultrafast',
+      '-tune',
+      'zerolatency',
       '-crf',
       '22',
       '-pix_fmt',
       'yuv420p',
+      '-threads',
+      '1',
       '-movflags',
       '+faststart',
       '-an',
       outputName,
     ]);
 
+    const conversionDurationMs = Math.round(performance.now() - conversionStartTime);
+
     if (exitCode !== 0) {
       throw new Error(`FFmpeg conversion failed with exit code ${exitCode}`);
     }
+
+    // Report 100% completion before reading output
+    options?.onProgress?.(1.0);
 
     // 3. Read output MP4 from virtual filesystem
     const rawOutput = await ffmpeg.readFile(outputName);
@@ -155,11 +211,16 @@ export async function convertWebmToMp4(
       throw new Error('FFmpeg produced an empty MP4 output');
     }
 
+    console.log(
+      `[mp4Converter] Conversion successful in ${conversionDurationMs}ms. WebM size: ${webmBlob.size} bytes -> MP4 size: ${outputBytes.byteLength} bytes`
+    );
+
     // 4. Create and return genuine MP4 Blob
     return new Blob([outputBytes as unknown as BlobPart], { type: 'video/mp4' });
   } finally {
-    // Clean up event listener and temporary virtual files
+    // Clean up event listeners and temporary virtual files
     ffmpeg.off('progress', progressHandler);
+    ffmpeg.off('log', logHandler);
     try {
       await ffmpeg.deleteFile(inputName);
     } catch {

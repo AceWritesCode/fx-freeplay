@@ -19,7 +19,7 @@ import {
   getChartWorkspaceBounds,
 } from '../engine/compositorUtils';
 import { saveBlobToDevice } from '../engine/screenshotEngine';
-import { convertWebmToMp4 } from '../engine/mp4Converter';
+import { convertWebmToMp4, preloadMp4Converter } from '../engine/mp4Converter';
 import type { CaptureTarget, VideoResult } from '../types';
 
 let activeVideoEngine: VideoEngine | null = null;
@@ -140,6 +140,11 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
 
     coordinatorSessionStatus = 'recording';
     console.log('[Video Coordinator] Recording session started successfully via canvas compositor');
+
+    // Preload FFmpeg core in background if MP4 format is selected so it is warm upon completion
+    if (videoConfig.format === 'mp4') {
+      void preloadMp4Converter();
+    }
   } catch (err: unknown) {
     coordinatorSessionStatus = 'idle';
     console.error('[Video Coordinator] Failed to start recording session:', err);
@@ -236,8 +241,9 @@ export async function stopVideoRecordingSession(): Promise<VideoResult | null> {
     });
 
     try {
-      console.log('[Video Coordinator] Starting WebM -> MP4 conversion via mp4Converter...');
+      console.log(`[Video Coordinator] Starting WebM -> MP4 conversion (duration: ${engineResult.durationMs}ms)...`);
       const mp4Blob = await convertWebmToMp4(engineResult.blob, {
+        durationMs: engineResult.durationMs,
         onProgress: (progress) => {
           useCaptureStore.setState({ conversionProgress: progress });
         },

@@ -237,11 +237,13 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
         <div className="flex items-center gap-2 text-xs flex-shrink-0 animate-in fade-in duration-300">
           <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
           <span className="font-semibold text-txt-primary">Converting to MP4...</span>
-          {typeof conversionProgress === 'number' && conversionProgress > 0 ? (
+          {typeof conversionProgress === 'number' ? (
             <span className="font-mono text-accent text-[11px] font-bold">
-              {Math.round(conversionProgress * 100)}%
+              {Math.min(100, Math.max(0, Math.round(conversionProgress * 100)))}%
             </span>
-          ) : null}
+          ) : (
+            <span className="text-[10px] text-txt-muted font-normal">(Starting...)</span>
+          )}
         </div>
       )}
 
