@@ -393,7 +393,6 @@ export const CaptureSettingsTab: React.FC = () => {
                 onChange={(val) => updatePersistedVideoDefaults({ areaMode: val })}
                 options={[
                   { label: 'Chart Canvas', value: 'canvas' },
-                  { label: 'Full Screen', value: 'fullscreen' },
                   { label: 'Custom Region', value: 'custom' },
                 ]}
               />

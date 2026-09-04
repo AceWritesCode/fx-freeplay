@@ -12,7 +12,12 @@ import { useCaptureStore } from '../store/useCaptureStore';
 import { VideoEngine } from '../engine/videoEngine';
 import { DynamicCaptureCompositor } from '../engine/dynamicCaptureCompositor';
 import type { CaptureRectResolver } from '../engine/compositorUtils';
-import { normalizeCaptureRect } from '../engine/compositorUtils';
+import {
+  normalizeCaptureRect,
+  createChartCanvasResolver,
+  createAllChartsResolver,
+  getChartWorkspaceBounds,
+} from '../engine/compositorUtils';
 import { saveBlobToDevice } from '../engine/screenshotEngine';
 import type { CaptureTarget, VideoResult } from '../types';
 
@@ -21,7 +26,7 @@ let activeCompositor: DynamicCaptureCompositor | null = null;
 let coordinatorSessionStatus: 'idle' | 'starting' | 'recording' | 'stopping' = 'idle';
 
 /**
- * Disposes active compositor and video engine cleanly without dispatching store cancellation.
+ * Disposes active compositor and video engine cleanly.
  */
 function cleanupEngineInstances(): void {
   if (activeVideoEngine) {
@@ -45,14 +50,23 @@ function cleanupEngineInstances(): void {
 
 /**
  * Creates a dynamic rectangle resolver for the Custom Region target.
- * Resolves live from store.customRect, clamped to current viewport boundaries.
+ * Resolves live from store.customRect, strictly clamped to chart canvas workspace boundaries.
  */
 export function createCustomRegionResolver(): CaptureRectResolver {
   return () => {
     const { customRect } = useCaptureStore.getState();
-    const maxW = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const maxH = typeof window !== 'undefined' ? window.innerHeight : 1080;
-    return normalizeCaptureRect(customRect, maxW, maxH);
+    const bounds = getChartWorkspaceBounds();
+    const minX = bounds.x;
+    const minY = bounds.y;
+    const maxX = bounds.x + bounds.width;
+    const maxY = bounds.y + bounds.height;
+
+    const x = Math.max(minX, Math.min(maxX, customRect.x));
+    const y = Math.max(minY, Math.min(maxY, customRect.y));
+    const width = Math.max(2, Math.min(maxX - x, customRect.width));
+    const height = Math.max(2, Math.min(maxY - y, customRect.height));
+
+    return normalizeCaptureRect({ x, y, width, height });
   };
 }
 
@@ -74,7 +88,7 @@ export function formatVideoFilename(target: CaptureTarget, format: 'webm' | 'mp4
     const tf = target.canvas.timeframe?.toUpperCase() || '';
     identifier = tf ? `Chart_${sym}_${tf}` : `Chart_${sym}`;
   } else {
-    identifier = 'Workspace';
+    identifier = 'All_Canvases';
   }
 
   return `FX-Freeplay_${identifier}_${dateStr}_${timeStr}.${format}`;
@@ -92,20 +106,21 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
   coordinatorSessionStatus = 'starting';
   const { videoConfig, setRecordingError } = useCaptureStore.getState();
 
-  // 1. Dispose any lingering engine or compositor instances silently (do NOT cancel store state)
+  // 1. Dispose any lingering engine or compositor instances silently
   cleanupEngineInstances();
 
   try {
-    // 2. Select Resolver based on Target (Step 3: Custom Region only)
+    // 2. Select Resolver based on Target (One Canvas, All Canvases, or Custom Region)
     let resolver: CaptureRectResolver;
     if (target.type === 'custom') {
       resolver = createCustomRegionResolver();
+    } else if (target.type === 'canvas') {
+      resolver = createChartCanvasResolver(target.canvas.slotIndex);
     } else {
-      // Fallback for custom rect
-      resolver = createCustomRegionResolver();
+      resolver = createAllChartsResolver();
     }
 
-    // 3. Instantiate Compositor and Stream
+    // 3. Instantiate Canvas Compositor and generate MediaStream via canvas.captureStream()
     const compositor = new DynamicCaptureCompositor(resolver, {
       fps: videoConfig.fps || 60,
     });
@@ -123,7 +138,7 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
     });
 
     coordinatorSessionStatus = 'recording';
-    console.log('[Video Coordinator] Recording session started successfully');
+    console.log('[Video Coordinator] Recording session started successfully via canvas compositor');
   } catch (err: unknown) {
     coordinatorSessionStatus = 'idle';
     console.error('[Video Coordinator] Failed to start recording session:', err);

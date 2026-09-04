@@ -57,6 +57,7 @@ const ActiveSelectionOverlay: React.FC = () => {
       const current = resolutionRef.current;
       if (current) {
         const { activeCaptureType, videoConfig } = useCaptureStore.getState();
+
         if (activeCaptureType === 'video' && videoConfig.countdownSeconds > 0) {
           useCaptureStore.setState({
             flowStep: 'countdown',
@@ -96,13 +97,20 @@ const ActiveSelectionOverlay: React.FC = () => {
     return null;
   }
 
+  const { activeCaptureType, videoConfig } = useCaptureStore.getState();
+  const isVideoChartMode = activeCaptureType === 'video' && videoConfig.areaMode === 'canvas';
+
   return createPortal(
     <div className="fixed inset-0 z-[99999] pointer-events-none select-none overflow-hidden animate-in fade-in duration-100">
       {/* ─── FOOTER INSTRUCTION TEXT (Centered in footer, no container) ─── */}
       <div className="fixed bottom-0 left-0 right-0 h-12 flex items-center justify-center pointer-events-none z-30 select-none">
         <div className="flex items-center gap-2.5 text-xs font-semibold text-accent animate-in fade-in duration-150">
           <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-          <span>Click a chart to capture • Move outside charts to capture entire workspace</span>
+          <span>
+            {isVideoChartMode
+              ? 'Click a chart to record • Click outside charts to record all canvases • Escape to cancel'
+              : 'Click a chart to capture • Move outside charts to capture entire workspace'}
+          </span>
           <span className="text-txt-muted/60">•</span>
           <button
             type="button"

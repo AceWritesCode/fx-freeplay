@@ -1,15 +1,15 @@
 /**
  * Dynamic Capture Compositor — FX Freeplay
  *
- * Core compositor engine that continuously queries a dynamic capture rectangle,
- * composites intersecting chart canvases, DOM backgrounds, and overlays into an
- * internal recording canvas, and produces a stable MediaStream via captureStream(fps).
+ * Canvas-only compositor that renders directly from active KLineCharts DOM canvases
+ * onto an internal recording canvas, dynamically querying the capture rectangle resolver
+ * per frame, and outputting a stable MediaStream via canvas.captureStream(fps).
  *
  * Pure TypeScript — strictly zero dependencies on React or Zustand.
  */
 
 import type { CaptureRectResolver, DynamicCaptureRect } from './compositorUtils';
-import { normalizeCaptureRect } from './compositorUtils';
+import { normalizeCaptureRect, getSlotBackgroundColor } from './compositorUtils';
 
 export interface DynamicCaptureCompositorOptions {
   fps?: 30 | 60;
@@ -83,11 +83,9 @@ export class DynamicCaptureCompositor {
 
     // Resolve initial bounds
     const initialRect = this.rectResolver() ?? this.lastKnownRect;
-    const normRect = normalizeCaptureRect(
-      initialRect,
-      typeof window !== 'undefined' ? window.innerWidth : 1920,
-      typeof window !== 'undefined' ? window.innerHeight : 1080
-    );
+    const maxW = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const maxH = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const normRect = normalizeCaptureRect(initialRect, maxW, maxH);
 
     this.lastKnownRect = normRect;
     this.updateCanvasDimensions(normRect.width, normRect.height);
@@ -111,7 +109,7 @@ export class DynamicCaptureCompositor {
     this.lastFrameTimestamp = performance.now();
     this.scheduleNextFrame();
 
-    return this.stream!;
+    return this.stream;
   }
 
   /**
@@ -206,6 +204,7 @@ export class DynamicCaptureCompositor {
 
   /**
    * Single frame compositing execution.
+   * Directly composites visible KLineCharts canvases within the resolved capture rectangle.
    */
   public renderFrame(): void {
     if (!this.ctx) return;
@@ -247,14 +246,14 @@ export class DynamicCaptureCompositor {
       if (!intersects) continue;
 
       // Draw slot background if defined
-      const bgAttr = slotEl.getAttribute('data-chart-bg');
-      if (bgAttr && bgAttr !== 'transparent') {
+      const bg = getSlotBackgroundColor(slotEl);
+      if (bg && bg !== 'transparent') {
         const slotDestX = Math.round((slotRect.left - activeRect.x) * effectiveScale);
         const slotDestY = Math.round((slotRect.top - activeRect.y) * effectiveScale);
         const slotDestW = Math.round(slotRect.width * effectiveScale);
         const slotDestH = Math.round(slotRect.height * effectiveScale);
 
-        this.ctx.fillStyle = bgAttr;
+        this.ctx.fillStyle = bg;
         this.ctx.fillRect(slotDestX, slotDestY, slotDestW, slotDestH);
       }
 
@@ -298,3 +297,4 @@ export class DynamicCaptureCompositor {
     return this.canvas;
   }
 }
+

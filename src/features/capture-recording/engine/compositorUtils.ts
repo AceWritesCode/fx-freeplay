@@ -78,3 +78,133 @@ export function getSlotBackgroundColor(slotEl: HTMLElement): string | null {
 
   return '#131722'; // Default dark fallback
 }
+
+/**
+ * Creates a dynamic rectangle resolver for a specific chart slot index.
+ * Dynamically queries the DOM on every frame call, measuring the chart container
+ * bounds via getBoundingClientRect() and retaining a lastKnownRect fallback for stability.
+ */
+export function createChartCanvasResolver(slotIndex: number): CaptureRectResolver {
+  let lastKnownRect: DynamicCaptureRect | null = null;
+
+  return () => {
+    if (typeof document === 'undefined') return lastKnownRect;
+
+    // First attempt: Query inner chart slot container
+    const innerEl = document.querySelector<HTMLElement>(
+      `[data-chart-slot-index="${slotIndex}"] [data-chart-slot-inner="true"]`
+    );
+
+    // Fallback: Query chart slot wrapper
+    const targetEl = innerEl || document.querySelector<HTMLElement>(`[data-chart-slot-index="${slotIndex}"]`);
+
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const maxW = typeof window !== 'undefined' ? window.innerWidth : Infinity;
+        const maxH = typeof window !== 'undefined' ? window.innerHeight : Infinity;
+        const normalized = normalizeCaptureRect(
+          {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+          },
+          maxW,
+          maxH
+        );
+        lastKnownRect = normalized;
+        return normalized;
+      }
+    }
+
+    return lastKnownRect;
+  };
+}
+
+/**
+ * Creates a dynamic rectangle resolver that encapsulates all visible chart slots.
+ * Dynamically queries all mounted chart slots in the DOM per frame and computes
+ * their enclosing union bounding box.
+ */
+export function createAllChartsResolver(): CaptureRectResolver {
+  let lastKnownRect: DynamicCaptureRect | null = null;
+
+  return () => {
+    if (typeof document === 'undefined') return lastKnownRect;
+
+    const slots = Array.from(document.querySelectorAll<HTMLElement>('[data-chart-slot-index]'));
+    if (slots.length === 0) return lastKnownRect;
+
+    const rects = slots.map((s) => s.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    if (rects.length === 0) return lastKnownRect;
+
+    const left = Math.min(...rects.map((r) => r.left));
+    const top = Math.min(...rects.map((r) => r.top));
+    const right = Math.max(...rects.map((r) => r.right));
+    const bottom = Math.max(...rects.map((r) => r.bottom));
+
+    const width = Math.max(2, right - left);
+    const height = Math.max(2, bottom - top);
+
+    const maxW = typeof window !== 'undefined' ? window.innerWidth : Infinity;
+    const maxH = typeof window !== 'undefined' ? window.innerHeight : Infinity;
+
+    const normalized = normalizeCaptureRect(
+      {
+        x: left,
+        y: top,
+        width,
+        height,
+      },
+      maxW,
+      maxH
+    );
+
+    lastKnownRect = normalized;
+    return normalized;
+  };
+}
+
+/**
+ * Queries and computes the bounding box of the chart canvas workspace.
+ * First queries [data-chart-workspace], falling back to the enclosing union of all [data-chart-slot-index] elements.
+ */
+export function getChartWorkspaceBounds(): DynamicCaptureRect {
+  if (typeof document !== 'undefined') {
+    const workspaceEl = document.querySelector<HTMLElement>('[data-chart-workspace]');
+    if (workspaceEl) {
+      const rect = workspaceEl.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        return {
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+      }
+    }
+
+    const slots = Array.from(document.querySelectorAll<HTMLElement>('[data-chart-slot-index]'));
+    if (slots.length > 0) {
+      const rects = slots.map((s) => s.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+      if (rects.length > 0) {
+        const left = Math.min(...rects.map((r) => r.left));
+        const top = Math.min(...rects.map((r) => r.top));
+        const right = Math.max(...rects.map((r) => r.right));
+        const bottom = Math.max(...rects.map((r) => r.bottom));
+        return {
+          x: Math.round(left),
+          y: Math.round(top),
+          width: Math.round(right - left),
+          height: Math.round(bottom - top),
+        };
+      }
+    }
+  }
+
+  const maxW = typeof window !== 'undefined' ? window.innerWidth : 1920;
+  const maxH = typeof window !== 'undefined' ? window.innerHeight : 1080;
+  return { x: 0, y: 0, width: maxW, height: maxH };
+}
+

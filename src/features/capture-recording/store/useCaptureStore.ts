@@ -291,23 +291,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   proceedToSelection: () => {
     const { activeCaptureType, videoConfig } = get();
 
-    // 1. Video with Fullscreen Area: record whole body/viewport after countdown
-    if (activeCaptureType === 'video' && videoConfig.areaMode === 'fullscreen') {
-      const target: CaptureTarget = { type: 'workspace', areaMode: 'fullscreen' };
-      if (videoConfig.countdownSeconds > 0) {
-        set({
-          flowStep: 'countdown',
-          selectedTarget: target,
-          countdownValue: videoConfig.countdownSeconds,
-          hoveredTarget: null,
-        });
-      } else {
-        get().confirmTargetSelection(target);
-      }
-      return;
-    }
-
-    // 2. Video with Custom Area: show resizable rectangle overlay
+    // 1. Video with Custom Area: show resizable rectangle overlay
     if (activeCaptureType === 'video' && videoConfig.areaMode === 'custom') {
       set({
         flowStep: 'selecting_custom_region',
@@ -316,7 +300,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       return;
     }
 
-    // 3. Canvas Mode (Screenshot, GIF, or Video Canvas): Check if Single Chart Mode!
+    // 2. Canvas Mode (Screenshot, GIF, or Video Canvas): Check if Single Chart Mode!
     if (isSingleChartMode()) {
       const target: CaptureTarget = { type: 'canvas', canvas: getSingleChartTarget() };
       if (activeCaptureType === 'video' && videoConfig.countdownSeconds > 0) {
@@ -332,7 +316,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       return;
     }
 
-    // 4. Multi-chart mode: interactive canvas selection overlay
+    // 3. Multi-chart mode: interactive canvas selection overlay
     set({
       flowStep: 'selecting_canvas',
       hoveredTarget: null,
@@ -550,7 +534,6 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     } else {
       targetPayload = {
         target: 'workspace',
-        areaMode: target.areaMode || 'workspace',
       };
     }
 

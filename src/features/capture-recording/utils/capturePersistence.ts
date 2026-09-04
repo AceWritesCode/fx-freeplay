@@ -56,7 +56,14 @@ export function loadPersistedCaptureDefaults(): PersistedCaptureDefaults {
         gif: Boolean(parsed.rememberSettingsPerType?.gif ?? parsed.rememberSettings),
       },
       screenshot: { ...INITIAL_CAPTURE_DEFAULTS.screenshot, ...(parsed.screenshot || {}) },
-      video: { ...INITIAL_CAPTURE_DEFAULTS.video, ...(parsed.video || {}) },
+      video: {
+        ...INITIAL_CAPTURE_DEFAULTS.video,
+        ...(parsed.video || {}),
+        areaMode:
+          parsed.video?.areaMode === 'custom'
+            ? 'custom'
+            : 'canvas',
+      },
       gif: { ...INITIAL_CAPTURE_DEFAULTS.gif, ...(parsed.gif || {}) },
     };
   } catch (err) {

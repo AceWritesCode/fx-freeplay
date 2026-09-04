@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, RotateCcw, Maximize2 } from 'lucide-react';
 import { useCaptureStore } from '../store/useCaptureStore';
+import { getChartWorkspaceBounds } from '../engine/compositorUtils';
 import type { CustomRect } from '../types';
 
 export const CustomRegionOverlay: React.FC = () => {
@@ -22,13 +23,14 @@ export const CustomRegionOverlay: React.FC = () => {
     selectedTarget?.type === 'custom';
   const isVisible = isSelecting || isRecordingLocked;
 
-  // Initialize rect in center of screen
+  // Initialize rect centered inside the chart canvas workspace
   const [rect, setRect] = useState<CustomRect>(() => {
     if (typeof window !== 'undefined') {
-      const w = Math.min(960, Math.round(window.innerWidth * 0.7));
-      const h = Math.min(540, Math.round(window.innerHeight * 0.6));
-      const x = Math.max(0, Math.round((window.innerWidth - w) / 2));
-      const y = Math.max(0, Math.round((window.innerHeight - h) / 2));
+      const bounds = getChartWorkspaceBounds();
+      const w = Math.min(800, Math.round(bounds.width * 0.8));
+      const h = Math.min(500, Math.round(bounds.height * 0.7));
+      const x = bounds.x + Math.max(0, Math.round((bounds.width - w) / 2));
+      const y = bounds.y + Math.max(0, Math.round((bounds.height - h) / 2));
       return { x, y, width: w, height: h };
     }
     return customRect;
@@ -87,27 +89,32 @@ export const CustomRegionOverlay: React.FC = () => {
       let newH = initialRect.height;
       const minW = 150;
       const minH = 100;
-      const maxViewportW = window.innerWidth;
-      const maxViewportH = window.innerHeight;
+
+      // Constrain strictly to chart canvas workspace boundaries
+      const bounds = getChartWorkspaceBounds();
+      const minX = bounds.x;
+      const minY = bounds.y;
+      const maxX = bounds.x + bounds.width;
+      const maxY = bounds.y + bounds.height;
 
       if (type === 'move') {
-        newX = Math.max(0, Math.min(maxViewportW - newW, initialRect.x + dx));
-        newY = Math.max(0, Math.min(maxViewportH - newH, initialRect.y + dy));
+        newX = Math.max(minX, Math.min(maxX - newW, initialRect.x + dx));
+        newY = Math.max(minY, Math.min(maxY - newH, initialRect.y + dy));
       } else {
         // Horizontal resizing
         if (type.includes('e')) {
-          newW = Math.min(maxViewportW - newX, Math.max(minW, initialRect.width + dx));
+          newW = Math.min(maxX - newX, Math.max(minW, initialRect.width + dx));
         } else if (type.includes('w')) {
-          const clampedX = Math.max(0, Math.min(initialRect.x + initialRect.width - minW, initialRect.x + dx));
+          const clampedX = Math.max(minX, Math.min(initialRect.x + initialRect.width - minW, initialRect.x + dx));
           newW = initialRect.width + (initialRect.x - clampedX);
           newX = clampedX;
         }
 
-        // Vertical resizing (can expand to full viewport height)
+        // Vertical resizing
         if (type.includes('s')) {
-          newH = Math.min(maxViewportH - newY, Math.max(minH, initialRect.height + dy));
+          newH = Math.min(maxY - newY, Math.max(minH, initialRect.height + dy));
         } else if (type.includes('n')) {
-          const clampedY = Math.max(0, Math.min(initialRect.y + initialRect.height - minH, initialRect.y + dy));
+          const clampedY = Math.max(minY, Math.min(initialRect.y + initialRect.height - minH, initialRect.y + dy));
           newH = initialRect.height + (initialRect.y - clampedY);
           newY = clampedY;
         }
@@ -149,19 +156,21 @@ export const CustomRegionOverlay: React.FC = () => {
   }, [rect, videoConfig.countdownSeconds, confirmTargetSelection]);
 
   const applyPreset = (w: number, h: number) => {
-    const targetW = Math.min(w, window.innerWidth);
-    const targetH = Math.min(h, window.innerHeight);
-    const x = Math.max(0, Math.round((window.innerWidth - targetW) / 2));
-    const y = Math.max(0, Math.round((window.innerHeight - targetH) / 2));
+    const bounds = getChartWorkspaceBounds();
+    const targetW = Math.min(w, bounds.width);
+    const targetH = Math.min(h, bounds.height);
+    const x = bounds.x + Math.max(0, Math.round((bounds.width - targetW) / 2));
+    const y = bounds.y + Math.max(0, Math.round((bounds.height - targetH) / 2));
     setRect({ x, y, width: targetW, height: targetH });
   };
 
-  const applyMaxViewport = () => {
+  const applyMaxWorkspace = () => {
+    const bounds = getChartWorkspaceBounds();
     setRect({
-      x: 0,
-      y: 0,
-      width: window.innerWidth,
-      height: window.innerHeight,
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
     });
   };
 
@@ -301,12 +310,12 @@ export const CustomRegionOverlay: React.FC = () => {
           <span className="text-[10px] font-bold text-txt-muted uppercase mr-1">Presets:</span>
           <button
             type="button"
-            onClick={applyMaxViewport}
+            onClick={applyMaxWorkspace}
             className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold text-accent hover:bg-accent-muted border border-accent/40 transition-colors cursor-pointer"
-            title="Expand to Full Viewport"
+            title="Expand to Full Workspace"
           >
             <Maximize2 className="w-3 h-3" />
-            <span>Full Viewport</span>
+            <span>Full Workspace</span>
           </button>
           <button
             type="button"

@@ -5,7 +5,6 @@ import { CaptureModal } from './CaptureModal';
 import { CanvasSelectionOverlay } from './CanvasSelectionOverlay';
 import { CustomRegionOverlay } from './CustomRegionOverlay';
 import { CountdownOverlay } from './CountdownOverlay';
-import { RecordingFloatingBar } from './RecordingFloatingBar';
 import { ScreenshotPreviewModal } from './ScreenshotPreviewModal';
 import { ScreenshotSilentToast } from './ScreenshotSilentToast';
 import type { CaptureType } from '../types';
@@ -301,9 +300,6 @@ export const CaptureButton: React.FC = () => {
 
       {/* Countdown Overlay */}
       <CountdownOverlay />
-
-      {/* Recording Floating Control Bar */}
-      <RecordingFloatingBar />
 
       {/* Screenshot Result Feedback Overlays */}
       <ScreenshotPreviewModal />

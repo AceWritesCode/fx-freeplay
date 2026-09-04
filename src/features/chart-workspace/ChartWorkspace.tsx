@@ -1849,6 +1849,7 @@ export function ChartWorkspace() {
             </div>
           ) : null}
           <div
+            data-chart-workspace="true"
             className="h-full w-full relative"
             onMouseMove={handleCanvasContainerMouseMove}
             onMouseLeave={handleCanvasContainerMouseLeave}

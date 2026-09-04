@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Clock, LayoutGrid, Monitor, Crop } from 'lucide-react';
+import { Mic, Clock, LayoutGrid, Crop } from 'lucide-react';
 import { useCaptureStore } from '../store/useCaptureStore';
 
 export const VideoSettingsView: React.FC = () => {
@@ -12,8 +12,8 @@ export const VideoSettingsView: React.FC = () => {
         <div className="text-[10px] font-bold uppercase tracking-wider text-txt-muted mb-2">
           Recording Area
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {/* Option 1: Canvas */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Option 1: Chart Canvas */}
           <button
             type="button"
             onClick={() => updateVideoConfig({ areaMode: 'canvas' })}
@@ -25,25 +25,10 @@ export const VideoSettingsView: React.FC = () => {
           >
             <LayoutGrid className={`w-4 h-4 mb-1.5 ${videoConfig.areaMode === 'canvas' ? 'text-accent' : 'text-txt-muted'}`} />
             <div className="text-xs font-semibold leading-tight">Chart Canvas</div>
-            <div className="text-[10px] text-txt-muted mt-0.5">Chart or workspace</div>
+            <div className="text-[10px] text-txt-muted mt-0.5">Single chart or workspace</div>
           </button>
 
-          {/* Option 2: Full Screen */}
-          <button
-            type="button"
-            onClick={() => updateVideoConfig({ areaMode: 'fullscreen' })}
-            className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-              videoConfig.areaMode === 'fullscreen'
-                ? 'bg-accent-muted border-accent/60 text-txt-primary ring-1 ring-accent/30 shadow-xs'
-                : 'bg-surface hover:bg-surface-hover border-border-sub text-txt-muted hover:text-txt-primary'
-            }`}
-          >
-            <Monitor className={`w-4 h-4 mb-1.5 ${videoConfig.areaMode === 'fullscreen' ? 'text-accent' : 'text-txt-muted'}`} />
-            <div className="text-xs font-semibold leading-tight">Full Screen</div>
-            <div className="text-[10px] text-txt-muted mt-0.5">Entire app viewport</div>
-          </button>
-
-          {/* Option 3: Custom Region */}
+          {/* Option 2: Custom Region */}
           <button
             type="button"
             onClick={() => updateVideoConfig({ areaMode: 'custom' })}
@@ -55,7 +40,7 @@ export const VideoSettingsView: React.FC = () => {
           >
             <Crop className={`w-4 h-4 mb-1.5 ${videoConfig.areaMode === 'custom' ? 'text-accent' : 'text-txt-muted'}`} />
             <div className="text-xs font-semibold leading-tight">Custom Region</div>
-            <div className="text-[10px] text-txt-muted mt-0.5">Resizable section</div>
+            <div className="text-[10px] text-txt-muted mt-0.5">Inside workspace</div>
           </button>
         </div>
       </div>

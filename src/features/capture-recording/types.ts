@@ -17,7 +17,7 @@ export interface CanvasTargetInfo {
   timeframe?: string;
 }
 
-export type VideoCaptureArea = 'canvas' | 'fullscreen' | 'custom';
+export type VideoCaptureArea = 'canvas' | 'custom';
 
 export interface CustomRect {
   x: number;
@@ -27,7 +27,7 @@ export interface CustomRect {
 }
 
 export type CaptureTarget =
-  | { type: 'workspace'; areaMode?: 'workspace' | 'fullscreen' }
+  | { type: 'workspace'; areaMode?: 'workspace' }
   | { type: 'canvas'; canvas: CanvasTargetInfo }
   | { type: 'custom'; rect: CustomRect };
 
@@ -72,7 +72,7 @@ export interface VideoResult {
 }
 
 export interface VideoConfig {
-  areaMode: VideoCaptureArea; // 'canvas' (default) | 'fullscreen' | 'custom'
+  areaMode: VideoCaptureArea; // 'canvas' (default) | 'custom'
   format: 'webm' | 'mp4';
   resolution: '720p' | '1080p' | '4k';
   fps: 30 | 60;
