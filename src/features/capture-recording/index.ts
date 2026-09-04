@@ -23,7 +23,6 @@ export * from './engine/screenshotEngine';
 export * from './engine/videoEngine';
 export * from './engine/compositorUtils';
 export * from './engine/dynamicCaptureCompositor';
-export * from './engine/mp4Converter';
 export * from './coordinator/useScreenshotCoordinator';
 export * from './coordinator/useVideoCoordinator';
 export * from './utils/targetResolver';

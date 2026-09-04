@@ -9,7 +9,7 @@
  */
 
 import { useCaptureStore } from '../store/useCaptureStore';
-import { VideoEngine } from '../engine/videoEngine';
+import { VideoEngine, getSupportedVideoMimeType } from '../engine/videoEngine';
 import { DynamicCaptureCompositor } from '../engine/dynamicCaptureCompositor';
 import type { CaptureRectResolver } from '../engine/compositorUtils';
 import {
@@ -19,12 +19,11 @@ import {
   getChartWorkspaceBounds,
 } from '../engine/compositorUtils';
 import { saveBlobToDevice } from '../engine/screenshotEngine';
-import { convertWebmToMp4, preloadMp4Converter } from '../engine/mp4Converter';
 import type { CaptureTarget, VideoResult } from '../types';
 
 let activeVideoEngine: VideoEngine | null = null;
 let activeCompositor: DynamicCaptureCompositor | null = null;
-let coordinatorSessionStatus: 'idle' | 'starting' | 'recording' | 'stopping' | 'converting' = 'idle';
+let coordinatorSessionStatus: 'idle' | 'starting' | 'recording' | 'stopping' = 'idle';
 
 /**
  * Disposes active compositor and video engine cleanly.
@@ -107,6 +106,17 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
   coordinatorSessionStatus = 'starting';
   const { videoConfig, setRecordingError } = useCaptureStore.getState();
 
+  // Validate format capability before starting capture pipeline
+  const requestedFormat = videoConfig.format || 'webm';
+  const supportedMime = getSupportedVideoMimeType(requestedFormat);
+
+  if (requestedFormat === 'mp4' && !supportedMime) {
+    coordinatorSessionStatus = 'idle';
+    console.error('[Video Coordinator] Native MP4 recording is not supported by this browser environment.');
+    setRecordingError('Native MP4 recording is not supported by your browser. Please select WebM format in settings.');
+    return;
+  }
+
   // 1. Dispose any lingering engine or compositor instances silently
   cleanupEngineInstances();
 
@@ -136,15 +146,11 @@ export async function startVideoRecordingSession(target: CaptureTarget): Promise
     engine.start(stream, {
       fps: videoConfig.fps || 60,
       quality: videoConfig.quality || 'high',
+      format: requestedFormat,
     });
 
     coordinatorSessionStatus = 'recording';
-    console.log('[Video Coordinator] Recording session started successfully via canvas compositor');
-
-    // Preload FFmpeg core in background if MP4 format is selected so it is warm upon completion
-    if (videoConfig.format === 'mp4') {
-      void preloadMp4Converter();
-    }
+    console.log(`[Video Coordinator] Recording session started successfully via canvas compositor (${requestedFormat.toUpperCase()})`);
   } catch (err: unknown) {
     coordinatorSessionStatus = 'idle';
     console.error('[Video Coordinator] Failed to start recording session:', err);
@@ -176,10 +182,10 @@ export function resumeVideoRecordingSession(): void {
 
 /**
  * Stops the active recording session, disposes of media tracks,
- * compiles the WebM Blob, and stores the resulting VideoResult.
+ * compiles the video Blob (MP4 or WebM directly), and stores the resulting VideoResult.
  */
 export async function stopVideoRecordingSession(): Promise<VideoResult | null> {
-  const { selectedTarget } = useCaptureStore.getState();
+  const { selectedTarget, videoConfig } = useCaptureStore.getState();
   const target = selectedTarget || { type: 'custom', rect: useCaptureStore.getState().customRect };
 
   if (!activeVideoEngine || coordinatorSessionStatus !== 'recording') {
@@ -193,103 +199,38 @@ export async function stopVideoRecordingSession(): Promise<VideoResult | null> {
   useCaptureStore.setState({ recordingStatus: 'processing' });
 
   try {
-    // Stop engine and retrieve Blob
+    // Stop engine and retrieve native Blob
     const engineResult = await activeVideoEngine.stop();
 
     // Cleanup compositor and streams
-    const { videoConfig } = useCaptureStore.getState();
+    coordinatorSessionStatus = 'idle';
+    const format = videoConfig.format || 'webm';
+    const filename = formatVideoFilename(target, format);
+    const objectUrl = URL.createObjectURL(engineResult.blob);
 
-    // 1. If WebM format requested: download directly (instant, zero conversion overhead)
-    if (videoConfig.format === 'webm') {
-      coordinatorSessionStatus = 'idle';
-      const filename = formatVideoFilename(target, 'webm');
-      const objectUrl = URL.createObjectURL(engineResult.blob);
+    const videoResult: VideoResult = {
+      success: true,
+      blob: engineResult.blob,
+      objectUrl,
+      filename,
+      format,
+      dimensions: {
+        width: engineResult.width,
+        height: engineResult.height,
+      },
+      durationMs: engineResult.durationMs,
+      target,
+    };
 
-      const videoResult: VideoResult = {
-        success: true,
-        blob: engineResult.blob,
-        objectUrl,
-        filename,
-        format: 'webm',
-        dimensions: {
-          width: engineResult.width,
-          height: engineResult.height,
-        },
-        durationMs: engineResult.durationMs,
-        target,
-      };
+    saveBlobToDevice(engineResult.blob, filename);
 
-      saveBlobToDevice(engineResult.blob, filename);
-
-      useCaptureStore.setState({
-        latestVideoResult: videoResult,
-        recordingStatus: 'completed',
-        conversionProgress: null,
-        fallbackWebmBlob: null,
-      });
-
-      console.log('[Video Coordinator] WebM recording saved successfully:', videoResult);
-      return videoResult;
-    }
-
-    // 2. If MP4 format requested: Convert WebM Blob to universal H.264 MP4 via ffmpeg.wasm
-    coordinatorSessionStatus = 'converting';
     useCaptureStore.setState({
-      recordingStatus: 'converting',
-      conversionProgress: 0,
-      fallbackWebmBlob: engineResult.blob,
+      latestVideoResult: videoResult,
+      recordingStatus: 'completed',
     });
 
-    try {
-      console.log(`[Video Coordinator] Starting WebM -> MP4 conversion (duration: ${engineResult.durationMs}ms)...`);
-      const mp4Blob = await convertWebmToMp4(engineResult.blob, {
-        durationMs: engineResult.durationMs,
-        onProgress: (progress) => {
-          useCaptureStore.setState({ conversionProgress: progress });
-        },
-      });
-
-      coordinatorSessionStatus = 'idle';
-      const filename = formatVideoFilename(target, 'mp4');
-      const objectUrl = URL.createObjectURL(mp4Blob);
-
-      const videoResult: VideoResult = {
-        success: true,
-        blob: mp4Blob,
-        objectUrl,
-        filename,
-        format: 'mp4',
-        dimensions: {
-          width: engineResult.width,
-          height: engineResult.height,
-        },
-        durationMs: engineResult.durationMs,
-        target,
-      };
-
-      saveBlobToDevice(mp4Blob, filename);
-
-      useCaptureStore.setState({
-        latestVideoResult: videoResult,
-        recordingStatus: 'completed',
-        conversionProgress: null,
-        fallbackWebmBlob: null,
-      });
-
-      console.log('[Video Coordinator] MP4 converted and downloaded successfully:', videoResult);
-      return videoResult;
-    } catch (convErr: unknown) {
-      coordinatorSessionStatus = 'idle';
-      console.error('[Video Coordinator] MP4 conversion error:', convErr);
-      const msg = convErr instanceof Error ? convErr.message : 'Failed to convert video to MP4';
-      useCaptureStore.setState({
-        recordingStatus: 'error',
-        errorMessage: `${msg}. You can download the original WebM recording below.`,
-        conversionProgress: null,
-        fallbackWebmBlob: engineResult.blob,
-      });
-      return null;
-    }
+    console.log(`[Video Coordinator] ${format.toUpperCase()} recording saved successfully (0s delay):`, videoResult);
+    return videoResult;
   } catch (err: unknown) {
     coordinatorSessionStatus = 'idle';
     console.error('[Video Coordinator] Error stopping recording session:', err);

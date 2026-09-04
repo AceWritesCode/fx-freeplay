@@ -105,7 +105,6 @@ export type RecordingStatus =
   | 'recording'
   | 'paused'
   | 'processing'
-  | 'converting'
   | 'completed'
   | 'error'
   | 'cancelled';

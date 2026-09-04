@@ -11,6 +11,7 @@
 export interface VideoEngineOptions {
   fps?: 30 | 60;
   quality?: 'standard' | 'high' | 'ultra';
+  format?: 'webm' | 'mp4';
   mimeType?: string;
   timesliceMs?: number;
 }
@@ -28,10 +29,21 @@ export type VideoEngineState = 'inactive' | 'recording' | 'paused';
 /**
  * Ordered list of browser-supported WebM codecs for capability negotiation.
  */
-const PREFERRED_MIME_TYPES = [
+export const PREFERRED_WEBM_MIME_TYPES = [
   'video/webm;codecs=vp9',
   'video/webm;codecs=vp8',
   'video/webm',
+];
+
+/**
+ * Prioritized detection ladder for browser-supported H.264 / MP4 codecs.
+ * Does not hardcode any single codec; tests dynamic capability via MediaRecorder.isTypeSupported.
+ */
+export const PREFERRED_MP4_MIME_TYPES = [
+  'video/mp4;codecs="avc1.42E01E"',
+  'video/mp4;codecs="avc1.4D401E"',
+  'video/mp4;codecs="avc1.640028"',
+  'video/mp4',
 ];
 
 /**
@@ -50,20 +62,24 @@ export function getBitrateForQuality(quality: 'standard' | 'high' | 'ultra' = 'h
 }
 
 /**
- * Detects the most capable supported WebM MIME type in the current environment.
+ * Detects the most capable supported MIME type for the requested format in the current environment.
+ * For MP4: returns the first supported MIME type from the detection ladder, or null if unsupported.
+ * For WebM: returns the first supported MIME type from the detection ladder, fallback 'video/webm'.
  */
-export function getSupportedVideoMimeType(): string {
+export function getSupportedVideoMimeType(format: 'webm' | 'mp4' = 'webm'): string | null {
   if (typeof MediaRecorder === 'undefined') {
-    return 'video/webm';
+    return format === 'mp4' ? null : 'video/webm';
   }
 
-  for (const mime of PREFERRED_MIME_TYPES) {
+  const list = format === 'mp4' ? PREFERRED_MP4_MIME_TYPES : PREFERRED_WEBM_MIME_TYPES;
+
+  for (const mime of list) {
     if (MediaRecorder.isTypeSupported(mime)) {
       return mime;
     }
   }
 
-  return 'video/webm';
+  return format === 'mp4' ? null : 'video/webm';
 }
 
 export class VideoEngine {
@@ -105,11 +121,21 @@ export class VideoEngine {
     this.pausedDuration = 0;
     this.pauseStartTime = 0;
 
-    // Negotiate supported MIME type
-    const candidateMime = options.mimeType || getSupportedVideoMimeType();
-    this.currentMimeType = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(candidateMime))
-      ? candidateMime
-      : getSupportedVideoMimeType();
+    const format = options.format || 'webm';
+
+    // Negotiate supported MIME type dynamically
+    if (format === 'mp4') {
+      const candidateMime = options.mimeType || getSupportedVideoMimeType('mp4');
+      if (!candidateMime || (typeof MediaRecorder !== 'undefined' && !MediaRecorder.isTypeSupported(candidateMime))) {
+        throw new Error('Native MP4 recording is not supported by your browser. Please select WebM format in settings.');
+      }
+      this.currentMimeType = candidateMime;
+    } else {
+      const candidateMime = options.mimeType || getSupportedVideoMimeType('webm') || 'video/webm';
+      this.currentMimeType = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(candidateMime))
+        ? candidateMime
+        : (getSupportedVideoMimeType('webm') || 'video/webm');
+    }
 
     const videoBitsPerSecond = getBitrateForQuality(options.quality);
 
@@ -118,8 +144,14 @@ export class VideoEngine {
         mimeType: this.currentMimeType,
         videoBitsPerSecond,
       });
-    } catch {
-      // Fallback to default browser options if customized options fail
+    } catch (err) {
+      if (format === 'mp4') {
+        throw new Error(
+          `Failed to initialize MP4 MediaRecorder with codec "${this.currentMimeType}": ${err instanceof Error ? err.message : String(err)}`,
+          { cause: err },
+        );
+      }
+      // Fallback to default browser options if customized WebM options fail
       this.mediaRecorder = new MediaRecorder(stream);
       this.currentMimeType = this.mediaRecorder.mimeType || 'video/webm';
     }

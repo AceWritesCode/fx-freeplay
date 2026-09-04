@@ -18,9 +18,6 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
     recordingElapsedSeconds,
     selectedTarget,
     errorMessage,
-    conversionProgress,
-    fallbackWebmBlob,
-    downloadFallbackWebm,
     tickRecordingTimer,
     resetRecording,
   } = useCaptureStore();
@@ -33,7 +30,6 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
     recordingStatus === 'recording' ||
     recordingStatus === 'paused' ||
     recordingStatus === 'processing' ||
-    recordingStatus === 'converting' ||
     recordingStatus === 'completed' ||
     recordingStatus === 'error';
 
@@ -64,16 +60,16 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [recordingStatus]);
 
-  // Auto-dismissal: automatically reset completed or error banner (unless fallback is available) after 4.5 seconds
+  // Auto-dismissal: automatically reset completed or error banner after 4.5 seconds
   useEffect(() => {
-    if (recordingStatus !== 'completed' && (recordingStatus !== 'error' || fallbackWebmBlob)) return;
+    if (recordingStatus !== 'completed' && recordingStatus !== 'error') return;
 
     const timer = setTimeout(() => {
       resetRecording();
     }, 4500);
 
     return () => clearTimeout(timer);
-  }, [recordingStatus, fallbackWebmBlob, resetRecording]);
+  }, [recordingStatus, resetRecording]);
 
   // Clean up hover debounce timeout on unmount
   useEffect(() => {
@@ -232,21 +228,6 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
         </div>
       )}
 
-      {/* ─── 2B. CONVERTING TO MP4 STATE ───────────────────────────── */}
-      {recordingStatus === 'converting' && (
-        <div className="flex items-center gap-2 text-xs flex-shrink-0 animate-in fade-in duration-300">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
-          <span className="font-semibold text-txt-primary">Converting to MP4...</span>
-          {typeof conversionProgress === 'number' ? (
-            <span className="font-mono text-accent text-[11px] font-bold">
-              {Math.min(100, Math.max(0, Math.round(conversionProgress * 100)))}%
-            </span>
-          ) : (
-            <span className="text-[10px] text-txt-muted font-normal">(Starting...)</span>
-          )}
-        </div>
-      )}
-
       {/* ─── 3. COMPLETED STATE ────────────────────────────────────────── */}
       {recordingStatus === 'completed' && (
         <div className="flex items-center gap-2 text-xs flex-shrink-0 animate-in fade-in duration-300">
@@ -273,16 +254,6 @@ export const RecordingFloatingBar: React.FC<RecordingFloatingBarProps> = ({ clas
           >
             {errorMessage || 'Recording failed'}
           </span>
-          {fallbackWebmBlob && (
-            <button
-              type="button"
-              onClick={downloadFallbackWebm}
-              className="px-2 py-0.5 rounded text-[10px] font-bold text-accent hover:bg-accent-muted border border-accent/40 transition-colors cursor-pointer"
-              title="Download original WebM recording"
-            >
-              Download WebM
-            </button>
-          )}
           <button
             type="button"
             onClick={resetRecording}

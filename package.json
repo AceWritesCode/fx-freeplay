@@ -10,8 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
     "klinecharts": "^10.0.0-beta3",
     "localforage": "^1.10.0",
     "lucide-react": "^1.21.0",

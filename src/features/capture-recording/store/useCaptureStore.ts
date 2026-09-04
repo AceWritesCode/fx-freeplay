@@ -93,9 +93,6 @@ export interface CaptureState {
   recordingStatus: RecordingStatus;
   recordingElapsedSeconds: number;
   errorMessage: string | null;
-  conversionProgress: number | null;
-  fallbackWebmBlob: Blob | null;
-  downloadFallbackWebm: () => void;
 
   // Menu Actions
   openCaptureMenu: () => void;
@@ -182,8 +179,6 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   recordingStatus: 'idle',
   recordingElapsedSeconds: 0,
   errorMessage: null,
-  conversionProgress: null,
-  fallbackWebmBlob: null,
 
   isCapturingScreenshot: false,
   latestScreenshotResult: null,
@@ -600,29 +595,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       recordingStatus: 'idle',
       recordingElapsedSeconds: 0,
       errorMessage: null,
-      conversionProgress: null,
-      fallbackWebmBlob: null,
     });
-  },
-
-  downloadFallbackWebm: () => {
-    const { fallbackWebmBlob, selectedTarget, customRect } = get();
-    if (!fallbackWebmBlob) return;
-    const target = selectedTarget || { type: 'custom', rect: customRect };
-    const date = new Date();
-    const dateStr = date.toISOString().split('T')[0];
-    const timeStr = date.toTimeString().split(' ')[0].replace(/:/g, '-');
-    let identifier: string;
-    if (target.type === 'canvas') {
-      const sym = target.canvas.symbol ? `_${target.canvas.symbol}` : '';
-      identifier = `Chart_${target.canvas.slotIndex + 1}${sym}`;
-    } else if (target.type === 'custom') {
-      identifier = `Custom_${target.rect.width}x${target.rect.height}`;
-    } else {
-      identifier = 'All_Canvases';
-    }
-    const filename = `FX-Freeplay_${identifier}_${dateStr}_${timeStr}.webm`;
-    saveBlobToDevice(fallbackWebmBlob, filename);
   },
 
   setRecordingError: (error: string) => {
