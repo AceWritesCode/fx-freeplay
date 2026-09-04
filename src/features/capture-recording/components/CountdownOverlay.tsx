@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useCaptureStore } from '../store/useCaptureStore';
 
@@ -11,20 +11,19 @@ const ActiveCountdownOverlay: React.FC = () => {
   } = useCaptureStore();
 
   const [currentCount, setCurrentCount] = useState<number>(countdownValue || 3);
+  const hasTriggeredRef = useRef(false);
 
   const handleCancel = () => {
     console.log('[Capture] Recording countdown cancelled');
     cancelFlow();
   };
 
+  // 1. Countdown timer interval (strictly state decrement only, no store mutations in setter)
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentCount((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          // When countdown finishes, start recording!
-          const target = selectedTarget || { type: 'workspace' };
-          confirmTargetSelection(target);
           return 0;
         }
         return prev - 1;
@@ -47,7 +46,16 @@ const ActiveCountdownOverlay: React.FC = () => {
       clearInterval(interval);
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [selectedTarget, confirmTargetSelection, cancelFlow]);
+  }, [cancelFlow]);
+
+  // 2. Cleanly trigger recording start when countdown reaches 0 (outside of render pass)
+  useEffect(() => {
+    if (currentCount <= 0 && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      const target = selectedTarget || { type: 'workspace' };
+      confirmTargetSelection(target);
+    }
+  }, [currentCount, selectedTarget, confirmTargetSelection]);
 
   if (currentCount <= 0 || typeof document === 'undefined') {
     return null;

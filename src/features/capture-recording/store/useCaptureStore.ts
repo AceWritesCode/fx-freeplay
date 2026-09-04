@@ -11,6 +11,7 @@ import type {
   CustomRect,
   PersistedCaptureDefaults,
   ScreenshotResult,
+  VideoResult,
 } from '../types';
 import { isSingleChartMode, getSingleChartTarget } from '../utils/targetResolver';
 import {
@@ -23,6 +24,7 @@ import {
   saveBlobToDevice,
   copyBlobToClipboard,
 } from '../engine/screenshotEngine';
+import { startVideoRecordingSession } from '../coordinator/useVideoCoordinator';
 
 // ─── Default Configurations ──────────────────────────────────────────────────
 
@@ -139,6 +141,10 @@ export interface CaptureState {
   isScreenshotPreviewOpen: boolean;
   isSilentToastVisible: boolean;
 
+  // Video Engine & Result State
+  latestVideoResult: VideoResult | null;
+  isVideoPreviewOpen: boolean;
+
   // Screenshot Engine Actions
   executeScreenshot: (target: CaptureTarget) => Promise<void>;
   openScreenshotPreview: () => void;
@@ -178,6 +184,9 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   latestScreenshotResult: null,
   isScreenshotPreviewOpen: false,
   isSilentToastVisible: false,
+
+  latestVideoResult: null,
+  isVideoPreviewOpen: false,
 
   // Menu Actions
   openCaptureMenu: () => {
@@ -556,6 +565,8 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
         recordingElapsedSeconds: 0,
         errorMessage: null,
       });
+      // Trigger headless recording session via coordinator
+      void startVideoRecordingSession(target);
     } else if (activeCaptureType === 'gif') {
       console.log('[Capture] GIF capture started', targetPayload);
     }

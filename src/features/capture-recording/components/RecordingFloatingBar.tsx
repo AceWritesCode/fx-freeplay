@@ -2,6 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Pause, Play, Square, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCaptureStore } from '../store/useCaptureStore';
+import {
+  pauseVideoRecordingSession,
+  resumeVideoRecordingSession,
+  stopVideoRecordingSession,
+  cancelVideoRecordingSession,
+} from '../coordinator/useVideoCoordinator';
 
 export const RecordingFloatingBar: React.FC = () => {
   const {
@@ -10,10 +16,6 @@ export const RecordingFloatingBar: React.FC = () => {
     selectedTarget,
     errorMessage,
     tickRecordingTimer,
-    pauseRecording,
-    resumeRecording,
-    stopRecording,
-    cancelRecording,
     resetRecording,
   } = useCaptureStore();
 
@@ -46,13 +48,13 @@ export const RecordingFloatingBar: React.FC = () => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        cancelRecording();
+        void cancelVideoRecordingSession();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [recordingStatus, cancelRecording]);
+  }, [recordingStatus]);
 
   // Clean up hover debounce timeout on unmount
   useEffect(() => {
@@ -151,7 +153,7 @@ export const RecordingFloatingBar: React.FC = () => {
               {recordingStatus === 'recording' ? (
                 <button
                   type="button"
-                  onClick={pauseRecording}
+                  onClick={pauseVideoRecordingSession}
                   title="Pause recording"
                   className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-txt-muted hover:text-txt-primary hover:bg-surface-hover border border-border-sub transition-colors cursor-pointer"
                 >
@@ -161,7 +163,7 @@ export const RecordingFloatingBar: React.FC = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={resumeRecording}
+                  onClick={resumeVideoRecordingSession}
                   title="Resume recording"
                   className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-accent hover:bg-accent-muted border border-accent/40 transition-colors cursor-pointer"
                 >
@@ -172,7 +174,7 @@ export const RecordingFloatingBar: React.FC = () => {
 
               <button
                 type="button"
-                onClick={stopRecording}
+                onClick={() => void stopVideoRecordingSession()}
                 title="Stop recording"
                 className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold text-white bg-status-error hover:bg-status-error/90 transition-colors cursor-pointer shadow-xs"
               >
@@ -182,7 +184,7 @@ export const RecordingFloatingBar: React.FC = () => {
 
               <button
                 type="button"
-                onClick={cancelRecording}
+                onClick={() => void cancelVideoRecordingSession()}
                 title="Cancel recording (Esc)"
                 className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-surface-hover transition-colors cursor-pointer"
               >

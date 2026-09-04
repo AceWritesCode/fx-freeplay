@@ -59,6 +59,18 @@ export interface ScreenshotResult {
   clipboardError?: string;
 }
 
+export interface VideoResult {
+  success: boolean;
+  blob?: Blob;
+  objectUrl?: string;
+  filename?: string;
+  format: 'webm' | 'mp4';
+  dimensions: { width: number; height: number };
+  durationMs: number;
+  target: CaptureTarget;
+  error?: string;
+}
+
 export interface VideoConfig {
   areaMode: VideoCaptureArea; // 'canvas' (default) | 'fullscreen' | 'custom'
   format: 'webm' | 'mp4';

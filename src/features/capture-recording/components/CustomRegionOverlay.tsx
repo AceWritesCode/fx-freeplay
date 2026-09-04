@@ -7,6 +7,8 @@ import type { CustomRect } from '../types';
 export const CustomRegionOverlay: React.FC = () => {
   const {
     flowStep,
+    recordingStatus,
+    selectedTarget,
     customRect,
     videoConfig,
     setCustomRect,
@@ -14,7 +16,11 @@ export const CustomRegionOverlay: React.FC = () => {
     cancelFlow,
   } = useCaptureStore();
 
-  const isActive = flowStep === 'selecting_custom_region';
+  const isSelecting = flowStep === 'selecting_custom_region';
+  const isRecordingLocked =
+    (recordingStatus === 'recording' || recordingStatus === 'paused') &&
+    selectedTarget?.type === 'custom';
+  const isVisible = isSelecting || isRecordingLocked;
 
   // Initialize rect in center of screen
   const [rect, setRect] = useState<CustomRect>(() => {
@@ -42,7 +48,7 @@ export const CustomRegionOverlay: React.FC = () => {
 
   // Handle Escape key
   useEffect(() => {
-    if (!isActive) return;
+    if (!isSelecting) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -54,7 +60,7 @@ export const CustomRegionOverlay: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isActive, cancelFlow]);
+  }, [isSelecting, cancelFlow]);
 
   const handlePointerDown = (
     e: React.PointerEvent,
@@ -159,7 +165,35 @@ export const CustomRegionOverlay: React.FC = () => {
     });
   };
 
-  if (!isActive || typeof document === 'undefined') return null;
+  if (!isVisible || typeof document === 'undefined') return null;
+
+  // If active recording is underway, display only the non-interactive locked border
+  if (isRecordingLocked) {
+    return createPortal(
+      <div className="fixed inset-0 pointer-events-none z-[99998] select-none overflow-hidden">
+        <div
+          style={{
+            position: 'absolute',
+            left: rect.x,
+            top: rect.y,
+            width: rect.width,
+            height: rect.height,
+          }}
+          className="border-2 border-status-error/80 shadow-lg pointer-events-none"
+        >
+          {/* Locked REC Dimension Pill */}
+          <div
+            className={`absolute px-2 py-0.5 rounded bg-surface-elevated/95 border border-status-error/80 text-[10px] font-mono font-bold text-status-error shadow-md pointer-events-none ${
+              rect.y < 35 ? 'top-2 left-2' : '-top-7 left-0'
+            }`}
+          >
+            REC: {rect.width} × {rect.height} px
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] select-none overflow-hidden animate-in fade-in duration-100">
