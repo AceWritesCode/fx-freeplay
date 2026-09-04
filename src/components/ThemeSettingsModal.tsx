@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown, Bookmark, Trash2, GripHorizontal } from 'lucide-react';
+import { X, Paintbrush, Percent, Clock, Play, Palette, Check, RotateCcw, HelpCircle, ChevronDown, Bookmark, Trash2, GripHorizontal, Camera } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode, SavedCustomTheme } from '@/config';
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens, formatToHex } from '@/config';
 import { getStoredSyncChartBackground, storeSyncChartBackground, getStoredSavedThemes, storeSavedThemes } from '@/utils/themeApplier';
+import { CaptureSettingsTab } from '@/features/capture-recording';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -44,7 +45,7 @@ interface ThemeSettingsModalProps {
   onSelectFolder?: () => void;
 }
 
-type TabType = 'Theme' | 'Symbol' | 'Canvas' | 'Scales' | 'Timezone' | 'Replay';
+type TabType = 'Theme' | 'Symbol' | 'Canvas' | 'Scales' | 'Timezone' | 'Replay' | 'Capture';
 
 const COLOR_FIELDS: { key: keyof CustomThemePalette; label: string }[] = [
   { key: 'bgApp', label: 'Main Background' },
@@ -617,6 +618,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             >
               <Play className="w-4.5 h-4.5 mr-2.5" />
               <span>Replay</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('Capture'); setActiveColorField(null); }}
+              className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
+                activeTab === 'Capture'
+                  ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
+              }`}
+            >
+              <Camera className="w-4.5 h-4.5 mr-2.5" />
+              <span>Capture & Recording</span>
             </button>
           </div>
 
@@ -1668,6 +1681,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Tab: Capture & Recording */}
+            {activeTab === 'Capture' && (
+              <CaptureSettingsTab />
             )}
 
           </div>

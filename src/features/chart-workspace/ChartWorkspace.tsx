@@ -46,6 +46,8 @@ import {
   runWorkspaceReconciliation,
   reconcileWorkspace,
   mirrorLiveOverlayUpdate,
+  registerChartInstance,
+  unregisterChartInstance,
 } from '@/engine/charting';
 
 import {
@@ -759,6 +761,7 @@ export function ChartWorkspace() {
             console.error(e);
           }
           chartInstancesRef.current[i] = null;
+          unregisterChartInstance(i);
         }
 
         if (!chartInstancesRef.current[i]) {
@@ -786,6 +789,7 @@ export function ChartWorkspace() {
           });
           if (chart) {
             chartInstancesRef.current[i] = chart;
+            registerChartInstance(i, chart);
             (chart as any)._magnetMode = drawingCoord.magnetMode;
             applySettingsToChart(chart, settings);
             
@@ -862,6 +866,7 @@ export function ChartWorkspace() {
         console.log(`[DATE-SYNC UNSUBSCRIBE] chart: chart-${i}`);
         dispose(chartContainersRef.current[i] || chartInstancesRef.current[i]);
         chartInstancesRef.current[i] = null;
+        unregisterChartInstance(i);
       }
     }
 
@@ -1844,6 +1849,7 @@ export function ChartWorkspace() {
             </div>
           ) : null}
           <div
+            data-chart-workspace="true"
             className="h-full w-full relative"
             onMouseMove={handleCanvasContainerMouseMove}
             onMouseLeave={handleCanvasContainerMouseLeave}
