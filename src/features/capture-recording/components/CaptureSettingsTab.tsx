@@ -219,9 +219,21 @@ export const CaptureSettingsTab: React.FC = () => {
                 value={screenshot.format}
                 onChange={(val) => updatePersistedScreenshotDefaults({ format: val })}
                 options={[
-                  { label: 'PNG (Lossless)', value: 'png' },
-                  { label: 'JPEG', value: 'jpeg' },
-                  { label: 'WebP', value: 'webp' },
+                  {
+                    label: 'PNG (Lossless)',
+                    value: 'png',
+                    desc: 'PNG — Lossless: Best for charts, text, drawings, and maximum image quality with zero artifacts. Larger file size.',
+                  },
+                  {
+                    label: 'JPEG',
+                    value: 'jpeg',
+                    desc: 'JPEG — Smaller File: Best for sharing or quick export when storage/bandwidth matters. Minor lossy compression.',
+                  },
+                  {
+                    label: 'WebP',
+                    value: 'webp',
+                    desc: 'WebP — Modern & Compact: High-efficiency modern web standard offering crisp visuals with superior compression.',
+                  },
                 ]}
               />
             </div>
@@ -278,6 +290,22 @@ export const CaptureSettingsTab: React.FC = () => {
                   { label: '1x Standard', value: 1 },
                   { label: '2x Retina', value: 2 },
                   { label: '4x Ultra HD', value: 4 },
+                ]}
+              />
+            </div>
+
+            {/* Screenshot Feedback Mode */}
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-txt-primary font-medium">Screenshot Feedback</span>
+                <p className="text-[11px] text-txt-muted">Preview modal vs silent footer confirmation</p>
+              </div>
+              <SegmentedChoice
+                value={screenshot.feedbackMode || 'preview'}
+                onChange={(val) => updatePersistedScreenshotDefaults({ feedbackMode: val })}
+                options={[
+                  { label: 'Preview', value: 'preview', desc: 'Show captured screenshot immediately' },
+                  { label: 'Silent', value: 'silent', desc: 'Show small confirmation in footer' },
                 ]}
               />
             </div>

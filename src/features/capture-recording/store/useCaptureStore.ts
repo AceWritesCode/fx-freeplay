@@ -10,6 +10,7 @@ import type {
   RememberSettingsMap,
   CustomRect,
   PersistedCaptureDefaults,
+  ScreenshotResult,
 } from '../types';
 import { isSingleChartMode, getSingleChartTarget } from '../utils/targetResolver';
 import {
@@ -17,6 +18,11 @@ import {
   savePersistedCaptureDefaults,
   resetPersistedCaptureDefaults,
 } from '../utils/capturePersistence';
+import {
+  captureScreenshot,
+  saveBlobToDevice,
+  copyBlobToClipboard,
+} from '../engine/screenshotEngine';
 
 // ─── Default Configurations ──────────────────────────────────────────────────
 
@@ -34,6 +40,7 @@ export const DEFAULT_SCREENSHOT_CONFIG: ScreenshotConfig = {
   copyToClipboard: false,
   saveToDevice: true,
   includeWatermark: false,
+  feedbackMode: 'preview',
 };
 
 export const DEFAULT_VIDEO_CONFIG: VideoConfig = {
@@ -125,6 +132,21 @@ export interface CaptureState {
   tickRecordingTimer: () => void;
   resetRecording: () => void;
   setRecordingError: (error: string) => void;
+
+  // Screenshot Engine & Feedback UI State
+  isCapturingScreenshot: boolean;
+  latestScreenshotResult: ScreenshotResult | null;
+  isScreenshotPreviewOpen: boolean;
+  isSilentToastVisible: boolean;
+
+  // Screenshot Engine Actions
+  executeScreenshot: (target: CaptureTarget) => Promise<void>;
+  openScreenshotPreview: () => void;
+  closeScreenshotPreview: () => void;
+  showSilentToast: () => void;
+  dismissSilentToast: () => void;
+  saveLatestScreenshot: () => void;
+  copyLatestScreenshot: () => Promise<boolean>;
 }
 
 // ─── Zustand Store Implementation ────────────────────────────────────────────
@@ -151,6 +173,11 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   recordingStatus: 'idle',
   recordingElapsedSeconds: 0,
   errorMessage: null,
+
+  isCapturingScreenshot: false,
+  latestScreenshotResult: null,
+  isScreenshotPreviewOpen: false,
+  isSilentToastVisible: false,
 
   // Menu Actions
   openCaptureMenu: () => {
@@ -520,6 +547,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
 
     if (activeCaptureType === 'screenshot') {
       console.log('[Capture] Screenshot capture started', targetPayload);
+      get().executeScreenshot(target);
     } else if (activeCaptureType === 'video') {
       console.log('[Capture] Video recording started', targetPayload);
       // Transition to recording frontend UI state
@@ -548,12 +576,9 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     console.log('[Capture] Video recording stopped');
     console.log('[Capture] Processing recording');
     set({ recordingStatus: 'processing' });
-
     setTimeout(() => {
-      if (get().recordingStatus === 'processing') {
-        console.log('[Capture] Recording completed');
-        set({ recordingStatus: 'completed' });
-      }
+      console.log('[Capture] Recording completed');
+      set({ recordingStatus: 'completed' });
     }, 1200);
   },
 
@@ -585,5 +610,81 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       recordingStatus: 'error',
       errorMessage: error,
     });
+  },
+
+  // Screenshot Engine Actions
+  executeScreenshot: async (target: CaptureTarget) => {
+    const config = get().screenshotConfig;
+    set({ isCapturingScreenshot: true });
+
+    try {
+      const result = await captureScreenshot({
+        target,
+        format: config.format,
+        quality: config.quality,
+        resolutionScale: config.resolutionScale,
+        includeWatermark: config.includeWatermark,
+        saveToDevice: config.saveToDevice,
+        copyToClipboard: config.copyToClipboard,
+      });
+
+      set({
+        latestScreenshotResult: result,
+        isScreenshotPreviewOpen: result.success && config.feedbackMode === 'preview',
+        isSilentToastVisible: result.success && config.feedbackMode === 'silent',
+      });
+    } catch (err: unknown) {
+      console.error('[Capture Store] Unexpected screenshot error:', err);
+      set({
+        latestScreenshotResult: {
+          success: false,
+          format: config.format,
+          dimensions: { width: 0, height: 0 },
+          target,
+          saved: false,
+          copied: false,
+          error: err instanceof Error ? err.message : 'Unknown screenshot error',
+        },
+      });
+    } finally {
+      set({ isCapturingScreenshot: false });
+    }
+  },
+
+  openScreenshotPreview: () => set({ isScreenshotPreviewOpen: true, isSilentToastVisible: false }),
+  closeScreenshotPreview: () => {
+    const { latestScreenshotResult } = get();
+    if (latestScreenshotResult?.objectUrl) {
+      URL.revokeObjectURL(latestScreenshotResult.objectUrl);
+    }
+    set({ isScreenshotPreviewOpen: false });
+  },
+  showSilentToast: () => set({ isSilentToastVisible: true }),
+  dismissSilentToast: () => set({ isSilentToastVisible: false }),
+
+  saveLatestScreenshot: () => {
+    const result = get().latestScreenshotResult;
+    if (!result?.blob || !result?.filename) return;
+    saveBlobToDevice(result.blob, result.filename);
+    set((s) => ({
+      latestScreenshotResult: s.latestScreenshotResult
+        ? { ...s.latestScreenshotResult, saved: true }
+        : null,
+    }));
+  },
+
+  copyLatestScreenshot: async () => {
+    const result = get().latestScreenshotResult;
+    if (!result?.blob) return false;
+    const res = await copyBlobToClipboard(result.blob);
+    if (res.copied) {
+      set((s) => ({
+        latestScreenshotResult: s.latestScreenshotResult
+          ? { ...s.latestScreenshotResult, copied: true }
+          : null,
+      }));
+      return true;
+    }
+    return false;
   },
 }));

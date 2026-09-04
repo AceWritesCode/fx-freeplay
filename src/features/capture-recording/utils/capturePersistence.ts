@@ -16,6 +16,7 @@ export const INITIAL_CAPTURE_DEFAULTS: PersistedCaptureDefaults = {
     copyToClipboard: false,
     saveToDevice: true,
     includeWatermark: false,
+    feedbackMode: 'preview',
   },
   video: {
     areaMode: 'canvas',

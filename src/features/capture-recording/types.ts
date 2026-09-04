@@ -33,6 +33,8 @@ export type CaptureTarget =
 
 // ─── Configuration Models ───────────────────────────────────────────────────
 
+export type ScreenshotFeedbackMode = 'preview' | 'silent';
+
 export interface ScreenshotConfig {
   format: 'png' | 'jpeg' | 'webp';
   quality: number; // 0.1 to 1.0 (default: 0.92)
@@ -40,6 +42,21 @@ export interface ScreenshotConfig {
   copyToClipboard: boolean;
   saveToDevice: boolean;
   includeWatermark: boolean;
+  feedbackMode: ScreenshotFeedbackMode;
+}
+
+export interface ScreenshotResult {
+  success: boolean;
+  blob?: Blob;
+  objectUrl?: string;
+  filename?: string;
+  format: 'png' | 'jpeg' | 'webp';
+  dimensions: { width: number; height: number };
+  target: CaptureTarget;
+  saved: boolean;
+  copied: boolean;
+  error?: string;
+  clipboardError?: string;
 }
 
 export interface VideoConfig {

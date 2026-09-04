@@ -45,6 +45,9 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
       data-chart-slot-index={slotIndex}
       data-chart-symbol={slotInfo?.symbol || ''}
       data-chart-timeframe={slotInfo?.timeframe || ''}
+      data-chart-bg-type={settings.backgroundType || 'Solid'}
+      data-chart-bg={settings.background || '#131722'}
+      data-chart-bg-stop={settings.backgroundGradientStop || '#1e222d'}
       onClick={() => onSelectSlot(slotIndex)}
       className={`
         relative w-full h-full bg-slot-bg overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
@@ -54,6 +57,7 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
     >
       <div
         ref={setContainerRef}
+        data-chart-slot-inner="true"
         className={`w-full h-full ${
           isSelectingCutPoint && isActive
             ? 'cursor-cell'

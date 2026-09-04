@@ -66,12 +66,32 @@ export const ScreenshotSettingsView: React.FC = () => {
           Image Format
         </div>
         <div className="grid grid-cols-3 gap-1.5 p-1 bg-app-bg rounded-lg border border-border-sub">
-          {(['png', 'jpeg', 'webp'] as const).map((fmt) => {
+          {([
+            {
+              fmt: 'png',
+              label: 'PNG',
+              title: 'PNG — Lossless',
+              tooltip: 'PNG — Lossless: Best for charts, text, drawings, and maximum image quality with zero artifacts. Larger file size.',
+            },
+            {
+              fmt: 'jpeg',
+              label: 'JPEG',
+              title: 'JPEG — Smaller File',
+              tooltip: 'JPEG — Smaller File: Best for sharing or quick export when storage/bandwidth matters. Minor lossy compression.',
+            },
+            {
+              fmt: 'webp',
+              label: 'WebP',
+              title: 'WebP — Modern & Compact',
+              tooltip: 'WebP — Modern & Compact: High-efficiency modern web standard offering crisp visuals with superior compression.',
+            },
+          ] as const).map(({ fmt, label, tooltip }) => {
             const isActive = screenshotConfig.format === fmt;
             return (
               <button
                 key={fmt}
                 type="button"
+                title={tooltip}
                 onClick={() => updateScreenshotConfig({ format: fmt })}
                 className={`py-1.5 px-3 rounded-md text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                   isActive
@@ -79,7 +99,7 @@ export const ScreenshotSettingsView: React.FC = () => {
                     : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
                 }`}
               >
-                {fmt}
+                {label}
               </button>
             );
           })}
@@ -132,6 +152,38 @@ export const ScreenshotSettingsView: React.FC = () => {
                 key={scale}
                 type="button"
                 onClick={() => updateScreenshotConfig({ resolutionScale: scale })}
+                className={`py-1.5 px-2 rounded-md text-center transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-accent text-txt-inverse shadow-sm'
+                    : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
+                }`}
+              >
+                <div className="text-xs font-bold leading-tight">{label}</div>
+                <div className={`text-[9px] ${isActive ? 'text-txt-inverse/80' : 'text-txt-muted'} mt-0.5`}>
+                  {desc}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── FEEDBACK MODE ─────────────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-txt-muted mb-2">
+          Screenshot Feedback
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-app-bg rounded-lg border border-border-sub">
+          {([
+            { mode: 'preview', label: 'Preview', desc: 'Show preview immediately' },
+            { mode: 'silent', label: 'Silent', desc: 'Small footer toast' },
+          ] as const).map(({ mode, label, desc }) => {
+            const isActive = (screenshotConfig.feedbackMode || 'preview') === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => updateScreenshotConfig({ feedbackMode: mode })}
                 className={`py-1.5 px-2 rounded-md text-center transition-all cursor-pointer ${
                   isActive
                     ? 'bg-accent text-txt-inverse shadow-sm'

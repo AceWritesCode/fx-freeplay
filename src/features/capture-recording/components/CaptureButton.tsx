@@ -6,6 +6,8 @@ import { CanvasSelectionOverlay } from './CanvasSelectionOverlay';
 import { CustomRegionOverlay } from './CustomRegionOverlay';
 import { CountdownOverlay } from './CountdownOverlay';
 import { RecordingFloatingBar } from './RecordingFloatingBar';
+import { ScreenshotPreviewModal } from './ScreenshotPreviewModal';
+import { ScreenshotSilentToast } from './ScreenshotSilentToast';
 import type { CaptureType } from '../types';
 
 export const CaptureButton: React.FC = () => {
@@ -125,7 +127,7 @@ export const CaptureButton: React.FC = () => {
                       onClick={handleScreenshotClick}
                       className="flex-1 flex items-start gap-3 p-2 text-left cursor-pointer min-w-0"
                     >
-                      <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-surface border border-border-sub text-accent flex-shrink-0 transition-colors">
+                      <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-accent-muted border border-border-sub text-txt-secondary group-hover:text-accent flex-shrink-0 transition-colors">
                         <Camera className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -159,7 +161,7 @@ export const CaptureButton: React.FC = () => {
                       onClick={() => handleSelect('video')}
                       className="flex-1 flex items-start gap-3 p-2 text-left cursor-pointer min-w-0"
                     >
-                      <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-surface border border-border-sub text-status-success flex-shrink-0 transition-colors">
+                      <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-accent-muted border border-border-sub text-txt-secondary group-hover:text-accent flex-shrink-0 transition-colors">
                         <Video className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -193,7 +195,7 @@ export const CaptureButton: React.FC = () => {
                       onClick={() => handleSelect('gif')}
                       className="flex-1 flex items-start gap-3 p-2 text-left cursor-pointer min-w-0"
                     >
-                      <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-surface border border-border-sub text-purple-400 flex-shrink-0 transition-colors">
+                      <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-accent-muted border border-border-sub text-txt-secondary group-hover:text-accent flex-shrink-0 transition-colors">
                         <Film className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -239,7 +241,7 @@ export const CaptureButton: React.FC = () => {
                       onClick={() => openConfigModal('screenshot')}
                       className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-elevated transition-colors cursor-pointer"
                     >
-                      <Settings className="w-3 h-3" />
+                      <Settings className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <div className="h-px bg-border-sub mb-0.5" />
@@ -250,7 +252,7 @@ export const CaptureButton: React.FC = () => {
                     onClick={() => handleDestinationSelect('device')}
                     className="w-full flex items-start gap-3 p-2 rounded-lg hover:bg-surface-hover transition-colors text-left group cursor-pointer"
                   >
-                    <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-surface border border-border-sub text-accent flex-shrink-0 transition-colors">
+                    <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-accent-muted border border-border-sub text-txt-secondary group-hover:text-accent flex-shrink-0 transition-colors">
                       <Download className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -269,7 +271,7 @@ export const CaptureButton: React.FC = () => {
                     onClick={() => handleDestinationSelect('clipboard')}
                     className="w-full flex items-start gap-3 p-2 rounded-lg hover:bg-surface-hover transition-colors text-left group cursor-pointer"
                   >
-                    <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-surface border border-border-sub text-accent flex-shrink-0 transition-colors">
+                    <div className="p-1.5 rounded-md bg-surface-elevated group-hover:bg-accent-muted border border-border-sub text-txt-secondary group-hover:text-accent flex-shrink-0 transition-colors">
                       <Copy className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -302,6 +304,10 @@ export const CaptureButton: React.FC = () => {
 
       {/* Recording Floating Control Bar */}
       <RecordingFloatingBar />
+
+      {/* Screenshot Result Feedback Overlays */}
+      <ScreenshotPreviewModal />
+      <ScreenshotSilentToast />
     </>
   );
 };
