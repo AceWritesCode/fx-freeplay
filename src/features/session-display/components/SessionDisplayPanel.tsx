@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ChevronDown, 
-  Clock, 
   Globe, 
   Sliders, 
   RotateCcw,
   X
 } from 'lucide-react';
 import { ColorPicker } from '@/components/ColorPicker';
+import { TimePickerInput } from './TimePickerInput';
 import { 
   type SessionId, 
   type SessionConfig, 
@@ -237,19 +237,6 @@ export const SessionDisplayPanel: React.FC = () => {
     }));
   };
 
-  const handleTransparencyChange = (id: SessionId, transparency: number) => {
-    setSettings(prev => ({
-      ...prev,
-      sessions: {
-        ...prev.sessions,
-        [id]: {
-          ...prev.sessions[id],
-          transparency,
-        },
-      },
-    }));
-  };
-
   const handleResetDefaults = () => {
     setSettings(DEFAULT_SESSION_DISPLAY_SETTINGS);
     setActiveColorPickerSessionId(null);
@@ -304,61 +291,21 @@ export const SessionDisplayPanel: React.FC = () => {
           />
         </div>
 
-        {/* Controls: Time inputs and Transparency */}
-        <div className="flex flex-col gap-2 pt-1 border-t border-border-sub/50">
-          {/* Time Range */}
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] text-txt-muted font-medium flex items-center gap-1">
-              <Clock className="w-3 h-3 text-txt-muted" />
-              Session
-            </span>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                disabled={isSessionDisabled}
-                value={session.startTime}
-                onChange={(e) => handleTimeChange(session.id, 'startTime', e.target.value)}
-                maxLength={5}
-                placeholder="HH:mm"
-                className="w-14 px-1.5 py-0.5 text-center text-xs font-mono font-medium rounded border border-border-def bg-app-bg text-txt-primary hover:border-txt-muted focus:border-accent outline-none disabled:opacity-40 transition-colors"
-                title="Start time (24h HH:mm)"
-              />
-              <span className="text-txt-muted text-xs">–</span>
-              <input
-                type="text"
-                disabled={isSessionDisabled}
-                value={session.endTime}
-                onChange={(e) => handleTimeChange(session.id, 'endTime', e.target.value)}
-                maxLength={5}
-                placeholder="HH:mm"
-                className="w-14 px-1.5 py-0.5 text-center text-xs font-mono font-medium rounded border border-border-def bg-app-bg text-txt-primary hover:border-txt-muted focus:border-accent outline-none disabled:opacity-40 transition-colors"
-                title="End time (24h HH:mm)"
-              />
-            </div>
-          </div>
-
-          {/* Transparency Slider */}
-          <div className="flex items-center justify-between text-xs gap-2">
-            <span className="text-[11px] text-txt-muted font-medium">
-              Transparency
-            </span>
-            <div className="flex items-center gap-2 flex-1 justify-end max-w-[150px]">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                disabled={isSessionDisabled}
-                value={session.transparency}
-                onChange={(e) => handleTransparencyChange(session.id, parseInt(e.target.value, 10))}
-                className="w-20 h-1.5 appearance-none rounded-full bg-surface-elevated accent-accent cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                title={`Transparency: ${session.transparency}%`}
-              />
-              <span className="text-[11px] font-mono text-txt-secondary w-8 text-right font-medium">
-                {session.transparency}%
-              </span>
-            </div>
-          </div>
+        {/* Time Range Selector Row matching user's reference */}
+        <div className="flex items-center justify-between gap-1.5 pt-0.5 border-t border-border-sub/40">
+          <TimePickerInput
+            value={session.startTime}
+            disabled={isSessionDisabled}
+            onChange={(val) => handleTimeChange(session.id, 'startTime', val)}
+            className="flex-1"
+          />
+          <span className="text-txt-muted text-xs font-semibold select-none flex-shrink-0">–</span>
+          <TimePickerInput
+            value={session.endTime}
+            disabled={isSessionDisabled}
+            onChange={(val) => handleTimeChange(session.id, 'endTime', val)}
+            className="flex-1"
+          />
         </div>
       </div>
     );

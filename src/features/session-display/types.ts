@@ -13,8 +13,7 @@ export interface SessionConfig {
   enabled: boolean;
   startTime: string; // "HH:mm" in 24-hour format
   endTime: string;   // "HH:mm" in 24-hour format
-  color: string;     // Hex/RGB color string
-  transparency: number; // 0 to 100 (0 = solid/opaque, 100 = fully transparent)
+  color: string;     // Hex or RGBA color string (supports built-in alpha/transparency)
 }
 
 export interface SessionDisplaySettings {
@@ -33,8 +32,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: true,
       startTime: '18:00',
       endTime: '03:01',
-      color: '#00bcd4', // Aqua / Cyan
-      transparency: 85,
+      color: 'rgba(0, 188, 212, 0.15)', // Aqua / Cyan
     },
     sydney: {
       id: 'sydney',
@@ -42,8 +40,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: false,
       startTime: '18:00',
       endTime: '02:01',
-      color: '#26c6da', // Aqua / Cyan
-      transparency: 85,
+      color: 'rgba(38, 198, 218, 0.15)', // Aqua / Cyan
     },
     tokyo: {
       id: 'tokyo',
@@ -51,8 +48,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: false,
       startTime: '19:00',
       endTime: '03:01',
-      color: '#00acc1', // Aqua / Cyan
-      transparency: 85,
+      color: 'rgba(0, 172, 193, 0.15)', // Aqua / Cyan
     },
     frankfurt: {
       id: 'frankfurt',
@@ -60,8 +56,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: false,
       startTime: '02:00',
       endTime: '10:01',
-      color: '#2962ff', // Blue family
-      transparency: 85,
+      color: 'rgba(41, 98, 255, 0.15)', // Blue family
     },
     london: {
       id: 'london',
@@ -69,8 +64,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: true,
       startTime: '03:00',
       endTime: '11:01',
-      color: '#26a69a', // Green family
-      transparency: 85,
+      color: 'rgba(38, 166, 154, 0.15)', // Green family
     },
     newYork: {
       id: 'newYork',
@@ -78,8 +72,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: true,
       startTime: '08:00',
       endTime: '16:01',
-      color: '#ff5252', // Pink / Red family
-      transparency: 85,
+      color: 'rgba(255, 82, 82, 0.15)', // Pink / Red family
     },
     custom: {
       id: 'custom',
@@ -87,8 +80,7 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
       enabled: false,
       startTime: '17:00',
       endTime: '16:45',
-      color: '#e91e63', // Pink / Red family
-      transparency: 85,
+      color: 'rgba(233, 30, 99, 0.15)', // Pink / Red family
     },
   },
 };
