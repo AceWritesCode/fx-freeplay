@@ -273,7 +273,7 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
             width: `${coords.width}px`,
             zIndex: 9999,
           }}
-          className="max-h-56 overflow-y-auto bg-[#1e222d] border border-border-def rounded-md shadow-2xl py-1 select-none scrollbar-thin animate-in fade-in zoom-in-95 duration-100"
+          className="max-h-56 overflow-y-auto bg-modal-bg border border-border-def rounded-md shadow-2xl py-1 select-none scrollbar-thin animate-in fade-in zoom-in-95 duration-100"
         >
           {TIME_INTERVALS.map((canonicalTime) => {
             const isMatch = canonicalTime === value || (canonicalTime === activeHighlightedTime && !TIME_INTERVALS.includes(value));
@@ -291,8 +291,8 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
                 }}
                 className={`w-full text-left px-3 py-1.5 text-xs font-mono transition-colors cursor-pointer flex items-center ${
                   isMatch
-                    ? 'bg-[#e0e3eb] text-[#131722] font-bold'
-                    : 'text-txt-primary hover:bg-surface-hover'
+                    ? 'bg-accent-muted text-accent font-bold'
+                    : 'text-txt-primary hover:bg-surface-hover hover:text-txt-primary'
                 }`}
               >
                 {displayLabel}
