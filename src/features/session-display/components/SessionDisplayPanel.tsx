@@ -272,7 +272,7 @@ export const SessionDisplayPanel: React.FC = () => {
     return (
       <div 
         key={session.id}
-        className={`flex flex-col gap-2 p-2.5 rounded-lg border transition-all ${
+        className={`flex flex-col flex-shrink-0 gap-2 p-2.5 rounded-lg border transition-all ${
           session.enabled && !isMasterOff
             ? 'bg-surface-elevated/40 border-border-sub' 
             : 'bg-surface/30 border-transparent opacity-60'
@@ -334,7 +334,7 @@ export const SessionDisplayPanel: React.FC = () => {
         </div>
 
         {/* Time Range Selector Row matching user's reference */}
-        <div className="flex items-center justify-between gap-1.5 pt-0.5 border-t border-border-sub/40">
+        <div className="flex items-center justify-between gap-1.5 pt-0.5 border-t border-border-sub/40 flex-shrink-0">
           <TimePickerInput
             value={session.startTime}
             disabled={isSessionDisabled}
@@ -358,7 +358,7 @@ export const SessionDisplayPanel: React.FC = () => {
   return (
     <div 
       ref={panelRef}
-      className="flex-1 h-full flex flex-col min-w-0 bg-surface text-txt-primary select-none overflow-hidden font-sans"
+      className="flex-1 h-full min-h-0 flex flex-col min-w-0 bg-surface text-txt-primary select-none overflow-hidden font-sans"
     >
       {/* Panel Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-sub flex-shrink-0">
@@ -379,9 +379,9 @@ export const SessionDisplayPanel: React.FC = () => {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 scrollbar-thin">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3 scrollbar-thin">
         {/* ─── GENERAL SECTION ─── */}
-        <div className="flex flex-col gap-2 pb-2 border-b border-border-sub">
+        <div className="flex flex-col flex-shrink-0 gap-2 pb-2 border-b border-border-sub">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-txt-muted uppercase tracking-wider">
               General
@@ -389,7 +389,7 @@ export const SessionDisplayPanel: React.FC = () => {
           </div>
 
           {/* Master Toggle */}
-          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/40 border border-border-sub">
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/40 border border-border-sub flex-shrink-0">
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-txt-primary">Session Display</span>
               <span className="text-[10px] text-txt-muted">Master visibility switch</span>
@@ -402,7 +402,7 @@ export const SessionDisplayPanel: React.FC = () => {
           </div>
 
           {/* Timezone Indicator */}
-          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs">
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs flex-shrink-0">
             <div className="flex items-center gap-1.5 text-txt-muted flex-shrink-0">
               <Globe className="w-3.5 h-3.5 text-accent flex-shrink-0" />
               <span className="font-medium">Timezone</span>
@@ -416,7 +416,7 @@ export const SessionDisplayPanel: React.FC = () => {
           </div>
 
           {/* 24-Hour / 12-Hour Clock Toggle */}
-          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs">
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs flex-shrink-0">
             <div className="flex flex-col min-w-0 pr-2">
               <span className="font-semibold text-txt-primary">24-Hour Clock</span>
               <span className="text-[10px] text-txt-muted truncate">
@@ -431,7 +431,7 @@ export const SessionDisplayPanel: React.FC = () => {
           </div>
 
           {/* Session History Scope Dropdown [show all, show latest] */}
-          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs">
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs flex-shrink-0">
             <div className="flex flex-col min-w-0 pr-2">
               <span className="font-semibold text-txt-primary">Sessions Displayed</span>
               <span className="text-[10px] text-txt-muted truncate">
@@ -467,10 +467,10 @@ export const SessionDisplayPanel: React.FC = () => {
           return (
             <div 
               key={group.id}
-              className="flex flex-col rounded-xl border border-border-sub bg-surface overflow-hidden transition-colors"
+              className="flex flex-col flex-shrink-0 rounded-xl border border-border-sub bg-surface overflow-hidden transition-colors"
             >
               {/* Accordion Group Header */}
-              <div className="flex items-center justify-between px-3 py-2 bg-surface hover:bg-surface-hover transition-colors text-left">
+              <div className="flex items-center justify-between px-3 py-2 bg-surface hover:bg-surface-hover transition-colors text-left flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.id)}
@@ -496,7 +496,7 @@ export const SessionDisplayPanel: React.FC = () => {
 
               {/* Accordion Body */}
               {isOpen && (
-                <div className="p-2.5 pt-1 flex flex-col gap-2 bg-surface/50 border-t border-border-sub/40">
+                <div className="p-2.5 pt-1 flex flex-col flex-shrink-0 gap-2 bg-surface/50 border-t border-border-sub/40">
                   {groupSessions.map((session) => {
                     const isCustomSession = isCustomGroup || session.isCustom || !isBuiltInSessionId(session.id);
                     return renderSessionRow(
@@ -510,7 +510,7 @@ export const SessionDisplayPanel: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleAddCustomSession}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-dashed border-border-def text-xs font-semibold text-txt-muted hover:text-accent hover:border-accent hover:bg-accent-muted/20 transition-all cursor-pointer"
+                      className="flex items-center justify-center flex-shrink-0 gap-1.5 py-2 px-3 rounded-lg border border-dashed border-border-def text-xs font-semibold text-txt-muted hover:text-accent hover:border-accent hover:bg-accent-muted/20 transition-all cursor-pointer"
                       title="Add another custom session timing"
                     >
                       <Plus className="w-3.5 h-3.5" />
