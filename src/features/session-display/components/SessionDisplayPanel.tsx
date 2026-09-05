@@ -257,7 +257,6 @@ export const SessionDisplayPanel: React.FC = () => {
   };
 
   // Render an individual session configuration row
-  // Render an individual session configuration row
   const renderSessionRow = (session: SessionConfig, onDelete?: () => void) => {
     const isMasterOff = !settings.enabled;
     const isSessionDisabled = isMasterOff || !session.enabled;
