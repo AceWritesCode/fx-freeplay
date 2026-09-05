@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore, useDrawingStore } from '@/store';
 import {
   initRepositories,
@@ -29,6 +29,7 @@ import {
 } from '@/engine/market';
 import { persistenceService, captureChartViewport, restoreChartViewport } from '@/engine/workspace';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
+import { getTrueOffsetRightDistance } from '@/engine/charting';
 
 export { parseTimezoneToLabelAndOffset };
 
@@ -232,16 +233,16 @@ export function useWorkspaceCoordinator(
     return rawDataCache.get(symbol) || [];
   };
 
-  const adjustTimezone = (bars: KLineData[]): KLineData[] => {
+  const adjustTimezone = useCallback((bars: KLineData[]): KLineData[] => {
     return shiftCandlesTimezone(
       bars,
       settings.timezoneAdjustmentEnabled,
       settings.brokerTimezoneOffset,
       settings.userTimezoneOffset
     );
-  };
+  }, [settings.timezoneAdjustmentEnabled, settings.brokerTimezoneOffset, settings.userTimezoneOffset]);
 
-  const getOrImportTimeframeData = async (symbol: string, tf: string): Promise<KLineData[]> => {
+  const getOrImportTimeframeData = useCallback(async (symbol: string, tf: string): Promise<KLineData[]> => {
     // 1. Try to read from in-memory timezoneAdjustedCache first!
     const cachedSymbol = timezoneAdjustedCache.get(symbol);
     if (cachedSymbol && cachedSymbol[tf]) {
@@ -308,7 +309,7 @@ export function useWorkspaceCoordinator(
     }
 
     return [];
-  };
+  }, [adjustTimezone]);
 
   const regenerateTimeframes = (raw1m: KLineData[], s: typeof settings, timeframe: string, targetChartIndex?: number) => {
     if (raw1m.length === 0) return;
@@ -861,7 +862,11 @@ export function useWorkspaceCoordinator(
     }
   };
 
-  const loadDataForSlot = async (index: number, chart: any) => {
+  const loadDataForSlot = useCallback(async (
+    index: number,
+    chart: any,
+    options?: { preserveOffset?: boolean; customOffset?: number | null }
+  ) => {
     const slot = useLayoutStore.getState().slots[index];
     if (!slot || !slot.symbol) {
       return;
@@ -914,18 +919,25 @@ export function useWorkspaceCoordinator(
           const chartSize = chart.getSize();
           const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
           const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
-          const targetOffset = chartWidth * resetRatio;
+          const targetOffset = (options?.customOffset !== undefined && options?.customOffset !== null)
+            ? options.customOffset
+            : (options?.preserveOffset
+              ? getTrueOffsetRightDistance(chart)
+              : chartWidth * resetRatio);
+
+          (chart as any)._isProgrammaticScroll = true;
           chart.setOffsetRightDistance(targetOffset);
           chart.scrollToDataIndex(visibleData.length - 1);
           requestAnimationFrame(() => {
             chart.setOffsetRightDistance(targetOffset);
+            (chart as any)._isProgrammaticScroll = false;
           });
         }
       }
     } catch (err) {
       console.error(`[DEBUG] Error loading slot ${index} data:`, err);
     }
-  };
+  }, [getOrImportTimeframeData, settings.pricePrecision, settings.resetViewOffsetRatio]);
 
   const handleSelectChartSlot = (index: number) => {
     const currentActiveIndex = useLayoutStore.getState().activeChartIndex;
