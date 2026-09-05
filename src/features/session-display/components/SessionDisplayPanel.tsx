@@ -261,31 +261,75 @@ export const SessionDisplayPanel: React.FC = () => {
   const handleAddCustomSession = () => {
     if (customCount >= 3) return;
     const nextCount = customCount + 1;
-    setSettings(prev => ({
-      ...prev,
-      customSessionCount: nextCount,
-    }));
-  };
+    const nextSlotId: SessionId = nextCount === 2 ? 'custom2' : 'custom3';
 
-  const handleRemoveCustomSession = (id: SessionId) => {
-    if (customCount <= 1) return;
-    if (activeColorPickerSessionId === id) {
-      setActiveColorPickerSessionId(null);
-      setPickerPosition(null);
-    }
+    // Ensure the custom group is open so the user sees the newly added card immediately
+    setOpenGroups(prev => ({ ...prev, custom: true }));
+
     setSettings(prev => {
-      const nextCount = Math.max(1, (prev.customSessionCount ?? 1) - 1);
-      // Disable the removed custom session so its highlight turns off
+      const currentSessions = prev.sessions || DEFAULT_SESSION_DISPLAY_SETTINGS.sessions;
       return {
         ...prev,
         customSessionCount: nextCount,
         sessions: {
-          ...prev.sessions,
-          [id]: {
-            ...prev.sessions[id],
-            enabled: false,
+          ...currentSessions,
+          custom: currentSessions.custom ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions.custom,
+          custom2: currentSessions.custom2 ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions.custom2,
+          custom3: currentSessions.custom3 ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions.custom3,
+          [nextSlotId]: {
+            ...(currentSessions[nextSlotId] ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[nextSlotId]),
+            enabled: true, // Auto-enable when added so it's immediately active and visible
           },
         },
+      };
+    });
+  };
+
+  const handleRemoveCustomSession = (idToRemove: SessionId) => {
+    if (customCount <= 1) return;
+    if (activeColorPickerSessionId === idToRemove) {
+      setActiveColorPickerSessionId(null);
+      setPickerPosition(null);
+    }
+
+    setSettings(prev => {
+      const ids: SessionId[] = ['custom', 'custom2', 'custom3'];
+      const currentSessions = prev.sessions || DEFAULT_SESSION_DISPLAY_SETTINGS.sessions;
+
+      const currentList: SessionConfig[] = [];
+      for (let i = 0; i < (prev.customSessionCount ?? 1); i++) {
+        const sid = ids[i];
+        const s = currentSessions[sid] ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[sid];
+        currentList.push({ ...s });
+      }
+
+      // Filter out the session being removed
+      const remainingList = currentList.filter(s => s.id !== idToRemove);
+      const nextCount = remainingList.length;
+
+      // Re-assign remaining sessions sequentially into custom, custom2, custom3 slots
+      const updatedSessions = { ...currentSessions };
+      for (let i = 0; i < 3; i++) {
+        const slotId = ids[i];
+        const defaultSlot = DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[slotId];
+        if (i < remainingList.length) {
+          updatedSessions[slotId] = {
+            ...remainingList[i],
+            id: slotId,
+            name: `Custom ${i + 1}`,
+          };
+        } else {
+          updatedSessions[slotId] = {
+            ...defaultSlot,
+            enabled: false,
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        customSessionCount: nextCount,
+        sessions: updatedSessions,
       };
     });
   };
@@ -473,7 +517,9 @@ export const SessionDisplayPanel: React.FC = () => {
           const customIds: SessionId[] = (['custom', 'custom2', 'custom3'] as SessionId[]).slice(0, customCount);
           const activeSessionIds = isCustomGroup ? customIds : group.sessionIds;
 
-          const groupSessions = activeSessionIds.map(id => settings.sessions[id]).filter(Boolean);
+          const groupSessions = activeSessionIds.map(id => {
+            return settings.sessions[id] ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[id];
+          }).filter(Boolean);
           const enabledCount = groupSessions.filter(s => s.enabled).length;
 
           return (
@@ -498,29 +544,11 @@ export const SessionDisplayPanel: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* Add Custom Session button in header if room available */}
-                    {isCustomGroup && customCount < 3 && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddCustomSession();
-                        }}
-                        title="Add custom session (up to 3)"
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-accent-muted text-accent hover:bg-accent hover:text-txt-inverse transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Add</span>
-                      </span>
-                    )}
-                    <ChevronDown 
-                      className={`w-3.5 h-3.5 text-txt-muted transition-transform duration-200 ${
-                        isOpen ? 'rotate-180 text-txt-primary' : ''
-                      }`} 
-                    />
-                  </div>
+                  <ChevronDown 
+                    className={`w-3.5 h-3.5 text-txt-muted transition-transform duration-200 ${
+                      isOpen ? 'rotate-180 text-txt-primary' : ''
+                    }`} 
+                  />
                 </button>
               </div>
 
