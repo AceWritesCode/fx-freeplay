@@ -79,10 +79,11 @@ export function sanitizeSessionDisplaySettings(raw: unknown): SessionDisplaySett
   }
 
   // 2. Sanitize Custom Sessions with stable identities
-  let customSessions: SessionConfig[] = [];
+  let customSessions: SessionConfig[];
 
   if (Array.isArray(obj.customSessions)) {
-    // Current format: array of custom sessions with stable IDs
+    // Current format: array of custom sessions with stable IDs.
+    // Respect user's array even if empty ([]) so deleting all custom sessions persists correctly.
     customSessions = obj.customSessions.map((item: unknown, idx: number) => {
       const fallback = DEFAULT_CUSTOM_SESSIONS[idx] ?? {
         id: `custom_${Date.now()}_${idx}`,
@@ -103,6 +104,7 @@ export function sanitizeSessionDisplaySettings(raw: unknown): SessionDisplaySett
       ['custom3', 'custom_3', 2],
     ];
 
+    customSessions = [];
     for (const [legacyKey, stableId, defaultIdx] of legacyKeys) {
       if (legacySessions[legacyKey]) {
         const fallback = DEFAULT_CUSTOM_SESSIONS[defaultIdx];
@@ -111,10 +113,8 @@ export function sanitizeSessionDisplaySettings(raw: unknown): SessionDisplaySett
         customSessions.push(sanitized);
       }
     }
-  }
-
-  // If no custom sessions were parsed or valid, fallback to the 3 standard defaults
-  if (customSessions.length === 0) {
+  } else {
+    // Truly uninitialized / first run: initialize with the standard defaults
     customSessions = DEFAULT_CUSTOM_SESSIONS.map(s => ({ ...s }));
   }
 
