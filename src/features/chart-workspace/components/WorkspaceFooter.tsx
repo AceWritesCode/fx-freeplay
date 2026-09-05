@@ -26,6 +26,8 @@ interface WorkspaceFooterProps {
   handleStepForward: () => void;
   handleStepBackward: () => void;
   exitReplayMode: () => void;
+  isAutoShiftEnabled?: boolean;
+  handleToggleAutoShift?: () => void;
   setIsReplayActive: (v: boolean) => void;
   hasData: boolean;
   assetName: string;
@@ -58,6 +60,8 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
     handleStepForward,
     handleStepBackward,
     exitReplayMode,
+    isAutoShiftEnabled = true,
+    handleToggleAutoShift,
     setIsReplayActive,
     hasData,
     assetName,
@@ -214,6 +218,26 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
           />
           <span className="text-[11px] font-mono font-bold text-accent w-12 text-right flex-shrink-0">{replaySpeed}s/b</span>
         </div>
+
+        <div className="w-px h-5 bg-border-sub flex-shrink-0" />
+
+        {/* Auto Shift toggle */}
+        <button
+          type="button"
+          onClick={handleToggleAutoShift}
+          title={
+            isAutoShiftEnabled
+              ? 'Auto Shift ON: Chart auto-centers on each new candle (Click to disable)'
+              : 'Auto Shift OFF: Chart stays stationary as candles advance (Click to enable)'
+          }
+          className={`h-7 px-2.5 rounded-lg border transition-all flex items-center text-xs font-semibold cursor-pointer flex-shrink-0 ${
+            isAutoShiftEnabled
+              ? 'bg-accent/15 border-accent text-accent hover:bg-accent/25'
+              : 'border-border-sub text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
+          }`}
+        >
+          <span className={compact ? 'hidden xl:inline' : ''}>Auto Shift</span>
+        </button>
 
         <div className="w-px h-5 bg-border-sub flex-shrink-0" />
 

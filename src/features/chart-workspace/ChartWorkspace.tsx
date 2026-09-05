@@ -197,7 +197,6 @@ export function ChartWorkspace() {
   const layoutTypeRef = useRef<string>('1');
   const prevSlotsRef = useRef<any[] | null>(null);
   const prevLayoutTypeRef = useRef<string | null>(null);
-  const prevReplayActiveRef = useRef<boolean>(false);
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const subContainerRef1 = useRef<HTMLDivElement>(null);
   const subContainerRef2 = useRef<HTMLDivElement>(null);
@@ -453,7 +452,8 @@ export function ChartWorkspace() {
     capturedOffsetRef,
     wasManualScaleRef,
     capturedYAxisRangeRef,
-    workspaceCoord.loadDataForSlot
+    workspaceCoord.loadDataForSlot,
+    settings
   );
 
   // Connect toast triggers
@@ -696,12 +696,11 @@ export function ChartWorkspace() {
     runWorkspaceReconciliation(chartInstancesRef);
   }, [drawingsBySymbol, slots, activeChartIndex, syncDrawings]);
 
-  // Slot Data Loader Effect - runs whenever slots, layoutType, or timeline changes
+  // Slot Data Loader Effect - runs whenever slots or layoutType changes
   useEffect(() => {
     if (!hasData) {
       prevSlotsRef.current = slots;
       prevLayoutTypeRef.current = layoutType;
-      prevReplayActiveRef.current = isReplayActive;
       return;
     }
 
@@ -709,13 +708,11 @@ export function ChartWorkspace() {
     const prevSlots = prevSlotsRef.current;
     
     const layoutTypeChanged = layoutType !== prevLayoutTypeRef.current;
-    const replayActiveChanged = isReplayActive !== prevReplayActiveRef.current;
 
     prevSlotsRef.current = slots;
     prevLayoutTypeRef.current = layoutType;
-    prevReplayActiveRef.current = isReplayActive;
 
-    const forceAll = !prevSlots || layoutTypeChanged || replayActiveChanged;
+    const forceAll = !prevSlots || layoutTypeChanged;
 
     const promises: Promise<void>[] = [];
     for (let i = 0; i < visibleCount; i++) {
@@ -740,7 +737,7 @@ export function ChartWorkspace() {
         console.error('[DEBUG] Error loading slots data:', err);
       });
     }
-  }, [slots, layoutType, hasData, isReplayActive]);
+  }, [slots, layoutType, hasData]);
 
   // Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
@@ -822,6 +819,16 @@ export function ChartWorkspace() {
 
             chart.subscribeAction('onVisibleRangeChange', () => {
               handleDateRangeSync(i);
+            });
+
+            chart.subscribeAction('onScroll', () => {
+              if ((chart as any)._isProgrammaticScroll || isSyncingRangeRef.current) return;
+              if ((chart as any)._clickedOnOverlay || drawingCoord.activeTool !== null) return;
+              const replayState = useReplayStore.getState();
+              if (replayState.isReplayActive && replayState.isAutoShiftEnabled) {
+                console.log('[DEBUG] Chart pan detected during replay - Disabling Auto Shift');
+                replayState.setIsAutoShiftEnabled(false);
+              }
             });
 
             chart.subscribeAction('onCandleBarClick', (param: any) => {
@@ -2009,6 +2016,8 @@ export function ChartWorkspace() {
         handleStepForward={replayCoord.handleReplayStepForward}
         handleStepBackward={replayCoord.handleReplayStepBackward}
         exitReplayMode={replayCoord.exitReplayMode}
+        isAutoShiftEnabled={replayCoord.isAutoShiftEnabled}
+        handleToggleAutoShift={replayCoord.handleToggleAutoShift}
         setIsReplayActive={setIsReplayActive}
         hasData={hasData}
         assetName={assetName}

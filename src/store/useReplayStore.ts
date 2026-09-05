@@ -7,6 +7,7 @@ interface ReplayState {
   replaySpeed: number;
   isReplayPlaying: boolean;
   bookmarks: ReplayBookmark[];
+  isAutoShiftEnabled: boolean;
 
   // Actions
   setIsReplayActive: (active: boolean) => void;
@@ -14,6 +15,7 @@ interface ReplayState {
   setReplaySpeed: (speed: number) => void;
   setIsReplayPlaying: (playing: boolean) => void;
   setBookmarks: (bookmarks: ReplayBookmark[]) => void;
+  setIsAutoShiftEnabled: (enabled: boolean) => void;
   resetReplay: () => void;
 }
 
@@ -23,12 +25,14 @@ export const useReplayStore = create<ReplayState>((set) => ({
   replaySpeed: 1,
   isReplayPlaying: false,
   bookmarks: [],
+  isAutoShiftEnabled: true,
 
   setIsReplayActive: (active) => set(() => ({ isReplayActive: active })),
   setReplayCurrentTimestamp: (ts) => set(() => ({ replayCurrentTimestamp: ts })),
   setReplaySpeed: (speed) => set(() => ({ replaySpeed: speed })),
   setIsReplayPlaying: (playing) => set(() => ({ isReplayPlaying: playing })),
   setBookmarks: (bookmarks) => set(() => ({ bookmarks })),
+  setIsAutoShiftEnabled: (enabled) => set(() => ({ isAutoShiftEnabled: enabled })),
   resetReplay: () =>
     set(() => ({
       isReplayActive: false,
@@ -36,5 +40,6 @@ export const useReplayStore = create<ReplayState>((set) => ({
       replaySpeed: 1,
       isReplayPlaying: false,
       bookmarks: [],
+      isAutoShiftEnabled: true,
     })),
 }));
