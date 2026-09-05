@@ -31,9 +31,12 @@ export interface SessionConfig {
   isCustom?: boolean;
 }
 
+export type SessionScope = 'all' | 'latest';
+
 export interface SessionDisplaySettings {
   enabled: boolean; // Master toggle
   timezone: string; // 'auto' (tracks active app/chart timezone) or explicit IANA timezone string
+  sessionScope: SessionScope; // 'all' (Show All historical sessions) | 'latest' (Show Latest session only)
   builtInSessions: Record<BuiltInSessionId, SessionConfig>;
   customSessions: SessionConfig[]; // Stable unique IDs, array preserves display order
 }
@@ -128,6 +131,7 @@ export const DEFAULT_CUSTOM_SESSIONS: SessionConfig[] = [
 export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
   enabled: true,
   timezone: 'auto',
+  sessionScope: 'all',
   builtInSessions: DEFAULT_BUILT_IN_SESSIONS,
   customSessions: DEFAULT_CUSTOM_SESSIONS,
 };

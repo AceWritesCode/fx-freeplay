@@ -3,6 +3,7 @@ import type {
   SessionConfig,
   SessionDisplaySettings,
   SessionId,
+  SessionScope,
 } from '../types';
 import {
   DEFAULT_SESSION_DISPLAY_SETTINGS,
@@ -23,6 +24,7 @@ export interface SessionDisplayState {
   setInitialState: (settings: SessionDisplaySettings) => void;
   setMasterEnabled: (enabled: boolean) => void;
   setTimezone: (timezone: string) => void;
+  setSessionScope: (scope: SessionScope) => void;
   updateSession: (id: SessionId, updates: Partial<Omit<SessionConfig, 'id'>>) => void;
   addCustomSession: (initial?: Partial<SessionConfig>) => string;
   removeCustomSession: (id: string) => void;
@@ -81,6 +83,15 @@ export const useSessionDisplayStore = create<SessionDisplayState>((set, get) => 
     const updated: SessionDisplaySettings = {
       ...get().settings,
       timezone,
+    };
+    set({ settings: updated });
+    persistSettings(updated);
+  },
+
+  setSessionScope: (sessionScope) => {
+    const updated: SessionDisplaySettings = {
+      ...get().settings,
+      sessionScope,
     };
     set({ settings: updated });
     persistSettings(updated);

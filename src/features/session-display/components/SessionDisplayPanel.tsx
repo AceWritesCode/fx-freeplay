@@ -18,6 +18,7 @@ import {
   type SessionId, 
   type SessionConfig, 
   type BuiltInSessionId,
+  type SessionScope,
   isBuiltInSessionId 
 } from '../types';
 
@@ -118,10 +119,13 @@ export const SessionDisplayPanel: React.FC = () => {
   // Dedicated Zustand store for Session Display
   const settings = useSessionDisplayStore((state) => state.settings);
   const setMasterEnabled = useSessionDisplayStore((state) => state.setMasterEnabled);
+  const setSessionScope = useSessionDisplayStore((state) => state.setSessionScope);
   const updateSession = useSessionDisplayStore((state) => state.updateSession);
   const addCustomSession = useSessionDisplayStore((state) => state.addCustomSession);
   const removeCustomSession = useSessionDisplayStore((state) => state.removeCustomSession);
   const resetToDefaults = useSessionDisplayStore((state) => state.resetToDefaults);
+
+  const sessionScope = settings.sessionScope || 'all';
 
   const getSessionById = (id: SessionId): SessionConfig | undefined => {
     if (isBuiltInSessionId(id)) {
@@ -424,6 +428,28 @@ export const SessionDisplayPanel: React.FC = () => {
               onChange={(checked) => handleToggleTimeFormat(checked ? '24h' : '12h')}
               title="Toggle between 24-hour and 12-hour clock format"
             />
+          </div>
+
+          {/* Session History Scope Dropdown [show all, show latest] */}
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs">
+            <div className="flex flex-col min-w-0 pr-2">
+              <span className="font-semibold text-txt-primary">Sessions Displayed</span>
+              <span className="text-[10px] text-txt-muted truncate">
+                {sessionScope === 'latest' ? 'Show latest session' : 'Show all sessions'}
+              </span>
+            </div>
+            <div className="relative">
+              <select
+                value={sessionScope}
+                onChange={(e) => setSessionScope(e.target.value as SessionScope)}
+                className="appearance-none bg-surface-elevated border border-border-def rounded-md text-xs text-txt-primary font-semibold py-1 pl-2.5 pr-6 cursor-pointer focus:outline-none focus:border-accent hover:border-txt-muted transition-colors"
+                title="Choose whether to show all sessions or only the latest sessions"
+              >
+                <option value="all">Show All</option>
+                <option value="latest">Show Latest</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-txt-muted absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
         </div>
 

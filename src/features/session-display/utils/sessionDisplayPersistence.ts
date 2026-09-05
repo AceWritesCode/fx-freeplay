@@ -2,6 +2,7 @@ import type {
   BuiltInSessionId,
   SessionConfig,
   SessionDisplaySettings,
+  SessionScope,
 } from '../types';
 import {
   BUILT_IN_SESSION_IDS,
@@ -117,9 +118,12 @@ export function sanitizeSessionDisplaySettings(raw: unknown): SessionDisplaySett
     customSessions = DEFAULT_CUSTOM_SESSIONS.map(s => ({ ...s }));
   }
 
+  const sessionScope: SessionScope = obj.sessionScope === 'latest' ? 'latest' : 'all';
+
   return {
     enabled,
     timezone,
+    sessionScope,
     builtInSessions,
     customSessions,
   };
