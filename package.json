@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "node --test src/features/session-display/engine/__tests__/sessionEngine.test.ts",
+    "test": "node --test src/features/session-display/engine/__tests__/sessionEngine.test.ts src/features/session-display/renderer/__tests__/sessionGeometry.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

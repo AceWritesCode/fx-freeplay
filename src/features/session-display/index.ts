@@ -4,3 +4,6 @@ export * from './utils/sessionDisplayPersistence';
 export { SessionDisplayPanel } from './components/SessionDisplayPanel';
 export { TimePickerInput } from './components/TimePickerInput';
 export * from './engine/calculateSessionOccurrences';
+export * from './renderer/sessionGeometry';
+export * from './renderer/sessionBackgroundIndicator';
+export * from './renderer/useSessionBackgroundRenderer';
