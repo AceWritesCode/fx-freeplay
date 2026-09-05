@@ -5,6 +5,8 @@ import {
   Globe, 
   Sliders, 
   RotateCcw,
+  Plus,
+  Trash2,
   X
 } from 'lucide-react';
 import { ColorPicker } from '@/components/ColorPicker';
@@ -254,6 +256,40 @@ export const SessionDisplayPanel: React.FC = () => {
     }));
   };
 
+  const customCount = settings.customSessionCount ?? 1;
+
+  const handleAddCustomSession = () => {
+    if (customCount >= 3) return;
+    const nextCount = customCount + 1;
+    setSettings(prev => ({
+      ...prev,
+      customSessionCount: nextCount,
+    }));
+  };
+
+  const handleRemoveCustomSession = (id: SessionId) => {
+    if (customCount <= 1) return;
+    if (activeColorPickerSessionId === id) {
+      setActiveColorPickerSessionId(null);
+      setPickerPosition(null);
+    }
+    setSettings(prev => {
+      const nextCount = Math.max(1, (prev.customSessionCount ?? 1) - 1);
+      // Disable the removed custom session so its highlight turns off
+      return {
+        ...prev,
+        customSessionCount: nextCount,
+        sessions: {
+          ...prev.sessions,
+          [id]: {
+            ...prev.sessions[id],
+            enabled: false,
+          },
+        },
+      };
+    });
+  };
+
   const handleResetDefaults = () => {
     setSettings(DEFAULT_SESSION_DISPLAY_SETTINGS);
     setActiveColorPickerSessionId(null);
@@ -261,7 +297,8 @@ export const SessionDisplayPanel: React.FC = () => {
   };
 
   // Render an individual session configuration row
-  const renderSessionRow = (session: SessionConfig) => {
+  // Render an individual session configuration row
+  const renderSessionRow = (session: SessionConfig, onDelete?: () => void) => {
     const isMasterOff = !settings.enabled;
     const isSessionDisabled = isMasterOff || !session.enabled;
 
@@ -274,7 +311,7 @@ export const SessionDisplayPanel: React.FC = () => {
             : 'bg-surface/30 border-transparent opacity-60'
         }`}
       >
-        {/* Session Header: Toggle, Name, Color Swatch */}
+        {/* Session Header: Toggle, Name, Color Swatch, and optional Delete */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
             <ToggleSwitch
@@ -289,30 +326,44 @@ export const SessionDisplayPanel: React.FC = () => {
             </span>
           </div>
 
-          {/* Color Trigger Button */}
-          <button
-            type="button"
-            data-session-color-button="true"
-            disabled={isSessionDisabled}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenColorPicker(session.id, e);
-            }}
-            className={`w-6 h-6 rounded-md border shadow-xs cursor-pointer transition-all flex items-center justify-center flex-shrink-0 overflow-hidden relative disabled:opacity-40 disabled:cursor-not-allowed ${
-              activeColorPickerSessionId === session.id
-                ? 'ring-2 ring-accent border-accent scale-105'
-                : 'border-border-def hover:border-txt-muted'
-            }`}
-            style={{
-              background: 'repeating-conic-gradient(#3a3f4d 0% 25%, #232731 0% 50%) 50% / 6px 6px',
-            }}
-            title={`Change ${session.name} color`}
-          >
-            <div 
-              className="w-full h-full" 
-              style={{ backgroundColor: session.color }} 
-            />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* Optional Delete button for custom sessions (when > 1 custom session) */}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                title={`Remove ${session.name}`}
+                className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Color Trigger Button */}
+            <button
+              type="button"
+              data-session-color-button="true"
+              disabled={isSessionDisabled}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenColorPicker(session.id, e);
+              }}
+              className={`w-6 h-6 rounded-md border shadow-xs cursor-pointer transition-all flex items-center justify-center flex-shrink-0 overflow-hidden relative disabled:opacity-40 disabled:cursor-not-allowed ${
+                activeColorPickerSessionId === session.id
+                  ? 'ring-2 ring-accent border-accent scale-105'
+                  : 'border-border-def hover:border-txt-muted'
+              }`}
+              style={{
+                background: 'repeating-conic-gradient(#3a3f4d 0% 25%, #232731 0% 50%) 50% / 6px 6px',
+              }}
+              title={`Change ${session.name} color`}
+            >
+              <div 
+                className="w-full h-full" 
+                style={{ backgroundColor: session.color }} 
+              />
+            </button>
+          </div>
         </div>
 
         {/* Time Range Selector Row matching user's reference */}
@@ -416,7 +467,13 @@ export const SessionDisplayPanel: React.FC = () => {
         {/* ─── SESSION GROUPS ─── */}
         {SESSION_GROUPS.map((group) => {
           const isOpen = openGroups[group.id] ?? true;
-          const groupSessions = group.sessionIds.map(id => settings.sessions[id]);
+
+          // For custom group, dynamically resolve sessions according to customCount (up to 3)
+          const isCustomGroup = group.id === 'custom';
+          const customIds: SessionId[] = (['custom', 'custom2', 'custom3'] as SessionId[]).slice(0, customCount);
+          const activeSessionIds = isCustomGroup ? customIds : group.sessionIds;
+
+          const groupSessions = activeSessionIds.map(id => settings.sessions[id]).filter(Boolean);
           const enabledCount = groupSessions.filter(s => s.enabled).length;
 
           return (
@@ -425,32 +482,72 @@ export const SessionDisplayPanel: React.FC = () => {
               className="flex flex-col rounded-xl border border-border-sub bg-surface overflow-hidden transition-colors"
             >
               {/* Accordion Group Header */}
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.id)}
-                className="flex items-center justify-between px-3 py-2 bg-surface hover:bg-surface-hover transition-colors cursor-pointer text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-txt-primary tracking-wide">
-                    {group.title}
-                  </span>
-                  {enabledCount > 0 && settings.enabled && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-accent-muted text-accent border border-accent/30">
-                      {enabledCount}
+              <div className="flex items-center justify-between px-3 py-2 bg-surface hover:bg-surface-hover transition-colors text-left">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className="flex-1 flex items-center justify-between cursor-pointer py-0.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-txt-primary tracking-wide">
+                      {group.title}
                     </span>
-                  )}
-                </div>
-                <ChevronDown 
-                  className={`w-3.5 h-3.5 text-txt-muted transition-transform duration-200 ${
-                    isOpen ? 'rotate-180 text-txt-primary' : ''
-                  }`} 
-                />
-              </button>
+                    {enabledCount > 0 && settings.enabled && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-accent-muted text-accent border border-accent/30">
+                        {enabledCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Add Custom Session button in header if room available */}
+                    {isCustomGroup && customCount < 3 && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddCustomSession();
+                        }}
+                        title="Add custom session (up to 3)"
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-accent-muted text-accent hover:bg-accent hover:text-txt-inverse transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add</span>
+                      </span>
+                    )}
+                    <ChevronDown 
+                      className={`w-3.5 h-3.5 text-txt-muted transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-txt-primary' : ''
+                      }`} 
+                    />
+                  </div>
+                </button>
+              </div>
 
               {/* Accordion Body */}
               {isOpen && (
                 <div className="p-2.5 pt-1 flex flex-col gap-2 bg-surface/50 border-t border-border-sub/40">
-                  {groupSessions.map((session) => renderSessionRow(session))}
+                  {groupSessions.map((session) => {
+                    const isCustomSession = session.id.startsWith('custom');
+                    const canDelete = isCustomSession && customCount > 1;
+                    return renderSessionRow(
+                      session, 
+                      canDelete ? () => handleRemoveCustomSession(session.id) : undefined
+                    );
+                  })}
+
+                  {/* Add button inside custom accordion body if customCount < 3 */}
+                  {isCustomGroup && customCount < 3 && (
+                    <button
+                      type="button"
+                      onClick={handleAddCustomSession}
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-dashed border-border-def text-xs font-semibold text-txt-muted hover:text-accent hover:border-accent hover:bg-accent-muted/20 transition-all cursor-pointer"
+                      title="Add another custom session timing (up to 3)"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Custom Session ({customCount}/3)</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

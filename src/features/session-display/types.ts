@@ -5,7 +5,9 @@ export type SessionId =
   | 'frankfurt'
   | 'london'
   | 'newYork'
-  | 'custom';
+  | 'custom'
+  | 'custom2'
+  | 'custom3';
 
 export interface SessionConfig {
   id: SessionId;
@@ -20,11 +22,13 @@ export interface SessionDisplaySettings {
   enabled: boolean; // Master toggle
   timezone: string; // Fixed to "New York" for V1
   sessions: Record<SessionId, SessionConfig>;
+  customSessionCount?: number; // How many custom sessions are visible (1, 2, or 3; default 1)
 }
 
 export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
   enabled: true,
   timezone: 'New York',
+  customSessionCount: 1,
   sessions: {
     asia: {
       id: 'asia',
@@ -76,11 +80,27 @@ export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
     },
     custom: {
       id: 'custom',
-      name: 'Custom',
+      name: 'Custom 1',
       enabled: false,
       startTime: '17:00',
       endTime: '16:45',
       color: 'rgba(233, 30, 99, 0.15)', // Pink / Red family
+    },
+    custom2: {
+      id: 'custom2',
+      name: 'Custom 2',
+      enabled: false,
+      startTime: '12:00',
+      endTime: '15:00',
+      color: 'rgba(156, 39, 176, 0.15)', // Purple family
+    },
+    custom3: {
+      id: 'custom3',
+      name: 'Custom 3',
+      enabled: false,
+      startTime: '20:00',
+      endTime: '23:00',
+      color: 'rgba(255, 152, 0, 0.15)', // Orange family
     },
   },
 };
