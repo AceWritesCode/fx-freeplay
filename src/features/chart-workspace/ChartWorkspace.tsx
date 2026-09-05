@@ -23,6 +23,11 @@ import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing, useEraserDrawing, useMeasurementTool, useZoomTool } from '@/framework/interaction';
+import {
+  registerSessionBackgroundIndicator,
+  SESSION_BACKGROUNDS_INDICATOR_NAME,
+  useSessionBackgroundRenderer,
+} from '@/features/session-display';
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -256,7 +261,7 @@ export function ChartWorkspace() {
   } = useDrawingStore();
 
   // Visual layout states
-  const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | null>('watchlist');
+  const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | 'sessionDisplay' | null>('watchlist');
   const [rightPanelWidth] = useState<number>(300);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -350,6 +355,7 @@ export function ChartWorkspace() {
     chart._sessionBreaksColor = s.sessionBreaksColor;
     chart._sessionBreaksStyle = s.sessionBreaksStyle;
     chart._sessionBreaksSize = s.sessionBreaksSize;
+    chart._appTimezone = s.userTimezoneLabel;
 
     chart.setStyles({
       grid: {
@@ -762,8 +768,9 @@ export function ChartWorkspace() {
         }
 
         if (!chartInstancesRef.current[i]) {
-          // Register custom overlays first
+          // Register custom overlays and custom indicators first
           registerCustomOverlays();
+          registerSessionBackgroundIndicator();
 
           const chart = init(container, {
             formatter: {
@@ -788,6 +795,7 @@ export function ChartWorkspace() {
             chartInstancesRef.current[i] = chart;
             registerChartInstance(i, chart);
             (chart as any)._magnetMode = drawingCoord.magnetMode;
+            (chart as any)._appTimezone = settings.userTimezoneLabel;
             applySettingsToChart(chart, settings);
             
             const markUserInteraction = (e: Event) => {
@@ -847,6 +855,12 @@ export function ChartWorkspace() {
               id: 'session_breaks_overlay',
               points: [{ timestamp: 0, value: 0 }],
               lock: true
+            });
+
+            // Attach Session Display Backgrounds indicator strictly inside candle_pane
+            chart.createIndicator(SESSION_BACKGROUNDS_INDICATOR_NAME, {
+              isStack: true,
+              pane: { id: 'candle_pane' }
             });
 
             (chart as any)._onDrawingSync = drawingCoord.syncAllDrawings;
@@ -962,6 +976,12 @@ export function ChartWorkspace() {
     activeTool: drawingCoord.activeTool,
     activeChartIndex,
     setActiveTool: drawingCoord.setActiveTool,
+  });
+
+  // Session Display background renderer synchronization
+  useSessionBackgroundRenderer({
+    chartInstancesRef,
+    appTimezone: settings.userTimezoneLabel,
   });
 
   // Close custom timezone and flyouts when clicking outside

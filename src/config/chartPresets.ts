@@ -42,6 +42,7 @@ export interface ChartSettings {
   brokerTimezoneLabel: string;
   userTimezoneOffset: number;
   userTimezoneLabel: string;
+  timeFormat?: '12h' | '24h'; // 12-hour (06:00 PM) or 24-hour (18:00) format (default: '24h')
 
   // Magnet Sensitivity Settings (pixel proximity thresholds per mode)
   magnetWeakSensitivity: number;   // 0-20
@@ -99,6 +100,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     brokerTimezoneLabel: '(UTC+3) Moscow',
     userTimezoneOffset: 330,
     userTimezoneLabel: '(UTC+5:30) Kolkata',
+    timeFormat: '24h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
@@ -144,6 +146,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     brokerTimezoneLabel: '(UTC+3) Moscow',
     userTimezoneOffset: 330,
     userTimezoneLabel: '(UTC+5:30) Kolkata',
+    timeFormat: '24h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,
@@ -189,6 +192,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     brokerTimezoneLabel: '(UTC+3) Moscow',
     userTimezoneOffset: 330,
     userTimezoneLabel: '(UTC+5:30) Kolkata',
+    timeFormat: '24h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 85,

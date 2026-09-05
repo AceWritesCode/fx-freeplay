@@ -1,5 +1,6 @@
 import React from 'react';
 import { SlotFloatingTextOverlays } from './SlotFloatingTextOverlays';
+import { ActiveSessionBanners } from '@/features/session-display';
 
 interface ChartSlotProps {
   slotIndex: number;
@@ -130,6 +131,13 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
         <span className="text-txt-muted">•</span>
         <span className="text-txt-secondary font-semibold">{slotInfo?.timeframe || '1m'}</span>
       </div>
+
+      {/* Active Session Banners */}
+      <ActiveSessionBanners
+        chartInstancesRef={chartInstancesRef}
+        slotIndex={slotIndex}
+        slotInfo={slotInfo}
+      />
 
       {/* Floating text inputs for TrendLines, Rectangles and Text tools */}
       <SlotFloatingTextOverlays

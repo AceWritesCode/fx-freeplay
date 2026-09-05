@@ -1,9 +1,11 @@
 import type { ChartSettings, TimeframeOption } from '@/config';
+import type { SessionDisplaySettings } from '@/features/session-display/types';
 import type { SettingsRepository } from './types';
 import { executeTx, STORES } from './db';
 
 const SETTINGS_KEY = 'global_settings';
 const CUSTOM_TIMEFRAMES_KEY = 'custom_timeframes';
+const SESSION_DISPLAY_KEY = 'session_display_settings';
 
 export class SettingsRepositoryImpl implements SettingsRepository {
   async getSettings(): Promise<ChartSettings | null> {
@@ -31,6 +33,21 @@ export class SettingsRepositoryImpl implements SettingsRepository {
   async saveCustomTimeframes(tfList: TimeframeOption[]): Promise<void> {
     await executeTx(STORES.SETTINGS, 'readwrite', (store) =>
       store.put(tfList, CUSTOM_TIMEFRAMES_KEY)
+    );
+  }
+
+  async getSessionDisplaySettings(): Promise<SessionDisplaySettings | null> {
+    const settings = await executeTx<SessionDisplaySettings | undefined>(
+      STORES.SETTINGS,
+      'readonly',
+      (store) => store.get(SESSION_DISPLAY_KEY)
+    );
+    return settings || null;
+  }
+
+  async saveSessionDisplaySettings(settings: SessionDisplaySettings): Promise<void> {
+    await executeTx(STORES.SETTINGS, 'readwrite', (store) =>
+      store.put(settings, SESSION_DISPLAY_KEY)
     );
   }
 }

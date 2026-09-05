@@ -510,6 +510,12 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
           } else if (keyStr === 'custom_timeframes') {
             title = 'Custom Timeframes';
             subtitle = `${Array.isArray(val) ? val.length : 0} Custom Timeframe Option(s)`;
+          } else if (keyStr === 'session_display_settings') {
+            title = 'Session Display Settings';
+            const builtIns = Object.values(val.builtInSessions || {});
+            const customs = Array.isArray(val.customSessions) ? val.customSessions : [];
+            const activeCount = [...builtIns, ...customs].filter((s: any) => s?.enabled).length;
+            subtitle = `${activeCount} Active Session(s) • Timezone: ${val.timezone || 'Auto'}`;
           }
           items.push({
             id: keyStr,

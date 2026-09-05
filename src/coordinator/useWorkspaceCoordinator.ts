@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWatchlistStore, useLayoutStore, useSettingsStore, useReplayStore, useDrawingStore } from '@/store';
+import { useSessionDisplayStore } from '@/features/session-display/store/useSessionDisplayStore';
 import {
   initRepositories,
   marketDataRepository,
@@ -147,6 +148,12 @@ export function useWorkspaceCoordinator(
         const customTfs = await settingsRepository.getCustomTimeframes();
         if (savedSettings && isMounted) {
           useSettingsStore.getState().setInitialState(savedSettings, customTfs);
+        }
+
+        // Restore Session Display settings
+        const savedSessionDisplay = await settingsRepository.getSessionDisplaySettings();
+        if (savedSessionDisplay && isMounted) {
+          useSessionDisplayStore.getState().setInitialState(savedSessionDisplay);
         }
 
         // Restore layout configuration
