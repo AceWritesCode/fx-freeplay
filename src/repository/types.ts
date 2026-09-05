@@ -1,6 +1,7 @@
 import type { KLineData } from '@/utils/dataUtils';
 import type { ChartSettings, TimeframeOption } from '@/config';
 import type { WatchlistSymbol, SlotConfig, LayoutSizes, FolderItem } from '@/store/types';
+import type { SessionDisplaySettings } from '@/features/session-display/types';
 
 export interface MigrationScript {
   version: number;
@@ -63,4 +64,6 @@ export interface SettingsRepository {
   saveSettings(settings: ChartSettings): Promise<void>;
   getCustomTimeframes(): Promise<TimeframeOption[]>;
   saveCustomTimeframes(tfList: TimeframeOption[]): Promise<void>;
+  getSessionDisplaySettings(): Promise<SessionDisplaySettings | null>;
+  saveSessionDisplaySettings(settings: SessionDisplaySettings): Promise<void>;
 }

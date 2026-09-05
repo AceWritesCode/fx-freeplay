@@ -13,11 +13,12 @@ import { ColorPicker } from '@/components/ColorPicker';
 import { TimePickerInput } from './TimePickerInput';
 import { useSettingsStore } from '@/store';
 import { settingsRepository } from '@/repository';
+import { useSessionDisplayStore } from '../store/useSessionDisplayStore';
 import { 
   type SessionId, 
   type SessionConfig, 
-  type SessionDisplaySettings, 
-  DEFAULT_SESSION_DISPLAY_SETTINGS 
+  type BuiltInSessionId,
+  isBuiltInSessionId 
 } from '../types';
 
 // Custom ToggleSwitch component matching FX Freeplay visual styling
@@ -67,7 +68,7 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
 interface SessionGroupDef {
   id: string;
   title: string;
-  sessionIds: SessionId[];
+  sessionIds: BuiltInSessionId[];
 }
 
 const SESSION_GROUPS: SessionGroupDef[] = [
@@ -94,7 +95,7 @@ const SESSION_GROUPS: SessionGroupDef[] = [
   {
     id: 'custom',
     title: 'CUSTOM',
-    sessionIds: ['custom'],
+    sessionIds: [],
   },
 ];
 
@@ -114,8 +115,20 @@ export const SessionDisplayPanel: React.FC = () => {
     settingsRepository.saveSettings({ ...chartSettings, timeFormat: newFormat }).catch(console.error);
   };
 
-  // Local state for Step 1 (will connect to Zustand store in Step 2)
-  const [settings, setSettings] = useState<SessionDisplaySettings>(DEFAULT_SESSION_DISPLAY_SETTINGS);
+  // Dedicated Zustand store for Session Display
+  const settings = useSessionDisplayStore((state) => state.settings);
+  const setMasterEnabled = useSessionDisplayStore((state) => state.setMasterEnabled);
+  const updateSession = useSessionDisplayStore((state) => state.updateSession);
+  const addCustomSession = useSessionDisplayStore((state) => state.addCustomSession);
+  const removeCustomSession = useSessionDisplayStore((state) => state.removeCustomSession);
+  const resetToDefaults = useSessionDisplayStore((state) => state.resetToDefaults);
+
+  const getSessionById = (id: SessionId): SessionConfig | undefined => {
+    if (isBuiltInSessionId(id)) {
+      return settings.builtInSessions[id];
+    }
+    return settings.customSessions.find((s) => s.id === id);
+  };
 
   // Collapsible groups state (default all open for easy scanning)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -207,10 +220,7 @@ export const SessionDisplayPanel: React.FC = () => {
       setActiveColorPickerSessionId(null);
       setPickerPosition(null);
     }
-    setSettings(prev => ({
-      ...prev,
-      enabled: checked,
-    }));
+    setMasterEnabled(checked);
   };
 
   const handleToggleSession = (id: SessionId, enabled: boolean) => {
@@ -218,124 +228,33 @@ export const SessionDisplayPanel: React.FC = () => {
       setActiveColorPickerSessionId(null);
       setPickerPosition(null);
     }
-    setSettings(prev => ({
-      ...prev,
-      sessions: {
-        ...prev.sessions,
-        [id]: {
-          ...prev.sessions[id],
-          enabled,
-        },
-      },
-    }));
+    updateSession(id, { enabled });
   };
 
   const handleTimeChange = (id: SessionId, field: 'startTime' | 'endTime', value: string) => {
-    setSettings(prev => ({
-      ...prev,
-      sessions: {
-        ...prev.sessions,
-        [id]: {
-          ...prev.sessions[id],
-          [field]: value,
-        },
-      },
-    }));
+    updateSession(id, { [field]: value });
   };
 
   const handleColorChange = (id: SessionId, color: string) => {
-    setSettings(prev => ({
-      ...prev,
-      sessions: {
-        ...prev.sessions,
-        [id]: {
-          ...prev.sessions[id],
-          color,
-        },
-      },
-    }));
+    updateSession(id, { color });
   };
-
-  const customCount = settings.customSessionCount ?? 1;
 
   const handleAddCustomSession = () => {
-    if (customCount >= 3) return;
-    const nextCount = customCount + 1;
-    const nextSlotId: SessionId = nextCount === 2 ? 'custom2' : 'custom3';
-
     // Ensure the custom group is open so the user sees the newly added card immediately
     setOpenGroups(prev => ({ ...prev, custom: true }));
-
-    setSettings(prev => {
-      const currentSessions = prev.sessions || DEFAULT_SESSION_DISPLAY_SETTINGS.sessions;
-      return {
-        ...prev,
-        customSessionCount: nextCount,
-        sessions: {
-          ...currentSessions,
-          custom: currentSessions.custom ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions.custom,
-          custom2: currentSessions.custom2 ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions.custom2,
-          custom3: currentSessions.custom3 ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions.custom3,
-          [nextSlotId]: {
-            ...(currentSessions[nextSlotId] ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[nextSlotId]),
-            enabled: true, // Auto-enable when added so it's immediately active and visible
-          },
-        },
-      };
-    });
+    addCustomSession();
   };
 
-  const handleRemoveCustomSession = (idToRemove: SessionId) => {
-    if (customCount <= 1) return;
+  const handleRemoveCustomSession = (idToRemove: string) => {
     if (activeColorPickerSessionId === idToRemove) {
       setActiveColorPickerSessionId(null);
       setPickerPosition(null);
     }
-
-    setSettings(prev => {
-      const ids: SessionId[] = ['custom', 'custom2', 'custom3'];
-      const currentSessions = prev.sessions || DEFAULT_SESSION_DISPLAY_SETTINGS.sessions;
-
-      const currentList: SessionConfig[] = [];
-      for (let i = 0; i < (prev.customSessionCount ?? 1); i++) {
-        const sid = ids[i];
-        const s = currentSessions[sid] ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[sid];
-        currentList.push({ ...s });
-      }
-
-      // Filter out the session being removed
-      const remainingList = currentList.filter(s => s.id !== idToRemove);
-      const nextCount = remainingList.length;
-
-      // Re-assign remaining sessions sequentially into custom, custom2, custom3 slots
-      const updatedSessions = { ...currentSessions };
-      for (let i = 0; i < 3; i++) {
-        const slotId = ids[i];
-        const defaultSlot = DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[slotId];
-        if (i < remainingList.length) {
-          updatedSessions[slotId] = {
-            ...remainingList[i],
-            id: slotId,
-            name: `Custom ${i + 1}`,
-          };
-        } else {
-          updatedSessions[slotId] = {
-            ...defaultSlot,
-            enabled: false,
-          };
-        }
-      }
-
-      return {
-        ...prev,
-        customSessionCount: nextCount,
-        sessions: updatedSessions,
-      };
-    });
+    removeCustomSession(idToRemove);
   };
 
   const handleResetDefaults = () => {
-    setSettings(DEFAULT_SESSION_DISPLAY_SETTINGS);
+    resetToDefaults();
     setActiveColorPickerSessionId(null);
     setPickerPosition(null);
   };
@@ -512,14 +431,11 @@ export const SessionDisplayPanel: React.FC = () => {
         {SESSION_GROUPS.map((group) => {
           const isOpen = openGroups[group.id] ?? true;
 
-          // For custom group, dynamically resolve sessions according to customCount (up to 3)
+          // For custom group, dynamically resolve sessions from settings.customSessions
           const isCustomGroup = group.id === 'custom';
-          const customIds: SessionId[] = (['custom', 'custom2', 'custom3'] as SessionId[]).slice(0, customCount);
-          const activeSessionIds = isCustomGroup ? customIds : group.sessionIds;
-
-          const groupSessions = activeSessionIds.map(id => {
-            return settings.sessions[id] ?? DEFAULT_SESSION_DISPLAY_SETTINGS.sessions[id];
-          }).filter(Boolean);
+          const groupSessions: SessionConfig[] = isCustomGroup
+            ? settings.customSessions
+            : group.sessionIds.map((id) => settings.builtInSessions[id]).filter(Boolean);
           const enabledCount = groupSessions.filter(s => s.enabled).length;
 
           return (
@@ -556,24 +472,23 @@ export const SessionDisplayPanel: React.FC = () => {
               {isOpen && (
                 <div className="p-2.5 pt-1 flex flex-col gap-2 bg-surface/50 border-t border-border-sub/40">
                   {groupSessions.map((session) => {
-                    const isCustomSession = session.id.startsWith('custom');
-                    const canDelete = isCustomSession && customCount > 1;
+                    const isCustomSession = isCustomGroup || session.isCustom || !isBuiltInSessionId(session.id);
                     return renderSessionRow(
                       session, 
-                      canDelete ? () => handleRemoveCustomSession(session.id) : undefined
+                      isCustomSession ? () => handleRemoveCustomSession(session.id) : undefined
                     );
                   })}
 
-                  {/* Add button inside custom accordion body if customCount < 3 */}
-                  {isCustomGroup && customCount < 3 && (
+                  {/* Add button inside custom accordion body */}
+                  {isCustomGroup && (
                     <button
                       type="button"
                       onClick={handleAddCustomSession}
                       className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-dashed border-border-def text-xs font-semibold text-txt-muted hover:text-accent hover:border-accent hover:bg-accent-muted/20 transition-all cursor-pointer"
-                      title="Add another custom session timing (up to 3)"
+                      title="Add another custom session timing"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add Custom Session ({customCount}/3)</span>
+                      <span>Add Custom Session</span>
                     </button>
                   )}
                 </div>
@@ -583,60 +498,65 @@ export const SessionDisplayPanel: React.FC = () => {
         })}
       </div>
       {/* Floating Color Picker rendered via Portal over Chart Canvas Area */}
-      {activeColorPickerSessionId && pickerPosition && settings.sessions[activeColorPickerSessionId] && createPortal(
-        <div
-          ref={popoverRef}
-          style={{
-            position: 'fixed',
-            top: `${pickerPosition.top}px`,
-            left: `${pickerPosition.left}px`,
-            zIndex: 9999,
-            width: '560px',
-          }}
-          className="flex flex-col animate-in fade-in zoom-in-95 duration-150 shadow-2xl rounded-xl border border-border-def bg-surface overflow-hidden filter drop-shadow-2xl"
-        >
-          {/* Popover Header */}
-          <div className="flex items-center justify-between px-3.5 py-2 border-b border-border-sub bg-surface-elevated/80">
-            <div className="flex items-center gap-2">
-              <span 
-                className="w-3 h-3 rounded-full border border-border-def shadow-xs flex-shrink-0" 
-                style={{ backgroundColor: settings.sessions[activeColorPickerSessionId].color }} 
-              />
-              <span className="text-xs font-bold text-txt-primary">
-                {settings.sessions[activeColorPickerSessionId].name} Session Color
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveColorPickerSessionId(null);
-                setPickerPosition(null);
-              }}
-              className="p-1 text-txt-muted hover:text-txt-primary hover:bg-surface rounded transition-colors cursor-pointer"
-              title="Close Color Picker"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+      {(() => {
+        const activeColorSession = activeColorPickerSessionId ? getSessionById(activeColorPickerSessionId) : undefined;
+        if (!activeColorPickerSessionId || !pickerPosition || !activeColorSession) return null;
 
-          {/* Embedded ColorPicker component */}
-          <div className="session-color-picker-portal">
-            <style>{`
-              .session-color-picker-portal > div {
-                border: none !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                background: transparent !important;
-              }
-            `}</style>
-            <ColorPicker
-              color={settings.sessions[activeColorPickerSessionId].color}
-              onChange={(newColor) => handleColorChange(activeColorPickerSessionId, newColor)}
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+        return createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: 'fixed',
+              top: `${pickerPosition.top}px`,
+              left: `${pickerPosition.left}px`,
+              zIndex: 9999,
+              width: '560px',
+            }}
+            className="flex flex-col animate-in fade-in zoom-in-95 duration-150 shadow-2xl rounded-xl border border-border-def bg-surface overflow-hidden filter drop-shadow-2xl"
+          >
+            {/* Popover Header */}
+            <div className="flex items-center justify-between px-3.5 py-2 border-b border-border-sub bg-surface-elevated/80">
+              <div className="flex items-center gap-2">
+                <span 
+                  className="w-3 h-3 rounded-full border border-border-def shadow-xs flex-shrink-0" 
+                  style={{ backgroundColor: activeColorSession.color }} 
+                />
+                <span className="text-xs font-bold text-txt-primary">
+                  {activeColorSession.name} Session Color
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveColorPickerSessionId(null);
+                  setPickerPosition(null);
+                }}
+                className="p-1 text-txt-muted hover:text-txt-primary hover:bg-surface rounded transition-colors cursor-pointer"
+                title="Close Color Picker"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Embedded ColorPicker component */}
+            <div className="session-color-picker-portal">
+              <style>{`
+                .session-color-picker-portal > div {
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  background: transparent !important;
+                }
+              `}</style>
+              <ColorPicker
+                color={activeColorSession.color}
+                onChange={(newColor) => handleColorChange(activeColorPickerSessionId, newColor)}
+              />
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 };
