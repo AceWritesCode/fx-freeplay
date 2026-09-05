@@ -11,15 +11,12 @@ interface TimePickerInputProps {
   timeFormat?: '12h' | '24h';
 }
 
-// 96 15-minute intervals across 24 hours (00:00 to 23:45)
-export const TIME_INTERVALS: string[] = [];
-for (let h = 0; h < 24; h++) {
-  for (let m = 0; m < 60; m += 15) {
-    const hh = h.toString().padStart(2, '0');
-    const mm = m.toString().padStart(2, '0');
-    TIME_INTERVALS.push(`${hh}:${mm}`);
-  }
-}
+// 96 immutable 15-minute intervals across 24 hours (00:00 to 23:45)
+export const TIME_INTERVALS: string[] = Array.from({ length: 96 }, (_, i) => {
+  const h = Math.floor(i / 4);
+  const m = (i % 4) * 15;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+});
 
 // Converts canonical "18:00" to "06:00 PM"
 export function to12Hour(time24: string): string {
@@ -117,17 +114,16 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
     setIsOpen(false);
   };
 
-  // Scroll to active item when dropdown opens
+  // Scroll to active item when dropdown opens directly via container scrollTop (no window scroll events)
   useEffect(() => {
     if (isOpen) {
-      updateCoords();
-      requestAnimationFrame(() => {
-        if (selectedItemRef.current) {
-          selectedItemRef.current.scrollIntoView({ block: 'nearest' });
-        }
-      });
+      if (dropdownRef.current && selectedItemRef.current) {
+        const container = dropdownRef.current;
+        const item = selectedItemRef.current;
+        container.scrollTop = Math.max(0, item.offsetTop - container.clientHeight / 2 + item.offsetHeight / 2);
+      }
     }
-  }, [isOpen, updateCoords]);
+  }, [isOpen]);
 
   // Click outside and Escape key handler
   useEffect(() => {
@@ -150,7 +146,11 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
       }
     };
 
-    const handleScrollOrResize = () => {
+    const handleScrollOrResize = (e: Event) => {
+      // Never close dropdown when scrolling inside the dropdown list itself
+      if (e.target && dropdownRef.current && dropdownRef.current.contains(e.target as Node)) {
+        return;
+      }
       handleClose();
     };
 
@@ -230,7 +230,6 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
           onChange={handleInputChange}
           onBlur={handleBlur}
           onClick={handleOpen}
-          onFocus={handleOpen}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleBlur();

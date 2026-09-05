@@ -298,14 +298,21 @@ export const SessionDisplayPanel: React.FC = () => {
               e.stopPropagation();
               handleOpenColorPicker(session.id, e);
             }}
-            className={`w-6 h-6 rounded-md border shadow-xs cursor-pointer transition-all flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`w-6 h-6 rounded-md border shadow-xs cursor-pointer transition-all flex items-center justify-center flex-shrink-0 overflow-hidden relative disabled:opacity-40 disabled:cursor-not-allowed ${
               activeColorPickerSessionId === session.id
                 ? 'ring-2 ring-accent border-accent scale-105'
                 : 'border-border-def hover:border-txt-muted'
             }`}
-            style={{ backgroundColor: session.color }}
+            style={{
+              background: 'repeating-conic-gradient(#3a3f4d 0% 25%, #232731 0% 50%) 50% / 6px 6px',
+            }}
             title={`Change ${session.name} color`}
-          />
+          >
+            <div 
+              className="w-full h-full" 
+              style={{ backgroundColor: session.color }} 
+            />
+          </button>
         </div>
 
         {/* Time Range Selector Row matching user's reference */}

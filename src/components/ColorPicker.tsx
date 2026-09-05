@@ -210,6 +210,14 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
     onChange(rgba);
   };
 
+  const handleSwatchClick = (colorHexOrRgba: string) => {
+    // Extract RGB from the selected palette swatch, but preserve the user's current alpha opacity
+    const currentAlpha = parseRgba(rgbaColor).a;
+    const alphaToKeep = currentAlpha;
+    const rgbaWithAlpha = hexToRgba(colorHexOrRgba, alphaToKeep);
+    handleColorChange(rgbaWithAlpha);
+  };
+
   const handleHexInputChange = (val: string) => {
     let clean = val;
     if (clean.startsWith('#')) clean = clean.slice(1);
@@ -365,7 +373,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           {SHADES_OF_GRAY.map(c => (
             <button
               key={c}
-              onClick={() => handleColorChange(c)}
+              onClick={() => handleSwatchClick(c)}
               className="w-6 h-6 rounded border border-border-def hover:scale-110 transition-transform flex items-center justify-center cursor-pointer"
               style={{ backgroundColor: c }}
             >
@@ -387,7 +395,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
               {row.map(c => (
                 <button
                   key={c}
-                  onClick={() => handleColorChange(c)}
+                  onClick={() => handleSwatchClick(c)}
                   className="w-6 h-6 rounded border border-border-def hover:scale-110 transition-transform flex items-center justify-center cursor-pointer"
                   style={{ backgroundColor: c }}
                 >
@@ -409,7 +417,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => 
           {recentColors.map((c, i) => (
             <button
               key={`${c}-${i}`}
-              onClick={() => c && handleColorChange(c)}
+              onClick={() => c && handleSwatchClick(c)}
               className={`w-6 h-6 rounded border ${c ? 'border-border-def hover:scale-110 cursor-pointer' : 'border-border-sub'} transition-transform flex items-center justify-center`}
               style={c ? { backgroundColor: c } : {}}
               title={c ? "Recent color" : "Empty slot"}
