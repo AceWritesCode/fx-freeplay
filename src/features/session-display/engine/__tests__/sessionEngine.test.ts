@@ -691,4 +691,90 @@ describe('Session Calculation Engine (Step 3)', () => {
 
     assert.equal(result.occurrences.length, 0);
   });
+
+  // Future Session Filtering (Show All mode)
+  describe('Future Session Filtering (Show All mode)', () => {
+    it('excludes future sessions whose startTimestamp is strictly greater than currentTime', () => {
+      const settings = createTestSettings({
+        sessionScope: 'all',
+        builtInSessions: {
+          ...DEFAULT_BUILT_IN_SESSIONS,
+          tokyo: { ...DEFAULT_BUILT_IN_SESSIONS.tokyo, enabled: true, startTime: '01:00', endTime: '06:00' },
+          london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '08:00', endTime: '16:00' },
+          newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '13:00', endTime: '21:00' },
+        },
+      });
+
+      // Viewport spans the entire day
+      const visibleStart = Date.UTC(2026, 7, 12, 0, 0);
+      const visibleEnd = Date.UTC(2026, 7, 12, 23, 59);
+
+      // currentTime is 09:30 (Tokyo is historical, London is active, NY is future)
+      const currentTime = Date.UTC(2026, 7, 12, 9, 30);
+
+      const result = calculateSessionOccurrences({
+        settings,
+        visibleStart,
+        visibleEnd,
+        currentTime,
+      });
+
+      const sessionIds = result.occurrences.map((o) => o.sessionId);
+      assert.ok(sessionIds.includes('tokyo'), 'Past session (Tokyo) must be included');
+      assert.ok(sessionIds.includes('london'), 'Current active session (London) must be included');
+      assert.equal(sessionIds.includes('newYork'), false, 'Future session (New York at 13:00) must be excluded');
+    });
+
+    it('includes session at exact startTimestamp boundary (startTimestamp === currentTime)', () => {
+      const settings = createTestSettings({
+        sessionScope: 'all',
+        builtInSessions: {
+          ...DEFAULT_BUILT_IN_SESSIONS,
+          london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '08:00', endTime: '16:00' },
+          newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '13:00', endTime: '21:00' },
+        },
+      });
+
+      const visibleStart = Date.UTC(2026, 7, 12, 0, 0);
+      const visibleEnd = Date.UTC(2026, 7, 12, 23, 59);
+
+      // currentTime is exactly 08:00 (London start time)
+      const currentTime = Date.UTC(2026, 7, 12, 8, 0);
+
+      const result = calculateSessionOccurrences({
+        settings,
+        visibleStart,
+        visibleEnd,
+        currentTime,
+      });
+
+      const sessionIds = result.occurrences.map((o) => o.sessionId);
+      assert.ok(sessionIds.includes('london'), 'Session starting exactly at currentTime must be included');
+      assert.equal(sessionIds.includes('newYork'), false, 'Future session (New York) must be excluded');
+    });
+
+    it('includes all viewport sessions when currentTime is undefined', () => {
+      const settings = createTestSettings({
+        sessionScope: 'all',
+        builtInSessions: {
+          ...DEFAULT_BUILT_IN_SESSIONS,
+          london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '08:00', endTime: '16:00' },
+          newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '13:00', endTime: '21:00' },
+        },
+      });
+
+      const visibleStart = Date.UTC(2026, 7, 12, 0, 0);
+      const visibleEnd = Date.UTC(2026, 7, 12, 23, 59);
+
+      const result = calculateSessionOccurrences({
+        settings,
+        visibleStart,
+        visibleEnd,
+      });
+
+      const sessionIds = result.occurrences.map((o) => o.sessionId);
+      assert.ok(sessionIds.includes('london'), 'London included when currentTime is omitted');
+      assert.ok(sessionIds.includes('newYork'), 'New York included when currentTime is omitted');
+    });
+  });
 });

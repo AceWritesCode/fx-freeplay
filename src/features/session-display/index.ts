@@ -7,3 +7,5 @@ export * from './engine/calculateSessionOccurrences';
 export * from './renderer/sessionGeometry';
 export * from './renderer/sessionBackgroundIndicator';
 export * from './renderer/useSessionBackgroundRenderer';
+export * from './engine/activeSessionDerivation';
+export { ActiveSessionBanners } from './components/ActiveSessionBanners';

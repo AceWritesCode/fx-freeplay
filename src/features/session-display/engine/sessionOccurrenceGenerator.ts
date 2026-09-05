@@ -124,8 +124,9 @@ export function calculateViewportSessions(params: {
   effectiveTimezone: string;
   visibleStart: number;
   visibleEnd: number;
+  currentTime?: number;
 }): SessionOccurrence[] {
-  const { enabledSessions, effectiveTimezone, visibleStart, visibleEnd } = params;
+  const { enabledSessions, effectiveTimezone, visibleStart, visibleEnd, currentTime } = params;
 
   if (enabledSessions.length === 0 || visibleEnd <= visibleStart) {
     return [];
@@ -169,6 +170,10 @@ export function calculateViewportSessions(params: {
       if (occ) {
         // Half-open interval overlap: [occ.startTimestamp, occ.endTimestamp) overlaps [visibleStart, visibleEnd)
         if (occ.endTimestamp > visibleStart && occ.startTimestamp < visibleEnd) {
+          // Never include sessions that start in the future relative to currentTime
+          if (currentTime !== undefined && occ.startTimestamp > currentTime) {
+            continue;
+          }
           if (!seenIds.has(occ.id)) {
             seenIds.add(occ.id);
             occurrences.push(occ);

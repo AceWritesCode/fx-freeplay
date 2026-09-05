@@ -75,7 +75,7 @@ export function calculateSessionOccurrences(
     occurrences = calculateLatestSessions({
       enabledSessions,
       effectiveTimezone,
-      currentTime,
+      currentTime: currentTime ?? visibleEnd,
       visibleStart,
       visibleEnd,
     });
@@ -85,6 +85,7 @@ export function calculateSessionOccurrences(
       effectiveTimezone,
       visibleStart,
       visibleEnd,
+      currentTime,
     });
   }
 

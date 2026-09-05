@@ -140,8 +140,8 @@ export interface CalculateSessionsParams {
   visibleStart: number;
   /** End of visible chart viewport in UTC epoch milliseconds (exclusive) */
   visibleEnd: number;
-  /** Current or replay chart time in UTC epoch milliseconds */
-  currentTime: number;
+  /** Current or replay chart time in UTC epoch milliseconds (if provided, future sessions starting after currentTime are excluded) */
+  currentTime?: number;
   /**
    * Application-level active timezone label or IANA string (e.g. '(UTC-4) New York' or 'America/New_York').
    * Used when settings.timezone === 'auto'.
