@@ -134,15 +134,8 @@ export const SessionDisplayPanel: React.FC = () => {
     return settings.customSessions.find((s) => s.id === id);
   };
 
-  // Collapsible groups state (default all open for easy scanning)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    general: true,
-    asia: true,
-    frankfurt: true,
-    london: true,
-    newYork: true,
-    custom: true,
-  });
+  // Collapsible groups state (closed by default)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const panelRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -215,7 +208,7 @@ export const SessionDisplayPanel: React.FC = () => {
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => ({
       ...prev,
-      [groupId]: !prev[groupId],
+      [groupId]: !(prev[groupId] ?? false),
     }));
   };
 
@@ -455,7 +448,7 @@ export const SessionDisplayPanel: React.FC = () => {
 
         {/* ─── SESSION GROUPS ─── */}
         {SESSION_GROUPS.map((group) => {
-          const isOpen = openGroups[group.id] ?? true;
+          const isOpen = openGroups[group.id] ?? false;
 
           // For custom group, dynamically resolve sessions from settings.customSessions
           const isCustomGroup = group.id === 'custom';

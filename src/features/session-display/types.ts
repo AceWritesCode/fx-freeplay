@@ -98,35 +98,7 @@ export const DEFAULT_BUILT_IN_SESSIONS: Record<BuiltInSessionId, SessionConfig> 
   },
 };
 
-export const DEFAULT_CUSTOM_SESSIONS: SessionConfig[] = [
-  {
-    id: 'custom_1',
-    name: 'Custom 1',
-    enabled: false,
-    startTime: '17:00',
-    endTime: '16:45',
-    color: 'rgba(233, 30, 99, 0.15)', // Pink / Red family
-    isCustom: true,
-  },
-  {
-    id: 'custom_2',
-    name: 'Custom 2',
-    enabled: false,
-    startTime: '12:00',
-    endTime: '15:00',
-    color: 'rgba(156, 39, 176, 0.15)', // Purple family
-    isCustom: true,
-  },
-  {
-    id: 'custom_3',
-    name: 'Custom 3',
-    enabled: false,
-    startTime: '20:00',
-    endTime: '23:00',
-    color: 'rgba(255, 152, 0, 0.15)', // Orange family
-    isCustom: true,
-  },
-];
+export const DEFAULT_CUSTOM_SESSIONS: SessionConfig[] = [];
 
 export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
   enabled: true,
