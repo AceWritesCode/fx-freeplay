@@ -256,7 +256,7 @@ export function ChartWorkspace() {
   } = useDrawingStore();
 
   // Visual layout states
-  const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | null>('watchlist');
+  const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | 'sessionDisplay' | null>('watchlist');
   const [rightPanelWidth] = useState<number>(300);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);

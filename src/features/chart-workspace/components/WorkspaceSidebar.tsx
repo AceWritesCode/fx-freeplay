@@ -18,11 +18,21 @@ const ObjectTreeTabIcon = ({ className = "w-full h-full" }: { className?: string
     <path fill="currentColor" d="M21.34 12.13a1 1 0 0 1 .98 0l10.41 5.93a1 1 0 0 1 0 1.73l-10.4 5.93a1 1 0 0 1-.99 0L10.78 19.8a1 1 0 0 1 0-1.75l10.56-5.92Zm.49.87-10.56 5.93 10.56 5.93 10.4-5.93L21.84 13ZM33.5 24.86l-11.66 6.8L10 25l.5-.87 11.33 6.38L32.99 24l.5.87Z"></path>
   </svg>
 );
+
+const SessionDisplayTabIcon = ({ className = "w-full h-full" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" className={className}>
+    <path fill="currentColor" fillRule="evenodd" d="M22 11a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm-9.5 11a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0Z" />
+    <path fill="currentColor" d="M21.25 15.5a.75.75 0 0 1 .75.75v5.88l3.66 2.11a.75.75 0 1 1-.75 1.3l-4.04-2.33A.75.75 0 0 1 20.5 22.56v-6.31a.75.75 0 0 1 .75-.75Z" />
+    <path fill="currentColor" d="M28 29.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM16 29.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" opacity="0.6" />
+  </svg>
+);
+
 import { ObjectTreePanel } from '@/components/ObjectTreePanel';
+import { SessionDisplayPanel } from '@/features/session-display';
 
 interface WorkspaceSidebarProps {
-  activeRightTab: 'watchlist' | 'objectTree' | null;
-  setActiveRightTab: (tab: 'watchlist' | 'objectTree' | null) => void;
+  activeRightTab: 'watchlist' | 'objectTree' | 'sessionDisplay' | null;
+  setActiveRightTab: (tab: 'watchlist' | 'objectTree' | 'sessionDisplay' | null) => void;
   rightPanelWidth: number;
   isResizingRightPanel: boolean;
   onResizeStart: () => void;
@@ -139,6 +149,15 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
         >
           <ObjectTreeTabIcon className="w-7 h-7" />
         </button>
+        <button
+          onClick={() => setActiveRightTab(activeRightTab === 'sessionDisplay' ? null : 'sessionDisplay')}
+          className={`p-2 rounded-lg transition-colors cursor-pointer ${
+            activeRightTab === 'sessionDisplay' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          }`}
+          title="Session Display Panel"
+        >
+          <SessionDisplayTabIcon className="w-7 h-7" />
+        </button>
       </div>
 
       {/* Main Tab content container */}
@@ -228,7 +247,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                 })}
               </div>
             </div>
-          ) : (
+          ) : activeRightTab === 'objectTree' ? (
             <ObjectTreePanel
               chartInstancesRef={chartInstancesRef}
               activeChartIndex={activeChartIndex}
@@ -239,7 +258,9 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               activeTimeframe={activeTimeframe}
               createOverlayWithHandlers={createOverlayWithHandlers}
             />
-          )}
+          ) : activeRightTab === 'sessionDisplay' ? (
+            <SessionDisplayPanel />
+          ) : null}
         </div>
       )}
     </div>
