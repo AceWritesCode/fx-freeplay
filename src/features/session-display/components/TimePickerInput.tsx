@@ -3,15 +3,16 @@ import { createPortal } from 'react-dom';
 import { Clock } from 'lucide-react';
 
 interface TimePickerInputProps {
-  value: string; // "HH:mm"
+  value: string; // Canonical "HH:mm" in 24-hour format
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
   placeholder?: string;
+  timeFormat?: '12h' | '24h';
 }
 
 // 96 15-minute intervals across 24 hours (00:00 to 23:45)
-const TIME_INTERVALS: string[] = [];
+export const TIME_INTERVALS: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 15) {
     const hh = h.toString().padStart(2, '0');
@@ -20,15 +21,65 @@ for (let h = 0; h < 24; h++) {
   }
 }
 
+// Converts canonical "18:00" to "06:00 PM"
+export function to12Hour(time24: string): string {
+  if (!time24) return '';
+  const [hStr, mStr] = time24.split(':');
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h) || isNaN(m)) return time24;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
+// Converts "06:00 PM", "6:00 pm", "18:00", or "9:00" to canonical "18:00"
+export function to24Hour(timeStr: string): string {
+  if (!timeStr) return '';
+  const trimmed = timeStr.trim();
+
+  // 12-hour match: "06:00 PM", "6:00pm", "12:15 AM", "3:01am"
+  const match12 = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec(trimmed);
+  if (match12) {
+    let h = parseInt(match12[1], 10);
+    const m = parseInt(match12[2], 10);
+    const period = match12[3].toLowerCase();
+    if (period === 'pm' && h < 12) h += 12;
+    if (period === 'am' && h === 12) h = 0;
+    if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+  }
+
+  // 24-hour match: "18:00", "03:01", "9:00"
+  const match24 = /^(\d{1,2}):(\d{2})$/.exec(trimmed);
+  if (match24) {
+    const h = parseInt(match24[1], 10);
+    const m = parseInt(match24[2], 10);
+    if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+  }
+
+  return timeStr;
+}
+
 export const TimePickerInput: React.FC<TimePickerInputProps> = ({
   value,
   onChange,
   disabled = false,
   className = '',
-  placeholder = 'HH:mm',
+  placeholder,
+  timeFormat = '24h',
 }) => {
+  const is12Hour = timeFormat === '12h';
+
+  const formatDisplayTime = useCallback((canonical24: string) => {
+    return is12Hour ? to12Hour(canonical24) : canonical24;
+  }, [is12Hour]);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [inputValue, setInputValue] = useState(value);
+  const [inputValue, setInputValue] = useState(() => formatDisplayTime(value));
   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,10 +87,10 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLButtonElement>(null);
 
-  // Keep local input buffer in sync if parent prop changes
+  // Keep local input buffer in sync if value or timeFormat changes
   useEffect(() => {
-    setInputValue(value);
-  }, [value]);
+    setInputValue(formatDisplayTime(value));
+  }, [value, formatDisplayTime]);
 
   // Calculate coordinates for portal placement
   const updateCoords = useCallback(() => {
@@ -52,9 +103,9 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
     setCoords({
       left: rect.left,
       top: openUp ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
-      width: Math.max(rect.width, 100),
+      width: Math.max(rect.width, is12Hour ? 115 : 100),
     });
-  }, []);
+  }, [is12Hour]);
 
   const handleOpen = () => {
     if (disabled) return;
@@ -120,28 +171,22 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextVal = e.target.value;
     setInputValue(nextVal);
-    // If user typed a full valid 24h HH:mm format, propagate to parent immediately
-    if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(nextVal)) {
-      onChange(nextVal);
+    const canonical = to24Hour(nextVal);
+    if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(canonical)) {
+      onChange(canonical);
     }
   };
 
   const handleBlur = () => {
     const trimmed = inputValue.trim();
-    // Auto-normalize single digit hour e.g. "9:00" -> "09:00"
-    const singleHourMatch = /^(\d):([0-5]\d)$/.exec(trimmed);
-    if (singleHourMatch) {
-      const formatted = `0${singleHourMatch[1]}:${singleHourMatch[2]}`;
-      setInputValue(formatted);
-      onChange(formatted);
-      return;
-    }
+    const canonical = to24Hour(trimmed);
 
-    if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(trimmed)) {
-      onChange(trimmed);
+    if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(canonical)) {
+      onChange(canonical);
+      setInputValue(formatDisplayTime(canonical));
     } else {
       // Revert to valid prop value if invalid
-      setInputValue(value);
+      setInputValue(formatDisplayTime(value));
     }
   };
 
@@ -165,6 +210,7 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
   };
 
   const activeHighlightedTime = getSelectedOrClosest();
+  const activePlaceholder = placeholder || (is12Hour ? 'hh:mm AM' : 'HH:mm');
 
   return (
     <>
@@ -194,10 +240,10 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
               handleOpen();
             }
           }}
-          maxLength={5}
-          placeholder={placeholder}
+          maxLength={is12Hour ? 8 : 5}
+          placeholder={activePlaceholder}
           className="w-full px-2 py-1 text-xs font-mono font-medium bg-transparent text-txt-primary outline-none select-text"
-          title="Type 24h time or click clock for dropdown"
+          title={`Type time (${activePlaceholder}) or click clock for dropdown`}
         />
         <button
           type="button"
@@ -230,16 +276,18 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
           }}
           className="max-h-56 overflow-y-auto bg-[#1e222d] border border-border-def rounded-md shadow-2xl py-1 select-none scrollbar-thin animate-in fade-in zoom-in-95 duration-100"
         >
-          {TIME_INTERVALS.map((time) => {
-            const isMatch = time === value || (time === activeHighlightedTime && !TIME_INTERVALS.includes(value));
+          {TIME_INTERVALS.map((canonicalTime) => {
+            const isMatch = canonicalTime === value || (canonicalTime === activeHighlightedTime && !TIME_INTERVALS.includes(value));
+            const displayLabel = is12Hour ? to12Hour(canonicalTime) : canonicalTime;
+
             return (
               <button
-                key={time}
+                key={canonicalTime}
                 ref={isMatch ? selectedItemRef : undefined}
                 type="button"
                 onClick={() => {
-                  setInputValue(time);
-                  onChange(time);
+                  onChange(canonicalTime);
+                  setInputValue(formatDisplayTime(canonicalTime));
                   handleClose();
                 }}
                 className={`w-full text-left px-3 py-1.5 text-xs font-mono transition-colors cursor-pointer flex items-center ${
@@ -248,7 +296,7 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
                     : 'text-txt-primary hover:bg-surface-hover'
                 }`}
               >
-                {time}
+                {displayLabel}
               </button>
             );
           })}

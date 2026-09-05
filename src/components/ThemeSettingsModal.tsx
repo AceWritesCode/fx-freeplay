@@ -1562,6 +1562,22 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     ))}
                   </select>
                 </div>
+
+                {/* Time Format Select (12h vs 24h) */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span>Time Format</span>
+                    <div className="text-[10px] text-txt-muted">Clock display for scales, inputs, and session highlights</div>
+                  </div>
+                  <select
+                    value={formState.timeFormat || '24h'}
+                    onChange={(e) => handleFieldChange('timeFormat', e.target.value as '12h' | '24h')}
+                    className="w-40 bg-surface border border-border-def rounded px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="24h">24 Hours (18:00)</option>
+                    <option value="12h">12 Hours (06:00 PM)</option>
+                  </select>
+                </div>
               </div>
             )}
 

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { ColorPicker } from '@/components/ColorPicker';
 import { TimePickerInput } from './TimePickerInput';
+import { useSettingsStore } from '@/store';
+import { settingsRepository } from '@/repository';
 import { 
   type SessionId, 
   type SessionConfig, 
@@ -95,6 +97,21 @@ const SESSION_GROUPS: SessionGroupDef[] = [
 ];
 
 export const SessionDisplayPanel: React.FC = () => {
+  // Global chart settings (for selected timezone and clock format 12h/24h)
+  const { settings: chartSettings, setSettings: setChartSettings } = useSettingsStore();
+
+  const activeTimezone = chartSettings.timezoneAdjustmentEnabled 
+    ? (chartSettings.userTimezoneLabel || 'UTC')
+    : 'Exchange';
+
+  const timeFormat = chartSettings.timeFormat || '24h';
+  const is24Hour = timeFormat === '24h';
+
+  const handleToggleTimeFormat = (newFormat: '12h' | '24h') => {
+    setChartSettings({ timeFormat: newFormat });
+    settingsRepository.saveSettings({ ...chartSettings, timeFormat: newFormat }).catch(console.error);
+  };
+
   // Local state for Step 1 (will connect to Zustand store in Step 2)
   const [settings, setSettings] = useState<SessionDisplaySettings>(DEFAULT_SESSION_DISPLAY_SETTINGS);
 
@@ -296,6 +313,7 @@ export const SessionDisplayPanel: React.FC = () => {
           <TimePickerInput
             value={session.startTime}
             disabled={isSessionDisabled}
+            timeFormat={timeFormat}
             onChange={(val) => handleTimeChange(session.id, 'startTime', val)}
             className="flex-1"
           />
@@ -303,6 +321,7 @@ export const SessionDisplayPanel: React.FC = () => {
           <TimePickerInput
             value={session.endTime}
             disabled={isSessionDisabled}
+            timeFormat={timeFormat}
             onChange={(val) => handleTimeChange(session.id, 'endTime', val)}
             className="flex-1"
           />
@@ -359,13 +378,31 @@ export const SessionDisplayPanel: React.FC = () => {
 
           {/* Timezone Indicator */}
           <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs">
-            <div className="flex items-center gap-1.5 text-txt-muted">
+            <div className="flex items-center gap-1.5 text-txt-muted flex-shrink-0">
               <Globe className="w-3.5 h-3.5 text-accent flex-shrink-0" />
               <span className="font-medium">Timezone</span>
             </div>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-accent-muted text-accent border border-accent/25">
-              {settings.timezone}
+            <span 
+              className="px-2 py-0.5 rounded text-[11px] font-semibold bg-accent-muted text-accent border border-accent/25 truncate max-w-[170px]"
+              title={activeTimezone}
+            >
+              {activeTimezone}
             </span>
+          </div>
+
+          {/* 24-Hour / 12-Hour Clock Toggle */}
+          <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-surface-elevated/20 border border-border-sub/60 text-xs">
+            <div className="flex flex-col min-w-0 pr-2">
+              <span className="font-semibold text-txt-primary">24-Hour Clock</span>
+              <span className="text-[10px] text-txt-muted truncate">
+                {is24Hour ? '24h format (e.g. 18:00)' : '12h format (e.g. 06:00 PM)'}
+              </span>
+            </div>
+            <ToggleSwitch
+              checked={is24Hour}
+              onChange={(checked) => handleToggleTimeFormat(checked ? '24h' : '12h')}
+              title="Toggle between 24-hour and 12-hour clock format"
+            />
           </div>
         </div>
 
