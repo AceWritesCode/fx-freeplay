@@ -111,9 +111,11 @@ export function registerSessionBackgroundIndicator(): void {
       const visibleEnd = lastVisibleBar.timestamp + BUFFER_MS;
 
       // 3. Obtain current chart / application time
-      // Use the latest visible candle bar timestamp, or the last loaded bar if in live mode
+      // Use the timestamp of the most recent candle in the chart's data list.
+      // NOTE: dataList.length === 0 is already guarded above (returns early at line 85-87),
+      //       so latestBar is guaranteed to be non-null here. No wall-clock fallback allowed.
       const latestBar = dataList[dataList.length - 1];
-      const currentTime = latestBar ? latestBar.timestamp : Date.now();
+      const currentTime = latestBar.timestamp;
 
       // Retrieve application active timezone label attached to chart instance if present
       const chartWithMetadata = chart as unknown as { _appTimezone?: string };
