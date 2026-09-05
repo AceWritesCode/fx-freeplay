@@ -101,7 +101,7 @@ export const DEFAULT_BUILT_IN_SESSIONS: Record<BuiltInSessionId, SessionConfig> 
 export const DEFAULT_CUSTOM_SESSIONS: SessionConfig[] = [];
 
 export const DEFAULT_SESSION_DISPLAY_SETTINGS: SessionDisplaySettings = {
-  enabled: true,
+  enabled: false,
   timezone: 'auto',
   sessionScope: 'all',
   builtInSessions: DEFAULT_BUILT_IN_SESSIONS,
