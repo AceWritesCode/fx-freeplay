@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ChevronDown, 
   Clock, 
   Globe, 
   Sliders, 
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 import { ColorPicker } from '@/components/ColorPicker';
 import { 
@@ -106,28 +108,73 @@ export const SessionDisplayPanel: React.FC = () => {
     custom: true,
   });
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   // Active color picker popover state: stores sessionId currently being edited
   const [activeColorPickerSessionId, setActiveColorPickerSessionId] = useState<SessionId | null>(null);
-  const colorPickerContainerRef = useRef<HTMLDivElement>(null);
+  const [pickerPosition, setPickerPosition] = useState<{ top: number; left: number } | null>(null);
 
-  // Close color picker on outside click
+  // Close color picker on outside click or Escape key
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        colorPickerContainerRef.current && 
-        !colorPickerContainerRef.current.contains(e.target as Node)
-      ) {
+      if (!activeColorPickerSessionId) return;
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        // If clicking on another session color button, let that button's onClick toggle or switch it
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-session-color-button]')) {
+          return;
+        }
         setActiveColorPickerSessionId(null);
+        setPickerPosition(null);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveColorPickerSessionId(null);
+        setPickerPosition(null);
       }
     };
 
     if (activeColorPickerSessionId) {
       document.addEventListener('mousedown', handleOutsideClick);
+      window.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [activeColorPickerSessionId]);
+
+  const handleOpenColorPicker = (sessionId: SessionId, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (activeColorPickerSessionId === sessionId) {
+      setActiveColorPickerSessionId(null);
+      setPickerPosition(null);
+      return;
+    }
+
+    const buttonRect = event.currentTarget.getBoundingClientRect();
+    const sidebarEl = panelRef.current?.closest('[data-workspace-sidebar="true"]') || (panelRef.current?.closest('.border-l') as HTMLElement | null);
+    const sidebarLeft = sidebarEl ? sidebarEl.getBoundingClientRect().left : (panelRef.current?.getBoundingClientRect().left ?? window.innerWidth - 340);
+
+    const pickerWidth = 560;
+    const pickerEstimatedHeight = 440;
+
+    // Position over the chart canvas area, immediately to the left of the sidebar with a 16px gap
+    let left = sidebarLeft - pickerWidth - 16;
+    if (left < 16) {
+      left = 16;
+    }
+
+    // Align vertically with the clicked session button, clamped within visible viewport bounds
+    let top = buttonRect.top - 20;
+    const minTop = 60;
+    const maxTop = window.innerHeight - pickerEstimatedHeight - 20;
+    top = Math.max(minTop, Math.min(top, maxTop));
+
+    setPickerPosition({ top, left });
+    setActiveColorPickerSessionId(sessionId);
+  };
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups(prev => ({
@@ -137,6 +184,10 @@ export const SessionDisplayPanel: React.FC = () => {
   };
 
   const handleToggleMaster = (checked: boolean) => {
+    if (!checked) {
+      setActiveColorPickerSessionId(null);
+      setPickerPosition(null);
+    }
     setSettings(prev => ({
       ...prev,
       enabled: checked,
@@ -144,6 +195,10 @@ export const SessionDisplayPanel: React.FC = () => {
   };
 
   const handleToggleSession = (id: SessionId, enabled: boolean) => {
+    if (!enabled && activeColorPickerSessionId === id) {
+      setActiveColorPickerSessionId(null);
+      setPickerPosition(null);
+    }
     setSettings(prev => ({
       ...prev,
       sessions: {
@@ -198,6 +253,7 @@ export const SessionDisplayPanel: React.FC = () => {
   const handleResetDefaults = () => {
     setSettings(DEFAULT_SESSION_DISPLAY_SETTINGS);
     setActiveColorPickerSessionId(null);
+    setPickerPosition(null);
   };
 
   // Render an individual session configuration row
@@ -230,40 +286,22 @@ export const SessionDisplayPanel: React.FC = () => {
           </div>
 
           {/* Color Trigger Button */}
-          <div className="relative">
-            <button
-              type="button"
-              disabled={isSessionDisabled}
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveColorPickerSessionId(
-                  activeColorPickerSessionId === session.id ? null : session.id
-                );
-              }}
-              className={`w-6 h-6 rounded-md border shadow-xs cursor-pointer transition-all flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed ${
-                activeColorPickerSessionId === session.id
-                  ? 'ring-2 ring-accent border-accent scale-105'
-                  : 'border-border-def hover:border-txt-muted'
-              }`}
-              style={{ backgroundColor: session.color }}
-              title={`Change ${session.name} color`}
-            />
-
-            {/* Color Picker Popover */}
-            {activeColorPickerSessionId === session.id && (
-              <div 
-                ref={colorPickerContainerRef}
-                className="absolute right-0 top-8 z-50 shadow-2xl rounded-xl border border-border-def bg-surface animate-in fade-in zoom-in-95 duration-150"
-              >
-                <div className="p-1">
-                  <ColorPicker 
-                    color={session.color} 
-                    onChange={(newColor) => handleColorChange(session.id, newColor)} 
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            data-session-color-button="true"
+            disabled={isSessionDisabled}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenColorPicker(session.id, e);
+            }}
+            className={`w-6 h-6 rounded-md border shadow-xs cursor-pointer transition-all flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+              activeColorPickerSessionId === session.id
+                ? 'ring-2 ring-accent border-accent scale-105'
+                : 'border-border-def hover:border-txt-muted'
+            }`}
+            style={{ backgroundColor: session.color }}
+            title={`Change ${session.name} color`}
+          />
         </div>
 
         {/* Controls: Time inputs and Transparency */}
@@ -327,7 +365,10 @@ export const SessionDisplayPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col min-w-0 bg-surface text-txt-primary select-none overflow-hidden font-sans">
+    <div 
+      ref={panelRef}
+      className="flex-1 h-full flex flex-col min-w-0 bg-surface text-txt-primary select-none overflow-hidden font-sans"
+    >
       {/* Panel Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-sub flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -425,6 +466,61 @@ export const SessionDisplayPanel: React.FC = () => {
           );
         })}
       </div>
+      {/* Floating Color Picker rendered via Portal over Chart Canvas Area */}
+      {activeColorPickerSessionId && pickerPosition && settings.sessions[activeColorPickerSessionId] && createPortal(
+        <div
+          ref={popoverRef}
+          style={{
+            position: 'fixed',
+            top: `${pickerPosition.top}px`,
+            left: `${pickerPosition.left}px`,
+            zIndex: 9999,
+            width: '560px',
+          }}
+          className="flex flex-col animate-in fade-in zoom-in-95 duration-150 shadow-2xl rounded-xl border border-border-def bg-surface overflow-hidden filter drop-shadow-2xl"
+        >
+          {/* Popover Header */}
+          <div className="flex items-center justify-between px-3.5 py-2 border-b border-border-sub bg-surface-elevated/80">
+            <div className="flex items-center gap-2">
+              <span 
+                className="w-3 h-3 rounded-full border border-border-def shadow-xs flex-shrink-0" 
+                style={{ backgroundColor: settings.sessions[activeColorPickerSessionId].color }} 
+              />
+              <span className="text-xs font-bold text-txt-primary">
+                {settings.sessions[activeColorPickerSessionId].name} Session Color
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveColorPickerSessionId(null);
+                setPickerPosition(null);
+              }}
+              className="p-1 text-txt-muted hover:text-txt-primary hover:bg-surface rounded transition-colors cursor-pointer"
+              title="Close Color Picker"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Embedded ColorPicker component */}
+          <div className="session-color-picker-portal">
+            <style>{`
+              .session-color-picker-portal > div {
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                background: transparent !important;
+              }
+            `}</style>
+            <ColorPicker
+              color={settings.sessions[activeColorPickerSessionId].color}
+              onChange={(newColor) => handleColorChange(activeColorPickerSessionId, newColor)}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

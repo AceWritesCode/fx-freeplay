@@ -116,6 +116,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
   return (
     <div 
       ref={sidebarRef}
+      data-workspace-sidebar="true"
       style={{ width: isSidebarVisible ? `var(--right-panel-width, ${rightPanelWidth}px)` : '44px' }}
       className="h-full border-l border-border-def bg-surface flex relative z-10 flex-shrink-0 transition-[width] duration-150"
     >
