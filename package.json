@@ -1,7 +1,7 @@
 {
   "name": "fx-freeplay",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.6.0",
   "type": "module",
   "main": "main.cjs",
   "repository": {
@@ -53,6 +53,7 @@
   "build": {
     "appId": "com.fxfreeplay.desktop",
     "productName": "FX Freeplay",
+    "artifactName": "${name}-setup-${version}.${ext}",
     "directories": {
       "output": "release"
     },

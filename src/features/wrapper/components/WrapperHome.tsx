@@ -117,24 +117,6 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
             <div className="fx-watermark">DISCIPLINE&nbsp;THROUGH&nbsp;RESEARCH</div>
           </header>
 
-          {/* Visualizer Banner for v1.0.0 Auto Update Verification */}
-          <div className="mb-6 p-4 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/40 flex items-center justify-between shadow-lg">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl animate-bounce">🚀</span>
-              <div>
-                <div className="text-base font-extrabold text-txt-primary">
-                  🚀 Version 1.0.0 - Auto Update Successful!
-                </div>
-                <div className="text-xs text-txt-muted mt-0.5">
-                  The client has successfully updated to Version 1.0.0 via the background updater pipeline.
-                </div>
-              </div>
-            </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 font-mono text-xs font-bold uppercase tracking-wider">
-              v1.0.0 Active
-            </span>
-          </div>
-
           {/* primary content grid */}
           <section className="fx-content-grid">
             {/* charts card */}
