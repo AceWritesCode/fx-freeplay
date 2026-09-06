@@ -144,9 +144,12 @@ export const WrapperSidebar: React.FC<WrapperSidebarProps> = ({
         {/* Support */}
         <button
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            onSupportClick(e);
+          onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).electronAPI) {
+              (window as any).electronAPI.openExternal('https://linktr.ee/hiiimanshu');
+            } else {
+              onSupportClick();
+            }
           }}
           className="fx-nav-item"
           title="Support FX Freeplay"
@@ -179,8 +182,11 @@ export const WrapperSidebar: React.FC<WrapperSidebarProps> = ({
         </button>
       </div>
 
-      {/* 5. Vertical Slogan */}
+      {/* 5. Version & Vertical Slogan */}
       <div className="fx-explore-text">EXPLORE&nbsp;&nbsp;ANALYZE&nbsp;&nbsp;IMPROVE</div>
+      <div className="text-[9px] font-mono text-txt-muted text-center py-2 border-t border-border-def/40 opacity-75 select-none tracking-tight">
+        v1.0.0 • Platform Architect
+      </div>
     </aside>
   );
 };

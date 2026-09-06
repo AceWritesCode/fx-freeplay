@@ -645,7 +645,7 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
               <div className="rounded-2xl border border-border-def bg-surface/40 p-6 space-y-4">
                 <div className="flex items-center justify-between py-2 border-b border-border-def/50">
                   <span className="text-xs text-txt-muted">Client Build</span>
-                  <span className="text-xs font-mono text-txt-primary">v0.6.0 (Desktop Wrapper)</span>
+                  <span className="text-xs font-mono text-txt-primary">v1.0.0 (Desktop Wrapper)</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-border-def/50">
                   <span className="text-xs text-txt-muted">Theme System</span>
@@ -655,9 +655,25 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                   <span className="text-xs text-txt-muted">Platform</span>
                   <span className="text-xs font-mono text-txt-primary">Cross-Platform Desktop</span>
                 </div>
-                <div className="flex items-center justify-between py-2">
+                <div className="flex items-center justify-between py-2 border-b border-border-def/50">
                   <span className="text-xs text-txt-muted">Design Philosophy</span>
                   <span className="text-xs text-accent font-semibold">High-Precision Trading Research</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-xs text-txt-muted">Support Development</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                        (window as any).electronAPI.openExternal('https://linktr.ee/hiiimanshu');
+                      } else {
+                        window.open('https://linktr.ee/hiiimanshu', '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    className="text-xs text-accent font-semibold hover:underline cursor-pointer"
+                  >
+                    Support FX Freeplay
+                  </button>
                 </div>
               </div>
             </section>

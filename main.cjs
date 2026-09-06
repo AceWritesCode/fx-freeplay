@@ -30,6 +30,22 @@ function createWindow() {
   // Ensure default application menu is completely removed
   Menu.setApplicationMenu(null);
 
+  // Prevent internal navigation to external sites; open in system default browser
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      require('electron').shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== win.webContents.getURL() && (url.startsWith('http:') || url.startsWith('https:'))) {
+      event.preventDefault();
+      require('electron').shell.openExternal(url);
+    }
+  });
+
   // Forward autoUpdater events to the renderer UI
   autoUpdater.removeAllListeners();
 

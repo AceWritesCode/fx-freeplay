@@ -111,7 +111,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
           {/* header */}
           <header className="fx-home-header">
             <div>
-              <h1>Trading Research Environment</h1>
+              <h1>FX Freeplay</h1>
               <p className="subtitle">Analyze markets. Test ideas. Build an edge.</p>
             </div>
             <div className="fx-watermark">DISCIPLINE&nbsp;THROUGH&nbsp;RESEARCH</div>
@@ -280,7 +280,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
           <section className="fx-bottom-row">
             {/* System Status / Engine Specifications */}
             <div className="fx-card fx-panel fx-system-panel">
-              <div className="fx-panel-title">PLATFORM ARCHITECTURE</div>
+              <div className="fx-panel-title">v1.0.0 • PLATFORM ARCHITECT</div>
               <ul className="fx-specs-list">
                 <li>
                   <span className="spec-name">Replay Engine</span>
@@ -310,9 +310,12 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 className="fx-btn-ghost"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSupportClick(e);
+                onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                    (window as any).electronAPI.openExternal('https://linktr.ee/hiiimanshu');
+                  } else {
+                    window.open('https://linktr.ee/hiiimanshu', '_blank', 'noopener,noreferrer');
+                  }
                 }}
               >
                 Support FX Freeplay
@@ -324,7 +327,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
 
       {/* ============ FOOTER ============ */}
       <footer className="fx-home-footer">
-        <span>FX Freeplay Desktop v3.0.0</span>
+        <span>v1.0.0 • Platform Architect • FX Freeplay Desktop</span>
         <span>EXPLORE • ANALYZE • IMPROVE</span>
       </footer>
     </div>
