@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FX Freeplay Splash Screen</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color-center: #090c15;
+      --bg-color-edge: #010204;
+      --neon-blue: #2a88ff;
+      --text-main: #ffffff;
+      --text-sub: #7a8a9e;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, var(--bg-color-center) 0%, var(--bg-color-edge) 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Montserrat', sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 25px;
+    }
+
+    /* --- LOGO SVG --- */
+    .logo-svg {
+      width: 130px;
+      height: auto;
+      /* Slight pulse after everything is on screen (starts at 5s) */
+      animation: pulseLogo 3s 5s infinite alternate ease-in-out;
+    }
+
+    /* The Neon Outline Trace */
+    .trace-path {
+      fill: none;
+      stroke: var(--neon-blue);
+      stroke-width: 3.5;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      stroke-dasharray: 500;
+      stroke-dashoffset: 500;
+      filter: drop-shadow(0 0 6px rgba(42, 136, 255, 0.8));
+      
+      /* 1. Traces the path for 2.5s 
+         2. Fades out between 2.5s and 3.5s as the fill comes in 
+      */
+      animation: 
+        traceGlow 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards,
+        fadeOutTrace 1s 2.5s ease-out forwards;
+    }
+
+    /* The Metallic Gradient Fills */
+    .fill-path {
+      opacity: 0;
+      stroke: none;
+      /* Fades in between 2.5s and 3.5s */
+      animation: fadeInFill 1s 2.5s ease-out forwards;
+    }
+
+    /* --- TEXT REVEAL --- */
+    .text-mask {
+      overflow: hidden;
+      padding: 10px 0;
+      /* Slightly offset so it doesn't overlap the logo box */
+      margin-left: 10px; 
+    }
+
+    .main-text {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      white-space: nowrap;
+      transform: translateX(105%);
+      
+      /* Waits until 3.5s (when logo is 100% formed), then slides in */
+      animation: slideInText 1.2s 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .main-text .fx { color: #ffffff; }
+    .main-text .freeplay { color: #d1d9e6; }
+
+    /* Subtitle */
+    .sub-text {
+      font-size: 0.85rem;
+      font-weight: 400;
+      letter-spacing: 8px;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(15px);
+      
+      /* Follows right behind the main text */
+      animation: fadeUpSub 1s 4.2s ease-out forwards;
+    }
+
+    /* --- KEYFRAMES --- */
+    @keyframes traceGlow {
+      0% { stroke-dashoffset: 500; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes fadeOutTrace {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes fadeInFill {
+      0% { opacity: 0; filter: brightness(2); }
+      100% { opacity: 1; filter: brightness(1); }
+    }
+
+    @keyframes slideInText {
+      0% { transform: translateX(105%); }
+      100% { transform: translateX(0); }
+    }
+
+    @keyframes fadeUpSub {
+      0% { opacity: 0; transform: translateY(15px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulseLogo {
+      0% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(42, 136, 255, 0)); }
+      100% { transform: scale(1.03); filter: drop-shadow(0 0 15px rgba(42, 136, 255, 0.3)); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="splash-container">
+    <div class="brand-row">
+      <svg class="logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="silverGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#b0bec5" />
+            <stop offset="60%" stop-color="#ffffff" />
+            <stop offset="100%" stop-color="#ffffff" />
+          </linearGradient>
+          
+          <linearGradient id="blueGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#155bc2" />
+            <stop offset="100%" stop-color="#4ba6ff" />
+          </linearGradient>
+        </defs>
+
+        <path class="trace-path" d="M 30 110 L 30 70 L 70 30 L 170 30 L 130 70 L 70 70 Z" />
+        <path class="trace-path" d="M 30 170 L 30 130 L 70 90 L 140 90 L 100 130 L 70 130 Z" />
+
+        <path class="fill-path" fill="url(#silverGrad)" d="M 30 110 L 30 70 L 70 30 L 170 30 L 130 70 L 70 70 Z" />
+        <path class="fill-path" fill="url(#blueGrad)" d="M 30 170 L 30 130 L 70 90 L 140 90 L 100 130 L 70 130 Z" />
+      </svg>
+
+      <div class="text-mask">
+        <div class="main-text">
+          <span class="fx">FX</span> <span class="freeplay">FREEPLAY</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="sub-text">Trading Research Platform</div>
+  </div>
+
+</body>
+</html>
