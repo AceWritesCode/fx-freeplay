@@ -205,6 +205,7 @@ interface DrawingToolbarProps {
   handleToggleLockAllDrawings?: () => void;
   isAllDrawingsHidden?: boolean;
   handleToggleHideAllDrawings?: () => void;
+  onNavigateHome?: () => void;
 }
 
 export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
@@ -264,10 +265,15 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     handleToggleLockAllDrawings,
     isAllDrawingsHidden: externalIsAllDrawingsHidden,
     handleToggleHideAllDrawings,
+    onNavigateHome,
   } = props;
 
   const [localIsAllDrawingsLocked, setLocalIsAllDrawingsLocked] = React.useState(false);
   const [localIsAllDrawingsHidden, setLocalIsAllDrawingsHidden] = React.useState(false);
+
+  const [isHubMenuOpen, setIsHubMenuOpen] = React.useState(false);
+  const [hubMenuPos, setHubMenuPos] = React.useState({ x: 0, y: 0 });
+  const hubMenuRef = React.useRef<HTMLDivElement>(null);
 
   const isAllDrawingsLocked = externalIsAllDrawingsLocked ?? localIsAllDrawingsLocked;
   const isAllDrawingsHidden = externalIsAllDrawingsHidden ?? localIsAllDrawingsHidden;
@@ -286,7 +292,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     return (
       <button
         type="button"
-        title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+        title={isFav ? "Remove from quick access" : "Add to quick access"}
+        aria-label={isFav ? "Remove from quick access" : "Add to quick access"}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -303,7 +310,8 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     );
   };
 
-  const closeAllMenus = (except?: 'cursor' | 'line' | 'shape' | 'text' | 'forecast' | 'magnet') => {
+  const closeAllMenus = (except?: 'hub' | 'cursor' | 'line' | 'shape' | 'text' | 'forecast' | 'magnet') => {
+    if (except !== 'hub') setIsHubMenuOpen(false);
     if (except !== 'cursor') setIsCursorMenuOpen(false);
     if (except !== 'line') setIsLineMenuOpen(false);
     if (except !== 'shape') setIsShapeMenuOpen(false);
@@ -316,6 +324,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (
+        hubMenuRef.current?.contains(target) ||
         cursorMenuRef.current?.contains(target) ||
         lineMenuRef.current?.contains(target) ||
         shapeMenuRef.current?.contains(target) ||
@@ -350,6 +359,155 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
   return (
     <aside className="w-[52px] bg-surface border-r border-border-def flex flex-col items-start pl-[4px] py-3 gap-3.5 z-40">
       
+      {/* 0. Hub & Module Selector Button */}
+      <div className="relative flex items-center bg-transparent rounded-lg">
+        <button
+          type="button"
+          title="Home Hub"
+          aria-label="Home Hub"
+          data-tooltip="Home Hub"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            closeAllMenus();
+            if (onNavigateHome) onNavigateHome();
+          }}
+          className="p-1.5 rounded-md border border-transparent text-accent hover:text-accent-hover hover:bg-accent-muted/40 transition-all flex items-center justify-center outline-none focus:outline-none select-none shadow-xs"
+          style={{ width: '34px', height: '34px' }}
+        >
+          <ToolIconWrapper>
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-current" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 11.5 12 4l8 7.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </ToolIconWrapper>
+        </button>
+
+        {/* Arrow to open Module Options Menu */}
+        <button
+          type="button"
+          title="Module Navigation"
+          aria-label="Module Navigation"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setHubMenuPos({ x: rect.right, y: rect.top });
+            const nextState = !isHubMenuOpen;
+            closeAllMenus('hub');
+            setIsHubMenuOpen(nextState);
+          }}
+          className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+            isHubMenuOpen
+              ? 'border-transparent bg-accent-muted text-accent z-10'
+              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
+          }`}
+          style={{ width: '12px', height: '34px' }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
+            <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {/* Hub Module Selector Menu */}
+        {isHubMenuOpen && (
+          <div
+            ref={hubMenuRef}
+            className="fixed z-[100] bg-modal-bg border border-border-def rounded-lg shadow-2xl py-1.5 text-sm min-w-[220px] text-txt-secondary select-none"
+            style={{
+              left: `${hubMenuPos.x + 6}px`,
+              top: `${hubMenuPos.y}px`,
+            }}
+          >
+            <div className="px-3 py-1 text-[10px] font-bold tracking-widest text-txt-muted uppercase font-mono border-b border-border-sub/60 mb-1">
+              Modules
+            </div>
+
+            {/* Home */}
+            <button
+              type="button"
+              onClick={() => {
+                closeAllMenus();
+                if (onNavigateHome) onNavigateHome();
+              }}
+              className="w-full px-3 py-2 text-left hover:bg-surface-hover hover:text-txt-primary flex items-center justify-between transition-colors text-xs font-semibold cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-accent" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 11.5 12 4l8 7.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Workspace Hub</span>
+              </div>
+            </button>
+
+            {/* Charts (Active) */}
+            <button
+              type="button"
+              onClick={() => closeAllMenus()}
+              className="w-full px-3 py-2 text-left bg-accent-muted/40 text-accent flex items-center justify-between transition-colors text-xs font-semibold cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-accent" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 19V9M10 19V4M16 19v-7M22 19H2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Charts</span>
+              </div>
+              <span className="text-[10px] font-mono opacity-80 uppercase px-1.5 py-0.5 rounded bg-accent/20">Active</span>
+            </button>
+
+            {/* Journal (Coming Soon) */}
+            <button
+              type="button"
+              onClick={() => closeAllMenus()}
+              className="w-full px-3 py-2 text-left hover:bg-surface-hover/60 text-txt-muted flex items-center justify-between transition-colors text-xs font-medium cursor-default"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 3h11a1 1 0 0 1 1 1v16l-4-2-4 2-4-2-2 1V5a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 8h6M9 12h6" strokeLinecap="round" />
+                </svg>
+                <span>Journal</span>
+              </div>
+              <span className="text-[9.5px] font-mono text-txt-muted opacity-60 uppercase">Soon</span>
+            </button>
+
+            {/* Backtesting (Coming Soon) */}
+            <button
+              type="button"
+              onClick={() => closeAllMenus()}
+              className="w-full px-3 py-2 text-left hover:bg-surface-hover/60 text-txt-muted flex items-center justify-between transition-colors text-xs font-medium cursor-default"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Backtesting</span>
+              </div>
+              <span className="text-[9.5px] font-mono text-txt-muted opacity-60 uppercase">Soon</span>
+            </button>
+
+            {/* Research (Coming Soon) */}
+            <button
+              type="button"
+              onClick={() => closeAllMenus()}
+              className="w-full px-3 py-2 text-left hover:bg-surface-hover/60 text-txt-muted flex items-center justify-between transition-colors text-xs font-medium cursor-default"
+            >
+              <div className="flex items-center gap-2.5">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="10.5" cy="10.5" r="6.5" />
+                  <path d="M20 20l-4.7-4.7" strokeLinecap="round" />
+                </svg>
+                <span>Research</span>
+              </div>
+              <span className="text-[9.5px] font-mono text-txt-muted opacity-60 uppercase">Soon</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="w-[36px] h-px bg-border-sub/80 -my-1 ml-0.5" />
+
       {/* Grouped Cursor Tools: Select / Crosshair */}
       {(() => {
         const activeCursorTool = CURSOR_TOOLS.find(t => t.id === selectedCursorId) || CURSOR_TOOLS[0];

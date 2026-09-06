@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FX Freeplay — Pencil Stroke Splash</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<main class="splash">
+  <div id="stage" class="stage">
+    <div class="logo-wrap">
+      <svg id="logo" class="logo" viewBox="20 20 160 165" aria-label="FX Freeplay logo" role="img"
+           xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="silver" x1="28" y1="116" x2="173" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#d1ddea"/>
+            <stop offset=".48" stop-color="#f3f6fa"/>
+            <stop offset="1" stop-color="#fff"/>
+          </linearGradient>
+          <linearGradient id="blue" x1="28" y1="171" x2="142" y2="91" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#2a78c6"/>
+            <stop offset=".55" stop-color="#3d8fdf"/>
+            <stop offset="1" stop-color="#63b5fb"/>
+          </linearGradient>
+        </defs>
+
+        <path id="topFill" class="logo-fill" fill="url(#silver)"
+          d="M30 110V70Q30 68 32 66L68 30Q69.5 29 72 29H170L130 70H72Q70 70 69 71L30 110Z"/>
+        <path id="bottomFill" class="logo-fill" fill="url(#blue)"
+          d="M30 170V130Q30 128 32 126L68 91Q69.5 90 72 90H140L100 130H72Q70 130 69 131L30 170Z"/>
+
+        <path id="topGlow" class="logo-stroke-glow"
+          d="M30 110V70Q30 68 32 66L68 30Q69.5 29 72 29H170L130 70H72Q70 70 69 71L30 110Z"/>
+        <path id="bottomGlow" class="logo-stroke-glow"
+          d="M30 170V130Q30 128 32 126L68 91Q69.5 90 72 90H140L100 130H72Q70 130 69 131L30 170Z"/>
+
+        <path id="topStroke" class="logo-stroke"
+          d="M30 110V70Q30 68 32 66L68 30Q69.5 29 72 29H170L130 70H72Q70 70 69 71L30 110Z"/>
+        <path id="bottomStroke" class="logo-stroke"
+          d="M30 170V130Q30 128 32 126L68 91Q69.5 90 72 90H140L100 130H72Q70 130 69 131L30 170Z"/>
+
+        <circle id="tip" class="pencil-tip" r="2.1"/>
+      </svg>
+    </div>
+
+    <section id="wordGroup" class="word-group" aria-label="FX Freeplay" style="margin-left: 70px;">
+      <h1 class="wordmark">
+        <span class="fx">FX</span> <span class="freeplay">FREEPLAY</span>
+      </h1>
+      <div class="sub-text">
+        <span>EXPLORE</span><i></i><span>ANALYZE</span><i></i><span>IMPROVE</span>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
