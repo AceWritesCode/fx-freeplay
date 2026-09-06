@@ -3,14 +3,18 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder",
     "lint": "eslint .",
     "test": "node --test src/features/session-display/engine/__tests__/sessionEngine.test.ts src/features/session-display/renderer/__tests__/sessionGeometry.test.ts src/features/session-display/engine/__tests__/activeSessionDerivation.test.ts src/features/wrapper/__tests__/wrapperDomain.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "gifenc": "^1.0.3",
     "klinecharts": "^10.0.0-beta3",
     "localforage": "^1.10.0",
@@ -30,6 +34,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -39,5 +45,22 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"
+  },
+  "build": {
+    "appId": "com.fxfreeplay.desktop",
+    "productName": "FX Freeplay",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "YOUR_GITHUB_REPO_NAME"
+      }
+    ]
   }
 }
