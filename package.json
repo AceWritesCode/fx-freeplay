@@ -57,7 +57,8 @@
       "output": "release"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/icon-256.ico"
     },
     "publish": [
       {

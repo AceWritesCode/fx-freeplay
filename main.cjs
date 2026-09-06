@@ -1,23 +1,34 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
 // Disable automatic downloads so UI controls when download starts
 autoUpdater.autoDownload = false;
 
 function createWindow() {
+  const iconPath = fs.existsSync(path.join(__dirname, 'assets', 'icon-256.ico'))
+    ? path.join(__dirname, 'assets', 'icon-256.ico')
+    : path.join(__dirname, 'dist', 'favicon.svg');
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 600,
     backgroundColor: '#131722',
+    autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: false,
     },
   });
+
+  // Ensure default application menu is completely removed
+  Menu.setApplicationMenu(null);
 
   // Forward autoUpdater events to the renderer UI
   autoUpdater.removeAllListeners();
