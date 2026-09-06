@@ -15,6 +15,13 @@ import {
   Maximize2,
   X,
 } from 'lucide-react';
+import step1Gif from '@/assets/tutorials/step1-copy-script.gif';
+import step2Gif from '@/assets/tutorials/step2-open-data-folder.gif';
+import step3Gif from '@/assets/tutorials/step3-paste-script.gif';
+import step4Gif from '@/assets/tutorials/step4-refresh-navigator.gif';
+import step5Gif from '@/assets/tutorials/step5-add-symbol-watchlist.gif';
+import step6Gif from '@/assets/tutorials/step6-apply-script-settings.gif';
+import step7Gif from '@/assets/tutorials/step7-import-data.gif';
 
 interface WrapperHelpProps {
   onBack: () => void;
@@ -294,7 +301,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                 {/* Tutorial GIF 1: Copy script from repository */}
                 <div className="flex-1 min-w-[340px] max-w-xl">
                   <HelpGifViewer
-                    src="/tutorials/step1-copy-script.gif"
+                    src={step1Gif}
                     alt="Copy script from project root"
                     title="Visual Guide: Copying Script from Project Root"
                     badge="Step 1"
@@ -382,7 +389,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                   </div>
                   <div className="flex-1 min-w-[340px] max-w-xl">
                     <HelpGifViewer
-                      src="/tutorials/step2-open-data-folder.gif"
+                      src={step2Gif}
                       alt="MT5 File Open Data Folder"
                       title="Visual Guide: Open MT5 Data Folder"
                       badge="Step 1"
@@ -422,7 +429,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                   </div>
                   <div className="flex-1 min-w-[340px] max-w-xl">
                     <HelpGifViewer
-                      src="/tutorials/step3-paste-script.gif"
+                      src={step3Gif}
                       alt="Paste script into MQL5 Scripts"
                       title="Visual Guide: Copy Script to MQL5\Scripts"
                       badge="Step 2"
@@ -454,7 +461,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                   </div>
                   <div className="flex-1 min-w-[340px] max-w-xl">
                     <HelpGifViewer
-                      src="/tutorials/step4-refresh-navigator.gif"
+                      src={step4Gif}
                       alt="Refresh Navigator scripts"
                       title="Visual Guide: Refresh Navigator Panel"
                       badge="Step 3"
@@ -483,7 +490,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                   </div>
                   <div className="flex-1 min-w-[340px] max-w-xl">
                     <HelpGifViewer
-                      src="/tutorials/step5-add-symbol-watchlist.gif"
+                      src={step5Gif}
                       alt="Add symbol to Market Watch"
                       title="Visual Guide: Add Symbols to Market Watch"
                       badge="Step 4"
@@ -578,7 +585,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                 {/* Tutorial GIF 6: Applying Script Settings & DLL Import */}
                 <div className="flex-1 min-w-[340px] max-w-xl">
                   <HelpGifViewer
-                    src="/tutorials/step6-apply-script-settings.gif"
+                    src={step6Gif}
                     alt="Enable DLL Imports and configure script"
                     title="Visual Guide: Allow DLL Imports (Dependencies Tab)"
                     badge="Crucial"
@@ -692,7 +699,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                 {/* Tutorial GIF 6 preview for Inputs reference */}
                 <div className="w-full lg:w-[480px] xl:w-[540px] flex flex-col space-y-3 shrink-0">
                   <HelpGifViewer
-                    src="/tutorials/step6-apply-script-settings.gif"
+                    src={step6Gif}
                     alt="Configuring inputs tab in MT5 script"
                     title="Visual Guide: Setting Inputs & Export Path"
                     badge="Inputs"
@@ -823,7 +830,7 @@ export const WrapperHelp: React.FC<WrapperHelpProps> = ({ onBack }) => {
                 {/* Tutorial GIF 7: Step 7 - Import Data (Large horizontal display) */}
                 <div className="flex-1 min-w-[340px] max-w-2xl flex flex-col justify-center">
                   <HelpGifViewer
-                    src="/tutorials/step7-import-data.gif"
+                    src={step7Gif}
                     alt="Importing data folder into FX Freeplay"
                     title="Visual Demonstration: Importing Data Folder"
                     badge="Step 7"

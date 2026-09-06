@@ -45,6 +45,14 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [updateInfo, setUpdateInfo] = useState<{ version?: string; releaseNotes?: string } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
+
+  const isNoReleaseOnGitHub = Boolean(
+    statusMessage && (
+      statusMessage.toLowerCase().includes('unable to find latest version on github') ||
+      statusMessage.toLowerCase().includes('cannot parse releases feed')
+    )
+  );
 
   useEffect(() => {
     const updater = (window as any).updaterAPI;
@@ -91,6 +99,7 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
   }, []);
 
   const handleCheckForUpdates = () => {
+    setShowErrorDetails(false);
     const updater = (window as any).updaterAPI;
     if (updater?.checkForUpdates) {
       setUpdateStatus('checking');
@@ -451,16 +460,16 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
               </div>
 
               {/* Updater Status Card */}
-              <div className="p-6 rounded-2xl border border-border-def bg-surface/40 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+              <div className="p-6 rounded-2xl border border-border-def bg-surface/40 space-y-5 overflow-hidden break-words">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 overflow-hidden">
+                  <div className="space-y-1.5 min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-txt-primary">Desktop Client Release</span>
                       <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-surface-elevated border border-border-sub text-accent font-semibold">
                         {updateInfo?.version ? `v${updateInfo.version}` : 'Channel: GitHub Releases'}
                       </span>
                     </div>
-                    <div className="text-xs text-txt-muted flex items-center gap-2">
+                    <div className="text-sm text-txt-muted overflow-hidden break-words">
                       {updateStatus === 'checking' && (
                         <span className="flex items-center gap-1.5 text-accent">
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -486,10 +495,38 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                         </span>
                       )}
                       {updateStatus === 'error' && (
-                        <span className="flex items-center gap-1.5 text-status-error">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span className="truncate max-w-md">{statusMessage || 'Failed to check for updates.'}</span>
-                        </span>
+                        <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden break-words text-sm">
+                          {isNoReleaseOnGitHub ? (
+                            <div className="flex items-center gap-2 text-txt-primary font-medium">
+                              <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
+                              <span>You are currently on the latest version.</span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-status-error">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <AlertCircle className="w-4 h-4 shrink-0" />
+                                  <span>Failed to check for updates.</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowErrorDetails((prev) => !prev)}
+                                  className="text-xs text-accent hover:underline font-sans cursor-pointer transition-colors"
+                                >
+                                  {showErrorDetails ? 'Hide Error Details' : 'View Error Details'}
+                                </button>
+                              </div>
+
+                              {showErrorDetails && statusMessage && (
+                                <div className="mt-1 p-3 rounded-xl bg-surface-elevated/90 border border-border-def text-xs font-mono text-txt-secondary break-words overflow-hidden max-w-full select-text shadow-inner">
+                                  <pre className="whitespace-pre-wrap break-words overflow-hidden text-[11px] font-mono leading-relaxed max-h-40 overflow-y-auto">
+                                    {statusMessage}
+                                  </pre>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       )}
                       {updateStatus === 'idle' && (
                         <span>{statusMessage || 'Click below to verify if updates are available.'}</span>
@@ -498,7 +535,7 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 shrink-0">
                     {updateStatus === 'idle' && (
                       <button
                         type="button"
@@ -549,8 +586,8 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                         onClick={handleCheckForUpdates}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface hover:bg-surface-hover border border-border-def text-xs font-semibold text-txt-primary cursor-pointer transition-all shadow-xs"
                       >
-                        <RefreshCw className="w-3.5 h-3.5 text-status-error" />
-                        <span>Retry Check</span>
+                        <RefreshCw className="w-3.5 h-3.5 text-accent" />
+                        <span>{isNoReleaseOnGitHub ? 'Check for Updates' : 'Retry Check'}</span>
                       </button>
                     )}
                   </div>

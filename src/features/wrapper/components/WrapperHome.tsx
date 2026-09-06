@@ -25,12 +25,13 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
     }, durationMs);
   };
 
-  const handleSupportClick = () => {
+  const handleSupportClick = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     console.log('[Wrapper] Opening support link: https://linktr.ee/hiiimanshu');
     const url = 'https://linktr.ee/hiiimanshu';
     if (typeof window !== 'undefined') {
-      if ((window as any).electronAPI?.openExternal) {
-        (window as any).electronAPI.openExternal(url);
+      if (window.electronAPI?.openExternal) {
+        window.electronAPI.openExternal(url);
       } else {
         window.open(url, '_blank', 'noopener,noreferrer');
       }
@@ -309,7 +310,10 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 className="fx-btn-ghost"
-                onClick={handleSupportClick}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSupportClick(e);
+                }}
               >
                 Support FX Freeplay
               </button>

@@ -4,7 +4,7 @@ import { Sliders } from 'lucide-react';
 interface WrapperSidebarProps {
   activeView: string;
   onNavigate: (view: string) => void;
-  onSupportClick: () => void;
+  onSupportClick: (e?: React.MouseEvent) => void;
   onHelpClick?: () => void;
   onUnavailableSelect?: (name: string) => void;
 }
@@ -144,7 +144,10 @@ export const WrapperSidebar: React.FC<WrapperSidebarProps> = ({
         {/* Support */}
         <button
           type="button"
-          onClick={onSupportClick}
+          onClick={(e) => {
+            e.preventDefault();
+            onSupportClick(e);
+          }}
           className="fx-nav-item"
           title="Support FX Freeplay"
         >
