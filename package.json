@@ -1,9 +1,13 @@
 {
   "name": "fx-freeplay",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.5.0",
   "type": "module",
   "main": "main.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AceWritesCode/fx-freeplay.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -58,8 +62,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
-        "repo": "YOUR_GITHUB_REPO_NAME"
+        "owner": "AceWritesCode",
+        "repo": "fx-freeplay"
       }
     ]
   }
