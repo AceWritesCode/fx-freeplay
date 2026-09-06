@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Sliders,
@@ -8,6 +8,10 @@ import {
   Info,
   Check,
   Palette,
+  Download,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import type { SettingsSectionId, WrapperSettingsState } from '../types';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -17,6 +21,8 @@ import { loadWrapperSettings, saveWrapperSettings } from '../wrapperPersistence'
 interface WrapperSettingsProps {
   onBack: () => void;
 }
+
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
 
 export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
@@ -32,7 +38,86 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
   });
 
   const [savedNotice, setSavedNotice] = useState(false);
-  const noticeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-updater state
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [updateInfo, setUpdateInfo] = useState<{ version?: string; releaseNotes?: string } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const updater = (window as any).updaterAPI;
+    if (!updater?.onUpdateEvent) return;
+
+    const cleanup = updater.onUpdateEvent((message: string, data: any) => {
+      console.log('[WrapperSettings] Update event:', message, data);
+      switch (message) {
+        case 'checking':
+          setUpdateStatus('checking');
+          setStatusMessage('Checking for updates on GitHub...');
+          break;
+        case 'available':
+          setUpdateStatus('available');
+          setUpdateInfo(data || null);
+          setStatusMessage(`Update available: ${data?.version ? 'v' + data.version : 'New version found'}`);
+          break;
+        case 'not-available':
+          setUpdateStatus('idle');
+          setStatusMessage('You are running the latest version.');
+          break;
+        case 'progress':
+          setUpdateStatus('downloading');
+          setDownloadProgress(Math.round(data?.percent || 0));
+          setStatusMessage(`Downloading update: ${Math.round(data?.percent || 0)}%`);
+          break;
+        case 'downloaded':
+          setUpdateStatus('ready');
+          setUpdateInfo(data || null);
+          setStatusMessage('Update downloaded and ready to install.');
+          break;
+        case 'error':
+          setUpdateStatus('error');
+          setStatusMessage(typeof data === 'string' ? data : data?.message || 'Error checking for updates');
+          break;
+        default:
+          break;
+      }
+    });
+
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  }, []);
+
+  const handleCheckForUpdates = () => {
+    const updater = (window as any).updaterAPI;
+    if (updater?.checkForUpdates) {
+      setUpdateStatus('checking');
+      setStatusMessage('Checking for updates...');
+      updater.checkForUpdates();
+    } else {
+      setUpdateStatus('idle');
+      setStatusMessage('Updater is active in the packaged desktop environment.');
+    }
+  };
+
+  const handleDownloadUpdate = () => {
+    const updater = (window as any).updaterAPI;
+    if (updater?.downloadUpdate) {
+      setUpdateStatus('downloading');
+      setDownloadProgress(0);
+      setStatusMessage('Starting download...');
+      updater.downloadUpdate();
+    }
+  };
+
+  const handleInstallUpdate = () => {
+    const updater = (window as any).updaterAPI;
+    if (updater?.installUpdate) {
+      updater.installUpdate();
+    }
+  };
 
   React.useEffect(() => {
     return () => {
@@ -361,10 +446,134 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
           {activeSection === 'updates' && (
             <section className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-txt-primary mb-1">Update Channels</h2>
-                <p className="text-xs text-txt-muted">Manage automated check frequencies and update delivery.</p>
+                <h2 className="text-xl font-bold text-txt-primary mb-1">Software Updates</h2>
+                <p className="text-xs text-txt-muted">Manage automated verification, check releases, and apply updates.</p>
               </div>
 
+              {/* Updater Status Card */}
+              <div className="p-6 rounded-2xl border border-border-def bg-surface/40 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-txt-primary">Desktop Client Release</span>
+                      <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-surface-elevated border border-border-sub text-accent font-semibold">
+                        {updateInfo?.version ? `v${updateInfo.version}` : 'Channel: GitHub Releases'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-txt-muted flex items-center gap-2">
+                      {updateStatus === 'checking' && (
+                        <span className="flex items-center gap-1.5 text-accent">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Checking GitHub releases...</span>
+                        </span>
+                      )}
+                      {updateStatus === 'available' && (
+                        <span className="flex items-center gap-1.5 text-status-warning font-medium">
+                          <Download className="w-3.5 h-3.5" />
+                          <span>New version available {updateInfo?.version ? `(v${updateInfo.version})` : ''}</span>
+                        </span>
+                      )}
+                      {updateStatus === 'downloading' && (
+                        <span className="flex items-center gap-1.5 text-accent">
+                          <Download className="w-3.5 h-3.5 animate-bounce" />
+                          <span>Downloading package from GitHub ({downloadProgress}%)</span>
+                        </span>
+                      )}
+                      {updateStatus === 'ready' && (
+                        <span className="flex items-center gap-1.5 text-status-success font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Update ready to install. Restart application to apply.</span>
+                        </span>
+                      )}
+                      {updateStatus === 'error' && (
+                        <span className="flex items-center gap-1.5 text-status-error">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span className="truncate max-w-md">{statusMessage || 'Failed to check for updates.'}</span>
+                        </span>
+                      )}
+                      {updateStatus === 'idle' && (
+                        <span>{statusMessage || 'Click below to verify if updates are available.'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2.5">
+                    {updateStatus === 'idle' && (
+                      <button
+                        type="button"
+                        onClick={handleCheckForUpdates}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface hover:bg-surface-hover border border-border-def text-xs font-semibold text-txt-primary cursor-pointer transition-all shadow-xs"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-accent" />
+                        <span>Check for Updates</span>
+                      </button>
+                    )}
+
+                    {updateStatus === 'checking' && (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface/50 border border-border-def text-xs font-semibold text-txt-muted cursor-not-allowed opacity-75"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-accent" />
+                        <span>Checking...</span>
+                      </button>
+                    )}
+
+                    {updateStatus === 'available' && (
+                      <button
+                        type="button"
+                        onClick={handleDownloadUpdate}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold cursor-pointer transition-all shadow-md animate-pulse"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Update</span>
+                      </button>
+                    )}
+
+                    {updateStatus === 'ready' && (
+                      <button
+                        type="button"
+                        onClick={handleInstallUpdate}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-status-success hover:bg-emerald-600 text-txt-inverse text-xs font-semibold cursor-pointer transition-all shadow-md"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Restart & Install</span>
+                      </button>
+                    )}
+
+                    {updateStatus === 'error' && (
+                      <button
+                        type="button"
+                        onClick={handleCheckForUpdates}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface hover:bg-surface-hover border border-border-def text-xs font-semibold text-txt-primary cursor-pointer transition-all shadow-xs"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-status-error" />
+                        <span>Retry Check</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress Bar when downloading */}
+                {updateStatus === 'downloading' && (
+                  <div className="p-4 rounded-xl bg-surface-elevated/70 border border-border-def space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-txt-secondary">Download Progress</span>
+                      <span className="text-accent font-bold">{downloadProgress}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-surface overflow-hidden border border-border-def/50">
+                      <div
+                        className="h-full bg-accent rounded-full transition-all duration-300"
+                        style={{ width: `${Math.max(2, downloadProgress)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Automatic Update Verification Setting */}
               <div className="divide-y divide-border-def rounded-2xl border border-border-def bg-surface/40 overflow-hidden">
                 <div className="flex items-center justify-between p-5">
                   <div>
