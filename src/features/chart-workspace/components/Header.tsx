@@ -1,16 +1,16 @@
 import React from 'react';
 import { 
-  LineChart, 
   ChevronDown, 
   Settings, 
   LayoutGrid,
   Info,
-  Database
+  Database,
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
 import { CaptureButton } from '@/features/capture-recording';
 
 interface HeaderProps {
+  onNavigateHome?: () => void;
   assetName: string;
   hasData: boolean;
   parseFeedback: any;
@@ -84,7 +84,22 @@ export const Header: React.FC<HeaderProps> = (props) => {
       {/* Left: Brand & Symbol */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-accent font-bold tracking-wider">
-          <LineChart className="w-5 h-5" />
+          <div className="w-6 h-6 rounded-md bg-surface-elevated border border-border-def p-0.5 flex items-center justify-center shadow-xs">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+              <defs>
+                <linearGradient id="hdrSilverGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#cfd8dc" />
+                  <stop offset="100%" stopColor="#ffffff" />
+                </linearGradient>
+                <linearGradient id="hdrBlueGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="var(--accent-hover)" />
+                  <stop offset="100%" stopColor="var(--accent-primary)" />
+                </linearGradient>
+              </defs>
+              <path fill="url(#hdrSilverGrad)" d="M 30 110 L 30 70 L 70 30 L 170 30 L 130 70 L 70 70 Z" />
+              <path fill="url(#hdrBlueGrad)" d="M 30 170 L 30 130 L 70 90 L 140 90 L 100 130 L 70 130 Z" />
+            </svg>
+          </div>
           <span className="text-sm font-black text-txt-primary tracking-tight">FX FREEPLAY</span>
         </div>
         <div className="h-4 w-px bg-border-sub" />
