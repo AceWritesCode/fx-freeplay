@@ -459,6 +459,17 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                 <p className="text-xs text-txt-muted">Manage automated verification, check releases, and apply updates.</p>
               </div>
 
+              {/* v1.0.0 Update Visualizer Banner */}
+              <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-sm font-bold text-txt-primary flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl animate-bounce">🚀</span>
+                  <span>Version 1.0.0 - Auto Update Successful!</span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs font-semibold">
+                  v1.0.0 Active
+                </span>
+              </div>
+
               {/* Updater Status Card */}
               <div className="p-6 rounded-2xl border border-border-def bg-surface/40 space-y-5 overflow-hidden break-words">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 overflow-hidden">
@@ -645,7 +656,7 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
               <div className="rounded-2xl border border-border-def bg-surface/40 p-6 space-y-4">
                 <div className="flex items-center justify-between py-2 border-b border-border-def/50">
                   <span className="text-xs text-txt-muted">Client Build</span>
-                  <span className="text-xs font-mono text-txt-primary">v3.0.0 (Desktop Wrapper)</span>
+                  <span className="text-xs font-mono text-txt-primary">v1.0.0 (Desktop Wrapper)</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-border-def/50">
                   <span className="text-xs text-txt-muted">Theme System</span>
