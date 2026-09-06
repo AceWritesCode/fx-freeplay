@@ -12,10 +12,6 @@ import {
   Check,
   ChevronRight,
   ArrowRight,
-  Upload,
-  FolderOpen,
-  Play,
-  Info,
   Maximize2,
   X,
 } from 'lucide-react';
