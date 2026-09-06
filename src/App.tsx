@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
-import { ChartWorkspace } from '@/features/chart-workspace';
+import { useEffect } from 'react';
+import { WrapperRoot } from '@/features/wrapper';
+import { initThemeFromStorage } from '@/utils/themeApplier';
 
 export default function App() {
-  const [activeWorkspace] = useState<'charts'>('charts');
-
   useEffect(() => {
     document.title = 'FX Freeplay';
+    initThemeFromStorage();
   }, []);
 
   return (
     <div className="h-full w-full">
-      {activeWorkspace === 'charts' && <ChartWorkspace />}
+      <WrapperRoot />
     </div>
   );
 }

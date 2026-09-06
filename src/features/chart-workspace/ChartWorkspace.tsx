@@ -187,7 +187,11 @@ const layoutsList = [
   },
 ];
 
-export function ChartWorkspace() {
+export interface ChartWorkspaceProps {
+  onNavigateHome?: () => void;
+}
+
+export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   const chartContainersRef = useRef<(HTMLDivElement | null)[]>([]);
   const chartInstancesRef = useRef<(any | null)[]>([]);
   const isSyncingCrosshairRef = useRef<boolean>(false);
@@ -1581,6 +1585,7 @@ export function ChartWorkspace() {
   return (
     <div className="flex flex-col h-screen w-screen bg-app-bg text-txt-secondary overflow-hidden select-none">
       <Header
+        onNavigateHome={onNavigateHome}
         assetName={assetName}
         hasData={hasData}
         parseFeedback={workspaceCoord.parseFeedback}
@@ -1749,6 +1754,7 @@ export function ChartWorkspace() {
           handleToggleLockAllDrawings={handleToggleLockAllDrawings}
           isAllDrawingsHidden={isAllDrawingsHidden}
           handleToggleHideAllDrawings={handleToggleHideAllDrawings}
+          onNavigateHome={onNavigateHome}
         />
 
         <main className={`flex-1 h-full relative overflow-hidden bg-app-bg ${layoutType !== '1' ? 'p-1' : 'p-0'} flex`}>
