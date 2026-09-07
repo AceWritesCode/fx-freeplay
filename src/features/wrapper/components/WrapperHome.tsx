@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { WrapperSidebar } from './WrapperSidebar';
 import './wrapper-home.css';
+import pkg from '../../../../package.json';
+import { loadWrapperSettings } from '../wrapperPersistence';
+import { CURRENT_PATCH_NOTES } from '../patchNotes';
 
 interface WrapperHomeProps {
   onNavigate: (view: string) => void;
@@ -9,6 +12,80 @@ interface WrapperHomeProps {
 export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
   const [activeNotification, setActiveNotification] = useState<string | null>(null);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Background auto-updater state
+  const [updateStatus, setUpdateStatus] = useState<
+    'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'not-available'
+  >('idle');
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+
+  // "What's New" modal state
+  const [showWhatsNew, setShowWhatsNew] = useState<boolean>(false);
+
+  // Check version for "What's New" modal on mount
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      const lastSeenVersion = localStorage.getItem('lastSeenVersion');
+      if (lastSeenVersion !== pkg.version) {
+        setShowWhatsNew(true);
+      }
+    }
+  }, []);
+
+  const handleCloseWhatsNew = () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('lastSeenVersion', pkg.version);
+    }
+    setShowWhatsNew(false);
+  };
+
+  // Background auto-check & auto-install logic
+  useEffect(() => {
+    const settings = loadWrapperSettings();
+    const updater = (window as any).updaterAPI;
+    if (!updater?.onUpdateEvent) return;
+
+    const cleanup = updater.onUpdateEvent((status: string, data: any) => {
+      console.log('[WrapperHome] Update event received:', status, data);
+      switch (status) {
+        case 'checking':
+          setUpdateStatus('checking');
+          break;
+        case 'available':
+          setUpdateStatus('available');
+          break;
+        case 'not-available':
+          setUpdateStatus('not-available');
+          break;
+        case 'progress':
+          setUpdateStatus('downloading');
+          setDownloadProgress(Math.round(data?.percent || 0));
+          break;
+        case 'downloaded':
+          setUpdateStatus('downloaded');
+          // Auto-Install Logic: Automatically install without requiring user interaction
+          console.log('[WrapperHome] Update downloaded. Triggering silent auto-install...');
+          if (typeof updater.installUpdate === 'function') {
+            updater.installUpdate();
+          }
+          break;
+        case 'error':
+          setUpdateStatus('error');
+          break;
+        default:
+          break;
+      }
+    });
+
+    if (settings.autoCheckUpdates && typeof updater.checkForUpdates === 'function') {
+      console.log('[WrapperHome] autoCheckUpdates is true, initiating background check...');
+      updater.checkForUpdates();
+    }
+
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -326,11 +403,108 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
         </main>
       </div>
 
+      {/* ---------- Discreet Top-Right Update Button ---------- */}
+      {updateStatus === 'available' && (
+        <button
+          type="button"
+          onClick={() => {
+            const updater = (window as any).updaterAPI;
+            if (updater?.downloadUpdate) updater.downloadUpdate();
+          }}
+          className="fixed top-4 right-6 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold shadow-lg transition-all animate-pulse cursor-pointer"
+          title="Click to download update"
+        >
+          <span className="w-2 h-2 rounded-full bg-txt-inverse animate-ping" />
+          <span>Update Available</span>
+        </button>
+      )}
+
+      {updateStatus === 'downloading' && (
+        <button
+          type="button"
+          disabled
+          className="fixed top-4 right-6 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated/95 border border-border-def text-txt-secondary text-xs font-semibold shadow-lg cursor-not-allowed opacity-90"
+        >
+          <span className="w-2 h-2 rounded-full bg-accent animate-spin" />
+          <span>Downloading {downloadProgress}%</span>
+        </button>
+      )}
+
       {/* ============ FOOTER ============ */}
       <footer className="fx-home-footer">
-        <span>v1.0.0 • Platform Architect • FX Freeplay Desktop</span>
+        <span>v{pkg.version} • Platform Architect • FX Freeplay Desktop</span>
         <span>EXPLORE • ANALYZE • IMPROVE</span>
       </footer>
+
+      {/* ============ WHAT'S NEW MODAL ============ */}
+      {showWhatsNew && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-2xl bg-surface-elevated border border-border-def p-6 shadow-2xl space-y-5 select-none animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-border-def/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/20 text-accent border border-accent/30">
+                    NEW RELEASE
+                  </span>
+                  <span className="text-xs font-mono text-txt-muted">{CURRENT_PATCH_NOTES.releaseDate}</span>
+                </div>
+                <h2 className="text-lg font-bold text-txt-primary mt-1.5">
+                  What's New in v{pkg.version}
+                </h2>
+                <p className="text-xs text-txt-muted mt-0.5">
+                  {CURRENT_PATCH_NOTES.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseWhatsNew}
+                className="text-txt-muted hover:text-txt-primary p-1 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                title="Close"
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              <p className="text-xs text-txt-secondary leading-relaxed">
+                {CURRENT_PATCH_NOTES.summary}
+              </p>
+
+              {CURRENT_PATCH_NOTES.sections.map((section, idx) => (
+                <div key={idx} className="space-y-2 rounded-xl bg-surface/50 border border-border-def/50 p-3.5">
+                  <div className="text-xs font-semibold text-txt-primary flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    <span>{section.title}</span>
+                  </div>
+                  <ul className="space-y-1.5 pl-3.5">
+                    {section.items.map((item, itemIdx) => (
+                      <li key={itemIdx} className="text-[11px] text-txt-muted leading-relaxed list-disc">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end pt-3 border-t border-border-def/60">
+              <button
+                type="button"
+                onClick={handleCloseWhatsNew}
+                className="px-5 py-2 rounded-xl bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold cursor-pointer transition-all shadow-md"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

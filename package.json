@@ -1,7 +1,7 @@
 {
   "name": "fx-freeplay",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.7",
   "type": "module",
   "main": "main.cjs",
   "repository": {

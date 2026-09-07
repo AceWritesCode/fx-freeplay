@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sliders } from 'lucide-react';
+import pkg from '../../../../package.json';
 
 interface WrapperSidebarProps {
   activeView: string;
@@ -186,7 +187,7 @@ export const WrapperSidebar: React.FC<WrapperSidebarProps> = ({
       {/* 5. Version & Vertical Slogan */}
       <div className="fx-explore-text">EXPLORE&nbsp;&nbsp;ANALYZE&nbsp;&nbsp;IMPROVE</div>
       <div className="text-[9px] font-mono text-txt-muted text-center py-2 border-t border-border-def/40 opacity-75 select-none tracking-tight">
-        v1.0.0 • Platform Architect
+        v{pkg.version} • Platform Architect
       </div>
     </aside>
   );
