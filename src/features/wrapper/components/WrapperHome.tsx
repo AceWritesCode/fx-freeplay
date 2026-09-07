@@ -21,12 +21,17 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
 
   // "What's New" modal state
   const [showWhatsNew, setShowWhatsNew] = useState<boolean>(false);
+  const installTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check version for "What's New" modal on mount
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
       const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-      if (lastSeenVersion !== pkg.version) {
+      if (lastSeenVersion === null) {
+        // Fresh install: silently record version and suppress modal
+        localStorage.setItem('lastSeenVersion', pkg.version);
+      } else if (lastSeenVersion !== pkg.version) {
+        // Upgrade: display What's New modal
         setShowWhatsNew(true);
       }
     }
@@ -63,11 +68,14 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
           break;
         case 'downloaded':
           setUpdateStatus('downloaded');
-          // Auto-Install Logic: Automatically install without requiring user interaction
-          console.log('[WrapperHome] Update downloaded. Triggering silent auto-install...');
-          if (typeof updater.installUpdate === 'function') {
-            updater.installUpdate();
-          }
+          console.log('[WrapperHome] Update downloaded. Waiting 3 seconds before auto-install...');
+          if (installTimerRef.current) clearTimeout(installTimerRef.current);
+          installTimerRef.current = setTimeout(() => {
+            console.log('[WrapperHome] 3-second grace period complete. Invoking installUpdate()...');
+            if (typeof updater.installUpdate === 'function') {
+              updater.installUpdate();
+            }
+          }, 3000);
           break;
         case 'error':
           setUpdateStatus('error');
@@ -84,6 +92,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
 
     return () => {
       if (typeof cleanup === 'function') cleanup();
+      if (installTimerRef.current) clearTimeout(installTimerRef.current);
     };
   }, []);
 
@@ -427,6 +436,17 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
         >
           <span className="w-2 h-2 rounded-full bg-accent animate-spin" />
           <span>Downloading {downloadProgress}%</span>
+        </button>
+      )}
+
+      {updateStatus === 'downloaded' && (
+        <button
+          type="button"
+          disabled
+          className="fixed top-4 right-6 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent text-txt-inverse text-xs font-semibold shadow-lg cursor-wait animate-pulse"
+        >
+          <span className="w-2 h-2 rounded-full bg-txt-inverse animate-ping" />
+          <span>Restarting to Install...</span>
         </button>
       )}
 

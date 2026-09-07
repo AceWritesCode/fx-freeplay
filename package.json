@@ -1,7 +1,7 @@
 {
   "name": "fx-freeplay",
   "private": true,
-  "version": "0.0.7",
+  "version": "0.0.8",
   "type": "module",
   "main": "main.cjs",
   "repository": {
@@ -60,6 +60,9 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon-256.ico"
+    },
+    "nsis": {
+      "deleteAppDataOnUninstall": true
     },
     "publish": [
       {

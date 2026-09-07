@@ -13,7 +13,7 @@ export interface PatchNotesData {
 }
 
 export const CURRENT_PATCH_NOTES: PatchNotesData = {
-  version: '0.0.7',
+  version: '0.0.8',
   releaseDate: 'September 2026',
   title: 'Silent Background Updates & Version Tracker',
   summary: 'Enhanced the desktop experience with seamless background auto-updates, zero-click installations, and persistent release notes tracking.',
