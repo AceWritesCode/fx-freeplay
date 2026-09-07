@@ -1,5 +1,6 @@
 export interface ElectronAPI {
   openExternal: (url: string) => void | Promise<void>;
+  setStartup?: (settings: { login: boolean; hidden: boolean }) => void;
 }
 
 export interface UpdaterAPI {

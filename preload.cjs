@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('updaterAPI', {
 
 contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.send('open-external', url),
+  setStartup: (settings) => ipcRenderer.send('set-startup', settings),
 });

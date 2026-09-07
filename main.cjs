@@ -117,6 +117,10 @@ ipcMain.on('open-external', (_event, url) => {
   }
 });
 
+ipcMain.on('set-startup', (event, { login, hidden }) => {
+  app.setLoginItemSettings({ openAtLogin: login, openAsHidden: hidden, path: app.getPath('exe') });
+});
+
 app.whenReady().then(() => {
   createWindow();
 

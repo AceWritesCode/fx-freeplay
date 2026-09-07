@@ -150,6 +150,16 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
       const next = { ...prev, [key]: !prev[key] };
       saveWrapperSettings(next);
       console.log(`[Wrapper] Settings changed: ${String(key)} =`, next[key]);
+
+      if (key === 'launchAtStartup' || key === 'startMinimized') {
+        if (typeof window !== 'undefined' && window.electronAPI?.setStartup) {
+          window.electronAPI.setStartup({
+            login: Boolean(next.launchAtStartup),
+            hidden: Boolean(next.startMinimized),
+          });
+        }
+      }
+
       return next;
     });
     triggerNotice();

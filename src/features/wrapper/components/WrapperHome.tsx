@@ -27,11 +27,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
       const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-      if (lastSeenVersion === null) {
-        // Fresh install: silently record version and suppress modal
-        localStorage.setItem('lastSeenVersion', pkg.version);
-      } else if (lastSeenVersion !== pkg.version) {
-        // Upgrade: display What's New modal
+      if (lastSeenVersion !== pkg.version) {
         setShowWhatsNew(true);
       }
     }
@@ -200,7 +196,47 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
               <h1>FX Freeplay</h1>
               <p className="subtitle">Analyze markets. Test ideas. Build an edge.</p>
             </div>
-            <div className="fx-watermark">DISCIPLINE&nbsp;THROUGH&nbsp;RESEARCH</div>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <div className="fx-watermark">DISCIPLINE&nbsp;THROUGH&nbsp;RESEARCH</div>
+
+              {/* Discreet Update Button directly below header text */}
+              {updateStatus === 'available' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updater = (window as any).updaterAPI;
+                    if (updater?.downloadUpdate) updater.downloadUpdate();
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold shadow-md transition-all cursor-pointer"
+                  title="Click to download update"
+                >
+                  <span className="w-2 h-2 rounded-full bg-txt-inverse" />
+                  <span>Update Available</span>
+                </button>
+              )}
+
+              {updateStatus === 'downloading' && (
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated/95 border border-border-def text-txt-secondary text-xs font-semibold shadow-md cursor-not-allowed opacity-90"
+                >
+                  <span className="w-2 h-2 rounded-full bg-accent" />
+                  <span>Downloading {downloadProgress}%</span>
+                </button>
+              )}
+
+              {updateStatus === 'downloaded' && (
+                <button
+                  type="button"
+                  disabled
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent text-txt-inverse text-xs font-semibold shadow-md cursor-wait"
+                >
+                  <span className="w-2 h-2 rounded-full bg-txt-inverse" />
+                  <span>Restarting to Install...</span>
+                </button>
+              )}
+            </div>
           </header>
 
           {/* primary content grid */}
@@ -412,43 +448,6 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
         </main>
       </div>
 
-      {/* ---------- Discreet Top-Right Update Button ---------- */}
-      {updateStatus === 'available' && (
-        <button
-          type="button"
-          onClick={() => {
-            const updater = (window as any).updaterAPI;
-            if (updater?.downloadUpdate) updater.downloadUpdate();
-          }}
-          className="fixed top-4 right-6 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold shadow-lg transition-all animate-pulse cursor-pointer"
-          title="Click to download update"
-        >
-          <span className="w-2 h-2 rounded-full bg-txt-inverse animate-ping" />
-          <span>Update Available</span>
-        </button>
-      )}
-
-      {updateStatus === 'downloading' && (
-        <button
-          type="button"
-          disabled
-          className="fixed top-4 right-6 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated/95 border border-border-def text-txt-secondary text-xs font-semibold shadow-lg cursor-not-allowed opacity-90"
-        >
-          <span className="w-2 h-2 rounded-full bg-accent animate-spin" />
-          <span>Downloading {downloadProgress}%</span>
-        </button>
-      )}
-
-      {updateStatus === 'downloaded' && (
-        <button
-          type="button"
-          disabled
-          className="fixed top-4 right-6 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent text-txt-inverse text-xs font-semibold shadow-lg cursor-wait animate-pulse"
-        >
-          <span className="w-2 h-2 rounded-full bg-txt-inverse animate-ping" />
-          <span>Restarting to Install...</span>
-        </button>
-      )}
 
       {/* ============ FOOTER ============ */}
       <footer className="fx-home-footer">
