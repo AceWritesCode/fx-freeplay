@@ -1,5 +1,5 @@
 @echo off
-echo Starting TradingView Clone build...
+echo Starting FX Freeplay build...
 call npm run build
 if %errorlevel% neq 0 (
     echo.
