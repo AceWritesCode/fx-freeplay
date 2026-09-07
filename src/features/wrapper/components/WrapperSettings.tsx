@@ -18,7 +18,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import type { ThemeMode } from '@/config/themes';
 import { loadWrapperSettings, saveWrapperSettings } from '../wrapperPersistence';
 import pkg from '../../../../package.json';
-import { CURRENT_PATCH_NOTES } from '../patchNotes';
+import { savePendingReleaseNotes, renderSimpleMarkdown, extractWhatsNew } from '../releaseNotesParser';
 
 interface WrapperSettingsProps {
   onBack: () => void;
@@ -70,6 +70,7 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
         case 'available':
           setUpdateStatus('available');
           setUpdateInfo(data || null);
+          savePendingReleaseNotes(data);
           setStatusMessage(`Update available: ${data?.version ? 'v' + data.version : 'New version found'}`);
           break;
         case 'not-available':
@@ -84,6 +85,7 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
         case 'downloaded':
           setUpdateStatus('ready');
           setUpdateInfo(data || null);
+          savePendingReleaseNotes(data);
           setStatusMessage('Update downloaded and ready to install.');
           break;
         case 'error':
@@ -645,46 +647,32 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Current Release Patch Notes */}
+              {/* Release Notes */}
               <div className="rounded-2xl border border-border-def bg-surface/40 p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-border-def/50 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/20 text-accent border border-accent/30">
-                        LATEST RELEASE
+                        RELEASE NOTES
                       </span>
-                      <span className="text-xs font-mono text-txt-muted">{CURRENT_PATCH_NOTES.releaseDate}</span>
+                      <span className="text-xs font-mono text-txt-muted">v{pkg.version}</span>
                     </div>
                     <h3 className="text-sm font-bold text-txt-primary mt-1.5">
-                      What's New in v{pkg.version}
+                      What's New
                     </h3>
-                    <p className="text-xs text-txt-muted mt-0.5">
-                      {CURRENT_PATCH_NOTES.title}
-                    </p>
                   </div>
                 </div>
 
-                <p className="text-xs text-txt-secondary leading-relaxed">
-                  {CURRENT_PATCH_NOTES.summary}
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                  {CURRENT_PATCH_NOTES.sections.map((section, idx) => (
-                    <div key={idx} className="rounded-xl bg-surface-elevated/60 border border-border-def/60 p-4 space-y-2">
-                      <div className="text-xs font-semibold text-txt-primary flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                        <span>{section.title}</span>
-                      </div>
-                      <ul className="space-y-1.5 pl-3.5">
-                        {section.items.map((item, itemIdx) => (
-                          <li key={itemIdx} className="text-[11px] text-txt-muted leading-relaxed list-disc">
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+                <div
+                  className="space-y-3 text-xs text-txt-secondary leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: renderSimpleMarkdown(
+                      (typeof localStorage !== 'undefined' && localStorage.getItem('pendingReleaseNotes')) ||
+                        (updateInfo?.releaseNotes ? extractWhatsNew(updateInfo.releaseNotes) : null) ||
+                        'Performance improvements and bug fixes.'
+                    ),
+                  }}
+                />
               </div>
             </section>
           )}

@@ -3,7 +3,7 @@ import { WrapperSidebar } from './WrapperSidebar';
 import './wrapper-home.css';
 import pkg from '../../../../package.json';
 import { loadWrapperSettings } from '../wrapperPersistence';
-import { CURRENT_PATCH_NOTES } from '../patchNotes';
+import { savePendingReleaseNotes, renderSimpleMarkdown } from '../releaseNotesParser';
 
 interface WrapperHomeProps {
   onNavigate: (view: string) => void;
@@ -27,6 +27,11 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
       const lastSeenVersion = localStorage.getItem('lastSeenVersion');
+      if (lastSeenVersion === null) {
+        // Fresh install: silently record current version and do not show modal
+        localStorage.setItem('lastSeenVersion', pkg.version);
+        return;
+      }
       if (lastSeenVersion !== pkg.version) {
         setShowWhatsNew(true);
       }
@@ -36,6 +41,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
   const handleCloseWhatsNew = () => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('lastSeenVersion', pkg.version);
+      localStorage.removeItem('pendingReleaseNotes');
     }
     setShowWhatsNew(false);
   };
@@ -54,6 +60,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
           break;
         case 'available':
           setUpdateStatus('available');
+          savePendingReleaseNotes(data);
           break;
         case 'not-available':
           setUpdateStatus('not-available');
@@ -64,6 +71,7 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
           break;
         case 'downloaded':
           setUpdateStatus('downloaded');
+          savePendingReleaseNotes(data);
           console.log('[WrapperHome] Update downloaded. Waiting 3 seconds before auto-install...');
           if (installTimerRef.current) clearTimeout(installTimerRef.current);
           installTimerRef.current = setTimeout(() => {
@@ -464,16 +472,13 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/20 text-accent border border-accent/30">
-                    NEW RELEASE
+                    UPDATE COMPLETED
                   </span>
-                  <span className="text-xs font-mono text-txt-muted">{CURRENT_PATCH_NOTES.releaseDate}</span>
+                  <span className="text-xs font-mono text-txt-muted">v{pkg.version}</span>
                 </div>
                 <h2 className="text-lg font-bold text-txt-primary mt-1.5">
                   What's New in v{pkg.version}
                 </h2>
-                <p className="text-xs text-txt-muted mt-0.5">
-                  {CURRENT_PATCH_NOTES.title}
-                </p>
               </div>
               <button
                 type="button"
@@ -490,25 +495,15 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
 
             {/* Content */}
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              <p className="text-xs text-txt-secondary leading-relaxed">
-                {CURRENT_PATCH_NOTES.summary}
-              </p>
-
-              {CURRENT_PATCH_NOTES.sections.map((section, idx) => (
-                <div key={idx} className="space-y-2 rounded-xl bg-surface/50 border border-border-def/50 p-3.5">
-                  <div className="text-xs font-semibold text-txt-primary flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                    <span>{section.title}</span>
-                  </div>
-                  <ul className="space-y-1.5 pl-3.5">
-                    {section.items.map((item, itemIdx) => (
-                      <li key={itemIdx} className="text-[11px] text-txt-muted leading-relaxed list-disc">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              <div
+                className="space-y-2.5"
+                dangerouslySetInnerHTML={{
+                  __html: renderSimpleMarkdown(
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('pendingReleaseNotes')) ||
+                      'Performance improvements and bug fixes.'
+                  ),
+                }}
+              />
             </div>
 
             {/* Footer */}

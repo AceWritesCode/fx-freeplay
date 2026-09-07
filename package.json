@@ -14,7 +14,7 @@
     "start": "electron .",
     "dist": "npm run build && electron-builder",
     "lint": "eslint .",
-    "test": "node --test src/features/session-display/engine/__tests__/sessionEngine.test.ts src/features/session-display/renderer/__tests__/sessionGeometry.test.ts src/features/session-display/engine/__tests__/activeSessionDerivation.test.ts src/features/wrapper/__tests__/wrapperDomain.test.ts",
+    "test": "node --test src/features/session-display/engine/__tests__/sessionEngine.test.ts src/features/session-display/renderer/__tests__/sessionGeometry.test.ts src/features/session-display/engine/__tests__/activeSessionDerivation.test.ts src/features/wrapper/__tests__/wrapperDomain.test.ts src/features/wrapper/__tests__/releaseNotesParser.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
