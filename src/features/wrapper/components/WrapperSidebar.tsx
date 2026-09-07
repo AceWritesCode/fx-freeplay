@@ -144,9 +144,10 @@ export const WrapperSidebar: React.FC<WrapperSidebarProps> = ({
         {/* Support */}
         <button
           type="button"
-          onClick={() => {
-            if (typeof window !== 'undefined' && (window as any).electronAPI) {
-              (window as any).electronAPI.openExternal('https://linktr.ee/hiiimanshu');
+          onClick={(e) => {
+            e.preventDefault();
+            if (typeof window !== 'undefined' && window.electronAPI) {
+              window.electronAPI.openExternal('https://linktr.ee/hiiimanshu');
             } else {
               onSupportClick();
             }

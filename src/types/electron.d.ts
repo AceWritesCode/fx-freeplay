@@ -1,5 +1,5 @@
 export interface ElectronAPI {
-  openExternal: (url: string) => Promise<void>;
+  openExternal: (url: string) => void | Promise<void>;
 }
 
 export interface UpdaterAPI {

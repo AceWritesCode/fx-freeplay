@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, shell } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('updaterAPI', {
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
@@ -14,5 +14,5 @@ contextBridge.exposeInMainWorld('updaterAPI', {
 });
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  openExternal: (url) => shell.openExternal(url),
+  openExternal: (url) => ipcRenderer.send('open-external', url),
 });

@@ -310,9 +310,10 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 className="fx-btn-ghost"
-                onClick={() => {
-                  if (typeof window !== 'undefined' && (window as any).electronAPI) {
-                    (window as any).electronAPI.openExternal('https://linktr.ee/hiiimanshu');
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (typeof window !== 'undefined' && window.electronAPI) {
+                    window.electronAPI.openExternal('https://linktr.ee/hiiimanshu');
                   } else {
                     window.open('https://linktr.ee/hiiimanshu', '_blank', 'noopener,noreferrer');
                   }

@@ -663,9 +663,10 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                   <span className="text-xs text-txt-muted">Support Development</span>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (typeof window !== 'undefined' && (window as any).electronAPI) {
-                        (window as any).electronAPI.openExternal('https://linktr.ee/hiiimanshu');
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (typeof window !== 'undefined' && window.electronAPI) {
+                        window.electronAPI.openExternal('https://linktr.ee/hiiimanshu');
                       } else {
                         window.open('https://linktr.ee/hiiimanshu', '_blank', 'noopener,noreferrer');
                       }
