@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Layers, Folder, FolderOpen, FolderPlus, Eye, EyeOff, Lock, Unlock, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
 import { ToolRegistry } from '@/framework/tools';
 import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
 import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
+import { ObjectTreeToolbar } from './object-tree/ObjectTreeToolbar';
+import { ObjectTreeEmptyState } from './object-tree/ObjectTreeEmptyState';
 
 /**
  * Pure predicate to filter out non-user drawings (sync copies, price lines, session breaks).
@@ -1166,56 +1168,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       {activeTab === 'objectTree' ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           
-          {/* ── Toolbar buttons matching sidebar theme ── */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-sub bg-surface">
-            <div className="flex items-center gap-1">
-              
-              {/* Create Group */}
-              <button
-                type="button"
-                disabled={selectedOverlayIds.length === 0}
-                onClick={handleGroupSelected}
-                title="Create a group of drawings"
-                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-txt-primary hover:bg-surface-hover disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
-              >
-                <FolderPlus className="w-4 h-4 text-current" />
-              </button>
-
-              {/* Toggle Lock selected */}
-              <button
-                type="button"
-                disabled={selectedOverlayIds.length === 0}
-                onClick={handleLockSelected}
-                title="Toggle Lock selected"
-                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-txt-primary hover:bg-surface-hover disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
-              >
-                <Lock className="w-4 h-4 text-current" />
-              </button>
-
-              {/* Toggle Hide selected */}
-              <button
-                type="button"
-                disabled={selectedOverlayIds.length === 0}
-                onClick={handleHideSelected}
-                title="Toggle Hide/Show selected"
-                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-txt-primary hover:bg-surface-hover disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
-              >
-                <Eye className="w-4 h-4 text-current" />
-              </button>
-
-              {/* Delete selected */}
-              <button
-                type="button"
-                disabled={selectedOverlayIds.length === 0}
-                onClick={handleDeleteSelected}
-                title="Delete selected"
-                className="w-7 h-7 flex items-center justify-center rounded-md border border-transparent text-txt-secondary hover:text-status-error hover:bg-status-error/10 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-txt-secondary disabled:cursor-not-allowed transition-all select-none"
-              >
-                <DeleteIcon className="w-4 h-4 text-current" />
-              </button>
-
-            </div>
-          </div>
+          <ObjectTreeToolbar
+            hasSelection={selectedOverlayIds.length > 0}
+            onGroupSelected={handleGroupSelected}
+            onLockSelected={handleLockSelected}
+            onHideSelected={handleHideSelected}
+            onDeleteSelected={handleDeleteSelected}
+          />
 
           {/* ── Tree Object List ── */}
           <div
@@ -1756,12 +1715,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               }
             })}
 
-            {drawings.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-center text-txt-muted px-6">
-                <Layers className="w-8 h-8 text-txt-muted mb-2 opacity-50" />
-                <p className="text-[11px] leading-relaxed">No drawings on the chart.</p>
-              </div>
-            )}
+            {drawings.length === 0 && <ObjectTreeEmptyState />}
           </div>
         </div>
       ) : (
