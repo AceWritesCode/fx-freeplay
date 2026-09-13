@@ -2,6 +2,20 @@ import { create } from 'zustand';
 import type { FolderItem } from './types';
 import { drawingRepository } from '@/repository';
 import { getOriginalDrawingId } from '@/engine/charting';
+import {
+  type SymbolOrderState,
+  type DrawingFolderLookup,
+  normalizeOrderSequence,
+  bringToFront,
+  sendToBack,
+  bringForward,
+  sendBackward,
+  moveFolderBlock,
+  moveDrawingIntoFolder,
+  moveDrawingOutOfFolder,
+  insertDrawing,
+  deleteFromSequence,
+} from '@/engine/charting/orderEngine';
 
 export interface DrawingItem {
   id: string;
@@ -54,6 +68,14 @@ interface DrawingState {
   updateFolder: (id: string, updates: Partial<FolderItem>) => void;
   removeFolder: (id: string) => void;
   setSelectedOverlayIds: (ids: string[] | ((prev: string[]) => string[])) => void;
+
+  // Canonical Ordering Actions (Phase 2A)
+  orderStateBySymbol: Record<string, SymbolOrderState>;
+  getSymbolOrderSequence: (symbol: string) => string[];
+  setSymbolOrderSequence: (symbol: string, sequence: string[]) => void;
+  reorderSymbolItem: (symbol: string, targetId: string, action: 'front' | 'back' | 'forward' | 'backward') => void;
+  moveSymbolFolderBlock: (symbol: string, folderId: string, targetId: string, position: 'above' | 'below') => void;
+  moveSymbolDrawingFolder: (symbol: string, drawingId: string, targetFolderId: string | null, placement?: 'top' | 'bottom' | 'above_folder' | 'below_folder') => void;
 
   // Favorite Tools
   favoriteTools: string[];
@@ -665,6 +687,133 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
 
   setStayInDrawingMode: (active: boolean) => {
     set({ isStayInDrawingMode: active });
+  },
+
+  // Canonical Ordering Actions (Phase 2A)
+  orderStateBySymbol: {},
+
+  getSymbolOrderSequence: (symbol: string) => {
+    if (!symbol) return [];
+    const key = symbol.toUpperCase();
+    const existing = get().orderStateBySymbol[key]?.sequence;
+    const drawings = get().drawingsBySymbol[key] || [];
+    const knownIds = drawings.map((d) => d.id);
+    const lookup: DrawingFolderLookup = {};
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+
+    return normalizeOrderSequence(existing, knownIds, lookup);
+  },
+
+  setSymbolOrderSequence: (symbol: string, sequence: string[]) => {
+    if (!symbol) return;
+    const key = symbol.toUpperCase();
+    const drawings = get().drawingsBySymbol[key] || [];
+    const knownIds = drawings.map((d) => d.id);
+    const lookup: DrawingFolderLookup = {};
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+
+    const normalized = normalizeOrderSequence(sequence, knownIds, lookup);
+    set((state) => ({
+      orderStateBySymbol: {
+        ...state.orderStateBySymbol,
+        [key]: {
+          symbol: key,
+          sequence: normalized,
+          candlesVisible: state.orderStateBySymbol[key]?.candlesVisible ?? true,
+        },
+      },
+    }));
+  },
+
+  reorderSymbolItem: (symbol: string, targetId: string, action: 'front' | 'back' | 'forward' | 'backward') => {
+    if (!symbol || !targetId) return;
+    const key = symbol.toUpperCase();
+    const currentSeq = get().getSymbolOrderSequence(key);
+    const drawings = get().drawingsBySymbol[key] || [];
+    const lookup: DrawingFolderLookup = {};
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+
+    let nextSeq = currentSeq;
+    switch (action) {
+      case 'front':
+        nextSeq = bringToFront(currentSeq, targetId, lookup);
+        break;
+      case 'back':
+        nextSeq = sendToBack(currentSeq, targetId, lookup);
+        break;
+      case 'forward':
+        nextSeq = bringForward(currentSeq, targetId, lookup);
+        break;
+      case 'backward':
+        nextSeq = sendBackward(currentSeq, targetId, lookup);
+        break;
+    }
+
+    get().setSymbolOrderSequence(key, nextSeq);
+  },
+
+  moveSymbolFolderBlock: (symbol: string, folderId: string, targetId: string, position: 'above' | 'below') => {
+    if (!symbol || !folderId || !targetId) return;
+    const key = symbol.toUpperCase();
+    const currentSeq = get().getSymbolOrderSequence(key);
+    const drawings = get().drawingsBySymbol[key] || [];
+    const lookup: DrawingFolderLookup = {};
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+
+    const nextSeq = moveFolderBlock(currentSeq, folderId, targetId, position, lookup);
+    get().setSymbolOrderSequence(key, nextSeq);
+  },
+
+  moveSymbolDrawingFolder: (symbol: string, drawingId: string, targetFolderId: string | null, placement?: 'top' | 'bottom' | 'above_folder' | 'below_folder') => {
+    if (!symbol || !drawingId) return;
+    const key = symbol.toUpperCase();
+    const currentSeq = get().getSymbolOrderSequence(key);
+    const drawings = get().drawingsBySymbol[key] || [];
+    const lookup: DrawingFolderLookup = {};
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+
+    if (targetFolderId) {
+      const { nextSequence } = moveDrawingIntoFolder(
+        currentSeq,
+        drawingId,
+        targetFolderId,
+        lookup,
+        placement === 'bottom' ? 'bottom' : 'top'
+      );
+      // Also update folderId in drawing definition
+      get().updateSymbolDrawing(key, drawingId, {
+        extendData: {
+          ...(drawings.find((d) => d.id === drawingId)?.extendData || {}),
+          folderId: targetFolderId,
+        },
+      });
+      get().setSymbolOrderSequence(key, nextSequence);
+    } else {
+      const { nextSequence } = moveDrawingOutOfFolder(
+        currentSeq,
+        drawingId,
+        lookup,
+        placement === 'below_folder' ? 'below_folder' : 'above_folder'
+      );
+      // Dissociate folder in drawing definition
+      get().updateSymbolDrawing(key, drawingId, {
+        extendData: {
+          ...(drawings.find((d) => d.id === drawingId)?.extendData || {}),
+          folderId: null,
+        },
+      });
+      get().setSymbolOrderSequence(key, nextSequence);
+    }
   },
 }));
 

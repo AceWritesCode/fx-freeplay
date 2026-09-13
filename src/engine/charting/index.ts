@@ -5,3 +5,4 @@ export * from './drawingReconciler';
 export * from './drawingChartAdapter';
 export * from './drawingSyncEngine';
 export * from './chartRegistry';
+export * from './orderEngine';
