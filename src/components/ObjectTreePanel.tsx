@@ -2,10 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Folder, FolderOpen, FolderPlus, Eye, EyeOff, Lock, Unlock, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
 import { getOriginalDrawingId } from '@/engine/charting';
-import { drawingRepository } from '@/repository';
 import { ToolRegistry } from '@/framework/tools';
 import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
 import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
+
+/**
+ * Pure predicate to filter out non-user drawings (sync copies, price lines, session breaks).
+ */
+export const isUserDrawingOverlay = (ov: any): boolean => {
+  if (!ov) return false;
+  if (typeof ov.id === 'string' && ov.id.startsWith('sync_')) return false;
+  if (ov.id === 'custom_price_line_overlay' || ov.name === 'customPriceLine') return false;
+  if (ov.id === 'session_breaks_overlay' || ov.name === 'sessionBreaks') return false;
+  return true;
+};
 
 interface ObjectTreePanelProps {
   chartInstancesRef: React.MutableRefObject<(any | null)[]>;
@@ -15,7 +25,7 @@ interface ObjectTreePanelProps {
   setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
   activeSymbol: string;
   activeTimeframe: string;
-  /** Creates an overlay with the full set of interactive event handlers (onClick, onDrawEnd, etc.) */
+  /** @deprecated Kept optional for backward compatibility, unused */
   createOverlayWithHandlers?: (chart: any, overlayData: any) => void;
 }
 
@@ -105,14 +115,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
     // 1. Get all current overlays
     const overlays = activeChart.getOverlays();
-    const filtered = overlays.filter(
-      (ov: any) =>
-        !ov.id?.startsWith('sync_') &&
-        ov.id !== 'custom_price_line_overlay' &&
-        ov.name !== 'customPriceLine' &&
-        ov.id !== 'session_breaks_overlay' &&
-        ov.name !== 'sessionBreaks'
-    );
+    const filtered = overlays.filter(isUserDrawingOverlay);
 
     // 2. Flatten the tree: each item gets a sequential index (highest = top of tree = drawn last = on top)
     const flatTreeList: { type: 'folder' | 'drawing' | 'candles', id: string, data: any }[] = [];
@@ -158,31 +161,20 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     // Update candles order on chart
     activeChart._candlesOrder = candlesOrder;
 
-    // 4. Map and update overlays in useDrawingStore & drawingRepository
+    // 4. Map and update overlays in useDrawingStore (auto-persists to repository)
     if (activeSymbol) {
-      const symbolKey = activeSymbol.toUpperCase();
-      const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
-      const nextStoreDrawings = storeDrawings.map((d) => {
+      useDrawingStore.getState().batchUpdateSymbolDrawings(activeSymbol, (d) => {
         const info = updatedOverlaysMap.get(d.id);
         if (info) {
           return {
-            ...d,
             extendData: {
-              ...(d.extendData || {}),
               order: info.order,
-              folderId: info.folderId
-            }
+              folderId: info.folderId,
+            },
           };
         }
-        return d;
+        return null;
       });
-      useDrawingStore.setState((state) => ({
-        drawingsBySymbol: {
-          ...state.drawingsBySymbol,
-          [symbolKey]: nextStoreDrawings,
-        },
-      }));
-      drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
     }
 
     // 5. Update live chart overlays directly without removing/recreating
@@ -219,14 +211,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     if (!activeChart) return;
     
     const overlays = activeChart.getOverlays();
-    const filtered = overlays.filter(
-      (ov: any) =>
-        !ov.id?.startsWith('sync_') &&
-        ov.id !== 'custom_price_line_overlay' &&
-        ov.name !== 'customPriceLine' &&
-        ov.id !== 'session_breaks_overlay' &&
-        ov.name !== 'sessionBreaks'
-    );
+    const filtered = overlays.filter(isUserDrawingOverlay);
 
     // Guard: if any overlay has null/undefined points it's mid-draw — don't touch anything
     const hasInProgressDrawing = filtered.some((d: any) => 
@@ -322,14 +307,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       return;
     }
     const overlays = activeChart.getOverlays();
-    const filtered = overlays.filter(
-      (ov: any) =>
-        !ov.id?.startsWith('sync_') &&
-        ov.id !== 'custom_price_line_overlay' &&
-        ov.name !== 'customPriceLine' &&
-        ov.id !== 'session_breaks_overlay' &&
-        ov.name !== 'sessionBreaks'
-    );
+    const filtered = overlays.filter(isUserDrawingOverlay);
     // Sort by order descending if available, else fall back to id descending.
     // Treat undefined orders as Infinity so new drawings sort to the top.
     filtered.sort((a: any, b: any) => {
@@ -515,14 +493,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     if (!activeChart) return;
 
     const overlays = activeChart.getOverlays();
-    const filtered = overlays.filter(
-      (ov: any) =>
-        !ov.id?.startsWith('sync_') &&
-        ov.id !== 'custom_price_line_overlay' &&
-        ov.name !== 'customPriceLine' &&
-        ov.id !== 'session_breaks_overlay' &&
-        ov.name !== 'sessionBreaks'
-    );
+    const filtered = overlays.filter(isUserDrawingOverlay);
 
     const rootDrawings = filtered.filter((d: any) => !d.extendData?.folderId);
     const candlesOrder = activeChart._candlesOrder ?? 500;
@@ -588,14 +559,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     try {
       if (dragType === 'drawing' && dragId && activeChart) {
         const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(
-          (ov: any) =>
-            !ov.id?.startsWith('sync_') &&
-            ov.id !== 'custom_price_line_overlay' &&
-            ov.name !== 'customPriceLine' &&
-            ov.id !== 'session_breaks_overlay' &&
-            ov.name !== 'sessionBreaks'
-        );
+        const filtered = overlays.filter(isUserDrawingOverlay);
 
         // Filter other drawings in this folder to find max order
         const folderChildren = filtered.filter((ov: any) => ov.extendData?.folderId === targetFolderId && ov.id !== dragId);
@@ -608,32 +572,16 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         const nextVisible = folder ? folder.isVisible : true;
         const nextLock = folder ? folder.isLocked : false;
 
-        // Update in useDrawingStore & drawingRepository
+        // Update in useDrawingStore (auto-persists to repository)
         if (activeSymbol) {
-          const symbolKey = activeSymbol.toUpperCase();
-          const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
-          const nextStoreDrawings = storeDrawings.map((d) => {
-            if (d.id === dragId) {
-              return {
-                ...d,
-                visible: nextVisible,
-                lock: nextLock,
-                extendData: {
-                  ...(d.extendData || {}),
-                  folderId: targetFolderId,
-                  order: nextOrder
-                }
-              };
-            }
-            return d;
-          });
-          useDrawingStore.setState((state) => ({
-            drawingsBySymbol: {
-              ...state.drawingsBySymbol,
-              [symbolKey]: nextStoreDrawings,
+          useDrawingStore.getState().updateSymbolDrawing(activeSymbol, dragId, {
+            visible: nextVisible,
+            lock: nextLock,
+            extendData: {
+              folderId: targetFolderId,
+              order: nextOrder,
             },
-          }));
-          drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+          });
         }
 
         // Update activeChart overlay
@@ -673,14 +621,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     try {
       if (dragType === 'drawing' && dragId) {
         const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(
-          (ov: any) =>
-            !ov.id?.startsWith('sync_') &&
-            ov.id !== 'custom_price_line_overlay' &&
-            ov.name !== 'customPriceLine' &&
-            ov.id !== 'session_breaks_overlay' &&
-            ov.name !== 'sessionBreaks'
-        );
+        const filtered = overlays.filter(isUserDrawingOverlay);
 
         // Sort in current order
         filtered.sort((a: any, b: any) => {
@@ -707,31 +648,20 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             updatedOverlaysMap.set(ov.id, { order: nextOrder, folderId });
           });
 
-          // Update useDrawingStore & drawingRepository
+          // Update useDrawingStore (auto-persists to repository)
           if (activeSymbol) {
-            const symbolKey = activeSymbol.toUpperCase();
-            const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
-            const nextStoreDrawings = storeDrawings.map((d) => {
+            useDrawingStore.getState().batchUpdateSymbolDrawings(activeSymbol, (d) => {
               const info = updatedOverlaysMap.get(d.id);
               if (info) {
                 return {
-                  ...d,
                   extendData: {
-                    ...(d.extendData || {}),
                     order: info.order,
-                    folderId: info.folderId
-                  }
+                    folderId: info.folderId,
+                  },
                 };
               }
-              return d;
+              return null;
             });
-            useDrawingStore.setState((state) => ({
-              drawingsBySymbol: {
-                ...state.drawingsBySymbol,
-                [symbolKey]: nextStoreDrawings,
-              },
-            }));
-            drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
           }
 
           // Override activeChart overlays
@@ -754,14 +684,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         }
       } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
         const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(
-          (ov: any) =>
-            !ov.id?.startsWith('sync_') &&
-            ov.id !== 'custom_price_line_overlay' &&
-            ov.name !== 'customPriceLine' &&
-            ov.id !== 'session_breaks_overlay' &&
-            ov.name !== 'sessionBreaks'
-        );
+        const filtered = overlays.filter(isUserDrawingOverlay);
 
         const rootDrawings = filtered.filter((d: any) => !d.extendData?.folderId);
         const currentCandlesOrder = activeChart._candlesOrder ?? 500;
@@ -834,14 +757,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     try {
       if (dragType === 'drawing' && dragId && dragId !== targetId && activeChart) {
         const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(
-          (ov: any) =>
-            !ov.id?.startsWith('sync_') &&
-            ov.id !== 'custom_price_line_overlay' &&
-            ov.name !== 'customPriceLine' &&
-            ov.id !== 'session_breaks_overlay' &&
-            ov.name !== 'sessionBreaks'
-        );
+        const filtered = overlays.filter(isUserDrawingOverlay);
 
         // Sort in current render order (descending by order property, fallback to ID)
         filtered.sort((a: any, b: any) => {
@@ -882,31 +798,20 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
           updatedOverlaysMap.set(ov.id, { order: nextOrder, folderId });
         });
 
-        // Update useDrawingStore & drawingRepository
+        // Update useDrawingStore (auto-persists to repository)
         if (activeSymbol) {
-          const symbolKey = activeSymbol.toUpperCase();
-          const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
-          const nextStoreDrawings = storeDrawings.map((d) => {
+          useDrawingStore.getState().batchUpdateSymbolDrawings(activeSymbol, (d) => {
             const info = updatedOverlaysMap.get(d.id);
             if (info) {
               return {
-                ...d,
                 extendData: {
-                  ...(d.extendData || {}),
                   order: info.order,
-                  folderId: info.folderId
-                }
+                  folderId: info.folderId,
+                },
               };
             }
-            return d;
+            return null;
           });
-          useDrawingStore.setState((state) => ({
-            drawingsBySymbol: {
-              ...state.drawingsBySymbol,
-              [symbolKey]: nextStoreDrawings,
-            },
-          }));
-          drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
         }
 
         // Override activeChart overlays
@@ -1023,27 +928,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
       }
     } else {
       if (activeSymbol) {
-        const symbolKey = activeSymbol.toUpperCase();
-        const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
-        const nextStoreDrawings = storeDrawings.map((d) => {
-          if (d.id === id) {
-            return {
-              ...d,
-              extendData: {
-                ...(d.extendData || {}),
-                customName: newName,
-              }
-            };
-          }
-          return d;
-        });
-        useDrawingStore.setState((state) => ({
-          drawingsBySymbol: {
-            ...state.drawingsBySymbol,
-            [symbolKey]: nextStoreDrawings,
+        useDrawingStore.getState().updateSymbolDrawing(activeSymbol, id, {
+          extendData: {
+            customName: newName,
           },
-        }));
-        drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+        });
       }
 
       if (activeChart) {
@@ -1083,22 +972,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
     const targetLock = isAnyUnlocked;
 
-    const nextStoreDrawings = storeDrawings.map((d) => {
-      if (selectedOverlayIds.includes(d.id)) {
-        return {
-          ...d,
-          lock: targetLock,
-        };
-      }
-      return d;
-    });
-    useDrawingStore.setState((state) => ({
-      drawingsBySymbol: {
-        ...state.drawingsBySymbol,
-        [symbolKey]: nextStoreDrawings,
-      },
-    }));
-    drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+    useDrawingStore.getState().setDrawingsLock(activeSymbol, selectedOverlayIds, targetLock);
 
     if (activeChart) {
       selectedOverlayIds.forEach(id => {
@@ -1146,22 +1020,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
     const targetVisible = !isAnyVisible;
 
-    const nextStoreDrawings = storeDrawings.map((d) => {
-      if (selectedOverlayIds.includes(d.id)) {
-        return {
-          ...d,
-          visible: targetVisible,
-        };
-      }
-      return d;
-    });
-    useDrawingStore.setState((state) => ({
-      drawingsBySymbol: {
-        ...state.drawingsBySymbol,
-        [symbolKey]: nextStoreDrawings,
-      },
-    }));
-    drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+    useDrawingStore.getState().setDrawingsVisibility(activeSymbol, selectedOverlayIds, targetVisible);
 
     if (activeChart) {
       selectedOverlayIds.forEach(id => {
@@ -1177,10 +1036,8 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   const handleDeleteSelected = () => {
     if (selectedOverlayIds.length === 0 || !activeSymbol) return;
-    selectedOverlayIds.forEach(id => {
-      const originalId = getOriginalDrawingId(id);
-      useDrawingStore.getState().removeSymbolDrawing(activeSymbol, originalId);
-    });
+    const originalIds = selectedOverlayIds.map(id => getOriginalDrawingId(id));
+    useDrawingStore.getState().batchRemoveSymbolDrawings(activeSymbol, originalIds);
     setSelectedOverlayIds([]);
   };
 

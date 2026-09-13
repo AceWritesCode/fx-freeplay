@@ -330,4 +330,131 @@ describe('Folder Store & Architecture Verification (Phase 1A)', () => {
       assert.equal(active, undefined);
     });
   });
+
+  describe('7. Batch Drawing State Actions & Persistence (Phase 1B)', () => {
+    it('batchUpdateSymbolDrawings() updates multiple drawings with function updater and persists', () => {
+      useDrawingStore.setState({
+        drawingsBySymbol: {
+          EURUSD: [
+            { id: 'd1', name: 'trendLine', points: [], extendData: { order: 100, folderId: 'f1' } },
+            { id: 'd2', name: 'rayLine', points: [], extendData: { order: 200, folderId: null } },
+            { id: 'd3', name: 'rect', points: [], extendData: { order: 300, folderId: 'f1' } },
+          ],
+        },
+      });
+
+      useDrawingStore.getState().batchUpdateSymbolDrawings('EURUSD', (d) => {
+        if (d.id === 'd1' || d.id === 'd3') {
+          return {
+            extendData: {
+              order: (d.extendData?.order ?? 0) + 50,
+              folderId: 'f2',
+            },
+          };
+        }
+        return null;
+      });
+
+      const updated = useDrawingStore.getState().getSymbolDrawings('EURUSD');
+      assert.equal(updated.length, 3);
+      assert.equal(updated[0].extendData?.order, 150);
+      assert.equal(updated[0].extendData?.folderId, 'f2');
+      assert.equal(updated[1].extendData?.order, 200);
+      assert.equal(updated[1].extendData?.folderId, null);
+      assert.equal(updated[2].extendData?.order, 350);
+      assert.equal(updated[2].extendData?.folderId, 'f2');
+
+      assert.equal(mockRepositoryState.saveDrawingsCalls.length, 1);
+      assert.equal(mockRepositoryState.saveDrawingsCalls[0].symbol, 'EURUSD');
+      assert.equal(mockRepositoryState.saveDrawingsCalls[0].drawings.length, 3);
+    });
+
+    it('batchUpdateSymbolDrawings() updates drawings with array of updates and persists', () => {
+      useDrawingStore.setState({
+        drawingsBySymbol: {
+          EURUSD: [
+            { id: 'd1', name: 'trendLine', points: [], extendData: { customName: 'Old 1' } },
+            { id: 'd2', name: 'rayLine', points: [], extendData: { customName: 'Old 2' } },
+          ],
+        },
+      });
+
+      useDrawingStore.getState().batchUpdateSymbolDrawings('EURUSD', [
+        { id: 'd1', updates: { extendData: { customName: 'New 1' } } },
+        { id: 'd2', updates: { extendData: { customName: 'New 2' } } },
+      ]);
+
+      const updated = useDrawingStore.getState().getSymbolDrawings('EURUSD');
+      assert.equal(updated[0].extendData?.customName, 'New 1');
+      assert.equal(updated[1].extendData?.customName, 'New 2');
+
+      assert.equal(mockRepositoryState.saveDrawingsCalls.length, 1);
+    });
+
+    it('batchRemoveSymbolDrawings() deletes specified drawings and persists remaining list', () => {
+      useDrawingStore.setState({
+        drawingsBySymbol: {
+          EURUSD: [
+            { id: 'd1', name: 'trendLine', points: [] },
+            { id: 'd2', name: 'rayLine', points: [] },
+            { id: 'd3', name: 'rect', points: [] },
+          ],
+        },
+      });
+
+      useDrawingStore.getState().batchRemoveSymbolDrawings('EURUSD', ['d1', 'd3']);
+
+      const updated = useDrawingStore.getState().getSymbolDrawings('EURUSD');
+      assert.equal(updated.length, 1);
+      assert.equal(updated[0].id, 'd2');
+
+      assert.equal(mockRepositoryState.saveDrawingsCalls.length, 1);
+      assert.equal(mockRepositoryState.saveDrawingsCalls[0].drawings.length, 1);
+      assert.equal(mockRepositoryState.saveDrawingsCalls[0].drawings[0].id, 'd2');
+    });
+
+    it('setDrawingsVisibility() updates visibility of multiple drawings and persists', () => {
+      useDrawingStore.setState({
+        drawingsBySymbol: {
+          EURUSD: [
+            { id: 'd1', name: 'trendLine', points: [], visible: true },
+            { id: 'd2', name: 'rayLine', points: [], visible: true },
+            { id: 'd3', name: 'rect', points: [], visible: false },
+          ],
+        },
+      });
+
+      useDrawingStore.getState().setDrawingsVisibility('EURUSD', ['d1', 'd2'], false);
+
+      const updated = useDrawingStore.getState().getSymbolDrawings('EURUSD');
+      assert.equal(updated[0].visible, false);
+      assert.equal(updated[1].visible, false);
+      assert.equal(updated[2].visible, false);
+
+      assert.equal(mockRepositoryState.saveDrawingsCalls.length, 1);
+      assert.equal(mockRepositoryState.saveDrawingsCalls[0].drawings[0].visible, false);
+    });
+
+    it('setDrawingsLock() updates lock state of multiple drawings and persists', () => {
+      useDrawingStore.setState({
+        drawingsBySymbol: {
+          EURUSD: [
+            { id: 'd1', name: 'trendLine', points: [], lock: false },
+            { id: 'd2', name: 'rayLine', points: [], lock: false },
+            { id: 'd3', name: 'rect', points: [], lock: true },
+          ],
+        },
+      });
+
+      useDrawingStore.getState().setDrawingsLock('EURUSD', ['d1', 'd2'], true);
+
+      const updated = useDrawingStore.getState().getSymbolDrawings('EURUSD');
+      assert.equal(updated[0].lock, true);
+      assert.equal(updated[1].lock, true);
+      assert.equal(updated[2].lock, true);
+
+      assert.equal(mockRepositoryState.saveDrawingsCalls.length, 1);
+      assert.equal(mockRepositoryState.saveDrawingsCalls[0].drawings[0].lock, true);
+    });
+  });
 });

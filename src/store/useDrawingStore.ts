@@ -28,6 +28,13 @@ interface DrawingState {
   setSymbolDrawings: (symbol: string, drawings: DrawingItem[]) => void;
   addSymbolDrawing: (symbol: string, drawing: DrawingItem) => void;
   updateSymbolDrawing: (symbol: string, id: string, updates: Partial<DrawingItem>) => void;
+  batchUpdateSymbolDrawings: (
+    symbol: string,
+    updates: { id: string; updates: Partial<DrawingItem> }[] | ((item: DrawingItem) => Partial<DrawingItem> | null | undefined)
+  ) => void;
+  batchRemoveSymbolDrawings: (symbol: string, ids: string[]) => void;
+  setDrawingsVisibility: (symbol: string, ids: string[], isVisible: boolean) => void;
+  setDrawingsLock: (symbol: string, ids: string[], isLocked: boolean) => void;
   removeSymbolDrawing: (symbol: string, id: string) => void;
   clearSymbolDrawings: (symbol: string) => void;
   getSymbolDrawings: (symbol: string) => DrawingItem[];
@@ -187,6 +194,169 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
       };
     });
     drawingRepository.saveDrawings(key, updatedList);
+  },
+
+  batchUpdateSymbolDrawings: (symbol, updates) => {
+    if (!symbol || !updates) return;
+    const key = symbol.toUpperCase();
+    let updatedList: DrawingItem[] = [];
+    let hasModified = false;
+
+    set((state) => {
+      const existing = state.drawingsBySymbol[key] || [];
+
+      if (typeof updates === 'function') {
+        updatedList = existing.map((d) => {
+          const itemUpdate = updates(d);
+          if (itemUpdate) {
+            hasModified = true;
+            const mergedExtendData = itemUpdate.extendData
+              ? {
+                  ...d.extendData,
+                  ...itemUpdate.extendData,
+                  sourceSlotIndex: d.extendData?.sourceSlotIndex ?? itemUpdate.extendData?.sourceSlotIndex ?? 0,
+                }
+              : d.extendData;
+            return {
+              ...d,
+              ...itemUpdate,
+              extendData: mergedExtendData,
+            };
+          }
+          return d;
+        });
+      } else {
+        const updateMap = new Map(updates.map((u) => [u.id, u.updates]));
+        updatedList = existing.map((d) => {
+          const itemUpdate = updateMap.get(d.id);
+          if (itemUpdate) {
+            hasModified = true;
+            const mergedExtendData = itemUpdate.extendData
+              ? {
+                  ...d.extendData,
+                  ...itemUpdate.extendData,
+                  sourceSlotIndex: d.extendData?.sourceSlotIndex ?? itemUpdate.extendData?.sourceSlotIndex ?? 0,
+                }
+              : d.extendData;
+            return {
+              ...d,
+              ...itemUpdate,
+              extendData: mergedExtendData,
+            };
+          }
+          return d;
+        });
+      }
+
+      if (!hasModified) return state;
+
+      return {
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [key]: updatedList,
+        },
+      };
+    });
+
+    if (hasModified) {
+      drawingRepository.saveDrawings(key, updatedList);
+    }
+  },
+
+  batchRemoveSymbolDrawings: (symbol, ids) => {
+    if (!symbol || !ids || ids.length === 0) return;
+    const key = symbol.toUpperCase();
+    const idSet = new Set(ids);
+    let updatedList: DrawingItem[] = [];
+    let hasModified = false;
+
+    set((state) => {
+      const existing = state.drawingsBySymbol[key] || [];
+      updatedList = existing.filter((d) => {
+        if (idSet.has(d.id)) {
+          hasModified = true;
+          return false;
+        }
+        return true;
+      });
+
+      if (!hasModified) return state;
+
+      return {
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [key]: updatedList,
+        },
+      };
+    });
+
+    if (hasModified) {
+      drawingRepository.saveDrawings(key, updatedList);
+    }
+  },
+
+  setDrawingsVisibility: (symbol, ids, isVisible) => {
+    if (!symbol || !ids || ids.length === 0) return;
+    const key = symbol.toUpperCase();
+    const idSet = new Set(ids);
+    let updatedList: DrawingItem[] = [];
+    let hasModified = false;
+
+    set((state) => {
+      const existing = state.drawingsBySymbol[key] || [];
+      updatedList = existing.map((d) => {
+        if (idSet.has(d.id)) {
+          hasModified = true;
+          return { ...d, visible: isVisible };
+        }
+        return d;
+      });
+
+      if (!hasModified) return state;
+
+      return {
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [key]: updatedList,
+        },
+      };
+    });
+
+    if (hasModified) {
+      drawingRepository.saveDrawings(key, updatedList);
+    }
+  },
+
+  setDrawingsLock: (symbol, ids, isLocked) => {
+    if (!symbol || !ids || ids.length === 0) return;
+    const key = symbol.toUpperCase();
+    const idSet = new Set(ids);
+    let updatedList: DrawingItem[] = [];
+    let hasModified = false;
+
+    set((state) => {
+      const existing = state.drawingsBySymbol[key] || [];
+      updatedList = existing.map((d) => {
+        if (idSet.has(d.id)) {
+          hasModified = true;
+          return { ...d, lock: isLocked };
+        }
+        return d;
+      });
+
+      if (!hasModified) return state;
+
+      return {
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [key]: updatedList,
+        },
+      };
+    });
+
+    if (hasModified) {
+      drawingRepository.saveDrawings(key, updatedList);
+    }
   },
 
   removeSymbolDrawing: (symbol, id) => {
