@@ -671,3 +671,72 @@ export function migrateLegacyOrderToCanonical(
     candlesVisible: options?.candlesVisible ?? true,
   };
 }
+
+export interface ZLevelProjectionOptions {
+  /**
+   * Base/stride spacing between successive z-levels.
+   * Default: 10.
+   */
+  stride?: number;
+
+  /**
+   * Starting base z-level assigned to the lowest ranked drawing.
+   * Default: 10.
+   */
+  baseZLevel?: number;
+}
+
+/**
+ * Pure, deterministic projection helper for Phase 2C-1.
+ * Maps a canonical sequence of drawing IDs to integer overlay z-levels.
+ *
+ * PROJECTION SEMANTICS:
+ * - sequence[0] is topmost / frontmost layer -> receives the highest zLevel.
+ * - Later drawing IDs in sequence receive strictly descending zLevels.
+ * - The 'candles' sentinel is ignored in the numeric projection (it is a logical
+ *   demarcation boundary, not an overlay).
+ * - Leaves ample room above the highest natural zLevel for temporary hover
+ *   promotion in useDrawingHoverCursor.
+ * - Completely deterministic: Same input -> Same output.
+ * - Pure function: does NOT mutate the input array or chart state.
+ *
+ * @param sequence Canonical order sequence containing drawing IDs and 'candles' sentinel
+ * @param options Optional spacing configuration (stride and baseZLevel)
+ * @returns Map of drawingId -> zLevel
+ */
+export function calculateZLevelsFromSequence(
+  sequence: string[],
+  options?: ZLevelProjectionOptions
+): Map<string, number> {
+  const result = new Map<string, number>();
+  if (!Array.isArray(sequence) || sequence.length === 0) {
+    return result;
+  }
+
+  const stride = typeof options?.stride === 'number' && options.stride > 0 ? options.stride : 10;
+  const baseZLevel = typeof options?.baseZLevel === 'number' ? options.baseZLevel : 10;
+
+  // Filter out the 'candles' sentinel to isolate drawing IDs
+  const drawingIds: string[] = [];
+  for (let i = 0; i < sequence.length; i++) {
+    const id = sequence[i];
+    if (id && id !== CANDLES_SENTINEL) {
+      drawingIds.push(id);
+    }
+  }
+
+  const n = drawingIds.length;
+  if (n === 0) {
+    return result;
+  }
+
+  // Assign descending zLevels:
+  // - Topmost drawing (drawingIds[0]) receives baseZLevel + (n - 1) * stride
+  // - Lowest drawing (drawingIds[n - 1]) receives baseZLevel
+  for (let i = 0; i < n; i++) {
+    const zLevel = baseZLevel + (n - 1 - i) * stride;
+    result.set(drawingIds[i], zLevel);
+  }
+
+  return result;
+}

@@ -14,6 +14,7 @@ import {
   moveDrawingIntoFolder,
   moveDrawingOutOfFolder,
   insertDrawing,
+  duplicateDrawing,
   deleteFromSequence,
   migrateLegacyOrderToCanonical,
 } from '@/engine/charting/orderEngine';
@@ -42,6 +43,7 @@ interface DrawingState {
   loadAllSymbolDrawings: (symbols: string[]) => Promise<Record<string, DrawingItem[]>>;
   setSymbolDrawings: (symbol: string, drawings: DrawingItem[]) => void;
   addSymbolDrawing: (symbol: string, drawing: DrawingItem) => void;
+  duplicateSymbolDrawing: (symbol: string, sourceId: string, cloneId: string) => void;
   updateSymbolDrawing: (symbol: string, id: string, updates: Partial<DrawingItem>) => void;
   batchUpdateSymbolDrawings: (
     symbol: string,
@@ -171,6 +173,12 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
   addSymbolDrawing: (symbol, drawing) => {
     if (!symbol || !drawing) return;
     const key = symbol.toUpperCase();
+    const existingList = get().drawingsBySymbol[key] || [];
+    const isNewDrawing = !existingList.some((d) => d.id === drawing.id);
+
+    // Read current canonical sequence BEFORE updating drawingsBySymbol
+    const currentSeq = isNewDrawing ? get().getSymbolOrderSequence(key) : [];
+
     let updatedList: DrawingItem[] = [];
     set((state) => {
       const existing = state.drawingsBySymbol[key] || [];
@@ -187,6 +195,52 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
       };
     });
     drawingRepository.saveDrawings(key, updatedList);
+
+    // Synchronize canonical order sequence for new drawings (Phase 2C-4A)
+    if (isNewDrawing) {
+      const folderId = drawing.extendData?.folderId ?? null;
+      const lookup: DrawingFolderLookup = {};
+      updatedList.forEach((d) => {
+        lookup[d.id] = d.extendData?.folderId;
+      });
+      const nextSeq = insertDrawing(currentSeq, drawing.id, folderId, lookup);
+      get().setSymbolOrderSequence(key, nextSeq);
+    }
+  },
+
+  duplicateSymbolDrawing: (symbol, sourceId, cloneId) => {
+    if (!symbol || !sourceId || !cloneId) return;
+    const key = symbol.toUpperCase();
+    const existingList = get().drawingsBySymbol[key] || [];
+    const sourceItem = existingList.find((d) => d.id === sourceId);
+    if (!sourceItem) return;
+
+    // Read current canonical sequence BEFORE updating drawingsBySymbol
+    const currentSeq = get().getSymbolOrderSequence(key);
+
+    const clonedItem: DrawingItem = {
+      ...sourceItem,
+      id: cloneId,
+      extendData: sourceItem.extendData ? { ...sourceItem.extendData } : undefined,
+    };
+
+    let updatedList: DrawingItem[] = [];
+    set((state) => {
+      const existing = state.drawingsBySymbol[key] || [];
+      updatedList = [...existing, clonedItem];
+      return {
+        drawingsBySymbol: {
+          ...state.drawingsBySymbol,
+          [key]: updatedList,
+        },
+      };
+    });
+
+    drawingRepository.saveDrawings(key, updatedList);
+
+    // Synchronize canonical order sequence: place duplicate immediately before/in front of source
+    const nextSeq = duplicateDrawing(currentSeq, sourceId, cloneId);
+    get().setSymbolOrderSequence(key, nextSeq);
   },
 
   updateSymbolDrawing: (symbol, id, updates) => {
@@ -320,6 +374,13 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
 
     if (hasModified) {
       drawingRepository.saveDrawings(key, updatedList);
+
+      // Synchronize canonical order sequence: remove deleted IDs (Phase 2C-4A)
+      let nextSeq = get().getSymbolOrderSequence(key);
+      ids.forEach((id) => {
+        nextSeq = deleteFromSequence(nextSeq, id);
+      });
+      get().setSymbolOrderSequence(key, nextSeq);
     }
   },
 
@@ -389,19 +450,7 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
 
   removeSymbolDrawing: (symbol, id) => {
     if (!symbol || !id) return;
-    const key = symbol.toUpperCase();
-    let updatedList: DrawingItem[] = [];
-    set((state) => {
-      const existing = state.drawingsBySymbol[key] || [];
-      updatedList = existing.filter((d) => d.id !== id);
-      return {
-        drawingsBySymbol: {
-          ...state.drawingsBySymbol,
-          [key]: updatedList,
-        },
-      };
-    });
-    drawingRepository.saveDrawings(key, updatedList);
+    get().batchRemoveSymbolDrawings(symbol, [id]);
   },
 
   clearSymbolDrawings: (symbol) => {

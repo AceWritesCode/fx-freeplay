@@ -6,6 +6,7 @@ import {
   type WorkspaceSyncPlan,
 } from './drawingSyncEngine';
 import { DrawingChartAdapter } from './drawingChartAdapter';
+import { calculateZLevelsFromSequence } from './orderEngine';
 
 /**
  * drawingReconciler.ts
@@ -108,9 +109,16 @@ export function reconcileWorkspace(
       }
     });
 
+    // Derive canonical natural zLevels for the slot's symbol
+    const slotSymbol = slotPlan.symbol;
+    const canonicalSequence = slotSymbol ? useDrawingStore.getState().getSymbolOrderSequence(slotSymbol) : [];
+    const naturalZLevels = calculateZLevelsFromSequence(canonicalSequence);
+
     // Step B: Create missing overlays or update modified overlays
     desiredOverlays.forEach((desiredItem, overlayId) => {
       const d = desiredItem.drawing;
+      const originalId = desiredItem.originalId;
+      const targetNaturalZ = naturalZLevels.get(originalId) ?? 10;
       const existingOv = currentOverlays.find((o: any) => o.id === overlayId);
 
       if (existingOv) {
@@ -150,8 +158,19 @@ export function reconcileWorkspace(
         const extendDataChanged = JSON.stringify(existingCleanExtendData) !== JSON.stringify(storedCleanExtendData);
         const selectionChanged = (existingOv.extendData?.isSelected ?? false) !== isSelected;
 
-        if (pointsChanged || lockChanged || visibleChanged || extendDataChanged || selectionChanged) {
-          DrawingChartAdapter.overrideOverlay(chart, {
+        // Determine natural vs promoted zLevel:
+        // If the overlay is currently promoted in useDrawingHoverCursor, protect its temporary zLevel
+        // and update its originalZLevel reference instead of stomping the active temporary zLevel.
+        const isCurrentlyPromoted = chart._promotedOverlayInfo && chart._promotedOverlayInfo.id === overlayId;
+        const currentNaturalZ = isCurrentlyPromoted ? chart._promotedOverlayInfo.originalZLevel : existingOv.zLevel;
+        const zLevelChanged = currentNaturalZ !== targetNaturalZ;
+
+        if (isCurrentlyPromoted && zLevelChanged) {
+          chart._promotedOverlayInfo.originalZLevel = targetNaturalZ;
+        }
+
+        if (pointsChanged || lockChanged || visibleChanged || extendDataChanged || selectionChanged || (zLevelChanged && !isCurrentlyPromoted)) {
+          const overridePayload: any = {
             id: overlayId,
             points: JSON.parse(JSON.stringify(d.points)),
             lock: d.lock,
@@ -166,11 +185,17 @@ export function reconcileWorkspace(
               isSelected,
             },
             styles: d.styles,
-          });
+          };
+
+          if (zLevelChanged && !isCurrentlyPromoted) {
+            overridePayload.zLevel = targetNaturalZ;
+          }
+
+          DrawingChartAdapter.overrideOverlay(chart, overridePayload);
           slotModified = true;
         }
       } else {
-        // Create missing overlay instance on target chart slot
+        // Create missing overlay instance on target chart slot with canonical zLevel
         const selectedIds = useDrawingStore.getState().selectedOverlayIds || [];
         const isSelected = selectedIds.includes(overlayId);
         DrawingChartAdapter.createOverlay(chart, {
@@ -180,6 +205,7 @@ export function reconcileWorkspace(
           points: JSON.parse(JSON.stringify(d.points)),
           lock: d.lock,
           visible: d.visible !== false,
+          zLevel: targetNaturalZ,
           extendData: {
             ...JSON.parse(JSON.stringify(d.extendData || {})),
             isSelected,
