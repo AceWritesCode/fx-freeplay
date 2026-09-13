@@ -15,6 +15,7 @@ import {
   moveDrawingOutOfFolder,
   insertDrawing,
   deleteFromSequence,
+  migrateLegacyOrderToCanonical,
 } from '@/engine/charting/orderEngine';
 
 export interface DrawingItem {
@@ -69,8 +70,9 @@ interface DrawingState {
   removeFolder: (id: string) => void;
   setSelectedOverlayIds: (ids: string[] | ((prev: string[]) => string[])) => void;
 
-  // Canonical Ordering Actions (Phase 2A)
+  // Canonical Ordering Actions (Phase 2A & 2B)
   orderStateBySymbol: Record<string, SymbolOrderState>;
+  loadSymbolOrderState: (symbol: string) => Promise<SymbolOrderState | null>;
   getSymbolOrderSequence: (symbol: string) => string[];
   setSymbolOrderSequence: (symbol: string, sequence: string[]) => void;
   reorderSymbolItem: (symbol: string, targetId: string, action: 'front' | 'back' | 'forward' | 'backward') => void;
@@ -122,6 +124,10 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
           [key]: items,
         },
       }));
+      // Asynchronously hydrate or migrate canonical order state for this symbol
+      get().loadSymbolOrderState(key).catch((err) => {
+        console.warn(`[useDrawingStore] Failed to hydrate order state in loadSymbolDrawings for ${key}:`, err);
+      });
       return items;
     } catch (err) {
       console.error(`[useDrawingStore] Failed to load drawings for ${key}:`, err);
@@ -689,8 +695,77 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     set({ isStayInDrawingMode: active });
   },
 
-  // Canonical Ordering Actions (Phase 2A)
+  // Canonical Ordering Actions (Phase 2A & 2B)
   orderStateBySymbol: {},
+
+  loadSymbolOrderState: async (symbol: string) => {
+    if (!symbol) return null;
+    const key = symbol.toUpperCase();
+
+    // 1. Ensure symbol drawings and folders are loaded first to prevent race conditions
+    let drawings = get().drawingsBySymbol[key];
+    if (!drawings) {
+      drawings = await get().loadSymbolDrawings(key);
+    }
+    // Also guarantee folders for this symbol are loaded into repository/store
+    const folders = await drawingRepository.getFolders(key);
+
+    const knownIds = drawings.map((d) => d.id);
+    const lookup: DrawingFolderLookup = {};
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+
+    try {
+      // 2. Attempt to read persisted canonical order state from repository
+      const persisted = await drawingRepository.getOrderState(key);
+
+      if (persisted && Array.isArray(persisted.sequence)) {
+        // Normalize loaded canonical state against current drawings/folders
+        const normalizedSeq = normalizeOrderSequence(persisted.sequence, knownIds, lookup);
+        const orderState: SymbolOrderState = {
+          symbol: key,
+          sequence: normalizedSeq,
+          candlesVisible: persisted.candlesVisible ?? true,
+        };
+
+        set((state) => ({
+          orderStateBySymbol: {
+            ...state.orderStateBySymbol,
+            [key]: orderState,
+          },
+        }));
+
+        // If normalization changed the sequence, persist the updated state asynchronously
+        if (JSON.stringify(normalizedSeq) !== JSON.stringify(persisted.sequence)) {
+          drawingRepository.saveOrderState(key, orderState).catch((err) => {
+            console.error(`[useDrawingStore] Failed to update normalized order state for ${key}:`, err);
+          });
+        }
+
+        return orderState;
+      }
+    } catch (err) {
+      console.warn(`[useDrawingStore] Failed to load order state from repository for ${key}:`, err);
+    }
+
+    // 3. No canonical state exists yet -> Deterministically migrate from legacy drawings & folders
+    const migratedState = migrateLegacyOrderToCanonical(key, drawings, lookup);
+
+    set((state) => ({
+      orderStateBySymbol: {
+        ...state.orderStateBySymbol,
+        [key]: migratedState,
+      },
+    }));
+
+    // Asynchronously persist the freshly migrated canonical state
+    drawingRepository.saveOrderState(key, migratedState).catch((err) => {
+      console.error(`[useDrawingStore] Failed to save migrated order state for ${key}:`, err);
+    });
+
+    return migratedState;
+  },
 
   getSymbolOrderSequence: (symbol: string) => {
     if (!symbol) return [];
@@ -717,16 +792,23 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     });
 
     const normalized = normalizeOrderSequence(sequence, knownIds, lookup);
+    const nextOrderState: SymbolOrderState = {
+      symbol: key,
+      sequence: normalized,
+      candlesVisible: get().orderStateBySymbol[key]?.candlesVisible ?? true,
+    };
+
     set((state) => ({
       orderStateBySymbol: {
         ...state.orderStateBySymbol,
-        [key]: {
-          symbol: key,
-          sequence: normalized,
-          candlesVisible: state.orderStateBySymbol[key]?.candlesVisible ?? true,
-        },
+        [key]: nextOrderState,
       },
     }));
+
+    // Persist canonical order state to repository (Phase 2B)
+    drawingRepository.saveOrderState(key, nextOrderState).catch((err) => {
+      console.error(`[useDrawingStore] Failed to persist order state for ${key}:`, err);
+    });
   },
 
   reorderSymbolItem: (symbol: string, targetId: string, action: 'front' | 'back' | 'forward' | 'backward') => {

@@ -51,12 +51,20 @@ export interface WorkspaceLayoutRepository {
   saveLayoutConfig(config: Partial<WorkspaceLayoutConfig>): Promise<void>;
 }
 
+export interface SymbolOrderRecord {
+  symbol: string;
+  sequence: string[];
+  candlesVisible: boolean;
+}
+
 export interface DrawingRepository {
   getDrawings(symbol: string): Promise<any[]>;
   saveDrawings(symbol: string, drawings: any[]): Promise<void>;
   clearDrawings(symbol: string): Promise<void>;
   getFolders(symbol: string): Promise<FolderItem[]>;
   saveFolders(symbol: string, folders: FolderItem[]): Promise<void>;
+  getOrderState(symbol: string): Promise<SymbolOrderRecord | null>;
+  saveOrderState(symbol: string, orderState: SymbolOrderRecord): Promise<void>;
 }
 
 export interface SettingsRepository {

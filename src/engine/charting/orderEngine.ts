@@ -601,3 +601,73 @@ export function deleteFromSequence(sequence: string[], id: string): string[] {
   next.splice(idx, 1);
   return next;
 }
+
+export interface LegacyDrawingCandidate {
+  id: string;
+  extendData?: {
+    order?: number;
+    folderId?: string | null;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
+export interface LegacyMigrationOptions {
+  candlesVisible?: boolean;
+  defaultCandlesPlacement?: 'top' | 'bottom';
+}
+
+/**
+ * Pure, deterministic migration function (Phase 2B):
+ * Transforms legacy drawings and folders into the canonical SymbolOrderState.
+ *
+ * MIGRATION RULES:
+ * 1. Primary order source is drawing.extendData.order (descending).
+ * 2. Unranked / missing / undefined order values sort to the top (Infinity).
+ * 3. Deterministic tie-breaking on drawing ID via base-sensitive locale comparison.
+ * 4. Folder contiguity: All children of the same folder are clustered around the
+ *    position of the folder's highest-ranked (first) child.
+ * 5. Singleton 'candles' sentinel is inserted according to defaultCandlesPlacement
+ *    (default: bottom/underneath).
+ * 6. Guaranteed exact membership, contiguity, and idempotence.
+ */
+export function migrateLegacyOrderToCanonical(
+  symbol: string,
+  drawings: LegacyDrawingCandidate[],
+  folderLookup?: DrawingFolderLookup,
+  options?: LegacyMigrationOptions
+): SymbolOrderState {
+  const key = symbol.toUpperCase();
+  const knownIds = drawings.map((d) => d.id);
+
+  // Build folder lookup if not provided
+  const lookup: DrawingFolderLookup = folderLookup ? { ...folderLookup } : {};
+  if (!folderLookup) {
+    drawings.forEach((d) => {
+      lookup[d.id] = d.extendData?.folderId;
+    });
+  }
+
+  // Sort drawings deterministically:
+  // - order descending (undefined/missing -> Infinity, sorting to front)
+  // - deterministic tie-breaking on ID descending
+  const sortedDrawings = [...drawings].sort((a, b) => {
+    const orderA = typeof a.extendData?.order === 'number' ? a.extendData.order : Infinity;
+    const orderB = typeof b.extendData?.order === 'number' ? b.extendData.order : Infinity;
+    if (orderA !== orderB) return orderB - orderA;
+    return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  const rawSequence = sortedDrawings.map((d) => d.id);
+
+  // Normalize: appends 'candles', removes duplicates, and clusters folder blocks contiguously
+  const sequence = normalizeOrderSequence(rawSequence, knownIds, lookup, {
+    defaultCandlesPlacement: options?.defaultCandlesPlacement ?? 'bottom',
+  });
+
+  return {
+    symbol: key,
+    sequence,
+    candlesVisible: options?.candlesVisible ?? true,
+  };
+}

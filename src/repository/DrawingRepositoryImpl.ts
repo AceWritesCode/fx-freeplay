@@ -1,4 +1,4 @@
-import type { DrawingRepository } from './types';
+import type { DrawingRepository, SymbolOrderRecord } from './types';
 import type { FolderItem } from '@/store/types';
 import { executeTx, STORES } from './db';
 
@@ -9,6 +9,10 @@ export class DrawingRepositoryImpl implements DrawingRepository {
 
   private getFolderKey(symbol: string): string {
     return `FOLDERS_${symbol.toUpperCase()}`;
+  }
+
+  private getOrderKey(symbol: string): string {
+    return `ORDER_${symbol.toUpperCase()}`;
   }
 
   async getDrawings(symbol: string): Promise<any[]> {
@@ -32,7 +36,9 @@ export class DrawingRepositoryImpl implements DrawingRepository {
     if (!symbol) return;
     const key = this.getKey(symbol);
     const folderKey = this.getFolderKey(symbol);
+    const orderKey = this.getOrderKey(symbol);
     await executeTx(STORES.DRAWINGS, 'readwrite', (store) => {
+      store.delete(orderKey);
       store.delete(folderKey);
       return store.delete(key);
     });
@@ -87,6 +93,32 @@ export class DrawingRepositoryImpl implements DrawingRepository {
       localStorage.setItem(`fx_folders_${symbol}`, JSON.stringify(folders));
     } catch (e) {
       console.debug('[DrawingRepository] localStorage mirror error:', e);
+    }
+  }
+
+  async getOrderState(symbol: string): Promise<SymbolOrderRecord | null> {
+    if (!symbol) return null;
+    const key = this.getOrderKey(symbol);
+    try {
+      const orderState = await executeTx<SymbolOrderRecord | undefined>(
+        STORES.DRAWINGS,
+        'readonly',
+        (store) => store.get(key)
+      );
+      return orderState || null;
+    } catch (err) {
+      console.warn(`[DrawingRepository] Failed to read order state from IndexedDB for ${symbol}:`, err);
+      return null;
+    }
+  }
+
+  async saveOrderState(symbol: string, orderState: SymbolOrderRecord): Promise<void> {
+    if (!symbol || !orderState) return;
+    const key = this.getOrderKey(symbol);
+    try {
+      await executeTx(STORES.DRAWINGS, 'readwrite', (store) => store.put(orderState, key));
+    } catch (err) {
+      console.warn(`[DrawingRepository] Failed to save order state to IndexedDB for ${symbol}:`, err);
     }
   }
 }

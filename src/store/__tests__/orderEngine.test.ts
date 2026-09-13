@@ -75,6 +75,8 @@ export async function resolve(specifier, context, nextResolve) {
             globalThis.__mockRepo?.saveDrawingsCalls.push({ symbol, drawings });
           },
           getDrawings: async () => [],
+          getOrderState: async () => null,
+          saveOrderState: async () => {},
         };
       \`),
       shortCircuit: true,
