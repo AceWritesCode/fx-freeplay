@@ -23,6 +23,7 @@
 | **Replay & Backtesting** | `src/engine/replay/ReplayEngineImpl.ts` | `useReplayStore.ts` + `ReplaySessionImpl.ts` | Historical bar slicing, step navigation, play/pause ticker, cutpoint timeline tracking. |
 | **Multi-Chart Sync (Layout)** | `src/coordinator/chartLayoutCoordinator.ts` | `useLayoutStore.ts` + `syncEngine.ts` | Crosshair, time, scroll, and zoom synchronization across multi-pane slot layouts. |
 | **Multi-Chart Sync (Drawings)**| `src/engine/charting/drawingSyncEngine.ts` | Engine (`syncAllDrawings`) | Replicates drawings across chart slots and transforms slot-specific coordinates. |
+| **Canonical Order Engine** | `src/engine/charting/orderEngine.ts` | Domain Engine (Pure functional) + `useDrawingStore` (`orderStateBySymbol`) | Symbol-level canonical ordering foundation (`SymbolOrderState`, `sequence: string[]` containing drawing IDs and `'candles'` singleton sentinel, folder contiguity invariant, pure reordering operations). |
 
 ---
 
@@ -138,7 +139,7 @@ Managed in `src/repository/db.ts`:
        │
    [Store]      useDrawingStore, useLayoutStore, useReplayStore, useSettingsStore
        │
-  [Engine]      drawingSyncEngine, drawingReconciler, calculateSessionOccurrences, ReplayEngine
+   [Engine]      drawingSyncEngine, drawingReconciler, orderEngine, calculateSessionOccurrences, ReplayEngine
        │
 [Repository]    DrawingRepositoryImpl, DataManagementRepositoryImpl, db.ts (IndexedDB)
        │
@@ -152,9 +153,18 @@ Managed in `src/repository/db.ts`:
 1. **Monolithic Components with Mixed Concerns:**
    * `src/components/ObjectTreePanel.tsx` has been decomposed at the presentation layer into `ObjectTreeToolbar.tsx`, `ObjectTreeEmptyState.tsx`, `DrawingTreeItem.tsx`, and `FolderTreeItem.tsx`. The main panel now acts primarily as the Object Tree orchestrator and interaction layer. Direct repository writes were eliminated (Phase 1A/1B). Main Series/Candles remains intentionally inline because it is coupled to the upcoming Phase 2 z-index/order redesign.
    * `src/utils/overlays.ts` contains tool registrations mixed with multi-chart pointer event orchestration.
-2. **Dual Representation of Drawing Order:**
-   * `extendData.order` (multiples of 100) is stored in Zustand/IndexedDB.
-   * KLineCharts internally sorts by `overlay.zLevel`. Currently, `extendData.order` is NOT automatically mirrored to `overlay.zLevel`, causing canvas stacking to diverge from Object Tree order.
+2. **Canonical Order Foundation vs Legacy Order & Runtime Stacking (Phase 2):**
+   * **Phase 2A Foundation (`src/engine/charting/orderEngine.ts`):** Established pure, deterministic canonical ordering model:
+     - `SymbolOrderState { symbol: string; sequence: string[]; candlesVisible: boolean }`
+     - `sequence: string[]` contains drawing IDs and the `'candles'` singleton sentinel (index `0` = topmost / front; last index = bottommost / back).
+     - **Folder contiguity invariant:** Folders are logical containers (`drawing.extendData.folderId`); all drawings belonging to the same folder form a single, contiguous block in `sequence`.
+     - Pure ordering operations: `validateOrderSequence`, `normalizeOrderSequence`, `repairFolderContiguity`, `bringToFront`, `sendToBack`, `bringForward`, `sendBackward`, `moveFolderBlock`, `moveDrawingIntoFolder`, `moveDrawingOutOfFolder`, `insertDrawing`, `duplicateDrawing`, `deleteFromSequence`.
+     - Store integration in `src/store/useDrawingStore.ts`: `orderStateBySymbol`, `getSymbolOrderSequence`, `setSymbolOrderSequence`, `reorderSymbolItem`, `moveSymbolFolderBlock`, `moveSymbolDrawingFolder`.
+   * **Migration & Runtime Status:**
+     - Legacy `extendData.order` (multiples of 100) and `activeChart._candlesOrder` remain intact and functional for backward compatibility during migration.
+     - **Runtime z-level projection is NOT implemented yet.** `_candlesOrder` remains legacy/runtime-only for now.
+     - **Phase 2B** will handle persistence and migration to/from repository.
+     - **Phase 2C** will handle runtime z-level projection and canvas synchronization without overlay recreation.
 3. **Physical Canvas Separation for Candlesticks:**
    * Candlesticks live on `_mainCanvas` (DOM layer 0). Overlays live on `_overlayCanvas` (DOM layer 1).
    * No overlay `zLevel` can physically place a standard overlay behind candlestick bodies. Only Indicators with `zLevel < 0` composite behind candles via `destination-over`.
