@@ -7,6 +7,7 @@ import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar
 import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
 import { ObjectTreeToolbar } from './object-tree/ObjectTreeToolbar';
 import { ObjectTreeEmptyState } from './object-tree/ObjectTreeEmptyState';
+import { DrawingTreeItem } from './object-tree/DrawingTreeItem';
 
 /**
  * Pure predicate to filter out non-user drawings (sync copies, price lines, session breaks).
@@ -1369,132 +1370,40 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         {childDrawings.length === 0 ? (
                           <div className="text-[10px] text-txt-muted italic py-1 pl-2">Empty folder</div>
                         ) : (
-                          childDrawings.map(d => {
-                            const isSelected = selectedOverlayIds.includes(d.id);
-                            const isLocked = d.lock || false;
-                            const isVisible = d.visible !== false;
-                            const isHovered = d.extendData?.isHovered || false;
-                            const isDragOverThis = dragOverItemId === d.id;
-
-                            return (
-                              <div
-                                key={d.id}
-                                draggable={true}
-                                onDragStart={(e) => handleDragStart(e, d.id, 'drawing')}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={(e) => handleDragOverItem(e, d.id)}
-                                onDragLeave={handleDragLeaveItem}
-                                onDrop={(e) => handleDropOnItem(e, d.id)}
-                                onClick={(e) => handleItemSelect(e, d.id)}
-                                onMouseEnter={() => handleMouseEnterItem(d.id)}
-                                onMouseLeave={() => handleMouseLeaveItem(d.id)}
-                                className={`group relative flex items-center justify-between px-2 py-1 border rounded-md cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'bg-accent-muted border-accent/30 text-txt-primary'
-                                    : isHovered
-                                    ? 'bg-surface-elevated border-border-def text-txt-primary'
-                                    : 'border-transparent hover:bg-surface-hover text-txt-secondary'
-                                }`}
-                              >
-                                {/* Colored divider line representing the drop position */}
-                                {isDragOverThis && (
-                                  <div
-                                    className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
-                                      dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
-                                    }`}
-                                  />
-                                )}
-                                
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="flex-shrink-0">
-                                    {getDrawingIcon(d.name)}
-                                  </span>
-                                  
-                                  {renamingId === d.id ? (
-                                    <input
-                                      ref={renameInputRef}
-                                      type="text"
-                                      value={renameValue}
-                                      onChange={(e) => setRenameValue(e.target.value)}
-                                      onBlur={() => handleFinishRename(d.id, false)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleFinishRename(d.id, false);
-                                        if (e.key === 'Escape') setRenamingId(null);
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="bg-app-bg border border-accent rounded px-1.5 py-0.5 text-xs text-txt-primary outline-none w-28 font-normal"
-                                    />
-                                  ) : (
-                                    <span
-                                      onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStartRename(d.id, getDrawingLabel(d));
-                                      }}
-                                      className="truncate text-[11px]"
-                                    >
-                                      {getDrawingLabel(d)}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Drawing buttons on hover */}
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    type="button"
-                                    title="Rename drawing"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStartRename(d.id, getDrawingLabel(d));
-                                    }}
-                                    className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
-                                  >
-                                    <Edit2 className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title={isLocked ? "Unlock drawing" : "Lock drawing"}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleDrawingLock(d.id, isLocked);
-                                    }}
-                                    className={`p-1 rounded transition-colors ${
-                                      isLocked
-                                        ? 'text-accent hover:text-accent/80 bg-accent-muted'
-                                        : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                                    }`}
-                                  >
-                                    {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title={isVisible ? "Hide drawing" : "Show drawing"}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleDrawingVisible(d.id, isVisible);
-                                    }}
-                                    className={`p-1 rounded transition-colors ${
-                                      !isVisible
-                                        ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                                        : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                                    }`}
-                                  >
-                                    {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Delete drawing"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteDrawing(d.id);
-                                    }}
-                                    className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
-                                  >
-                                    <DeleteIcon className="w-3.5 h-3.5 text-current" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })
+                          childDrawings.map(d => (
+                            <DrawingTreeItem
+                              key={d.id}
+                              id={d.id}
+                              name={d.name}
+                              label={getDrawingLabel(d)}
+                              icon={getDrawingIcon(d.name)}
+                              variant="folderChild"
+                              isSelected={selectedOverlayIds.includes(d.id)}
+                              isHovered={d.extendData?.isHovered || false}
+                              isLocked={d.lock || false}
+                              isVisible={d.visible !== false}
+                              isDragOver={dragOverItemId === d.id}
+                              dragOverPosition={dragOverPosition}
+                              isRenaming={renamingId === d.id}
+                              renameValue={renameValue}
+                              renameInputRef={renameInputRef}
+                              onRenameValueChange={setRenameValue}
+                              onFinishRename={handleFinishRename}
+                              onCancelRename={() => setRenamingId(null)}
+                              onStartRename={handleStartRename}
+                              onSelect={handleItemSelect}
+                              onMouseEnter={handleMouseEnterItem}
+                              onMouseLeave={handleMouseLeaveItem}
+                              onToggleLock={handleToggleDrawingLock}
+                              onToggleVisible={handleToggleDrawingVisible}
+                              onDelete={handleDeleteDrawing}
+                              onDragStart={handleDragStart}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={handleDragOverItem}
+                              onDragLeave={handleDragLeaveItem}
+                              onDrop={handleDropOnItem}
+                            />
+                          ))
                         )}
                       </div>
                     )}
@@ -1589,128 +1498,39 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 );
               } else {
                 const d = item.data;
-                const isSelected = selectedOverlayIds.includes(d.id);
-                const isLocked = d.lock || false;
-                const isVisible = d.visible !== false;
-                const isHovered = d.extendData?.isHovered || false;
-                const isDragOverThis = dragOverItemId === d.id;
-
                 return (
-                  <div
+                  <DrawingTreeItem
                     key={d.id}
-                    draggable={true}
-                    onDragStart={(e) => handleDragStart(e, d.id, 'drawing')}
+                    id={d.id}
+                    name={d.name}
+                    label={getDrawingLabel(d)}
+                    icon={getDrawingIcon(d.name)}
+                    variant="root"
+                    isSelected={selectedOverlayIds.includes(d.id)}
+                    isHovered={d.extendData?.isHovered || false}
+                    isLocked={d.lock || false}
+                    isVisible={d.visible !== false}
+                    isDragOver={dragOverItemId === d.id}
+                    dragOverPosition={dragOverPosition}
+                    isRenaming={renamingId === d.id}
+                    renameValue={renameValue}
+                    renameInputRef={renameInputRef}
+                    onRenameValueChange={setRenameValue}
+                    onFinishRename={handleFinishRename}
+                    onCancelRename={() => setRenamingId(null)}
+                    onStartRename={handleStartRename}
+                    onSelect={handleItemSelect}
+                    onMouseEnter={handleMouseEnterItem}
+                    onMouseLeave={handleMouseLeaveItem}
+                    onToggleLock={handleToggleDrawingLock}
+                    onToggleVisible={handleToggleDrawingVisible}
+                    onDelete={handleDeleteDrawing}
+                    onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
-                    onDragOver={(e) => handleDragOverItem(e, d.id)}
+                    onDragOver={handleDragOverItem}
                     onDragLeave={handleDragLeaveItem}
-                    onDrop={(e) => handleDropOnItem(e, d.id)}
-                    onClick={(e) => handleItemSelect(e, d.id)}
-                    onMouseEnter={() => handleMouseEnterItem(d.id)}
-                    onMouseLeave={() => handleMouseLeaveItem(d.id)}
-                    className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-accent-muted border-accent/30 text-txt-primary'
-                        : isHovered
-                        ? 'bg-surface-elevated border-border-def text-txt-primary'
-                        : 'border-transparent hover:bg-surface-hover text-txt-secondary'
-                    }`}
-                  >
-                    {/* Colored divider line representing the drop position */}
-                    {isDragOverThis && (
-                      <div
-                        className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
-                          dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
-                        }`}
-                      />
-                    )}
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex-shrink-0">
-                        {getDrawingIcon(d.name)}
-                      </span>
-                      
-                      {renamingId === d.id ? (
-                        <input
-                          ref={renameInputRef}
-                          type="text"
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onBlur={() => handleFinishRename(d.id, false)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleFinishRename(d.id, false);
-                            if (e.key === 'Escape') setRenamingId(null);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-app-bg border border-accent rounded px-1.5 py-0.5 text-xs text-txt-primary outline-none w-28 font-normal"
-                        />
-                      ) : (
-                        <span
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            handleStartRename(d.id, getDrawingLabel(d));
-                          }}
-                          className="truncate text-[11px]"
-                        >
-                          {getDrawingLabel(d)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Action buttons on hover */}
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        title="Rename drawing"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartRename(d.id, getDrawingLabel(d));
-                        }}
-                        className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        title={isLocked ? "Unlock drawing" : "Lock drawing"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleDrawingLock(d.id, isLocked);
-                        }}
-                        className={`p-1 rounded transition-colors ${
-                          isLocked
-                            ? 'text-accent hover:text-accent/80 bg-accent-muted'
-                            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                        }`}
-                      >
-                        {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                      </button>
-                      <button
-                        type="button"
-                        title={isVisible ? "Hide drawing" : "Show drawing"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleDrawingVisible(d.id, isVisible);
-                        }}
-                        className={`p-1 rounded transition-colors ${
-                          !isVisible
-                            ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                        }`}
-                      >
-                        {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete drawing"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteDrawing(d.id);
-                        }}
-                        className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
-                      >
-                        <DeleteIcon className="w-3.5 h-3.5 text-current" />
-                      </button>
-                    </div>
-                  </div>
+                    onDrop={handleDropOnItem}
+                  />
                 );
               }
             })}
