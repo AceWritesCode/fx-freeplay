@@ -16,7 +16,7 @@
 | **Gesture & Mode Authority** | `src/framework/interaction/MarqueeSelectionHandler.ts` | Interaction Engine (`isExclusiveMarqueeMode`) | Enforces exclusive Ctrl+drag marquee mode; locks out drawing body/anchor drags. |
 | **Hover & Anchor Priority** | `src/framework/interaction/useDrawingHoverCursor.ts` | Interaction Hook (`_promotedOverlayInfo`) | Hit testing, cursor styling, control anchor generation, temporary hidden-anchor z-promotion. |
 | **Drawing Event Callbacks** | `src/utils/overlays.ts` | Shared Utility (`getInteractiveOverlayOptions`) | KLineCharts overlay lifecycle hooks (`onPressedMoveStart`, `onPressedMoving`, `onPressedMoveEnd`, `onClick`). |
-| **Object Tree / Hierarchy** | `src/components/ObjectTreePanel.tsx` | Component State + `extendData.order` | Tree UI, folder hierarchy, item visibility/lock toggles, drag-and-drop reordering. |
+| **Object Tree / Hierarchy** | `src/components/ObjectTreePanel.tsx` | Component State + `extendData.order` | Tree orchestrator & interaction layer. Decomposed into `src/components/object-tree/` presentation components (`ObjectTreeToolbar`, `ObjectTreeEmptyState`, `DrawingTreeItem`, `FolderTreeItem`). |
 | **Viewport & Timeframe** | `src/features/chart-workspace/useChartViewport.ts` | Viewport Hook (`handleTimeframeSwitch`) | Timeframe transition: preserves historical spatial position, barSpace, and Y-axis scale mode. |
 | **Session Display (Engine)** | `src/features/session-display/engine/calculateSessionOccurrences.ts` | Domain Engine (Pure functional) | Generates UTC bounding timestamps for trading sessions across DST and timezone boundaries. |
 | **Session Display (Render)** | `src/features/session-display/renderer/sessionBackgroundIndicator.ts` | KLineCharts Indicator (`zLevel: -1`) | Renders session boxes behind candles via `ctx.globalCompositeOperation = 'destination-over'`. |
@@ -131,7 +131,8 @@ Managed in `src/repository/db.ts`:
 ## 6. Architectural Boundaries
 
 ```
-[Presentation]  ObjectTreePanel, DrawingToolbar, ChartWorkspace, ColorPicker
+[Presentation]  ObjectTreePanel (Orchestrator), ObjectTreeToolbar, DrawingTreeItem,
+                FolderTreeItem, ObjectTreeEmptyState, DrawingToolbar, ChartWorkspace
        │
 [Coordinator]   chartLayoutCoordinator, useDrawingCoordinator, useWorkspaceCoordinator
        │
@@ -149,7 +150,7 @@ Managed in `src/repository/db.ts`:
 ## 7. Known Navigation Hazards
 
 1. **Monolithic Components with Mixed Concerns:**
-   * `src/components/ObjectTreePanel.tsx` contains ~2,000 lines combining drag-and-drop physics, direct store dispatches, direct IndexedDB writes, live overlay overrides, and KLineCharts property tampering.
+   * `src/components/ObjectTreePanel.tsx` has been decomposed at the presentation layer into `ObjectTreeToolbar.tsx`, `ObjectTreeEmptyState.tsx`, `DrawingTreeItem.tsx`, and `FolderTreeItem.tsx`. The main panel now acts primarily as the Object Tree orchestrator and interaction layer. Direct repository writes were eliminated (Phase 1A/1B). Main Series/Candles remains intentionally inline because it is coupled to the upcoming Phase 2 z-index/order redesign.
    * `src/utils/overlays.ts` contains tool registrations mixed with multi-chart pointer event orchestration.
 2. **Dual Representation of Drawing Order:**
    * `extendData.order` (multiples of 100) is stored in Zustand/IndexedDB.
