@@ -598,6 +598,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     },
     onCancelTool: drawingCoord.cancelDrawingSession,
     slots,
+    isCtrlPressedRef,
+    isShiftPressedRef,
   });
 
   // Keep chart instance styling automatically synchronized with useSettingsStore settings
@@ -617,6 +619,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         chart._setSelectedOverlayIds = handleSelectOverlayIds;
         chart._activeTool = drawingCoord.activeTool;
         chart._activeCursorTool = selectedCursorId;
+        chart._isCtrlPressedRef = isCtrlPressedRef;
+        chart._isShiftPressedRef = isShiftPressedRef;
       }
     });
   }, [selectedOverlayIds, handleSelectOverlayIds, drawingCoord.activeTool, selectedCursorId]);

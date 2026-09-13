@@ -12,6 +12,8 @@ export interface DrawingInteractionConfig {
   onDeleteSelected: () => void;
   onCancelTool: () => void;
   slots: any[];
+  isCtrlPressedRef?: React.MutableRefObject<boolean>;
+  isShiftPressedRef?: React.MutableRefObject<boolean>;
 }
 
 export function useDrawingInteraction(config: DrawingInteractionConfig) {
@@ -20,16 +22,25 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
   const shortcutsRef = useRef<DrawingKeyboardShortcuts | null>(null);
 
   // Expose modifier ref on chart instances for overlay clicks
-  const isCtrlPressedRef = useRef(false);
-  const isShiftPressedRef = useRef(false);
+  const localCtrlRef = useRef(false);
+  const localShiftRef = useRef(false);
+  const isCtrlPressedRef = config.isCtrlPressedRef || localCtrlRef;
+  const isShiftPressedRef = config.isShiftPressedRef || localShiftRef;
   const isSpacePressedRef = useRef(false);
 
   useEffect(() => {
     modifierTracker.start();
 
     const unsubscribe = modifierTracker.subscribe((state) => {
-      isCtrlPressedRef.current = state.isCtrlPressed || state.isMetaPressed;
+      const ctrlActive = state.isCtrlPressed || state.isMetaPressed;
+      isCtrlPressedRef.current = ctrlActive;
+      if (config.isCtrlPressedRef) {
+        config.isCtrlPressedRef.current = ctrlActive;
+      }
       isShiftPressedRef.current = state.isShiftPressed;
+      if (config.isShiftPressedRef) {
+        config.isShiftPressedRef.current = state.isShiftPressed;
+      }
       isSpacePressedRef.current = state.isSpacePressed;
 
       config.chartInstancesRef.current.forEach((chart) => {
@@ -53,7 +64,7 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
       unsubscribe();
       modifierTracker.stop();
     };
-  }, [modifierTracker, config.chartInstancesRef]);
+  }, [modifierTracker, config.chartInstancesRef, config.isCtrlPressedRef, config.isShiftPressedRef, isCtrlPressedRef, isShiftPressedRef]);
 
   // Marquee Selection Lifecycle
   useEffect(() => {

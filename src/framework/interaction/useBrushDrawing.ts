@@ -100,8 +100,8 @@ export function useBrushDrawing({
       // Only handle primary button (left-click)
       if (e.button !== 0) return;
 
-      // If Space is held, Brush drawing is suspended (allows navigation / moving / clicking existing drawings)
-      if (isSpacePressedRef?.current) return;
+      // If Space or Ctrl/Cmd is held, Brush drawing is suspended (allows navigation / marquee selection)
+      if (isSpacePressedRef?.current || e.ctrlKey || e.metaKey) return;
 
       // Ignore clicks on floating UI, dialogs, buttons, toolbars
       const target = e.target as Element;

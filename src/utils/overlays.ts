@@ -143,6 +143,9 @@ export function registerCustomOverlays() {
   });
 }
 
+import { isExclusiveMarqueeMode } from '../framework/interaction/MarqueeSelectionHandler';
+export { isExclusiveMarqueeMode };
+
 export function getInteractiveOverlayOptions(
   toolName: string,
   chartInstanceRef: any,
@@ -287,6 +290,15 @@ export function getInteractiveOverlayOptions(
       const overlayId = event.overlay?.id;
       if (!overlayId) return;
 
+      if (event.chart?._promotedOverlayInfo?.id === overlayId) {
+        event.chart._promotedOverlayInfo = null;
+      }
+      chartInstancesRef.current.forEach((c: any) => {
+        if (c?._promotedOverlayInfo?.id === overlayId) {
+          c._promotedOverlayInfo = null;
+        }
+      });
+
       useDrawingStore.getState().removeSymbolDrawingById(overlayId);
       runWorkspaceReconciliation(chartInstancesRef);
     },
@@ -328,6 +340,10 @@ export function getInteractiveOverlayOptions(
     },
     onPressedMoveStart: (event: any) => {
       const actualChart = event.chart || chartInstanceRef.current;
+      if (isExclusiveMarqueeMode(actualChart, event)) {
+        return;
+      }
+
       const isEraser = actualChart?._activeTool === 'eraser' || (actualChart?._activeCursorTool === 'eraser');
       if (isEraser) {
         const rawId = event.overlay?.id;
@@ -498,6 +514,11 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoving: (event: any) => {
+      const actualChart = event.chart || chartInstanceRef.current;
+      if (isExclusiveMarqueeMode(actualChart, event)) {
+        return;
+      }
+
       // Read draggedIndex from extendData if it was set by onPressedMoveStart.
       // Fall back to chart._activeDraggingIndex (set on event.chart directly before selection fires).
       // Note: draggedIndex can be null (body drag) or a number (anchor index). Both are valid values.
@@ -567,7 +588,10 @@ export function getInteractiveOverlayOptions(
       }
 
       const startPoints = event.overlay.extendData?.startPoints;
-      const initialPoints = (startPoints && Array.isArray(startPoints) && startPoints.length === event.overlay.points?.length)
+      if (!startPoints || !Array.isArray(startPoints)) {
+        return;
+      }
+      const initialPoints = startPoints.length === event.overlay.points?.length
         ? startPoints
         : event.overlay.points;
 
@@ -645,6 +669,9 @@ export function getInteractiveOverlayOptions(
       }
     },
     onPressedMoveEnd: (event: any) => {
+      const actualChart = event.chart || chartInstanceRef.current;
+      const wasExclusive = isExclusiveMarqueeMode(actualChart, event);
+
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = null;
       }
@@ -656,6 +683,12 @@ export function getInteractiveOverlayOptions(
         event.overlay.currentPointIndex = -1;
         delete event.overlay.prevPoints;
       }
+
+      const startPoints = event.overlay?.extendData?.startPoints;
+      if (wasExclusive || !startPoints) {
+        return;
+      }
+
       const overrideOpts = {
         extendData: {
           ...(event.overlay.extendData || {}),
@@ -698,10 +731,14 @@ export function getInteractiveOverlayOptions(
       }
     },
     onClick: (event: any) => {
+      const actualChart = event.chart || chartInstanceRef.current;
+      if (actualChart?._justFinishedMarquee) {
+        return true;
+      }
+
       const rawId = event.overlay.id;
       const id = getOriginalDrawingId(rawId);
 
-      const actualChart = event.chart || chartInstanceRef.current;
       if (actualChart?._activeTool === 'eraser' || actualChart?._activeCursorTool === 'eraser') {
         useDrawingStore.getState().removeSymbolDrawingById(id);
         runWorkspaceReconciliation(chartInstancesRef);

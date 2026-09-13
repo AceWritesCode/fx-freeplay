@@ -2,7 +2,7 @@
  * Checks if an event target is an editable input or inside a text editor.
  */
 export function isEditableElement(target: EventTarget | null): boolean {
-  if (!target || !(target instanceof Element)) return false;
+  if (!target || typeof Element === 'undefined' || !(target instanceof Element)) return false;
   return (
     target.tagName === 'INPUT' ||
     target.tagName === 'TEXTAREA' ||
