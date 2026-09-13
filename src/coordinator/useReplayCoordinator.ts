@@ -15,7 +15,8 @@ export function useReplayCoordinator(
   wasManualScaleRef: React.MutableRefObject<boolean>,
   capturedYAxisRangeRef: React.MutableRefObject<any>,
   loadDataForSlot: (index: number, chart: any, options?: { preserveOffset?: boolean; customOffset?: number | null }) => Promise<void>,
-  settings?: any
+  settings?: any,
+  isSwitchingTimeframeRef?: React.MutableRefObject<boolean>
 ) {
   // Store Hooks
   const {
@@ -353,8 +354,12 @@ export function useReplayCoordinator(
   useEffect(() => {
     let intervalId: any = null;
     if (isReplayActive && isReplayPlaying) {
-      console.log(`[DEBUG] autoplay loop - Starting Interval timer. Interval: ${replaySpeed}s.`);
+      console.log(`[DEBUG] autoplay loop - Starting Interval timer. Interval: ${replaySpeed}s on timeframe ${activeTimeframe}.`);
       intervalId = setInterval(() => {
+        if (isSwitchingTimeframeRef?.current) {
+          console.log('[DEBUG] autoplay loop - Skipping stepForward during active timeframe switch.');
+          return;
+        }
         const session = sessionRef.current || replayEngine.getActiveSession();
         if (session) {
           const state = session.stepForward();
@@ -370,7 +375,7 @@ export function useReplayCoordinator(
         clearInterval(intervalId);
       }
     };
-  }, [isReplayActive, isReplayPlaying, replaySpeed]);
+  }, [isReplayActive, isReplayPlaying, replaySpeed, activeTimeframe]);
 
   // Pause replay playback during manual chart click/drag interaction, resume on mouse release
   const isReplayPausedByDragRef = useRef<boolean>(false);
@@ -458,6 +463,14 @@ export function useReplayCoordinator(
     const isReplayActiveChanged = lastReplayActiveRef.current !== isReplayActive;
 
     if (!isTimestampChanged && !isSlotsChanged && !isReplayActiveChanged) {
+      return;
+    }
+
+    if (isSwitchingTimeframeRef?.current) {
+      console.log('[DEBUG] replay dataSync - Skipping sync during active timeframe switch transition.');
+      lastSyncedReplayTimestampRef.current = replayCurrentTimestamp;
+      lastSyncedSlotsRef.current = slots;
+      lastReplayActiveRef.current = isReplayActive;
       return;
     }
 
@@ -669,6 +682,162 @@ export function useReplayCoordinator(
     }
   };
 
+  // Keep track of replayCurrentTimestamp in ref to avoid re-triggering session recreation on every replay tick
+  const replayCurrentTimestampRef = useRef<number | null>(replayCurrentTimestamp);
+  replayCurrentTimestampRef.current = replayCurrentTimestamp;
+
+  // Keep sessionRef synchronized when activeTimeframe changes during active replay
+  const lastActiveTimeframeRef = useRef<string>(activeTimeframe);
+  useEffect(() => {
+    if (!isReplayActive) {
+      lastActiveTimeframeRef.current = activeTimeframe;
+      return;
+    }
+    if (lastActiveTimeframeRef.current === activeTimeframe) {
+      return;
+    }
+    lastActiveTimeframeRef.current = activeTimeframe;
+
+    const fullData = allTimeframesData[activeTimeframe] || [];
+    const currentTs = replayCurrentTimestampRef.current;
+    if (fullData.length === 0 || currentTs === null) {
+      return;
+    }
+
+    const candleIdx = findCandleIndexByTimestamp(fullData, currentTs);
+    if (candleIdx !== -1) {
+      console.log(`[DEBUG] ReplayCoordinator - Timeframe changed to ${activeTimeframe}. Re-anchoring session at index ${candleIdx}.`);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      try {
+        const session = replayEngine.createSession({
+          symbol: slots[activeChartIndex]?.symbol || 'INGEST',
+          historicalData: fullData,
+          startIndex: candleIdx,
+        });
+        sessionRef.current = session;
+        session.setStatus('PAUSED');
+
+        const unsub = session.subscribe((state) => {
+          setReplayCurrentTimestamp(state.currentTimestamp);
+          setBookmarks(state.bookmarks);
+          if (state.status === 'COMPLETED') {
+            setIsReplayPlaying(false);
+          }
+        });
+        unsubscribeRef.current = unsub;
+      } catch (err) {
+        console.error('[ReplayCoordinator] Failed to sync session on timeframe switch:', err);
+      }
+    }
+  }, [activeTimeframe, isReplayActive, allTimeframesData, slots, activeChartIndex, setReplayCurrentTimestamp, setBookmarks, setIsReplayPlaying]);
+
+  const handleShiftReplayToAvailableData = (slotIndex?: number) => {
+    const targetIdx = slotIndex ?? activeChartIndex;
+    const slot = slots[targetIdx];
+    if (!slot || !slot.symbol) return;
+    const fullData = allTimeframesData[slot.timeframe] || [];
+    if (fullData.length === 0) return;
+
+    const firstCandle = fullData[0];
+    const firstTimestamp = firstCandle.timestamp;
+
+    console.log(`[DEBUG] handleShiftReplayToAvailableData - Shifting replay to ${slot.timeframe} start: ${new Date(firstTimestamp).toLocaleString()}`);
+
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    try {
+      const session = replayEngine.createSession({
+        symbol: slot.symbol,
+        historicalData: fullData,
+        startIndex: 0,
+      });
+      sessionRef.current = session;
+      session.setStatus('PAUSED');
+
+      const unsub = session.subscribe((state) => {
+        setReplayCurrentTimestamp(state.currentTimestamp);
+        setBookmarks(state.bookmarks);
+        if (state.status === 'COMPLETED') {
+          setIsReplayPlaying(false);
+        }
+      });
+      unsubscribeRef.current = unsub;
+    } catch (err) {
+      console.error('[ReplayCoordinator] Failed to recreate replay session on shift:', err);
+    }
+
+    // Ensure the chart viewport centers on the newly shifted candle
+    const activeChart = chartInstancesRef.current[activeChartIndex];
+    const chartSize = activeChart ? activeChart.getSize() : null;
+    const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+    const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
+    capturedOffsetRef.current = chartWidth * resetRatio;
+
+    setReplayCurrentTimestamp(firstTimestamp);
+    setIsReplayPlaying(false);
+  };
+
+  const handleJumpToDate = (targetTimestamp: number) => {
+    const fullData = allTimeframesData[activeTimeframe] || [];
+    if (fullData.length === 0) return;
+
+    let closestCandle = fullData[0];
+    for (let i = 0; i < fullData.length; i++) {
+      if (fullData[i].timestamp <= targetTimestamp) {
+        closestCandle = fullData[i];
+      } else {
+        break;
+      }
+    }
+
+    console.log(`[DEBUG] handleJumpToDate - Jumping replay to: ${new Date(closestCandle.timestamp).toLocaleString()}`);
+
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    const startIndex = findCandleIndexByTimestamp(fullData, closestCandle.timestamp);
+
+    try {
+      const session = replayEngine.createSession({
+        symbol: slots[activeChartIndex]?.symbol || 'INGEST',
+        historicalData: fullData,
+        startIndex: startIndex !== -1 ? startIndex : 0,
+      });
+
+      sessionRef.current = session;
+      session.setStatus('PAUSED');
+
+      const unsub = session.subscribe((state) => {
+        setReplayCurrentTimestamp(state.currentTimestamp);
+        setBookmarks(state.bookmarks);
+        if (state.status === 'COMPLETED') {
+          setIsReplayPlaying(false);
+        }
+      });
+      unsubscribeRef.current = unsub;
+    } catch (err) {
+      console.error('[ReplayCoordinator] Failed to recreate replay session on jump to date:', err);
+    }
+
+    // Ensure the chart viewport centers on the newly jumped candle using the preferred reset view offset
+    const activeChart = chartInstancesRef.current[activeChartIndex];
+    const chartSize = activeChart ? activeChart.getSize() : null;
+    const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+    const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
+    capturedOffsetRef.current = chartWidth * resetRatio;
+
+    setReplayCurrentTimestamp(closestCandle.timestamp);
+    setIsReplayPlaying(false);
+  };
+
   return {
     isSelectingCutPoint,
     setIsSelectingCutPoint,
@@ -684,5 +853,7 @@ export function useReplayCoordinator(
     handleRemoveBookmark,
     handleUpdateBookmark,
     handleJumpToBookmark,
+    handleShiftReplayToAvailableData,
+    handleJumpToDate,
   };
 }

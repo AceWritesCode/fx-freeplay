@@ -1,4 +1,4 @@
-import { getLayoutChartCount } from '@/domain/market/timeframeUtils';
+import { getLayoutChartCount } from '../../domain/market/timeframeUtils.ts';
 
 /**
  * Returns the timeframe duration in milliseconds.

@@ -463,7 +463,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     wasManualScaleRef,
     capturedYAxisRangeRef,
     workspaceCoord.loadDataForSlot,
-    settings
+    settings,
+    workspaceCoord.isSwitchingTimeframeRef
   );
 
   // Connect toast triggers
@@ -733,6 +734,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
         const symbolChanged = currentSlot?.symbol !== prevSlot?.symbol;
         const timeframeChanged = currentSlot?.timeframe !== prevSlot?.timeframe;
+
+        // When switching timeframe via handleTimeframeSwitch, handleTimeframeSwitch is the single authority
+        // responsible for loading data and restoring the viewport accurately. Do not re-trigger loadDataForSlot.
+        if (workspaceCoord.isSwitchingTimeframeRef.current && timeframeChanged && !symbolChanged && !layoutTypeChanged) {
+          continue;
+        }
 
         if (forceAll || symbolChanged || timeframeChanged) {
           promises.push(workspaceCoord.loadDataForSlot(i, chart));
@@ -1533,6 +1540,13 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       setContainerRef={(el) => {
         chartContainersRef.current[i] = el;
       }}
+      isReplayActive={isReplayActive}
+      replayCurrentTimestamp={replayCurrentTimestamp}
+      allTimeframesData={workspaceCoord.allTimeframesData}
+      onShiftReplayToAvailableData={replayCoord.handleShiftReplayToAvailableData}
+      onMoveReplayToTimeframe={workspaceCoord.handleTimeframeSwitch}
+      getOrImportTimeframeData={workspaceCoord.getOrImportTimeframeData}
+      isSwitchingTimeframe={workspaceCoord.isSwitchingTimeframe}
     />
   );
 
@@ -2044,6 +2058,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         exitReplayMode={replayCoord.exitReplayMode}
         isAutoShiftEnabled={replayCoord.isAutoShiftEnabled}
         handleToggleAutoShift={replayCoord.handleToggleAutoShift}
+        handleJumpToDate={replayCoord.handleJumpToDate}
         setIsReplayActive={setIsReplayActive}
         hasData={hasData}
         assetName={assetName}

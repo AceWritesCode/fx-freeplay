@@ -28,7 +28,7 @@ import {
   scanDirectoryHandles,
   validateImportedSymbol,
 } from '@/engine/market';
-import { persistenceService, captureChartViewport, restoreChartViewport } from '@/engine/workspace';
+import { persistenceService, captureChartViewport, restoreChartViewport, type ViewportScaleState } from '@/engine/workspace';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
 import { getTrueOffsetRightDistance } from '@/engine/charting';
 
@@ -102,6 +102,7 @@ export function useWorkspaceCoordinator(
 
   // Local Coordinator states
   const isSwitchingTimeframeRef = useRef<boolean>(false);
+  const [isSwitchingTimeframe, setIsSwitchingTimeframe] = useState<boolean>(false);
   const [allTimeframesData, setAllTimeframesData] = useState<Record<string, KLineData[]>>({ '1m': [] });
   const [isLoadingSymbol, setIsLoadingSymbol] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<ImportProgressState | null>(null);
@@ -370,7 +371,31 @@ export function useWorkspaceCoordinator(
     const currentSymbol = overrideSymbol || slots[activeChartIndex]?.symbol || '';
 
     isSwitchingTimeframeRef.current = true;
-    setIsLoadingSymbol(true);
+    setIsSwitchingTimeframe(true);
+
+    // 1. Immediately capture the active chart's viewport & exact candle position synchronously
+    let capturedViewportState: ViewportScaleState | null = null;
+    const activeChart = chartInstancesRef.current[activeChartIndex];
+    if (activeChart) {
+      if (isSymbolSwitch) {
+        capturedOffsetRef.current = null;
+        wasManualScaleRef.current = false;
+        capturedYAxisRangeRef.current = null;
+      } else {
+        capturedViewportState = captureChartViewport(activeChart);
+        capturedOffsetRef.current = capturedViewportState.offset;
+        wasManualScaleRef.current = capturedViewportState.wasManualScale;
+        capturedYAxisRangeRef.current = capturedViewportState.yAxisRange;
+      }
+    }
+
+    // 2. Yield at least one animation frame so the browser paints the faded state (opacity-35)
+    // even if target timeframe data is already in memory
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
 
     try {
       let targetData = isSymbolSwitch ? undefined : allTimeframesData[tf];
@@ -382,20 +407,6 @@ export function useWorkspaceCoordinator(
         } else {
           console.error(`[DEBUG] handleTimeframeSwitch - Failed to generate data for timeframe ${tf}`);
           return;
-        }
-      }
-
-      const activeChart = chartInstancesRef.current[activeChartIndex];
-      if (activeChart) {
-        if (isSymbolSwitch) {
-          capturedOffsetRef.current = null;
-          wasManualScaleRef.current = false;
-          capturedYAxisRangeRef.current = null;
-        } else {
-          const viewportState = captureChartViewport(activeChart);
-          capturedOffsetRef.current = viewportState.offset;
-          wasManualScaleRef.current = viewportState.wasManualScale;
-          capturedYAxisRangeRef.current = viewportState.yAxisRange;
         }
       }
 
@@ -468,23 +479,44 @@ export function useWorkspaceCoordinator(
         chart.setPeriod(parseTimeframeToPeriod(slotTf));
         (chart as any)._loadedTimeframe = slotTf;
 
-        const scrollIndex = activeReplay && alignedTimestamp !== null
-          ? findCandleIndexByTimestamp(visibleData, alignedTimestamp)
-          : slotData.length - 1;
+        let scrollIndex = -1;
+        let isHistorical = false;
+
+        if (activeReplay && alignedTimestamp !== null) {
+          scrollIndex = findCandleIndexByTimestamp(visibleData, alignedTimestamp);
+        } else if (!activeReplay && capturedViewportState && !isSymbolSwitch) {
+          if (capturedViewportState.isNearRightEdge) {
+            scrollIndex = slotData.length - 1;
+          } else if (capturedViewportState.centerTimestamp) {
+            const matchedIdx = findCandleIndexByTimestamp(visibleData, capturedViewportState.centerTimestamp);
+            if (matchedIdx !== -1) {
+              scrollIndex = matchedIdx;
+              isHistorical = true;
+            } else {
+              scrollIndex = slotData.length - 1;
+            }
+          } else {
+            scrollIndex = slotData.length - 1;
+          }
+        } else {
+          scrollIndex = slotData.length - 1;
+        }
 
         if (scrollIndex !== -1) {
           if (idx === activeChartIndex) {
             const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
+
             restoreChartViewport(
               chart,
-              {
+              capturedViewportState || {
                 offset: capturedOffsetRef.current,
                 wasManualScale: wasManualScaleRef.current,
                 yAxisRange: capturedYAxisRangeRef.current,
               },
               scrollIndex,
               isSymbolSwitch,
-              resetRatio
+              resetRatio,
+              isHistorical
             );
           } else {
             chart.scrollToDataIndex(scrollIndex);
@@ -498,8 +530,11 @@ export function useWorkspaceCoordinator(
     } catch (err) {
       console.error('[DEBUG] handleTimeframeSwitch - Error loading timeframe data:', err);
     } finally {
-      setIsLoadingSymbol(false);
-      isSwitchingTimeframeRef.current = false;
+      // Yield an animation frame before clearing the transition so the chart canvas has repainted
+      requestAnimationFrame(() => {
+        setIsSwitchingTimeframe(false);
+        isSwitchingTimeframeRef.current = false;
+      });
     }
   };
 
@@ -1043,6 +1078,8 @@ export function useWorkspaceCoordinator(
     regenerateTimeframes,
     handleTimeframeSwitch,
     handleWatchlistSymbolSwitch,
+    isSwitchingTimeframe,
     isSwitchingTimeframeRef,
+    getOrImportTimeframeData,
   };
 }

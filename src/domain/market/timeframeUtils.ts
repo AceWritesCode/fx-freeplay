@@ -1,4 +1,5 @@
 import type { KLineData } from '@/utils/dataUtils';
+import { PRESET_TIMEFRAMES } from '../../config/timeframes.ts';
 
 export const getTimeframeMinutes = (tf: string): number => {
   if (tf === 'D') return 1440;
@@ -140,4 +141,76 @@ export const shiftCandlesTimezone = (
     ...c,
     timestamp: c.timestamp + offsetDiffMs
   }));
+};
+
+/**
+ * Formats standard timeframe codes to canonical display conventions (e.g. 1m -> M1, 5m -> M5, 1h -> H1, D -> D1).
+ */
+export const formatTimeframeDisplay = (tf: string): string => {
+  if (!tf) return '';
+  if (tf.endsWith('m')) return `M${tf.slice(0, -1)}`;
+  if (tf.endsWith('h') || tf.endsWith('H')) return `H${tf.slice(0, -1)}`;
+  if (tf === 'D' || tf === 'd') return 'D1';
+  if (tf === 'W' || tf === 'w') return 'W1';
+  if (tf === 'M') return 'MN';
+  return tf.toUpperCase();
+};
+
+/**
+ * Formats a timestamp into standard Date Feedback representation: DD MMM YYYY HH:mm.
+ */
+export const formatDataRangeDate = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day} ${month} ${year} ${hours}:${minutes}`;
+};
+
+/**
+ * Progressively inspects higher timeframes in ascending order from currentTf
+ * until finding the first timeframe that contains candle data covering targetTimestamp.
+ */
+export const findCoveringHigherTimeframe = async (
+  currentTf: string,
+  symbol: string,
+  targetTimestamp: number,
+  allTimeframesData: Record<string, KLineData[]>,
+  getTimeframeData?: (symbol: string, tf: string) => Promise<KLineData[]>
+): Promise<string | null> => {
+  const currentMinutes = getTimeframeMinutes(currentTf);
+  const higherPresets = PRESET_TIMEFRAMES
+    .filter((p) => p.minutes > currentMinutes)
+    .sort((a, b) => a.minutes - b.minutes);
+
+  for (const preset of higherPresets) {
+    const tf = preset.value;
+
+    // 1. Check in-memory allTimeframesData
+    const memData = allTimeframesData[tf];
+    if (memData && memData.length > 0) {
+      if (memData[0].timestamp <= targetTimestamp) {
+        return tf;
+      }
+      continue;
+    }
+
+    // 2. Query provider / repository / cache if available
+    if (getTimeframeData && symbol) {
+      try {
+        const loadedData = await getTimeframeData(symbol, tf);
+        if (loadedData && loadedData.length > 0 && loadedData[0].timestamp <= targetTimestamp) {
+          return tf;
+        }
+      } catch {
+        // Proceed to next higher timeframe
+      }
+    }
+  }
+
+  return null;
 };

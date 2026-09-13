@@ -1,6 +1,7 @@
 import React from 'react';
 import { SlotFloatingTextOverlays } from './SlotFloatingTextOverlays';
 import { ActiveSessionBanners } from '@/features/session-display';
+import { InsufficientReplayDataOverlay } from './InsufficientReplayDataOverlay';
 
 interface ChartSlotProps {
   slotIndex: number;
@@ -20,6 +21,13 @@ interface ChartSlotProps {
   setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
   onSelectSlot: (index: number) => void;
   setContainerRef: (el: HTMLDivElement | null) => void;
+  isReplayActive?: boolean;
+  replayCurrentTimestamp?: number | null;
+  allTimeframesData?: Record<string, any[]>;
+  onShiftReplayToAvailableData?: (slotIndex: number) => void;
+  onMoveReplayToTimeframe?: (tf: string) => void;
+  getOrImportTimeframeData?: (symbol: string, tf: string) => Promise<any[]>;
+  isSwitchingTimeframe?: boolean;
 }
 
 export const ChartSlot: React.FC<ChartSlotProps> = ({
@@ -40,7 +48,24 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
   setDrawingTrigger,
   onSelectSlot,
   setContainerRef,
+  isReplayActive = false,
+  replayCurrentTimestamp = null,
+  allTimeframesData,
+  onShiftReplayToAvailableData,
+  onMoveReplayToTimeframe,
+  getOrImportTimeframeData,
+  isSwitchingTimeframe = false,
 }) => {
+  const tf = slotInfo?.timeframe || '';
+  const slotData = (allTimeframesData && tf && allTimeframesData[tf]) ? allTimeframesData[tf] : [];
+  const firstAvailableTimestamp = slotData.length > 0 ? slotData[0].timestamp : null;
+  const isInsufficientData = Boolean(
+    isReplayActive &&
+    replayCurrentTimestamp !== null &&
+    firstAvailableTimestamp !== null &&
+    replayCurrentTimestamp < firstAvailableTimestamp
+  );
+
   return (
     <div
       data-chart-slot-index={slotIndex}
@@ -59,7 +84,9 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
       <div
         ref={setContainerRef}
         data-chart-slot-inner="true"
-        className={`w-full h-full ${
+        className={`w-full h-full transition-opacity duration-200 ease-out ${
+          isSwitchingTimeframe && isActive ? 'opacity-35' : 'opacity-100'
+        } ${
           isSelectingCutPoint && isActive
             ? 'cursor-cell'
             : isSettingResetView && isActive
@@ -138,6 +165,21 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
         slotIndex={slotIndex}
         slotInfo={slotInfo}
       />
+
+      {/* Insufficient Replay Data Empty State Overlay */}
+      {isInsufficientData && slotInfo?.symbol && firstAvailableTimestamp !== null && replayCurrentTimestamp !== null && (
+        <InsufficientReplayDataOverlay
+          slotIndex={slotIndex}
+          symbol={slotInfo.symbol}
+          timeframe={tf}
+          replayCurrentTimestamp={replayCurrentTimestamp}
+          firstAvailableTimestamp={firstAvailableTimestamp}
+          allTimeframesData={allTimeframesData || {}}
+          getOrImportTimeframeData={getOrImportTimeframeData}
+          onShiftToAvailableData={onShiftReplayToAvailableData || (() => {})}
+          onMoveToTimeframe={onMoveReplayToTimeframe || (() => {})}
+        />
+      )}
 
       {/* Floating text inputs for TrendLines, Rectangles and Text tools */}
       <SlotFloatingTextOverlays
