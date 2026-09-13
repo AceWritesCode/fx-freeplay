@@ -8,6 +8,7 @@ import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
 import { ObjectTreeToolbar } from './object-tree/ObjectTreeToolbar';
 import { ObjectTreeEmptyState } from './object-tree/ObjectTreeEmptyState';
 import { DrawingTreeItem } from './object-tree/DrawingTreeItem';
+import { FolderTreeItem } from './object-tree/FolderTreeItem';
 
 /**
  * Pure predicate to filter out non-user drawings (sync copies, price lines, session breaks).
@@ -1191,223 +1192,92 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 const isSelected = childDrawings.length > 0 && childDrawings.every(d => selectedOverlayIds.includes(d.id));
 
                 return (
-                  <div
+                  <FolderTreeItem
                     key={folder.id}
-                    className="flex flex-col border border-transparent rounded-lg"
+                    id={folder.id}
+                    name={folder.name}
+                    isCollapsed={folder.isCollapsed}
+                    isLocked={folder.isLocked}
+                    isVisible={folder.isVisible}
+                    childCount={childDrawings.length}
+                    isSelected={isSelected}
+                    isActiveFolder={activeChart?._activeFolderId === folder.id}
+                    isDragOverFolder={dragOverFolderId === folder.id}
+                    isDragOverItem={dragOverItemId === folder.id}
+                    dragOverPosition={dragOverPosition}
+                    isDragging={isDragging}
+                    isRenaming={renamingId === folder.id}
+                    renameValue={renameValue}
+                    renameInputRef={renameInputRef}
+                    onRenameValueChange={setRenameValue}
+                    onFinishRename={handleFinishRename}
+                    onCancelRename={() => setRenamingId(null)}
+                    onStartRename={handleStartRename}
+                    onToggleCollapse={() => {
+                      setFolders(prev =>
+                        prev.map(f => (f.id === folder.id ? { ...f, isCollapsed: !f.isCollapsed } : f))
+                      );
+                    }}
+                    onClick={() => {
+                      if (activeChart) {
+                        activeChart._activeFolderId = activeChart._activeFolderId === folder.id ? null : folder.id;
+                        setDrawingTrigger(prev => prev + 1);
+                      }
+
+                      // Toggle folder selection: selects all children
+                      const childIds = childDrawings.map(d => d.id);
+                      if (childIds.length === 0) return;
+                      const hasAllSelected = childIds.every(id => selectedOverlayIds.includes(id));
+                      if (hasAllSelected) {
+                        setSelectedOverlayIds(prev => prev.filter(id => !childIds.includes(id)));
+                      } else {
+                        setSelectedOverlayIds(prev => Array.from(new Set([...prev, ...childIds])));
+                      }
+                    }}
+                    onToggleLock={() => handleToggleFolderLock(folder.id, folder.isLocked)}
+                    onToggleVisible={() => handleToggleFolderVisible(folder.id, folder.isVisible)}
+                    onDelete={() => handleDeleteFolder(folder.id)}
+                    onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
+                    onDragEnd={handleDragEnd}
+                    onDragOverFolder={(e) => handleDragOverFolder(e, folder.id)}
+                    onDragLeaveFolder={handleDragLeaveFolder}
+                    onDropOnFolder={(e) => handleDropOnFolder(e, folder.id)}
                   >
-                    {/* Folder Item Header */}
-                    <div
-                      draggable={true}
-                      onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={(e) => handleDragOverFolder(e, folder.id)}
-                      onDragLeave={handleDragLeaveFolder}
-                      onDrop={(e) => handleDropOnFolder(e, folder.id)}
-                      onClick={() => {
-                        if (activeChart) {
-                          activeChart._activeFolderId = activeChart._activeFolderId === folder.id ? null : folder.id;
-                          setDrawingTrigger(prev => prev + 1);
-                        }
-
-                        // Toggle folder selection: selects all children
-                        const childIds = childDrawings.map(d => d.id);
-                        if (childIds.length === 0) return;
-                        const hasAllSelected = childIds.every(id => selectedOverlayIds.includes(id));
-                        if (hasAllSelected) {
-                          setSelectedOverlayIds(prev => prev.filter(id => !childIds.includes(id)));
-                        } else {
-                          setSelectedOverlayIds(prev => Array.from(new Set([...prev, ...childIds])));
-                        }
-                      }}
-                      className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg border cursor-pointer transition-all ${
-                        isSelected
-                          ? 'bg-accent-muted border-accent/30 text-txt-primary'
-                          : activeChart?._activeFolderId === folder.id
-                          ? 'bg-status-success/10 border-status-success/30 text-txt-primary'
-                          : dragOverFolderId === folder.id
-                          ? 'bg-accent-muted border-accent/50 text-txt-primary'
-                          : 'border-transparent hover:bg-surface-hover text-txt-secondary'
-                      }`}
-                    >
-                      {/* Colored divider line representing the drop position for folder reordering */}
-                      {dragOverItemId === folder.id && (
-                        <div
-                          className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
-                            dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
-                          }`}
-                        />
-                      )}
-
-                      <div className={`flex items-center gap-2 min-w-0 ${isDragging ? 'pointer-events-none' : ''}`}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFolders(prev =>
-                              prev.map(f => (f.id === folder.id ? { ...f, isCollapsed: !f.isCollapsed } : f))
-                            );
-                          }}
-                          className="p-0.5 rounded hover:bg-surface-hover text-txt-muted hover:text-txt-primary"
-                        >
-                          {folder.isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        </button>
-
-                        <span className="text-accent flex-shrink-0">
-                          {folder.isCollapsed ? <Folder className="w-4 h-4" /> : <FolderOpen className="w-4 h-4" />}
-                        </span>
-
-                        {activeChart?._activeFolderId === folder.id && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse flex-shrink-0" title="Active folder for new drawings" />
-                        )}
-
-                        {renamingId === folder.id ? (
-                          <input
-                            ref={renameInputRef}
-                            type="text"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={() => handleFinishRename(folder.id, true)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleFinishRename(folder.id, true);
-                              if (e.key === 'Escape') setRenamingId(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-app-bg border border-accent rounded px-1.5 py-0.5 text-xs text-txt-primary outline-none w-28 font-normal"
-                          />
-                        ) : (
-                          <span
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
-                              handleStartRename(folder.id, folder.name);
-                            }}
-                            className="truncate text-xs font-semibold"
-                          >
-                            {folder.name}
-                          </span>
-                        )}
-
-                        {childDrawings.length > 0 && (
-                          <span className="text-[10px] text-txt-muted font-bold bg-surface-elevated/60 px-1.5 py-0.5 rounded-full border border-border-sub">
-                            {childDrawings.length}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Action buttons on hover */}
-                      <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isDragging ? 'pointer-events-none' : ''}`}>
-                        
-                        {/* Rename folder */}
-                        <button
-                          type="button"
-                          title="Rename folder"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartRename(folder.id, folder.name);
-                          }}
-                          className="p-1 rounded text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-
-                        {/* Lock folder */}
-                        <button
-                          type="button"
-                          title={folder.isLocked ? "Unlock folder" : "Lock folder"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleFolderLock(folder.id, folder.isLocked);
-                          }}
-                          className={`p-1 rounded transition-colors ${
-                            folder.isLocked
-                              ? 'text-accent hover:text-accent/80 bg-accent-muted'
-                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                          }`}
-                        >
-                          {folder.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                        </button>
-
-                        {/* Toggle visible */}
-                        <button
-                          type="button"
-                          title={folder.isVisible ? "Hide folder" : "Show folder"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleFolderVisible(folder.id, folder.isVisible);
-                          }}
-                          className={`p-1 rounded transition-colors ${
-                            !folder.isVisible
-                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                          }`}
-                        >
-                          {folder.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                        </button>
-
-                        {/* Delete folder */}
-                        <button
-                          type="button"
-                          title="Delete folder and drawings"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteFolder(folder.id);
-                          }}
-                          className="p-1 rounded text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
-                        >
-                          <DeleteIcon className="w-3.5 h-3.5 text-current" />
-                        </button>
-
-                      </div>
-                    </div>
-
-                    {/* Child Drawings List */}
-                    {!folder.isCollapsed && (
-                      <div
-                        className="pl-6 pr-1 py-0.5 space-y-0.5 border-l border-border-sub ml-4 mt-0.5"
-                        onDragOver={(e) => handleDragOverFolder(e, folder.id)}
-                        onDragLeave={handleDragLeaveFolder}
-                        onDrop={(e) => handleDropOnFolder(e, folder.id)}
-                      >
-                        {childDrawings.length === 0 ? (
-                          <div className="text-[10px] text-txt-muted italic py-1 pl-2">Empty folder</div>
-                        ) : (
-                          childDrawings.map(d => (
-                            <DrawingTreeItem
-                              key={d.id}
-                              id={d.id}
-                              name={d.name}
-                              label={getDrawingLabel(d)}
-                              icon={getDrawingIcon(d.name)}
-                              variant="folderChild"
-                              isSelected={selectedOverlayIds.includes(d.id)}
-                              isHovered={d.extendData?.isHovered || false}
-                              isLocked={d.lock || false}
-                              isVisible={d.visible !== false}
-                              isDragOver={dragOverItemId === d.id}
-                              dragOverPosition={dragOverPosition}
-                              isRenaming={renamingId === d.id}
-                              renameValue={renameValue}
-                              renameInputRef={renameInputRef}
-                              onRenameValueChange={setRenameValue}
-                              onFinishRename={handleFinishRename}
-                              onCancelRename={() => setRenamingId(null)}
-                              onStartRename={handleStartRename}
-                              onSelect={handleItemSelect}
-                              onMouseEnter={handleMouseEnterItem}
-                              onMouseLeave={handleMouseLeaveItem}
-                              onToggleLock={handleToggleDrawingLock}
-                              onToggleVisible={handleToggleDrawingVisible}
-                              onDelete={handleDeleteDrawing}
-                              onDragStart={handleDragStart}
-                              onDragEnd={handleDragEnd}
-                              onDragOver={handleDragOverItem}
-                              onDragLeave={handleDragLeaveItem}
-                              onDrop={handleDropOnItem}
-                            />
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                    {childDrawings.map(d => (
+                      <DrawingTreeItem
+                        key={d.id}
+                        id={d.id}
+                        name={d.name}
+                        label={getDrawingLabel(d)}
+                        icon={getDrawingIcon(d.name)}
+                        variant="folderChild"
+                        isSelected={selectedOverlayIds.includes(d.id)}
+                        isHovered={d.extendData?.isHovered || false}
+                        isLocked={d.lock || false}
+                        isVisible={d.visible !== false}
+                        isDragOver={dragOverItemId === d.id}
+                        dragOverPosition={dragOverPosition}
+                        isRenaming={renamingId === d.id}
+                        renameValue={renameValue}
+                        renameInputRef={renameInputRef}
+                        onRenameValueChange={setRenameValue}
+                        onFinishRename={handleFinishRename}
+                        onCancelRename={() => setRenamingId(null)}
+                        onStartRename={handleStartRename}
+                        onSelect={handleItemSelect}
+                        onMouseEnter={handleMouseEnterItem}
+                        onMouseLeave={handleMouseLeaveItem}
+                        onToggleLock={handleToggleDrawingLock}
+                        onToggleVisible={handleToggleDrawingVisible}
+                        onDelete={handleDeleteDrawing}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={handleDragOverItem}
+                        onDragLeave={handleDragLeaveItem}
+                        onDrop={handleDropOnItem}
+                      />
+                    ))}
+                  </FolderTreeItem>
                 );
               } else if (item.type === 'candles') {
                 const isVisible = activeChart ? (activeChart._showCandles !== false) : true;
