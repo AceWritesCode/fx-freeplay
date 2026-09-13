@@ -112,7 +112,7 @@ Custom runtime properties attached directly to KLineCharts instances:
 ### IndexedDB (`FXFreeplayDB`, Version 1)
 Managed in `src/repository/db.ts`:
 
-* `drawings`: Drawings keyed by uppercase symbol (`"EURUSD"`). Folders stored under `"FOLDERS_${symbol}"`.
+* `drawings`: Drawings keyed by uppercase symbol (`"EURUSD"`). Folders stored under `"FOLDERS_${symbol}"`. Canonical order state stored under `"ORDER_${symbol}"` (`SymbolOrderRecord`).
 * `market_bars`: Cached historical OHLC candle data per symbol and timeframe.
 * `watchlist`: Saved user watchlist items and order.
 * `workspace_layout`: Multi-chart layout configuration and active slots.
@@ -160,10 +160,15 @@ Managed in `src/repository/db.ts`:
      - **Folder contiguity invariant:** Folders are logical containers (`drawing.extendData.folderId`); all drawings belonging to the same folder form a single, contiguous block in `sequence`.
      - Pure ordering operations: `validateOrderSequence`, `normalizeOrderSequence`, `repairFolderContiguity`, `bringToFront`, `sendToBack`, `bringForward`, `sendBackward`, `moveFolderBlock`, `moveDrawingIntoFolder`, `moveDrawingOutOfFolder`, `insertDrawing`, `duplicateDrawing`, `deleteFromSequence`.
      - Store integration in `src/store/useDrawingStore.ts`: `orderStateBySymbol`, `getSymbolOrderSequence`, `setSymbolOrderSequence`, `reorderSymbolItem`, `moveSymbolFolderBlock`, `moveSymbolDrawingFolder`.
-   * **Migration & Runtime Status:**
-     - Legacy `extendData.order` (multiples of 100) and `activeChart._candlesOrder` remain intact and functional for backward compatibility during migration.
+   * **Phase 2B Persistence & Migration (`src/repository/types.ts`, `DrawingRepositoryImpl.ts`, `useDrawingStore.ts`):**
+     - Repository DTO `SymbolOrderRecord { symbol: string; sequence: string[]; candlesVisible: boolean }` avoids inverted layer dependencies.
+     - Persisted under key `"ORDER_${symbol.toUpperCase()}"` in IndexedDB store `drawings`.
+     - Pure deterministic migration `migrateLegacyOrderToCanonical()`: uses legacy `drawing.extendData.order` (descending) as primary ordering source, unranked drawings sort to top (`Infinity`), deterministic ID tie-breaking, folder contiguity repaired by clustering children around highest-ranked child, and `'candles'` sentinel placed bottommost by default.
+     - Store lifecycle `loadSymbolOrderState(symbol)`: loads existing canonical state from repository if present, normalizes against current drawings/folders, or automatically runs legacy migration and persists when no canonical state exists yet.
+     - Mutators (`setSymbolOrderSequence`) automatically persist canonical state through repository.
+     - Full compatibility: legacy `extendData.order` and `folder.order` are preserved completely untouched.
+   * **Runtime Status:**
      - **Runtime z-level projection is NOT implemented yet.** `_candlesOrder` remains legacy/runtime-only for now.
-     - **Phase 2B** will handle persistence and migration to/from repository.
      - **Phase 2C** will handle runtime z-level projection and canvas synchronization without overlay recreation.
 3. **Physical Canvas Separation for Candlesticks:**
    * Candlesticks live on `_mainCanvas` (DOM layer 0). Overlays live on `_overlayCanvas` (DOM layer 1).
