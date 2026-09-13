@@ -64,32 +64,14 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const activeChart = chartInstancesRef.current[activeChartIndex];
   const [drawings, setDrawings] = useState<any[]>([]);
 
-  // Load and sync folders per symbol
+  // Load and sync folders per symbol via store
   useEffect(() => {
     if (!activeSymbol) {
       setFolders([]);
       return;
     }
-    drawingRepository
-      .getFolders(activeSymbol)
-      .then((items) => {
-        const initialized = (items || []).map((f: any, idx: number) => ({
-          ...f,
-          order: f.order ?? ((items || []).length - idx) * 100,
-        }));
-        setFolders(initialized);
-      })
-      .catch(() => {
-        setFolders([]);
-      });
+    useDrawingStore.getState().loadSymbolFolders(activeSymbol);
   }, [activeSymbol, setFolders]);
-
-  // Persist folders
-  useEffect(() => {
-    if (activeSymbol && folders.length > 0) {
-      drawingRepository.saveFolders(activeSymbol, folders);
-    }
-  }, [folders, activeSymbol]);
 
   // Automatically delete folders that have 0 drawings in them
   useEffect(() => {
@@ -104,9 +86,13 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     const nonMockFolders = folders.filter(f => activeFolderIds.has(f.id));
     
     if (nonMockFolders.length !== folders.length) {
-      setFolders(nonMockFolders);
+      if (activeSymbol) {
+        useDrawingStore.getState().saveSymbolFolders(activeSymbol, nonMockFolders);
+      } else {
+        setFolders(nonMockFolders);
+      }
     }
-  }, [drawings, folders, setFolders]);
+  }, [drawings, folders, setFolders, activeSymbol]);
 
   // Helper to recalculate unified order and recreate all overlays on activeChart.
   // Visual canvas stacking order = creation order: created first = underneath, created last = on top.
@@ -217,8 +203,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     });
 
     // 6. Save and update react states
-    setFolders(nextFolders);
-    drawingRepository.saveFolders(activeSymbol, nextFolders);
+    if (activeSymbol) {
+      useDrawingStore.getState().saveSymbolFolders(activeSymbol, nextFolders);
+    } else {
+      setFolders(nextFolders);
+    }
     syncAllDrawings();
     setDrawingTrigger(prev => prev + 1);
   };
@@ -319,8 +308,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     });
 
     activeChart._candlesOrder = newCandlesOrder;
-    setFolders(nextFolders);
-    drawingRepository.saveFolders(activeSymbol, nextFolders);
+    if (activeSymbol) {
+      useDrawingStore.getState().saveSymbolFolders(activeSymbol, nextFolders);
+    } else {
+      setFolders(nextFolders);
+    }
   }, [activeChart, folders, drawings, activeSymbol]);
 
   // Read drawings from chart
@@ -361,65 +353,23 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Create a new folder
   const handleCreateFolder = () => {
-    const maxOrder = Math.max(
-      0,
-      ...folders.map(f => f.order ?? 0),
-      ...drawings.map(d => d.extendData?.order ?? 0)
-    );
-    const newFolder: FolderItem = {
-      id: `folder_${Date.now()}`,
-      name: `Folder ${folders.length + 1}`,
-      isCollapsed: false,
-      isLocked: false,
-      isVisible: true,
-      order: maxOrder + 10,
-    };
-    const nextFolders = [...folders, newFolder];
-    setFolders(nextFolders);
-    if (activeSymbol) {
-      drawingRepository.saveFolders(activeSymbol, nextFolders);
-    }
+    if (!activeSymbol) return;
+    const newFolder = useDrawingStore.getState().createSymbolFolder(activeSymbol, undefined, selectedOverlayIds);
 
-    // If there are selected drawings, immediately move them to this folder in store & IndexedDB
-    if (selectedOverlayIds.length > 0) {
-      if (activeSymbol) {
-        const symbolKey = activeSymbol.toUpperCase();
-        const storeDrawings = useDrawingStore.getState().drawingsBySymbol[symbolKey] || [];
-        const nextStoreDrawings = storeDrawings.map((d) => {
-          if (selectedOverlayIds.includes(d.id)) {
-            return {
-              ...d,
-              extendData: {
-                ...(d.extendData || {}),
-                folderId: newFolder.id,
-              },
-            };
-          }
-          return d;
-        });
-        useDrawingStore.setState((state) => ({
-          drawingsBySymbol: {
-            ...state.drawingsBySymbol,
-            [symbolKey]: nextStoreDrawings,
-          },
-        }));
-        drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
-      }
-
-      if (activeChart) {
-        selectedOverlayIds.forEach(id => {
-          const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
-          if (overlay) {
-            activeChart.overrideOverlay({
-              id,
-              extendData: {
-                ...overlay.extendData,
-                folderId: newFolder.id,
-              },
-            });
-          }
-        });
-      }
+    // If there are selected drawings, immediately update live chart overlays if activeChart exists
+    if (selectedOverlayIds.length > 0 && activeChart) {
+      selectedOverlayIds.forEach(id => {
+        const overlay = activeChart.getOverlays().find((o: any) => o.id === id);
+        if (overlay) {
+          activeChart.overrideOverlay({
+            id,
+            extendData: {
+              ...overlay.extendData,
+              folderId: newFolder.id,
+            },
+          });
+        }
+      });
       syncAllDrawings();
       setDrawingTrigger(prev => prev + 1);
     }
@@ -427,48 +377,20 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Delete a folder
   const handleDeleteFolder = (folderId: string) => {
-    // Remove folder
-    setFolders(prev => prev.filter(f => f.id !== folderId));
-
-    // Remove folderId reference from child drawings in store
     if (activeSymbol) {
-      const drawings = useDrawingStore.getState().getSymbolDrawings(activeSymbol);
-      drawings.forEach((d) => {
-        if (d.extendData?.folderId === folderId) {
-          useDrawingStore.getState().updateSymbolDrawing(activeSymbol, d.id, {
-            extendData: {
-              ...(d.extendData || {}),
-              folderId: null,
-            },
-          });
-        }
-      });
+      useDrawingStore.getState().deleteSymbolFolder(activeSymbol, folderId);
+    } else {
+      useDrawingStore.getState().removeFolder(folderId);
     }
   };
 
   // Toggle folder visible status
   const handleToggleFolderVisible = (folderId: string, currentVisible: boolean) => {
     const nextVisible = !currentVisible;
-    setFolders(prev =>
-      prev.map(f => (f.id === folderId ? { ...f, isVisible: nextVisible } : f))
-    );
-
     if (activeSymbol) {
-      const symbolKey = activeSymbol.toUpperCase();
-      const drawings = useDrawingStore.getState().getSymbolDrawings(symbolKey);
-      const updatedList = drawings.map((d) => {
-        if (d.extendData?.folderId === folderId) {
-          return { ...d, visible: nextVisible };
-        }
-        return d;
-      });
-      useDrawingStore.setState((state) => ({
-        drawingsBySymbol: {
-          ...state.drawingsBySymbol,
-          [symbolKey]: updatedList,
-        },
-      }));
-      drawingRepository.saveDrawings(symbolKey, updatedList);
+      useDrawingStore.getState().setFolderVisibility(activeSymbol, folderId, nextVisible);
+    } else {
+      setFolders(prev => prev.map(f => (f.id === folderId ? { ...f, isVisible: nextVisible } : f)));
     }
 
     if (activeChart) {
@@ -489,26 +411,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   // Toggle folder lock status
   const handleToggleFolderLock = (folderId: string, currentLocked: boolean) => {
     const nextLocked = !currentLocked;
-    setFolders(prev =>
-      prev.map(f => (f.id === folderId ? { ...f, isLocked: nextLocked } : f))
-    );
-
     if (activeSymbol) {
-      const symbolKey = activeSymbol.toUpperCase();
-      const drawings = useDrawingStore.getState().getSymbolDrawings(symbolKey);
-      const updatedList = drawings.map((d) => {
-        if (d.extendData?.folderId === folderId) {
-          return { ...d, lock: nextLocked };
-        }
-        return d;
-      });
-      useDrawingStore.setState((state) => ({
-        drawingsBySymbol: {
-          ...state.drawingsBySymbol,
-          [symbolKey]: updatedList,
-        },
-      }));
-      drawingRepository.saveDrawings(symbolKey, updatedList);
+      useDrawingStore.getState().setFolderLock(activeSymbol, folderId, nextLocked);
+    } else {
+      setFolders(prev => prev.map(f => (f.id === folderId ? { ...f, isLocked: nextLocked } : f)));
     }
 
     if (activeChart) {
@@ -1110,10 +1016,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     const newName = renameValue.trim();
 
     if (isFolder) {
-      const nextFolders = folders.map(f => (f.id === id ? { ...f, name: newName } : f));
-      setFolders(nextFolders);
       if (activeSymbol) {
-        drawingRepository.saveFolders(activeSymbol, nextFolders);
+        useDrawingStore.getState().updateSymbolFolder(activeSymbol, id, { name: newName });
+      } else {
+        useDrawingStore.getState().updateFolder(id, { name: newName });
       }
     } else {
       if (activeSymbol) {

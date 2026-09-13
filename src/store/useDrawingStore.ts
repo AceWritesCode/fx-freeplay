@@ -37,6 +37,11 @@ interface DrawingState {
   // Folder & Selection Actions
   loadSymbolFolders: (symbol: string) => Promise<FolderItem[]>;
   saveSymbolFolders: (symbol: string, folders: FolderItem[]) => Promise<void>;
+  createSymbolFolder: (symbol: string, folder?: Partial<FolderItem>, assignedDrawingIds?: string[]) => FolderItem;
+  updateSymbolFolder: (symbol: string, id: string, updates: Partial<FolderItem>) => void;
+  deleteSymbolFolder: (symbol: string, folderId: string) => void;
+  setFolderVisibility: (symbol: string, folderId: string, isVisible: boolean) => void;
+  setFolderLock: (symbol: string, folderId: string, isLocked: boolean) => void;
   setFolders: (folders: FolderItem[] | ((prev: FolderItem[]) => FolderItem[])) => void;
   addFolder: (folder: FolderItem) => void;
   updateFolder: (id: string, updates: Partial<FolderItem>) => void;
@@ -243,13 +248,21 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
   },
 
   loadSymbolFolders: async (symbol: string) => {
-    if (!symbol) return [];
+    if (!symbol) {
+      set({ folders: [] });
+      return [];
+    }
     try {
       const loaded = await drawingRepository.getFolders(symbol);
-      set({ folders: loaded });
-      return loaded;
+      const initialized = (loaded || []).map((f: any, idx: number) => ({
+        ...f,
+        order: f.order ?? ((loaded || []).length - idx) * 100,
+      }));
+      set({ folders: initialized });
+      return initialized;
     } catch (err) {
       console.error(`[useDrawingStore] Failed to load folders for ${symbol}:`, err);
+      set({ folders: [] });
       return [];
     }
   },
@@ -257,7 +270,176 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
   saveSymbolFolders: async (symbol: string, folders: FolderItem[]) => {
     if (!symbol) return;
     set({ folders });
-    await drawingRepository.saveFolders(symbol, folders);
+    await drawingRepository.saveFolders(symbol.toUpperCase(), folders);
+  },
+
+  createSymbolFolder: (symbol: string, folder?: Partial<FolderItem>, assignedDrawingIds?: string[]) => {
+    const symbolKey = (symbol || '').toUpperCase();
+    const currentFolders = get().folders;
+    const symbolDrawings = symbolKey ? (get().drawingsBySymbol[symbolKey] || []) : [];
+    const maxOrder = Math.max(
+      0,
+      ...currentFolders.map((f) => f.order ?? 0),
+      ...symbolDrawings.map((d) => d.extendData?.order ?? 0)
+    );
+
+    const newFolder: FolderItem = {
+      id: folder?.id || `folder_${Date.now()}`,
+      name: folder?.name || `Folder ${currentFolders.length + 1}`,
+      isCollapsed: folder?.isCollapsed ?? false,
+      isLocked: folder?.isLocked ?? false,
+      isVisible: folder?.isVisible ?? true,
+      order: folder?.order ?? (maxOrder + 10),
+    };
+
+    const nextFolders = [...currentFolders, newFolder];
+    let nextStoreDrawings = symbolDrawings;
+
+    if (symbolKey && assignedDrawingIds && assignedDrawingIds.length > 0) {
+      nextStoreDrawings = symbolDrawings.map((d) => {
+        if (assignedDrawingIds.includes(d.id)) {
+          return {
+            ...d,
+            extendData: {
+              ...(d.extendData || {}),
+              folderId: newFolder.id,
+            },
+          };
+        }
+        return d;
+      });
+    }
+
+    set((state) => ({
+      folders: nextFolders,
+      drawingsBySymbol: (symbolKey && assignedDrawingIds && assignedDrawingIds.length > 0) ? {
+        ...state.drawingsBySymbol,
+        [symbolKey]: nextStoreDrawings,
+      } : state.drawingsBySymbol,
+    }));
+
+    if (symbolKey) {
+      drawingRepository.saveFolders(symbolKey, nextFolders);
+      if (assignedDrawingIds && assignedDrawingIds.length > 0) {
+        drawingRepository.saveDrawings(symbolKey, nextStoreDrawings);
+      }
+    }
+
+    return newFolder;
+  },
+
+  updateSymbolFolder: (symbol: string, id: string, updates: Partial<FolderItem>) => {
+    if (!id) return;
+    const nextFolders = get().folders.map((f) => (f.id === id ? { ...f, ...updates } : f));
+    set({ folders: nextFolders });
+    if (symbol) {
+      drawingRepository.saveFolders(symbol.toUpperCase(), nextFolders);
+    }
+  },
+
+  deleteSymbolFolder: (symbol: string, folderId: string) => {
+    if (!folderId) return;
+    const symbolKey = (symbol || '').toUpperCase();
+    const nextFolders = get().folders.filter((f) => f.id !== folderId);
+    let nextDrawings = symbolKey ? (get().drawingsBySymbol[symbolKey] || []) : [];
+    let hasModified = false;
+
+    if (symbolKey) {
+      nextDrawings = nextDrawings.map((d) => {
+        if (d.extendData?.folderId === folderId) {
+          hasModified = true;
+          return {
+            ...d,
+            extendData: {
+              ...(d.extendData || {}),
+              folderId: null,
+            },
+          };
+        }
+        return d;
+      });
+    }
+
+    set((state) => ({
+      folders: nextFolders,
+      drawingsBySymbol: (symbolKey && hasModified) ? {
+        ...state.drawingsBySymbol,
+        [symbolKey]: nextDrawings,
+      } : state.drawingsBySymbol,
+    }));
+
+    if (symbolKey) {
+      drawingRepository.saveFolders(symbolKey, nextFolders);
+      if (hasModified) {
+        drawingRepository.saveDrawings(symbolKey, nextDrawings);
+      }
+    }
+  },
+
+  setFolderVisibility: (symbol: string, folderId: string, isVisible: boolean) => {
+    if (!folderId) return;
+    const symbolKey = (symbol || '').toUpperCase();
+    const nextFolders = get().folders.map((f) => (f.id === folderId ? { ...f, isVisible } : f));
+    let nextDrawings = symbolKey ? (get().drawingsBySymbol[symbolKey] || []) : [];
+    let hasModified = false;
+
+    if (symbolKey) {
+      nextDrawings = nextDrawings.map((d) => {
+        if (d.extendData?.folderId === folderId) {
+          hasModified = true;
+          return { ...d, visible: isVisible };
+        }
+        return d;
+      });
+    }
+
+    set((state) => ({
+      folders: nextFolders,
+      drawingsBySymbol: (symbolKey && hasModified) ? {
+        ...state.drawingsBySymbol,
+        [symbolKey]: nextDrawings,
+      } : state.drawingsBySymbol,
+    }));
+
+    if (symbolKey) {
+      drawingRepository.saveFolders(symbolKey, nextFolders);
+      if (hasModified) {
+        drawingRepository.saveDrawings(symbolKey, nextDrawings);
+      }
+    }
+  },
+
+  setFolderLock: (symbol: string, folderId: string, isLocked: boolean) => {
+    if (!folderId) return;
+    const symbolKey = (symbol || '').toUpperCase();
+    const nextFolders = get().folders.map((f) => (f.id === folderId ? { ...f, isLocked } : f));
+    let nextDrawings = symbolKey ? (get().drawingsBySymbol[symbolKey] || []) : [];
+    let hasModified = false;
+
+    if (symbolKey) {
+      nextDrawings = nextDrawings.map((d) => {
+        if (d.extendData?.folderId === folderId) {
+          hasModified = true;
+          return { ...d, lock: isLocked };
+        }
+        return d;
+      });
+    }
+
+    set((state) => ({
+      folders: nextFolders,
+      drawingsBySymbol: (symbolKey && hasModified) ? {
+        ...state.drawingsBySymbol,
+        [symbolKey]: nextDrawings,
+      } : state.drawingsBySymbol,
+    }));
+
+    if (symbolKey) {
+      drawingRepository.saveFolders(symbolKey, nextFolders);
+      if (hasModified) {
+        drawingRepository.saveDrawings(symbolKey, nextDrawings);
+      }
+    }
   },
 
   setFolders: (folders) =>
