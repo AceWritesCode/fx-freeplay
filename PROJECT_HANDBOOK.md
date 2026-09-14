@@ -337,12 +337,27 @@ Geometry
 Data Processing
 
 Persistence
-
+ 
 Timeframe utilities
 
 README files
 
 Barrel exports
+
+### Phase 2C — Canonical Drawing & Z-Order Architecture
+
+Completed:
+
+-   Pure Canonical Order Engine (`orderEngine.ts`) with `sequence: string[]` containing drawing IDs and `'candles'` singleton sentinel.
+-   Folder contiguity invariant maintained across all reorder operations.
+-   Canonical persistence via `SymbolOrderRecord` in IndexedDB (`DrawingRepositoryImpl`).
+-   Deterministic legacy-to-canonical migration (`migrateLegacyOrderToCanonical`).
+-   Non-recreating runtime z-level projection (`drawingReconciler.ts` -> `drawingChartAdapter.ts`).
+-   Temporary visual elevation isolation via `_promotedOverlayInfo` (anchor hover, Object Tree hover, edit mode).
+-   Reconciliation protection preserving base z-levels during active promotions.
+-   Object Tree hierarchy derived directly from canonical sequence (`buildTreeHierarchyFromCanonical`).
+-   Object Tree drag-and-drop driving canonical mutations (`setSymbolOrderSequence`, `moveSymbolFolderBlock`, `moveSymbolDrawingFolder`).
+-   Decommissioning of legacy order writes (`recalculateAndRecreateOverlays` and order normalization effects removed).
 
 Git milestone
 
@@ -550,6 +565,18 @@ A high-level view of the major architectural subsystems:
 -   **Replay Engine**: Core deterministic, index-based timeline state and execution manager.
 -   **Persistence Platform**: Abstraction layer coordinating watchlists, layout syncs, visual configurations, and OHLCV stores.
 -   **Drawing Framework**: Extensible shapes overlay framework rendering lines, zones, and markups.
+-   **Canonical Drawing & Z-Order Architecture (Phase 2C)**:
+    - `orderStateBySymbol.sequence` is the permanent single source of truth for Object Tree ordering, drawing z-level projection, drag/drop reordering, and persistence.
+    - `sequence` contains drawing IDs and the `'candles'` singleton sentinel (index `0` = topmost/front; last index = bottommost/back).
+    - Folder children remain contiguous in `sequence`.
+    - Folders themselves do not consume canonical drawing-order slots; their positions are derived from their child blocks.
+    - `extendData.order` remains only as legacy/compatibility creation metadata and is never used as an ordering source of truth.
+    - `folder.order` remains only for empty-folder UI placement/sorting compatibility.
+    - `_candlesOrder` is legacy and no longer written; any remaining read fallback exists solely for backwards-compatible empty-folder placement.
+    - `_promotedOverlayInfo` is temporary runtime visual state only (anchor hover, Object Tree hover, active edit mode) and never modifies canonical sequence or persistent storage.
+    - Object Tree drag-and-drop modifies canonical `sequence` through store actions (`setSymbolOrderSequence`, `moveSymbolFolderBlock`, `moveSymbolDrawingFolder`).
+    - Object Tree hover and edit-mode selection temporarily elevate visual z-level and cleanly restore natural canonical z-level afterward.
+    - Reconciliation projects canonical order to runtime z-levels via `drawingChartAdapter.overrideOverlay` without destroying overlays, while protecting active temporary promotions.
 -   **Chart Synchronization**: Synchronized multi-chart splits managing scrolling offsets and crosshairs.
 -   **Research Platform (Upcoming)**: Lab tools for testing and validating trading strategies.
 -   **Analytics Platform (Upcoming)**: Execution reports and metrics generation.
@@ -641,6 +668,12 @@ Key Decisions
     - *ReplayBookmark*: References points in history with user metadata (label, note) for timeline review.
     - *ReplayCheckpoint*: Represents replay execution state snapshots to restore indices, ranges, and status.
     - *Concept Divergence*: Currently sharing implementation, they represent separate domain entities and will diverge as looping, viewport, or context snapshots are added.
+-   Canonical Order & Temporary Visual Promotion Architecture (Phase 2C):
+    - *Single Source of Truth*: `orderStateBySymbol.sequence` in `useDrawingStore` is the sole authority for drawing order, Object Tree representation, runtime z-level projection, and persistence.
+    - *View-Layer Isolation*: Runtime visual elevation for anchor hover, Object Tree hover, and active drawing edit sessions uses `_promotedOverlayInfo` (managed via `DrawingChartAdapter`). It overrides KLineCharts overlay `zLevel` directly at runtime and never mutates canonical sequence or IndexedDB storage.
+    - *Reconciliation Protection*: `reconcileChartSlotOverlays` calculates base `zLevel` from canonical sequence and updates overlays without recreation. When an overlay is actively promoted, reconciler updates its stored `originalZLevel` to maintain accurate restoration upon unhover/deselection.
+    - *Contiguity Invariant*: Drawing items belonging to a folder remain contiguous in `sequence`. Folders do not occupy drawing sequence slots.
+    - *Legacy Order Decommissioning*: `_candlesOrder` write paths removed; `recalculateAndRecreateOverlays` and order normalization effects removed from `ObjectTreePanel`. Legacy `extendData.order` preserved strictly for creation metadata; `folder.order` preserved strictly for empty-folder UI placement.
 -   Intentional Architectural Debt: The browser-backed persistence driver serves as a proxy driver under the repository interface. This driver is temporary and will be replaced with native SQLite during Tauri migration.
 
 ------------------------------------------------------------------------
@@ -661,6 +694,7 @@ Completed
 -   State Architecture (Phase 3)
 -   Persistence Platform (Phase 4)
 -   Replay Framework (Phase 5)
+-   Canonical Drawing & Z-Order Architecture (Phase 2C)
 
 Current Focus
 

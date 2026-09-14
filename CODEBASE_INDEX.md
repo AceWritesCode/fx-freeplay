@@ -14,16 +14,16 @@
 | **Drawing Reconciliation** | `src/engine/charting/drawingReconciler.ts` | Engine (`desiredOverlays` Map diff) | Idempotent diffing: syncs Zustand drawings into live KLineCharts overlays per chart slot. |
 | **Chart Adapter** | `src/engine/charting/drawingChartAdapter.ts` | Stateless View Driver | Direct imperative KLineCharts API wrapper (`createOverlay`, `overrideOverlay`, `removeOverlay`). |
 | **Gesture & Mode Authority** | `src/framework/interaction/MarqueeSelectionHandler.ts` | Interaction Engine (`isExclusiveMarqueeMode`) | Enforces exclusive Ctrl+drag marquee mode; locks out drawing body/anchor drags. |
-| **Hover & Anchor Priority** | `src/framework/interaction/useDrawingHoverCursor.ts` | Interaction Hook (`_promotedOverlayInfo`) | Hit testing, cursor styling, control anchor generation, temporary hidden-anchor z-promotion. |
+| **Hover & Anchor Priority** | `src/framework/interaction/useDrawingHoverCursor.ts` | Interaction Hook (`_promotedOverlayInfo`) | Hit testing, cursor styling, control anchor generation, temporary hidden-anchor z-promotion via DrawingChartAdapter. |
 | **Drawing Event Callbacks** | `src/utils/overlays.ts` | Shared Utility (`getInteractiveOverlayOptions`) | KLineCharts overlay lifecycle hooks (`onPressedMoveStart`, `onPressedMoving`, `onPressedMoveEnd`, `onClick`). |
-| **Object Tree / Hierarchy** | `src/components/ObjectTreePanel.tsx` | Component State + `extendData.order` | Tree orchestrator & interaction layer. Decomposed into `src/components/object-tree/` presentation components (`ObjectTreeToolbar`, `ObjectTreeEmptyState`, `DrawingTreeItem`, `FolderTreeItem`). |
+| **Object Tree / Hierarchy** | `src/components/ObjectTreePanel.tsx` | Zustand (`orderStateBySymbol.sequence`) via `buildTreeHierarchyFromCanonical` | Tree orchestrator & interaction layer. Decomposed into `src/components/object-tree/` presentation components (`ObjectTreeToolbar`, `ObjectTreeEmptyState`, `DrawingTreeItem`, `FolderTreeItem`). Renders tree derived purely from canonical sequence. |
 | **Viewport & Timeframe** | `src/features/chart-workspace/useChartViewport.ts` | Viewport Hook (`handleTimeframeSwitch`) | Timeframe transition: preserves historical spatial position, barSpace, and Y-axis scale mode. |
 | **Session Display (Engine)** | `src/features/session-display/engine/calculateSessionOccurrences.ts` | Domain Engine (Pure functional) | Generates UTC bounding timestamps for trading sessions across DST and timezone boundaries. |
 | **Session Display (Render)** | `src/features/session-display/renderer/sessionBackgroundIndicator.ts` | KLineCharts Indicator (`zLevel: -1`) | Renders session boxes behind candles via `ctx.globalCompositeOperation = 'destination-over'`. |
 | **Replay & Backtesting** | `src/engine/replay/ReplayEngineImpl.ts` | `useReplayStore.ts` + `ReplaySessionImpl.ts` | Historical bar slicing, step navigation, play/pause ticker, cutpoint timeline tracking. |
 | **Multi-Chart Sync (Layout)** | `src/coordinator/chartLayoutCoordinator.ts` | `useLayoutStore.ts` + `syncEngine.ts` | Crosshair, time, scroll, and zoom synchronization across multi-pane slot layouts. |
 | **Multi-Chart Sync (Drawings)**| `src/engine/charting/drawingSyncEngine.ts` | Engine (`syncAllDrawings`) | Replicates drawings across chart slots and transforms slot-specific coordinates. |
-| **Canonical Order Engine** | `src/engine/charting/orderEngine.ts` | Domain Engine (Pure functional) + `useDrawingStore` (`orderStateBySymbol`) | Symbol-level canonical ordering foundation (`SymbolOrderState`, `sequence: string[]` containing drawing IDs and `'candles'` singleton sentinel, folder contiguity invariant, pure reordering operations). |
+| **Canonical Order & Z-Stacking** | `src/engine/charting/orderEngine.ts` | Domain Engine (Pure functional) + `useDrawingStore` (`orderStateBySymbol`) | Canonical ordering authority (`SymbolOrderState`, `sequence: string[]` containing drawing IDs and `'candles'` singleton sentinel, folder contiguity invariant, pure reordering operations). Drives runtime z-level projection in `drawingReconciler.ts` and tree hierarchy in `ObjectTreePanel.tsx`. Protects temporary visual promotion (`_promotedOverlayInfo`). |
 
 ---
 
@@ -36,9 +36,9 @@
 * **To modify marquee selection or multi-select exclusivity:**  
   $\rightarrow$ Start at `src/framework/interaction/MarqueeSelectionHandler.ts`.
 * **To modify drawing z-order or visual canvas stacking:**  
-  $\rightarrow$ Start at `src/store/useDrawingStore.ts` & `src/engine/charting/drawingReconciler.ts`.
+  $\rightarrow$ Start at `src/store/useDrawingStore.ts` (`setSymbolOrderSequence`) & `src/engine/charting/drawingReconciler.ts` (`calculateZLevelsFromSequence`).
 * **To modify Object Tree UI, folder management, or tree drag-and-drop:**  
-  $\rightarrow$ Start at `src/components/ObjectTreePanel.tsx`.
+  $\rightarrow$ Start at `src/components/ObjectTreePanel.tsx` and `src/engine/charting/orderEngine.ts` (`buildTreeHierarchyFromCanonical`).
 * **To modify drawing persistence and IndexedDB storage:**  
   $\rightarrow$ Start at `src/repository/DrawingRepositoryImpl.ts` and `src/repository/db.ts`.
 * **To modify multi-chart slot drawing replication:**  
@@ -96,9 +96,9 @@ Custom runtime properties attached directly to KLineCharts instances:
 | `_justFinishedMarquee`| `MarqueeSelectionHandler.ts` | `overlays.ts` (`onClick`) | Boolean: transient 50ms lockout suppressing trailing clicks on marquee release. |
 | `_isCtrlPressedRef` | `ChartWorkspace.tsx` | `MarqueeSelectionHandler.ts` | React ref: mirrors keyboard Ctrl / Meta press state for gesture exclusivity. |
 | `_isShiftPressedRef`| `ChartWorkspace.tsx` | `MarqueeSelectionHandler.ts` | React ref: mirrors keyboard Shift press state for additive selection. |
-| `_promotedOverlayInfo`| `useDrawingHoverCursor.ts` | `useDrawingHoverCursor.ts`, `overlays.ts` | Object `{ id, originalZLevel, temporaryZLevel }`: temporary anchor hover promotion. |
+| `_promotedOverlayInfo`| `DrawingChartAdapter.ts`, `useDrawingHoverCursor.ts`, `ChartWorkspace.tsx` | `drawingReconciler.ts`, `useDrawingHoverCursor.ts`, `DrawingChartAdapter.ts` | Object `{ id, originalZLevel, temporaryZLevel }`: temporary runtime visual promotion (anchor hover, Object Tree hover, edit mode). Never mutates canonical sequence or persistent storage. |
 | `_activeDraggingIndex`| `useDrawingHoverCursor.ts`, `overlays.ts` | `overlays.ts`, `useDrawingHoverCursor.ts` | Number or `null`: differentiates anchor drag (number) vs entire drawing body drag (`null`). |
-| `_candlesOrder` | `ObjectTreePanel.tsx` | `ObjectTreePanel.tsx` | Number (default 500): virtual order value for candles row in Object Tree UI. |
+| `_candlesOrder` | None (legacy; no longer written) | `ObjectTreePanel.tsx` | Number (default 500): legacy tie-breaker fallback for empty-folder placement in `buildTreeHierarchyFromCanonical`. Obsolete for runtime z-levels. |
 | `_showCandles` | `ObjectTreePanel.tsx` | `ObjectTreePanel.tsx` | Boolean: tracks visibility toggle state of candlestick series. |
 | `_activeTool` | `ChartWorkspace.tsx` | `overlays.ts` | String: active drawing or cursor tool name (e.g. `'eraser'`, `'trendLine'`). |
 | `_activeCursorTool` | `ChartWorkspace.tsx` | `overlays.ts` | String: active cursor mode (e.g. `'crosshair'`, `'pointer'`, `'eraser'`). |
@@ -153,7 +153,7 @@ Managed in `src/repository/db.ts`:
 1. **Monolithic Components with Mixed Concerns:**
    * `src/components/ObjectTreePanel.tsx` has been decomposed at the presentation layer into `ObjectTreeToolbar.tsx`, `ObjectTreeEmptyState.tsx`, `DrawingTreeItem.tsx`, and `FolderTreeItem.tsx`. The main panel now acts primarily as the Object Tree orchestrator and interaction layer. Direct repository writes were eliminated (Phase 1A/1B). Main Series/Candles remains intentionally inline because it is coupled to the upcoming Phase 2 z-index/order redesign.
    * `src/utils/overlays.ts` contains tool registrations mixed with multi-chart pointer event orchestration.
-2. **Canonical Order Foundation vs Legacy Order & Runtime Stacking (Phase 2):**
+2. **Canonical Order Architecture & Runtime Z-Stacking (Phase 2 COMPLETE):**
    * **Phase 2A Foundation (`src/engine/charting/orderEngine.ts`):** Established pure, deterministic canonical ordering model:
      - `SymbolOrderState { symbol: string; sequence: string[]; candlesVisible: boolean }`
      - `sequence: string[]` contains drawing IDs and the `'candles'` singleton sentinel (index `0` = topmost / front; last index = bottommost / back).
@@ -167,13 +167,17 @@ Managed in `src/repository/db.ts`:
      - Store lifecycle `loadSymbolOrderState(symbol)`: loads existing canonical state from repository if present, normalizes against current drawings/folders, or automatically runs legacy migration and persists when no canonical state exists yet.
      - Mutators (`setSymbolOrderSequence`) automatically persist canonical state through repository.
      - Full compatibility: legacy `extendData.order` and `folder.order` are preserved completely untouched.
-   * **Runtime Status:**
-     - **Runtime z-level projection is NOT implemented yet.** `_candlesOrder` remains legacy/runtime-only for now.
-     - **Phase 2C** will handle runtime z-level projection and canvas synchronization without overlay recreation.
+   * **Phase 2C Runtime Z-Level Reconciliation & Object Tree Integration (COMPLETE):**
+     - **Runtime z-level projection:** `calculateZLevelsFromSequence` in `drawingReconciler.ts` derives drawing overlay `zLevel` directly from canonical sequence indices. `reconcileChartSlotOverlays` applies `zLevel` via `chartAdapter.overrideOverlay` without destroying or recreating overlays.
+     - **Temporary visual promotion isolation:** `DrawingChartAdapter.ts` manages temporary elevation (`_promotedOverlayInfo`) for anchor hover, Object Tree hover, and edit mode selection. Temporary elevation overrides canvas visual zLevel immediately without modifying canonical sequence or persisting to storage.
+     - **Reconciliation protection:** `reconcileChartSlotOverlays` preserves `_promotedOverlayInfo.originalZLevel` when updating base levels, ensuring restoration on mouse leave or edit end remains accurate.
+     - **Object Tree derivation:** `buildTreeHierarchyFromCanonical` in `orderEngine.ts` projects canonical sequence directly into the tree hierarchy. Folders occupy the position of their child block; empty folders fall back to legacy `folder.order` compatibility.
+     - **Object Tree Drag & Drop:** Drag/drop operations invoke pure canonical reorder mutations (`setSymbolOrderSequence`, `moveSymbolFolderBlock`, `moveSymbolDrawingFolder`), maintaining single-source-of-truth invariants.
+     - **Legacy Decommissioning:** `_candlesOrder` is deprecated/read-only (compatibility tie-breaker only). `extendData.order` remains only as legacy creation metadata.
 3. **Physical Canvas Separation for Candlesticks:**
    * Candlesticks live on `_mainCanvas` (DOM layer 0). Overlays live on `_overlayCanvas` (DOM layer 1).
    * No overlay `zLevel` can physically place a standard overlay behind candlestick bodies. Only Indicators with `zLevel < 0` composite behind candles via `destination-over`.
-4. **Dead / Orphaned Reorder Logic:**
-   * `ObjectTreePanel.tsx` contains legacy calls to `recalculateAndRecreateOverlays`. Overlays must never be deleted and recreated during reordering as it strips event handlers.
+4. **Decommissioned Reorder Logic:**
+   * Legacy `recalculateAndRecreateOverlays` helper and the legacy order-normalization `useEffect` were removed from `ObjectTreePanel.tsx` in Phase 2C. Reordering now operates strictly through canonical store actions and non-destructive reconciliation.
 5. **Untyped Chart Monkey-Patching:**
    * Properties listed in Section 4 are not declared in KLineCharts TypeScript types. Searching for them requires full-text search across `src/`.
