@@ -5,8 +5,6 @@ import {
   DrawingChartAdapter,
   getOriginalDrawingId,
   buildTreeHierarchyFromCanonical,
-  getFolderBlockRange,
-  type DrawingFolderLookup,
 } from '@/engine/charting';
 import { ToolRegistry } from '@/framework/tools';
 import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
@@ -15,6 +13,8 @@ import { ObjectTreeToolbar } from './object-tree/ObjectTreeToolbar';
 import { ObjectTreeEmptyState } from './object-tree/ObjectTreeEmptyState';
 import { DrawingTreeItem } from './object-tree/DrawingTreeItem';
 import { FolderTreeItem } from './object-tree/FolderTreeItem';
+import { CandlesTreeItem } from './object-tree/CandlesTreeItem';
+import { useObjectTreeDragDrop } from './object-tree/useObjectTreeDragDrop';
 
 /**
  * Pure predicate to filter out non-user drawings (sync copies, price lines, session breaks).
@@ -70,21 +70,38 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     orderStateBySymbol,
   } = useDrawingStore();
 
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [draggedItemType, setDraggedItemType] = useState<'drawing' | 'folder' | 'candles' | null>(null);
+  const activeChart = chartInstancesRef.current[activeChartIndex];
+  const [drawings, setDrawings] = useState<any[]>([]);
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Drag visual feedback states
-  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
-  const [dragOverPosition, setDragOverPosition] = useState<'above' | 'below' | null>(null);
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-
-  const activeChart = chartInstancesRef.current[activeChartIndex];
-  const [drawings, setDrawings] = useState<any[]>([]);
+  // Drag and drop coordination hook
+  const {
+    isDragging,
+    draggedItemId,
+    draggedItemType,
+    dragOverItemId,
+    dragOverPosition,
+    dragOverFolderId,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragOverFolder,
+    handleDragLeaveFolder,
+    handleDropOnFolder,
+    handleDropOnRoot,
+    handleDragOverItem,
+    handleDragLeaveItem,
+    handleDropOnItem,
+    reorderRootItems,
+  } = useObjectTreeDragDrop({
+    activeSymbol,
+    drawings,
+    syncAllDrawings,
+    setDrawingTrigger,
+  });
 
   // Load and sync folders per symbol via store
   useEffect(() => {
@@ -292,309 +309,6 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         }
       }
     });
-  };
-
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, id: string, type: 'drawing' | 'folder' | 'candles') => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
-    setDraggedItemId(id);
-    setDraggedItemType(type);
-    setIsDragging(true);
-  };
-
-  const handleDragEnd = () => {
-    setDragOverItemId(null);
-    setDragOverPosition(null);
-    setDragOverFolderId(null);
-    setDraggedItemId(null);
-    setDraggedItemType(null);
-    setIsDragging(false);
-  };
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const reorderRootItems = (
-    draggedId: string,
-    draggedType: 'drawing' | 'folder' | 'candles',
-    targetId: string,
-    targetType: 'drawing' | 'folder' | 'candles',
-    position: 'above' | 'below'
-  ) => {
-    if (!activeSymbol) return;
-
-    const key = activeSymbol.toUpperCase();
-    const currentSeq = useDrawingStore.getState().getSymbolOrderSequence(key);
-    const storeDrawings = useDrawingStore.getState().getSymbolDrawings(key);
-    const folderLookup: DrawingFolderLookup = {};
-    storeDrawings.forEach((d) => {
-      folderLookup[d.id] = d.extendData?.folderId;
-    });
-
-    if (draggedType === 'folder') {
-      useDrawingStore.getState().moveSymbolFolderBlock(activeSymbol, draggedId, targetId, position);
-      syncAllDrawings();
-      setDrawingTrigger(prev => prev + 1);
-      return;
-    }
-
-    if (draggedType === 'drawing') {
-      const existingDrawing = storeDrawings.find(d => d.id === draggedId);
-      if (existingDrawing?.extendData?.folderId) {
-        useDrawingStore.getState().updateSymbolDrawing(key, draggedId, {
-          extendData: {
-            ...(existingDrawing.extendData || {}),
-            folderId: null,
-          },
-        });
-      }
-
-      const withoutDragged = currentSeq.filter(id => id !== draggedId);
-      let insertIndex = -1;
-
-      if (targetType === 'folder') {
-        const targetBlock = getFolderBlockRange(withoutDragged, targetId, folderLookup);
-        if (targetBlock) {
-          insertIndex = position === 'above' ? targetBlock.start : targetBlock.end + 1;
-        }
-      } else {
-        const targetIdx = withoutDragged.indexOf(targetId);
-        if (targetIdx !== -1) {
-          insertIndex = position === 'above' ? targetIdx : targetIdx + 1;
-        }
-      }
-
-      if (insertIndex !== -1) {
-        const nextSeq = [...withoutDragged];
-        nextSeq.splice(insertIndex, 0, draggedId);
-        useDrawingStore.getState().setSymbolOrderSequence(activeSymbol, nextSeq);
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
-      }
-      return;
-    }
-
-    if (draggedType === 'candles') {
-      const withoutCandles = currentSeq.filter(id => id !== 'candles');
-      let insertIndex = -1;
-
-      if (targetType === 'folder') {
-        const targetBlock = getFolderBlockRange(withoutCandles, targetId, folderLookup);
-        if (targetBlock) {
-          insertIndex = position === 'above' ? targetBlock.start : targetBlock.end + 1;
-        }
-      } else {
-        const targetIdx = withoutCandles.indexOf(targetId);
-        if (targetIdx !== -1) {
-          insertIndex = position === 'above' ? targetIdx : targetIdx + 1;
-        }
-      }
-
-      if (insertIndex !== -1) {
-        const nextSeq = [...withoutCandles];
-        nextSeq.splice(insertIndex, 0, 'candles');
-        useDrawingStore.getState().setSymbolOrderSequence(activeSymbol, nextSeq);
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
-      }
-      return;
-    }
-  };
-
-
-  const handleDragOverFolder = (e: React.DragEvent, folderId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (draggedItemType === 'drawing') {
-      setDragOverFolderId(folderId);
-      setDragOverItemId(null);
-      setDragOverPosition(null);
-    } else if ((draggedItemType === 'folder' || draggedItemType === 'candles') && draggedItemId !== folderId) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const relativeY = e.clientY - rect.top;
-      const isAbove = relativeY < rect.height / 2;
-      setDragOverItemId(folderId);
-      setDragOverPosition(isAbove ? 'above' : 'below');
-      setDragOverFolderId(null);
-    }
-  };
-
-  const handleDragLeaveFolder = () => {
-    setDragOverFolderId(null);
-    setDragOverItemId(null);
-    setDragOverPosition(null);
-  };
-
-  const handleDropOnFolder = (e: React.DragEvent, targetFolderId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const dragType = draggedItemType;
-    const dragId = draggedItemId;
-
-    handleDragEnd();
-
-    if (!activeSymbol) return;
-
-    try {
-      if (dragType === 'drawing' && dragId) {
-        useDrawingStore.getState().moveSymbolDrawingFolder(activeSymbol, dragId, targetFolderId, 'top');
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
-      } else if ((dragType === 'folder' || dragType === 'candles') && dragId && dragId !== targetFolderId) {
-        reorderRootItems(dragId, dragType, targetFolderId, 'folder', dragOverPosition || 'above');
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDropOnRoot = (e: React.DragEvent) => {
-    e.preventDefault();
-    const dragType = draggedItemType;
-    const dragId = draggedItemId;
-
-    handleDragEnd();
-
-    if (!activeSymbol) return;
-
-    try {
-      const key = activeSymbol.toUpperCase();
-      const currentSeq = useDrawingStore.getState().getSymbolOrderSequence(key);
-      const storeDrawings = useDrawingStore.getState().getSymbolDrawings(key);
-
-      if (dragType === 'drawing' && dragId) {
-        const existingDrawing = storeDrawings.find(d => d.id === dragId);
-
-        // Move drawing to root level if it was in a folder
-        if (existingDrawing?.extendData?.folderId) {
-          useDrawingStore.getState().updateSymbolDrawing(key, dragId, {
-            extendData: {
-              ...(existingDrawing.extendData || {}),
-              folderId: null,
-            },
-          });
-        }
-
-        // Place at the bottom (end) of canonical sequence
-        const nextSeq = [...currentSeq.filter(id => id !== dragId), dragId];
-        useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
-
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
-      } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
-        const folderLookup: DrawingFolderLookup = {};
-        storeDrawings.forEach((d) => {
-          folderLookup[d.id] = d.extendData?.folderId;
-        });
-
-        if (dragType === 'folder') {
-          const block = getFolderBlockRange(currentSeq, dragId, folderLookup);
-          if (block) {
-            const nextSeq = currentSeq.filter(id => folderLookup[id] !== dragId);
-            nextSeq.push(...block.childIds);
-            useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
-          }
-        } else if (dragType === 'candles') {
-          const nextSeq = currentSeq.filter(id => id !== 'candles');
-          nextSeq.push('candles');
-          useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
-        }
-
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDragOverItem = (e: React.DragEvent, itemId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (draggedItemType === 'drawing') {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const relativeY = e.clientY - rect.top;
-      const isAbove = relativeY < rect.height / 2;
-      setDragOverItemId(itemId);
-      setDragOverPosition(isAbove ? 'above' : 'below');
-    } else if (draggedItemType === 'folder' || draggedItemType === 'candles') {
-      // Reorder folder/candles relative to root-level drawing only
-      const targetOverlay = drawings.find(d => d.id === itemId);
-      const isRootDrawing = targetOverlay && !targetOverlay.extendData?.folderId;
-      if (isRootDrawing) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const relativeY = e.clientY - rect.top;
-        const isAbove = relativeY < rect.height / 2;
-        setDragOverItemId(itemId);
-        setDragOverPosition(isAbove ? 'above' : 'below');
-      }
-    }
-  };
-
-  const handleDragLeaveItem = () => {
-    setDragOverItemId(null);
-    setDragOverPosition(null);
-  };
-
-  const handleDropOnItem = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const dragType = draggedItemType;
-    const dragId = draggedItemId;
-    const dropPosition = dragOverPosition;
-
-    handleDragEnd();
-
-    if (!activeSymbol) return;
-
-    try {
-      if (dragType === 'drawing' && dragId && dragId !== targetId) {
-        const key = activeSymbol.toUpperCase();
-        const storeDrawings = useDrawingStore.getState().getSymbolDrawings(key);
-        const draggedDrawing = storeDrawings.find(d => d.id === dragId);
-        const targetDrawing = storeDrawings.find(d => d.id === targetId);
-
-        const targetFolderId = targetDrawing?.extendData?.folderId || null;
-        const currentFolderId = draggedDrawing?.extendData?.folderId || null;
-
-        // 1. If crossing folder boundary, update folderId in drawing definition
-        if (currentFolderId !== targetFolderId) {
-          useDrawingStore.getState().updateSymbolDrawing(key, dragId, {
-            extendData: {
-              ...(draggedDrawing?.extendData || {}),
-              folderId: targetFolderId,
-            },
-          });
-        }
-
-        // 2. Reorder in canonical sequence immediately adjacent to targetId
-        const currentSeq = useDrawingStore.getState().getSymbolOrderSequence(key);
-        const withoutDragged = currentSeq.filter(id => id !== dragId);
-        const targetIndex = withoutDragged.indexOf(targetId);
-
-        if (targetIndex !== -1) {
-          const insertIndex = dropPosition === 'below' ? targetIndex + 1 : targetIndex;
-          const nextSeq = [...withoutDragged];
-          nextSeq.splice(insertIndex, 0, dragId);
-          useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
-        }
-
-        syncAllDrawings();
-        setDrawingTrigger(prev => prev + 1);
-      } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
-        const storeDrawings = useDrawingStore.getState().getSymbolDrawings(activeSymbol.toUpperCase());
-        const targetDrawing = storeDrawings.find(d => d.id === targetId);
-        if (targetDrawing && !targetDrawing.extendData?.folderId) {
-          reorderRootItems(dragId, dragType, targetId, 'drawing', dropPosition || 'above');
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   // Toggle drawing visibility
@@ -1020,12 +734,27 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 );
               } else if (item.type === 'candles') {
                 const isVisible = activeChart ? (activeChart._showCandles !== false) : true;
-                const isDragOverThis = dragOverItemId === 'candles';
 
                 return (
-                  <div
+                  <CandlesTreeItem
                     key="candles"
-                    draggable={true}
+                    activeSymbol={activeSymbol}
+                    activeTimeframe={activeTimeframe}
+                    isVisible={isVisible}
+                    isDragOver={dragOverItemId === 'candles'}
+                    dragOverPosition={dragOverPosition}
+                    onToggleVisible={(e) => {
+                      e.stopPropagation();
+                      if (activeChart) {
+                        activeChart._showCandles = !isVisible;
+                        activeChart.setStyles({
+                          candle: {
+                            show: !isVisible,
+                          },
+                        });
+                        setDrawingTrigger((prev) => prev + 1);
+                      }
+                    }}
                     onDragStart={(e) => handleDragStart(e, 'candles', 'candles')}
                     onDragEnd={handleDragEnd}
                     onDragOver={(e) => {
@@ -1053,57 +782,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         reorderRootItems(dragId, dragType, 'candles', 'candles', dropPosition || 'above');
                       }
                     }}
-                    className={`group relative flex items-center justify-between px-2.5 py-1.5 border rounded-lg cursor-pointer transition-all border-transparent hover:bg-surface-hover text-xs font-semibold text-txt-secondary`}
-                  >
-                    {isDragOverThis && (
-                      <div
-                        className={`absolute left-0 right-0 h-0.5 bg-accent z-50 pointer-events-none ${
-                          dragOverPosition === 'above' ? '-top-[1.5px]' : '-bottom-[1.5px]'
-                        }`}
-                      />
-                    )}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-accent flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="16" height="16" fill="currentColor">
-                          <path d="M17 11v6h3v-6h-3zm-.5-1h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-7a.5.5 0 0 1 .5-.5z"></path>
-                          <path d="M18 7h1v3.5h-1zm0 10.5h1V21h-1z"></path>
-                          <path d="M9 8v12h3V8H9zm-.5-1h4a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z"></path>
-                          <path d="M10 4h1v3.5h-1zm0 16.5h1V24h-1z"></path>
-                        </svg>
-                      </span>
-                      <span className="truncate">{activeSymbol} · {activeTimeframe} (Main Series)</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          title={isVisible ? "Hide candles" : "Show candles"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (activeChart) {
-                              activeChart._showCandles = !isVisible;
-                              activeChart.setStyles({
-                                candle: {
-                                  show: !isVisible
-                                }
-                              });
-                              setDrawingTrigger(prev => prev + 1);
-                            }
-                          }}
-                          className={`p-1 rounded transition-colors ${
-                            !isVisible
-                              ? 'text-yellow-450 hover:text-yellow-350 bg-yellow-500/10'
-                              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
-                          }`}
-                        >
-                          {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                      
-                      <span className="text-[10px] text-txt-muted font-bold uppercase tracking-wider bg-surface-elevated/40 px-1.5 py-0.5 rounded border border-border-sub flex-shrink-0">Chart</span>
-                    </div>
-                  </div>
+                  />
                 );
               } else {
                 const d = item.data as any;
