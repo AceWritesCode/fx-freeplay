@@ -138,4 +138,102 @@ export class DrawingChartAdapter {
       }
     } catch (_) {}
   }
+
+  /**
+   * Temporarily promotes an overlay to the visual front (zLevel above all existing overlays).
+   * Saves the original natural zLevel in chart._promotedOverlayInfo.
+   * If another overlay was already promoted on this chart, restores it first.
+   */
+  static promoteOverlay(chart: any, overlayId: string): void {
+    if (!chart || !overlayId) return;
+
+    // If another overlay is currently promoted, restore it first before querying overlays
+    if (chart._promotedOverlayInfo) {
+      const currentPromotedId = chart._promotedOverlayInfo.id;
+      const matchesTarget =
+        currentPromotedId === overlayId ||
+        currentPromotedId === `sync_${overlayId}` ||
+        (overlayId.startsWith('sync_') && currentPromotedId === overlayId.replace('sync_', ''));
+
+      if (matchesTarget) {
+        // Already promoted to this exact target
+        return;
+      }
+
+      this.restorePromotedOverlay(chart);
+    }
+
+    // Query overlays fresh after any restoration
+    const overlays = this.getOverlays(chart);
+    const targetOverlay = overlays.find((ov: any) =>
+      ov.id === overlayId ||
+      ov.id === `sync_${overlayId}` ||
+      (overlayId.startsWith('sync_') && ov.id === overlayId.replace('sync_', ''))
+    );
+    if (!targetOverlay) return;
+
+    const actualId = targetOverlay.id;
+
+    // Determine max natural zLevel across all overlays on this chart
+    let maxNaturalZ = 0;
+    overlays.forEach((ov: any) => {
+      const z = typeof ov.zLevel === 'number' ? ov.zLevel : 0;
+      if (z > maxNaturalZ) {
+        maxNaturalZ = z;
+      }
+    });
+
+    const naturalZ = typeof targetOverlay.zLevel === 'number' ? targetOverlay.zLevel : 0;
+    const temporaryZLevel = maxNaturalZ + 1;
+
+    chart._promotedOverlayInfo = {
+      id: actualId,
+      originalZLevel: naturalZ,
+      temporaryZLevel,
+    };
+
+    try {
+      chart.overrideOverlay({
+        id: actualId,
+        zLevel: temporaryZLevel,
+      });
+      this.invalidatePane(chart);
+    } catch (_) {}
+  }
+
+  /**
+   * Restores a temporarily promoted overlay back to its original natural zLevel.
+   * If specific overlayId is provided, restores only if that overlay is currently promoted.
+   * If overlayId is omitted, restores whatever overlay is currently promoted.
+   */
+  static restorePromotedOverlay(chart: any, overlayId?: string): void {
+    if (!chart || !chart._promotedOverlayInfo) return;
+
+    if (overlayId) {
+      const currentId = chart._promotedOverlayInfo.id;
+      const matches =
+        currentId === overlayId ||
+        currentId === `sync_${overlayId}` ||
+        (overlayId.startsWith('sync_') && currentId === overlayId.replace('sync_', ''));
+      if (!matches) return;
+    }
+
+    const { id, originalZLevel } = chart._promotedOverlayInfo;
+    chart._promotedOverlayInfo = null;
+
+    try {
+      chart.overrideOverlay({
+        id,
+        zLevel: originalZLevel,
+      });
+      this.invalidatePane(chart);
+    } catch (_) {}
+  }
+
+  /**
+   * Returns current promoted overlay info on the given chart instance, if any.
+   */
+  static getPromotedOverlayInfo(chart: any): { id: string; originalZLevel: number; temporaryZLevel: number } | null {
+    return chart?._promotedOverlayInfo || null;
+  }
 }

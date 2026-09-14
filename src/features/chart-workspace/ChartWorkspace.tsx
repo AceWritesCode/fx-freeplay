@@ -623,6 +623,15 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         chart._isShiftPressedRef = isShiftPressedRef;
       }
     });
+
+    if (selectedOverlayIds.length === 1) {
+      const selectedId = selectedOverlayIds[0];
+      chartInstancesRef.current.forEach((chart) => {
+        if (chart) {
+          DrawingChartAdapter.promoteOverlay(chart, selectedId);
+        }
+      });
+    }
   }, [selectedOverlayIds, handleSelectOverlayIds, drawingCoord.activeTool, selectedCursorId]);
 
   // Deselection transition effect: when a selected drawing is deselected, compare its chart state against stored record and commit changes
@@ -635,6 +644,14 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     prevSelectedOverlayIdsRef.current = currentSelected;
 
     if (deselectedIds.length > 0) {
+      deselectedIds.forEach((id) => {
+        chartInstancesRef.current.forEach((chart) => {
+          if (chart) {
+            DrawingChartAdapter.restorePromotedOverlay(chart, id);
+          }
+        });
+      });
+
       let storeUpdated = false;
 
       deselectedIds.forEach((id) => {

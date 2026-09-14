@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
-import { getOriginalDrawingId } from '@/engine/charting';
+import {
+  DrawingChartAdapter,
+  getOriginalDrawingId,
+  buildTreeHierarchyFromCanonical,
+  getFolderBlockRange,
+  type DrawingFolderLookup,
+} from '@/engine/charting';
 import { ToolRegistry } from '@/framework/tools';
 import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
 import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
@@ -56,10 +62,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
 
   // Connect to global drawing store
   const {
+    drawingsBySymbol,
     folders,
     setFolders,
     selectedOverlayIds,
-    setSelectedOverlayIds
+    setSelectedOverlayIds,
+    orderStateBySymbol,
   } = useDrawingStore();
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -449,6 +457,11 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         setDrawingTrigger(prev => prev + 1);
       }
     }
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        DrawingChartAdapter.promoteOverlay(chart, id);
+      }
+    });
   };
 
   const handleMouseLeaveItem = (id: string) => {
@@ -465,6 +478,16 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
         setDrawingTrigger(prev => prev + 1);
       }
     }
+    chartInstancesRef.current.forEach((chart) => {
+      if (chart) {
+        if (!selectedOverlayIds.includes(id)) {
+          DrawingChartAdapter.restorePromotedOverlay(chart, id);
+          if (selectedOverlayIds.length === 1) {
+            DrawingChartAdapter.promoteOverlay(chart, selectedOverlayIds[0]);
+          }
+        }
+      }
+    });
   };
 
   // Drag and drop handlers
@@ -494,36 +517,84 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     targetType: 'drawing' | 'folder' | 'candles',
     position: 'above' | 'below'
   ) => {
-    if (!activeChart) return;
+    if (!activeSymbol) return;
 
-    const overlays = activeChart.getOverlays();
-    const filtered = overlays.filter(isUserDrawingOverlay);
+    const key = activeSymbol.toUpperCase();
+    const currentSeq = useDrawingStore.getState().getSymbolOrderSequence(key);
+    const storeDrawings = useDrawingStore.getState().getSymbolDrawings(key);
+    const folderLookup: DrawingFolderLookup = {};
+    storeDrawings.forEach((d) => {
+      folderLookup[d.id] = d.extendData?.folderId;
+    });
 
-    const rootDrawings = filtered.filter((d: any) => !d.extendData?.folderId);
-    const candlesOrder = activeChart._candlesOrder ?? 500;
+    if (draggedType === 'folder') {
+      useDrawingStore.getState().moveSymbolFolderBlock(activeSymbol, draggedId, targetId, position);
+      syncAllDrawings();
+      setDrawingTrigger(prev => prev + 1);
+      return;
+    }
 
-    const combinedRoot = [
-      ...folders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
-      ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
-      { type: 'candles' as const, id: 'candles', order: candlesOrder, data: null }
-    ];
+    if (draggedType === 'drawing') {
+      const existingDrawing = storeDrawings.find(d => d.id === draggedId);
+      if (existingDrawing?.extendData?.folderId) {
+        useDrawingStore.getState().updateSymbolDrawing(key, draggedId, {
+          extendData: {
+            ...(existingDrawing.extendData || {}),
+            folderId: null,
+          },
+        });
+      }
 
-    combinedRoot.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+      const withoutDragged = currentSeq.filter(id => id !== draggedId);
+      let insertIndex = -1;
 
-    const draggedIndex = combinedRoot.findIndex(item => item.id === draggedId && item.type === draggedType);
-    const targetIndex = combinedRoot.findIndex(item => item.id === targetId && item.type === targetType);
+      if (targetType === 'folder') {
+        const targetBlock = getFolderBlockRange(withoutDragged, targetId, folderLookup);
+        if (targetBlock) {
+          insertIndex = position === 'above' ? targetBlock.start : targetBlock.end + 1;
+        }
+      } else {
+        const targetIdx = withoutDragged.indexOf(targetId);
+        if (targetIdx !== -1) {
+          insertIndex = position === 'above' ? targetIdx : targetIdx + 1;
+        }
+      }
 
-    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return;
+      if (insertIndex !== -1) {
+        const nextSeq = [...withoutDragged];
+        nextSeq.splice(insertIndex, 0, draggedId);
+        useDrawingStore.getState().setSymbolOrderSequence(activeSymbol, nextSeq);
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
+      }
+      return;
+    }
 
-    const reordered = [...combinedRoot];
-    const [draggedItem] = reordered.splice(draggedIndex, 1);
-    let newTargetIndex = reordered.findIndex(item => item.id === targetId && item.type === targetType);
-    if (position === 'below') newTargetIndex += 1;
-    reordered.splice(newTargetIndex, 0, draggedItem);
+    if (draggedType === 'candles') {
+      const withoutCandles = currentSeq.filter(id => id !== 'candles');
+      let insertIndex = -1;
 
-    // Delegate all order calculation and overlay recreation to recalculateAndRecreateOverlays.
-    // reordered is sorted descending (index 0 = top of tree), which matches what that function expects.
-    recalculateAndRecreateOverlays(folders, reordered);
+      if (targetType === 'folder') {
+        const targetBlock = getFolderBlockRange(withoutCandles, targetId, folderLookup);
+        if (targetBlock) {
+          insertIndex = position === 'above' ? targetBlock.start : targetBlock.end + 1;
+        }
+      } else {
+        const targetIdx = withoutCandles.indexOf(targetId);
+        if (targetIdx !== -1) {
+          insertIndex = position === 'above' ? targetIdx : targetIdx + 1;
+        }
+      }
+
+      if (insertIndex !== -1) {
+        const nextSeq = [...withoutCandles];
+        nextSeq.splice(insertIndex, 0, 'candles');
+        useDrawingStore.getState().setSymbolOrderSequence(activeSymbol, nextSeq);
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
+      }
+      return;
+    }
   };
 
 
@@ -554,55 +625,17 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const handleDropOnFolder = (e: React.DragEvent, targetFolderId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const dragType = draggedItemType;
     const dragId = draggedItemId;
-    
+
     handleDragEnd();
-    
+
+    if (!activeSymbol) return;
+
     try {
-      if (dragType === 'drawing' && dragId && activeChart) {
-        const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(isUserDrawingOverlay);
-
-        // Filter other drawings in this folder to find max order
-        const folderChildren = filtered.filter((ov: any) => ov.extendData?.folderId === targetFolderId && ov.id !== dragId);
-        const maxChildOrder = folderChildren.length > 0 
-          ? Math.max(...folderChildren.map((ov: any) => ov.extendData?.order ?? 0))
-          : 0;
-
-        const folder = folders.find(f => f.id === targetFolderId);
-        const nextOrder = folderChildren.length > 0 ? maxChildOrder + 1 : 100;
-        const nextVisible = folder ? folder.isVisible : true;
-        const nextLock = folder ? folder.isLocked : false;
-
-        // Update in useDrawingStore (auto-persists to repository)
-        if (activeSymbol) {
-          useDrawingStore.getState().updateSymbolDrawing(activeSymbol, dragId, {
-            visible: nextVisible,
-            lock: nextLock,
-            extendData: {
-              folderId: targetFolderId,
-              order: nextOrder,
-            },
-          });
-        }
-
-        // Update activeChart overlay
-        const draggedOv = filtered.find((ov: any) => ov.id === dragId);
-        if (draggedOv) {
-          activeChart.overrideOverlay({
-            id: dragId,
-            visible: nextVisible,
-            lock: nextLock,
-            extendData: {
-              ...(draggedOv.extendData || {}),
-              folderId: targetFolderId,
-              order: nextOrder
-            }
-          });
-        }
-
+      if (dragType === 'drawing' && dragId) {
+        useDrawingStore.getState().moveSymbolDrawingFolder(activeSymbol, dragId, targetFolderId, 'top');
         syncAllDrawings();
         setDrawingTrigger(prev => prev + 1);
       } else if ((dragType === 'folder' || dragType === 'candles') && dragId && dragId !== targetFolderId) {
@@ -617,102 +650,56 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     e.preventDefault();
     const dragType = draggedItemType;
     const dragId = draggedItemId;
-    
+
     handleDragEnd();
-    
-    if (!activeChart) return;
-    
+
+    if (!activeSymbol) return;
+
     try {
+      const key = activeSymbol.toUpperCase();
+      const currentSeq = useDrawingStore.getState().getSymbolOrderSequence(key);
+      const storeDrawings = useDrawingStore.getState().getSymbolDrawings(key);
+
       if (dragType === 'drawing' && dragId) {
-        const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(isUserDrawingOverlay);
+        const existingDrawing = storeDrawings.find(d => d.id === dragId);
 
-        // Sort in current order
-        filtered.sort((a: any, b: any) => {
-          const orderA = a.extendData?.order ?? 0;
-          const orderB = b.extendData?.order ?? 0;
-          if (orderA !== orderB) {
-            return orderB - orderA;
-          }
-          return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
-        });
-
-        const draggedIndex = filtered.findIndex((ov: any) => ov.id === dragId);
-        if (draggedIndex !== -1) {
-          const reordered = [...filtered];
-          const [draggedItem] = reordered.splice(draggedIndex, 1);
-
-          // Append to the end of the list (bottom of the Object Tree)
-          reordered.push(draggedItem);
-
-          const updatedOverlaysMap = new Map<string, { order: number, folderId: string | null }>();
-          reordered.forEach((ov: any, idx: number) => {
-            const nextOrder = (reordered.length - idx) * 100;
-            const folderId = ov.id === dragId ? null : (ov.extendData?.folderId ?? null);
-            updatedOverlaysMap.set(ov.id, { order: nextOrder, folderId });
+        // Move drawing to root level if it was in a folder
+        if (existingDrawing?.extendData?.folderId) {
+          useDrawingStore.getState().updateSymbolDrawing(key, dragId, {
+            extendData: {
+              ...(existingDrawing.extendData || {}),
+              folderId: null,
+            },
           });
-
-          // Update useDrawingStore (auto-persists to repository)
-          if (activeSymbol) {
-            useDrawingStore.getState().batchUpdateSymbolDrawings(activeSymbol, (d) => {
-              const info = updatedOverlaysMap.get(d.id);
-              if (info) {
-                return {
-                  extendData: {
-                    order: info.order,
-                    folderId: info.folderId,
-                  },
-                };
-              }
-              return null;
-            });
-          }
-
-          // Override activeChart overlays
-          reordered.forEach((ov: any) => {
-            const info = updatedOverlaysMap.get(ov.id);
-            if (info) {
-              activeChart.overrideOverlay({
-                id: ov.id,
-                extendData: {
-                  ...(ov.extendData || {}),
-                  folderId: info.folderId,
-                  order: info.order
-                }
-              });
-            }
-          });
-
-          syncAllDrawings();
-          setDrawingTrigger(prev => prev + 1);
         }
+
+        // Place at the bottom (end) of canonical sequence
+        const nextSeq = [...currentSeq.filter(id => id !== dragId), dragId];
+        useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
+
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
       } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
-        const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(isUserDrawingOverlay);
-
-        const rootDrawings = filtered.filter((d: any) => !d.extendData?.folderId);
-        const currentCandlesOrder = activeChart._candlesOrder ?? 500;
-
-        const combinedRoot = [
-          ...folders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
-          ...rootDrawings.map((d: any) => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
-          { type: 'candles' as const, id: 'candles', order: currentCandlesOrder, data: null }
-        ];
-
-        combinedRoot.sort((a, b) => {
-          if (a.order !== b.order) return b.order - a.order;
-          return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' });
+        const folderLookup: DrawingFolderLookup = {};
+        storeDrawings.forEach((d) => {
+          folderLookup[d.id] = d.extendData?.folderId;
         });
 
-        const draggedIndex = combinedRoot.findIndex(item => item.id === dragId && item.type === dragType);
-        if (draggedIndex !== -1) {
-          const reordered = [...combinedRoot];
-          const [draggedItem] = reordered.splice(draggedIndex, 1);
-          reordered.push(draggedItem);
-
-          // Delegate folder/candles reorder to the single source of truth
-          recalculateAndRecreateOverlays(folders, reordered);
+        if (dragType === 'folder') {
+          const block = getFolderBlockRange(currentSeq, dragId, folderLookup);
+          if (block) {
+            const nextSeq = currentSeq.filter(id => folderLookup[id] !== dragId);
+            nextSeq.push(...block.childIds);
+            useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
+          }
+        } else if (dragType === 'candles') {
+          const nextSeq = currentSeq.filter(id => id !== 'candles');
+          nextSeq.push('candles');
+          useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
         }
+
+        syncAllDrawings();
+        setDrawingTrigger(prev => prev + 1);
       }
     } catch (err) {
       console.error(err);
@@ -722,7 +709,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const handleDragOverItem = (e: React.DragEvent, itemId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (draggedItemType === 'drawing') {
       const rect = e.currentTarget.getBoundingClientRect();
       const relativeY = e.clientY - rect.top;
@@ -751,94 +738,53 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   const handleDropOnItem = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const dragType = draggedItemType;
     const dragId = draggedItemId;
     const dropPosition = dragOverPosition;
-    
+
     handleDragEnd();
-    
+
+    if (!activeSymbol) return;
+
     try {
-      if (dragType === 'drawing' && dragId && dragId !== targetId && activeChart) {
-        const overlays = activeChart.getOverlays();
-        const filtered = overlays.filter(isUserDrawingOverlay);
+      if (dragType === 'drawing' && dragId && dragId !== targetId) {
+        const key = activeSymbol.toUpperCase();
+        const storeDrawings = useDrawingStore.getState().getSymbolDrawings(key);
+        const draggedDrawing = storeDrawings.find(d => d.id === dragId);
+        const targetDrawing = storeDrawings.find(d => d.id === targetId);
 
-        // Sort in current render order (descending by order property, fallback to ID)
-        filtered.sort((a: any, b: any) => {
-          const orderA = a.extendData?.order ?? 0;
-          const orderB = b.extendData?.order ?? 0;
-          if (orderA !== orderB) {
-            return orderB - orderA;
-          }
-          return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
-        });
+        const targetFolderId = targetDrawing?.extendData?.folderId || null;
+        const currentFolderId = draggedDrawing?.extendData?.folderId || null;
 
-        const draggedIndex = filtered.findIndex((ov: any) => ov.id === dragId);
-        if (draggedIndex === -1) return;
-
-        const reordered = [...filtered];
-        const [draggedItem] = reordered.splice(draggedIndex, 1);
-
-        // Find new insert index
-        const targetIndex = reordered.findIndex((ov: any) => ov.id === targetId);
-        if (targetIndex === -1) return;
-
-        let newTargetIndex = targetIndex;
-        if (dropPosition === 'below') {
-          newTargetIndex += 1;
-        }
-
-        reordered.splice(newTargetIndex, 0, draggedItem);
-
-        // Determine folder inheritance from the target overlay
-        const targetOverlay = filtered.find((ov: any) => ov.id === targetId);
-        const targetFolderId = targetOverlay?.extendData?.folderId || null;
-
-        const updatedOverlaysMap = new Map<string, { order: number, folderId: string | null }>();
-        reordered.forEach((ov: any, idx: number) => {
-          const nextOrder = (reordered.length - idx) * 100;
-          const isDraggedItem = (ov.id === dragId);
-          const folderId = isDraggedItem ? targetFolderId : (ov.extendData?.folderId ?? null);
-          updatedOverlaysMap.set(ov.id, { order: nextOrder, folderId });
-        });
-
-        // Update useDrawingStore (auto-persists to repository)
-        if (activeSymbol) {
-          useDrawingStore.getState().batchUpdateSymbolDrawings(activeSymbol, (d) => {
-            const info = updatedOverlaysMap.get(d.id);
-            if (info) {
-              return {
-                extendData: {
-                  order: info.order,
-                  folderId: info.folderId,
-                },
-              };
-            }
-            return null;
+        // 1. If crossing folder boundary, update folderId in drawing definition
+        if (currentFolderId !== targetFolderId) {
+          useDrawingStore.getState().updateSymbolDrawing(key, dragId, {
+            extendData: {
+              ...(draggedDrawing?.extendData || {}),
+              folderId: targetFolderId,
+            },
           });
         }
 
-        // Override activeChart overlays
-        reordered.forEach((ov: any) => {
-          const info = updatedOverlaysMap.get(ov.id);
-          if (info) {
-            activeChart.overrideOverlay({
-              id: ov.id,
-              extendData: {
-                ...(ov.extendData || {}),
-                folderId: info.folderId,
-                order: info.order
-              }
-            });
-          }
-        });
+        // 2. Reorder in canonical sequence immediately adjacent to targetId
+        const currentSeq = useDrawingStore.getState().getSymbolOrderSequence(key);
+        const withoutDragged = currentSeq.filter(id => id !== dragId);
+        const targetIndex = withoutDragged.indexOf(targetId);
+
+        if (targetIndex !== -1) {
+          const insertIndex = dropPosition === 'below' ? targetIndex + 1 : targetIndex;
+          const nextSeq = [...withoutDragged];
+          nextSeq.splice(insertIndex, 0, dragId);
+          useDrawingStore.getState().setSymbolOrderSequence(key, nextSeq);
+        }
 
         syncAllDrawings();
         setDrawingTrigger(prev => prev + 1);
       } else if ((dragType === 'folder' || dragType === 'candles') && dragId) {
-        // Reorder folder/candles relative to drawing if target drawing is at root level
-        const targetOverlay = drawings.find(d => d.id === targetId);
-        if (targetOverlay && !targetOverlay.extendData?.folderId) {
+        const storeDrawings = useDrawingStore.getState().getSymbolDrawings(activeSymbol.toUpperCase());
+        const targetDrawing = storeDrawings.find(d => d.id === targetId);
+        if (targetDrawing && !targetDrawing.extendData?.folderId) {
           reorderRootItems(dragId, dragType, targetId, 'drawing', dropPosition || 'above');
         }
       }
@@ -908,6 +854,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     useDrawingStore.getState().removeSymbolDrawingById(id);
     syncAllDrawings();
     setSelectedOverlayIds(prev => prev.filter(item => item !== id && item !== originalId));
+    setDrawingTrigger(prev => prev + 1);
   };
 
   // Rename action
@@ -1085,41 +1032,29 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     return toolName.charAt(0).toUpperCase() + toolName.slice(1);
   };
 
-  // Group drawings by folder
-  const groupedDrawings = React.useMemo(() => {
-    const result: Record<string, any[]> = {};
-    folders.forEach(f => {
-      result[f.id] = [];
-    });
-    result['root'] = [];
+  // Canonical tree hierarchy derivation (Phase 2C-4B)
+  const canonicalSequence = React.useMemo(() => {
+    if (!activeSymbol) return [];
+    const key = activeSymbol.toUpperCase();
+    return orderStateBySymbol[key]?.sequence || useDrawingStore.getState().getSymbolOrderSequence(key);
+  }, [activeSymbol, orderStateBySymbol]);
 
-    drawings.forEach(d => {
-      const fId = d.extendData?.folderId;
-      if (fId && result[fId]) {
-        result[fId].push(d);
-      } else {
-        result['root'].push(d);
-      }
-    });
-    return result;
-  }, [drawings, folders]);
+  const currentSymbolDrawings = React.useMemo(() => {
+    if (!activeSymbol) return [];
+    const key = activeSymbol.toUpperCase();
+    return drawingsBySymbol[key] || [];
+  }, [activeSymbol, drawingsBySymbol]);
 
-  // Combined root-level items (folders, loose drawings, and candles) sorted by order descending
-  const rootItems = React.useMemo(() => {
+  const { rootItems, groupedDrawings } = React.useMemo(() => {
     const candlesOrder = activeChart ? (activeChart._candlesOrder ?? 500) : 500;
     const candlesVisible = activeChart ? (activeChart._showCandles !== false) : true;
 
-    const items = [
-      ...folders.map(f => ({ type: 'folder' as const, id: f.id, order: f.order ?? 0, data: f })),
-      ...(groupedDrawings['root'] || []).map(d => ({ type: 'drawing' as const, id: d.id, order: d.extendData?.order ?? 0, data: d })),
-      { type: 'candles' as const, id: 'candles', order: candlesOrder, data: { name: 'Main Series', isVisible: candlesVisible } }
-    ];
-    items.sort((a, b) => {
-      if (a.order !== b.order) return b.order - a.order;
-      return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' });
+    return buildTreeHierarchyFromCanonical(canonicalSequence, currentSymbolDrawings, folders, {
+      candlesVisible,
+      candlesName: 'Main Series',
+      candlesOrderFallback: candlesOrder,
     });
-    return items;
-  }, [folders, groupedDrawings, activeChart, drawingTrigger]);
+  }, [canonicalSequence, currentSymbolDrawings, folders, activeChart, drawingTrigger]);
 
   // Handle single selection
   const handleItemSelect = (e: React.MouseEvent, id: string) => {
@@ -1187,7 +1122,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             {/* Intermixed Folders, Drawings & Candles */}
             {rootItems.map(item => {
               if (item.type === 'folder') {
-                const folder = item.data;
+                const folder = item.data as FolderItem;
                 const childDrawings = groupedDrawings[folder.id] || [];
                 const isSelected = childDrawings.length > 0 && childDrawings.every(d => selectedOverlayIds.includes(d.id));
 
@@ -1208,7 +1143,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                     isDragging={isDragging}
                     isRenaming={renamingId === folder.id}
                     renameValue={renameValue}
-                    renameInputRef={renameInputRef}
+                    renameInputRef={renameInputRef as any}
                     onRenameValueChange={setRenameValue}
                     onFinishRename={handleFinishRename}
                     onCancelRename={() => setRenamingId(null)}
@@ -1259,7 +1194,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                         dragOverPosition={dragOverPosition}
                         isRenaming={renamingId === d.id}
                         renameValue={renameValue}
-                        renameInputRef={renameInputRef}
+                        renameInputRef={renameInputRef as any}
                         onRenameValueChange={setRenameValue}
                         onFinishRename={handleFinishRename}
                         onCancelRename={() => setRenamingId(null)}
@@ -1367,7 +1302,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                   </div>
                 );
               } else {
-                const d = item.data;
+                const d = item.data as any;
                 return (
                   <DrawingTreeItem
                     key={d.id}
@@ -1384,7 +1319,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                     dragOverPosition={dragOverPosition}
                     isRenaming={renamingId === d.id}
                     renameValue={renameValue}
-                    renameInputRef={renameInputRef}
+                    renameInputRef={renameInputRef as any}
                     onRenameValueChange={setRenameValue}
                     onFinishRename={handleFinishRename}
                     onCancelRename={() => setRenamingId(null)}

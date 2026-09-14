@@ -445,7 +445,9 @@ export function moveFolderBlock(
   const removedChildren = next.splice(sourceBlock.start, sourceBlock.childIds.length);
 
   // Determine insert position relative to target
-  const targetFolderId = targetId !== CANDLES_SENTINEL ? folderLookup[targetId] : null;
+  const targetFolderId = targetId !== CANDLES_SENTINEL
+    ? (folderLookup[targetId] ?? (getFolderBlockRange(next, targetId, folderLookup) ? targetId : null))
+    : null;
   let targetIndex = -1;
 
   if (targetFolderId && targetFolderId !== folderId) {
@@ -740,3 +742,202 @@ export function calculateZLevelsFromSequence(
 
   return result;
 }
+
+export interface TreeHierarchyFolder {
+  id: string;
+  name: string;
+  order?: number;
+  [key: string]: any;
+}
+
+export interface TreeHierarchyDrawing {
+  id: string;
+  name?: string;
+  extendData?: {
+    order?: number;
+    folderId?: string | null;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
+export interface TreeRootItem<TFolder = any, TDrawing = any> {
+  type: 'folder' | 'drawing' | 'candles';
+  id: string;
+  order?: number;
+  data: TFolder | TDrawing | { name: string; isVisible: boolean } | null;
+}
+
+export interface TreeHierarchyResult<TFolder = any, TDrawing = any> {
+  rootItems: TreeRootItem<TFolder, TDrawing>[];
+  groupedDrawings: Record<string, TDrawing[]>;
+}
+
+export interface BuildTreeHierarchyOptions {
+  candlesVisible?: boolean;
+  candlesName?: string;
+  candlesOrderFallback?: number;
+}
+
+/**
+ * Pure, deterministic tree hierarchy builder for Phase 2C-4B.
+ *
+ * Transforms a canonical sequence into the visual hierarchy required by ObjectTreePanel:
+ * - rootItems: interleaved list of folders, root drawings, and candles in exact canonical order
+ * - groupedDrawings: map of folderId -> contiguous, canonically ordered child drawings (plus 'root' bucket)
+ *
+ * Empty Folder Semantics:
+ * - Empty folders do not have children in the canonical sequence.
+ * - Preserves existing UI/legacy placement behavior: empty folders are sorted by their
+ *   legacy `order` value relative to neighboring items rather than forced to the top.
+ */
+export function buildTreeHierarchyFromCanonical<
+  TFolder extends TreeHierarchyFolder = any,
+  TDrawing extends TreeHierarchyDrawing = any
+>(
+  sequence: string[],
+  drawings: TDrawing[],
+  folders: TFolder[],
+  options?: BuildTreeHierarchyOptions
+): TreeHierarchyResult<TFolder, TDrawing> {
+  const groupedDrawings: Record<string, TDrawing[]> = { root: [] };
+  folders.forEach((f) => {
+    groupedDrawings[f.id] = [];
+  });
+
+  const drawingMap = new Map<string, TDrawing>();
+  drawings.forEach((d) => {
+    drawingMap.set(d.id, d);
+  });
+
+  const folderMap = new Map<string, TFolder>();
+  folders.forEach((f) => {
+    folderMap.set(f.id, f);
+  });
+
+  const rootItems: TreeRootItem<TFolder, TDrawing>[] = [];
+  const placedFolders = new Set<string>();
+  const candlesVisible = options?.candlesVisible ?? true;
+  const candlesName = options?.candlesName ?? 'Main Series';
+
+  // 1. Iterate canonical sequence from front/top (index 0) to back/bottom
+  for (const id of sequence) {
+    if (id === CANDLES_SENTINEL) {
+      rootItems.push({
+        type: 'candles',
+        id: 'candles',
+        order: options?.candlesOrderFallback ?? 500,
+        data: { name: candlesName, isVisible: candlesVisible },
+      });
+      continue;
+    }
+
+    const drawing = drawingMap.get(id);
+    if (!drawing) continue;
+
+    const folderId = drawing.extendData?.folderId;
+    if (folderId && folderMap.has(folderId)) {
+      // Child of a folder: append to folder's grouped list in sequence order
+      if (!groupedDrawings[folderId]) {
+        groupedDrawings[folderId] = [];
+      }
+      groupedDrawings[folderId].push(drawing);
+
+      // If this folder has not been placed in rootItems yet, insert folder header here
+      if (!placedFolders.has(folderId)) {
+        placedFolders.add(folderId);
+        const folder = folderMap.get(folderId)!;
+        rootItems.push({
+          type: 'folder',
+          id: folder.id,
+          order: folder.order ?? 0,
+          data: folder,
+        });
+      }
+    } else {
+      // Loose drawing at root level
+      groupedDrawings.root.push(drawing);
+      rootItems.push({
+        type: 'drawing',
+        id: drawing.id,
+        order: drawing.extendData?.order ?? 0,
+        data: drawing,
+      });
+    }
+  }
+
+  // 2. Preserve any drawing present in drawings array but missing from sequence (fallback)
+  for (const d of drawings) {
+    const fId = d.extendData?.folderId;
+    if (fId && folderMap.has(fId)) {
+      if (!groupedDrawings[fId]?.some((x) => x.id === d.id)) {
+        groupedDrawings[fId] = groupedDrawings[fId] || [];
+        groupedDrawings[fId].push(d);
+        if (!placedFolders.has(fId)) {
+          placedFolders.add(fId);
+          const folder = folderMap.get(fId)!;
+          rootItems.push({
+            type: 'folder',
+            id: folder.id,
+            order: folder.order ?? 0,
+            data: folder,
+          });
+        }
+      }
+    } else {
+      if (!groupedDrawings.root.some((x) => x.id === d.id)) {
+        groupedDrawings.root.push(d);
+        rootItems.push({
+          type: 'drawing',
+          id: d.id,
+          order: d.extendData?.order ?? 0,
+          data: d,
+        });
+      }
+    }
+  }
+
+  // 3. Empty Folders Preservation:
+  // Empty folders do not have children in the canonical sequence.
+  // Insert each unplaced folder according to its legacy `order` relative to other rootItems.
+  const unplacedFolders = folders.filter((f) => !placedFolders.has(f.id));
+  if (unplacedFolders.length > 0) {
+    // Sort unplaced folders by legacy order descending (fallback ID descending)
+    const sortedUnplaced = [...unplacedFolders].sort((a, b) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderB - orderA;
+      return (b.id || '').localeCompare(a.id || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    for (const emptyFolder of sortedUnplaced) {
+      const emptyOrder = emptyFolder.order ?? 0;
+      // Find index of first item in rootItems with order strictly less than emptyOrder
+      let insertIdx = rootItems.findIndex((item) => {
+        const itemOrder = typeof item.order === 'number' ? item.order : 0;
+        return itemOrder < emptyOrder;
+      });
+
+      const folderRootItem: TreeRootItem<TFolder, TDrawing> = {
+        type: 'folder',
+        id: emptyFolder.id,
+        order: emptyOrder,
+        data: emptyFolder,
+      };
+
+      if (insertIdx === -1) {
+        // All existing items have higher or equal order -> append to back/bottom
+        rootItems.push(folderRootItem);
+      } else {
+        rootItems.splice(insertIdx, 0, folderRootItem);
+      }
+      placedFolders.add(emptyFolder.id);
+    }
+  }
+
+  return {
+    rootItems,
+    groupedDrawings,
+  };
+}
+

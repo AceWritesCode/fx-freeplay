@@ -122,6 +122,8 @@ const layoutModule = await import(pathToFileURL(path.resolve('src/store/useLayou
 const { useLayoutStore } = layoutModule;
 const reconcilerModule = await import(pathToFileURL(path.resolve('src/engine/charting/drawingReconciler.ts')).href);
 const { reconcileWorkspace } = reconcilerModule;
+const adapterModule = await import(pathToFileURL(path.resolve('src/engine/charting/drawingChartAdapter.ts')).href);
+const { DrawingChartAdapter } = adapterModule;
 
 function createMockChart() {
   const overlays = new Map<string, any>();
@@ -326,5 +328,63 @@ describe('Phase 2C-3 — Canonical Order Runtime Z-Level Reconciliation', () => 
     const ovNew = chart.getOverlays().find((o: any) => o.id === 'dNew');
     assert.ok(ovNew, 'New drawing should be created on chart');
     assert.equal(ovNew.zLevel, 10, 'Should receive valid positive natural zLevel');
+  });
+
+  it('DrawingChartAdapter.promoteOverlay elevates drawing to maxNaturalZ + 1 and preserves originalZLevel', () => {
+    const chart = createMockChart();
+    chart.createOverlay({ id: 'd1', name: 'straight_line', zLevel: 10 });
+    chart.createOverlay({ id: 'd2', name: 'straight_line', zLevel: 20 });
+    chart.createOverlay({ id: 'd3', name: 'straight_line', zLevel: 30 });
+
+    DrawingChartAdapter.promoteOverlay(chart, 'd1');
+
+    const ov1 = chart.getOverlays().find((o: any) => o.id === 'd1');
+    assert.equal(ov1.zLevel, 31, 'd1 should be promoted above maxNaturalZ (30 + 1 = 31)');
+    assert.deepEqual(chart._promotedOverlayInfo, {
+      id: 'd1',
+      originalZLevel: 10,
+      temporaryZLevel: 31,
+    });
+  });
+
+  it('DrawingChartAdapter.restorePromotedOverlay restores natural zLevel and clears _promotedOverlayInfo', () => {
+    const chart = createMockChart();
+    chart.createOverlay({ id: 'd1', name: 'straight_line', zLevel: 10 });
+    chart.createOverlay({ id: 'd2', name: 'straight_line', zLevel: 20 });
+
+    DrawingChartAdapter.promoteOverlay(chart, 'd1');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'd1').zLevel, 21);
+
+    DrawingChartAdapter.restorePromotedOverlay(chart, 'd1');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'd1').zLevel, 10);
+    assert.equal(chart._promotedOverlayInfo, null);
+  });
+
+  it('promoting a second overlay automatically restores the first one before promoting the second', () => {
+    const chart = createMockChart();
+    chart.createOverlay({ id: 'd1', name: 'straight_line', zLevel: 10 });
+    chart.createOverlay({ id: 'd2', name: 'straight_line', zLevel: 20 });
+
+    DrawingChartAdapter.promoteOverlay(chart, 'd1');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'd1').zLevel, 21);
+
+    DrawingChartAdapter.promoteOverlay(chart, 'd2');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'd1').zLevel, 10, 'd1 should be restored to natural zLevel');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'd2').zLevel, 21, 'd2 should be promoted');
+    assert.equal(chart._promotedOverlayInfo.id, 'd2');
+  });
+
+  it('supports sync_ prefix matching for multi-chart slots in promoteOverlay and restorePromotedOverlay', () => {
+    const chart = createMockChart();
+    chart.createOverlay({ id: 'sync_d1', name: 'straight_line', zLevel: 10 });
+    chart.createOverlay({ id: 'sync_d2', name: 'straight_line', zLevel: 20 });
+
+    DrawingChartAdapter.promoteOverlay(chart, 'd1');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'sync_d1').zLevel, 21);
+    assert.equal(chart._promotedOverlayInfo.id, 'sync_d1');
+
+    DrawingChartAdapter.restorePromotedOverlay(chart, 'd1');
+    assert.equal(chart.getOverlays().find((o: any) => o.id === 'sync_d1').zLevel, 10);
+    assert.equal(chart._promotedOverlayInfo, null);
   });
 });

@@ -45,6 +45,14 @@ const getNaturalZLevel = (chart: any, ov: any): number => {
   return typeof ov?.zLevel === 'number' ? ov.zLevel : 0;
 };
 
+const isPromotedOverlaySelected = (chart: any, selectedIds?: string[]): boolean => {
+  if (!chart?._promotedOverlayInfo) return false;
+  const promotedId = chart._promotedOverlayInfo.id;
+  const canonicalId = promotedId.startsWith('sync_') ? promotedId.replace('sync_', '') : promotedId;
+  const ids = (selectedIds && selectedIds.length > 0) ? selectedIds : chart._selectedOverlayIds;
+  return Array.isArray(ids) && (ids.includes(promotedId) || ids.includes(canonicalId));
+};
+
 /**
  * Custom hook to manage global mouse interactions, brush stroke finalization,
  * empty space click deselection, and anchor/body hover hit testing with cursor management.
@@ -153,34 +161,32 @@ export function useDrawingHoverCursor({
           chart._isMouseDown = false;
 
           if (chart._promotedOverlayInfo) {
-            const container = chartContainersRef.current[index];
-            if (container) {
-              const rect = container.getBoundingClientRect();
-              const xVal = e.clientX - rect.left;
-              const yVal = e.clientY - rect.top;
-              const ov = chart.getOverlays().find((o: any) => o.id === chart._promotedOverlayInfo.id);
-              let nearAnchor = false;
-              if (ov && ov.points) {
-                const cleanPts = ov.points.map((p: any) => ({
-                  ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
-                  ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
-                  value: p.value,
-                }));
-                let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
-                if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
-                  pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+            const isSelected = isPromotedOverlaySelected(chart, selectedOverlayIds);
+            if (!isSelected) {
+              const container = chartContainersRef.current[index];
+              if (container) {
+                const rect = container.getBoundingClientRect();
+                const xVal = e.clientX - rect.left;
+                const yVal = e.clientY - rect.top;
+                const ov = chart.getOverlays().find((o: any) => o.id === chart._promotedOverlayInfo.id);
+                let nearAnchor = false;
+                if (ov && ov.points) {
+                  const cleanPts = ov.points.map((p: any) => ({
+                    ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+                    ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+                    value: p.value,
+                  }));
+                  let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
+                  if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
+                    pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+                  }
+                  if (Array.isArray(pts)) {
+                    nearAnchor = pts.some((pt: any) => pt && typeof pt.x === 'number' && typeof pt.y === 'number' && Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2) <= 16);
+                  }
                 }
-                if (Array.isArray(pts)) {
-                  nearAnchor = pts.some((pt: any) => pt && typeof pt.x === 'number' && typeof pt.y === 'number' && Math.sqrt((pt.x - xVal) ** 2 + (pt.y - yVal) ** 2) <= 16);
+                if (!nearAnchor) {
+                  DrawingChartAdapter.restorePromotedOverlay(chart);
                 }
-              }
-              if (!nearAnchor) {
-                chart.overrideOverlay({
-                  id: chart._promotedOverlayInfo.id,
-                  zLevel: chart._promotedOverlayInfo.originalZLevel,
-                });
-                chart._promotedOverlayInfo = null;
-                DrawingChartAdapter.invalidatePane(chart);
               }
             }
           }
@@ -252,12 +258,9 @@ export function useDrawingHoverCursor({
         }
         chartInstancesRef.current.forEach((c: any) => {
           if (c?._promotedOverlayInfo && !c._isMouseDown) {
-            c.overrideOverlay({
-              id: c._promotedOverlayInfo.id,
-              zLevel: c._promotedOverlayInfo.originalZLevel,
-            });
-            c._promotedOverlayInfo = null;
-            DrawingChartAdapter.invalidatePane(c);
+            if (!isPromotedOverlaySelected(c, selectedOverlayIds)) {
+              DrawingChartAdapter.restorePromotedOverlay(c);
+            }
           }
         });
         return;
@@ -265,12 +268,9 @@ export function useDrawingHoverCursor({
 
       chartInstancesRef.current.forEach((c: any, idx: number) => {
         if (idx !== activeIndex && c?._promotedOverlayInfo && !c._isMouseDown) {
-          c.overrideOverlay({
-            id: c._promotedOverlayInfo.id,
-            zLevel: c._promotedOverlayInfo.originalZLevel,
-          });
-          c._promotedOverlayInfo = null;
-          DrawingChartAdapter.invalidatePane(c);
+          if (!isPromotedOverlaySelected(c, selectedOverlayIds)) {
+            DrawingChartAdapter.restorePromotedOverlay(c);
+          }
         }
       });
 
@@ -488,55 +488,17 @@ export function useDrawingHoverCursor({
       if (!isActivelyDragging && drawingCoord.activeTool !== 'eraser') {
         if (isAnchorHit && targetOverlayForAnchor) {
           const targetId = targetOverlayForAnchor.id;
-          const naturalZ = getNaturalZLevel(chart, targetOverlayForAnchor);
-
-          let maxNaturalZ = 0;
-          interactiveOverlays.forEach((ov: any) => {
-            const z = getNaturalZLevel(chart, ov);
-            if (z > maxNaturalZ) maxNaturalZ = z;
-          });
-
-          if (naturalZ < maxNaturalZ) {
-            const temporaryZLevel = maxNaturalZ + 1;
-
-            if (chart._promotedOverlayInfo && chart._promotedOverlayInfo.id !== targetId) {
-              chart.overrideOverlay({
-                id: chart._promotedOverlayInfo.id,
-                zLevel: chart._promotedOverlayInfo.originalZLevel,
-              });
-              chart._promotedOverlayInfo = null;
-            }
-
-            if (!chart._promotedOverlayInfo || chart._promotedOverlayInfo.id !== targetId) {
-              chart._promotedOverlayInfo = {
-                id: targetId,
-                originalZLevel: naturalZ,
-                temporaryZLevel,
-              };
-              chart.overrideOverlay({
-                id: targetId,
-                zLevel: temporaryZLevel,
-              });
-              DrawingChartAdapter.invalidatePane(chart);
-            }
-          } else {
-            if (chart._promotedOverlayInfo) {
-              chart.overrideOverlay({
-                id: chart._promotedOverlayInfo.id,
-                zLevel: chart._promotedOverlayInfo.originalZLevel,
-              });
-              chart._promotedOverlayInfo = null;
-              DrawingChartAdapter.invalidatePane(chart);
-            }
-          }
+          DrawingChartAdapter.promoteOverlay(chart, targetId);
         } else {
           if (chart._promotedOverlayInfo) {
-            chart.overrideOverlay({
-              id: chart._promotedOverlayInfo.id,
-              zLevel: chart._promotedOverlayInfo.originalZLevel,
-            });
-            chart._promotedOverlayInfo = null;
-            DrawingChartAdapter.invalidatePane(chart);
+            if (!isPromotedOverlaySelected(chart, selectedOverlayIds)) {
+              DrawingChartAdapter.restorePromotedOverlay(chart);
+              if (selectedOverlayIds && selectedOverlayIds.length === 1) {
+                DrawingChartAdapter.promoteOverlay(chart, selectedOverlayIds[0]);
+              }
+            }
+          } else if (selectedOverlayIds && selectedOverlayIds.length === 1) {
+            DrawingChartAdapter.promoteOverlay(chart, selectedOverlayIds[0]);
           }
         }
       }
@@ -674,16 +636,11 @@ export function useDrawingHoverCursor({
     return () => {
       chartInstancesRef.current.forEach((c: any) => {
         if (c?._promotedOverlayInfo) {
-          try {
-            c.overrideOverlay({
-              id: c._promotedOverlayInfo.id,
-              zLevel: c._promotedOverlayInfo.originalZLevel,
-            });
-          } catch {}
-          c._promotedOverlayInfo = null;
-          try {
-            DrawingChartAdapter.invalidatePane(c);
-          } catch {}
+          if (!isPromotedOverlaySelected(c, selectedOverlayIds)) {
+            try {
+              DrawingChartAdapter.restorePromotedOverlay(c);
+            } catch {}
+          }
         }
       });
       window.removeEventListener('mousedown', handleMouseDown);
