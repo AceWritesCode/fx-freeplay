@@ -22,6 +22,11 @@ import {
   SESSION_BACKGROUNDS_INDICATOR_NAME,
   useSessionBackgroundRenderer,
 } from '@/features/session-display';
+import {
+  registerReplayMaskIndicator,
+  REPLAY_MASK_INDICATOR_NAME,
+} from '@/engine/charting';
+
 
 import { Header } from './components/Header';
 import { DrawingToolbar } from './components/DrawingToolbar';
@@ -286,11 +291,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             downColor: s.bearColor,
             noChangeColor: '#888888',
             line: {
-              show: s.showPriceLine,
+              show: false,
               style: s.priceLineStyle,
               size: s.priceLineSize,
               color: s.priceLineColor,
             },
+
             text: {
               show: s.showPriceLineLabel,
               size: 11,
@@ -687,6 +693,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           // Register custom overlays and custom indicators first
           registerCustomOverlays();
           registerSessionBackgroundIndicator();
+          registerReplayMaskIndicator();
+
 
           const chart = init(container, {
             formatter: {
@@ -778,6 +786,13 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
               isStack: true,
               pane: { id: 'candle_pane' }
             });
+
+            // Attach Replay Mask indicator strictly inside candle_pane
+            chart.createIndicator(REPLAY_MASK_INDICATOR_NAME, {
+              isStack: true,
+              pane: { id: 'candle_pane' }
+            });
+
 
             (chart as any)._onDrawingSync = drawingCoord.syncAllDrawings;
             (chart as any)._onHoverChange = () => {

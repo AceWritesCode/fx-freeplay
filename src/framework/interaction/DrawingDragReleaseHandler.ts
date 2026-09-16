@@ -1,6 +1,7 @@
 import { isEditableElement } from './ModifierKeyTracker.ts';
 import { isExclusiveMarqueeMode } from './MarqueeSelectionHandler.ts';
 import { snapPointToCandle, calculateAngleSnapPoint, isAngleSnapSupportedTool } from '../../engine/charting/snapping.ts';
+import { replayVisibilityBoundary } from '../../engine/replay/ReplayVisibilityBoundary.ts';
 
 function invalidateOverlayPane(chart: any, paneId: string = 'candle_pane'): void {
   if (!chart) return;
@@ -62,12 +63,19 @@ function convertCoordinateToPoint(
     const res = chart.convertFromPixel({ x, y }, { paneId });
     const pt = Array.isArray(res) ? res[0] : res;
     if (pt) {
+      if (replayVisibilityBoundary.isActive()) {
+        const dataList = typeof chart?.getDataList === 'function' ? chart.getDataList() : null;
+        if (dataList && dataList.length > 0) {
+          return replayVisibilityBoundary.clampPointToRevealedBoundary(pt, dataList);
+        }
+      }
       return pt;
     }
   } catch (_) {}
 
   return {};
 }
+
 
 /**
  * Handles click-drag-release creation for two-anchor drawing tools (totalStep === 3)

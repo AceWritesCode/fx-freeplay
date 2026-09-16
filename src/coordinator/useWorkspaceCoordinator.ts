@@ -319,12 +319,8 @@ export function useWorkspaceCoordinator(
     const chart = chartInstancesRef.current[idx];
     if (chart) {
       const fullData = newTimeframesData[timeframe] || [];
-      const replayState = useReplayStore.getState();
-      let visibleData = fullData;
-      if (replayState.isReplayActive && replayState.replayCurrentTimestamp !== null) {
-        const lastIdx = findCandleIndexByTimestamp(fullData, replayState.replayCurrentTimestamp);
-        visibleData = lastIdx !== -1 ? fullData.slice(0, lastIdx + 1) : [];
-      }
+      const visibleData = fullData;
+
 
       chart.setDataLoader({
         getBars: ({ type: loadType, callback }: any) => {
@@ -847,12 +843,8 @@ export function useWorkspaceCoordinator(
         chart.setPeriod(parseTimeframeToPeriod(tf));
         (chart as any)._loadedTimeframe = tf;
 
-        const replayState = useReplayStore.getState();
-        let visibleData = tfData;
-        if (replayState.isReplayActive && replayState.replayCurrentTimestamp !== null) {
-          const lastIdx = findCandleIndexByTimestamp(tfData, replayState.replayCurrentTimestamp);
-          visibleData = lastIdx !== -1 ? tfData.slice(0, lastIdx + 1) : [];
-        }
+        const visibleData = tfData;
+
 
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {

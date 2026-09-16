@@ -6,3 +6,5 @@ export * from './drawingChartAdapter';
 export * from './drawingSyncEngine';
 export * from './chartRegistry';
 export * from './orderEngine';
+export * from './indicators/ReplayMaskIndicator';
+

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useReplayStore, useLayoutStore } from '@/store';
 import type { SlotConfig } from '@/store/types';
-import { replayEngine, findCandleIndexByTimestamp } from '@/engine/replay';
+import { replayEngine, findCandleIndexByTimestamp, replayVisibilityBoundary } from '@/engine/replay';
+
 import type { ReplaySession } from '@/engine/replay';
 import { getTrueOffsetRightDistance } from '@/engine/charting';
 import { applyAxisRange } from '@/engine/workspace';
+
 
 export function useReplayCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
@@ -130,23 +132,30 @@ export function useReplayCoordinator(
     resetReplay();
     setIsSelectingCutPoint(false);
 
+    // Reset visibility boundary and trigger canvas repaint for all chart slots
+    replayVisibilityBoundary.reset();
+    slots.forEach((_, idx) => {
+      const c = chartInstancesRef.current[idx];
+      if (c) {
+        if (typeof c.updatePane === 'function') {
+          c.updatePane(0, 'candle_pane');
+        }
+        c.resize();
+      }
+    });
+
+
     const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
 
-    // Restore full data to other slots in multi-chart layout
+    // Adjust scroll positions for other slots in multi-chart layout without reloading/resetting data
     slots.forEach((slot, idx) => {
       if (idx === activeChartIndex) return;
       const otherChart = chartInstancesRef.current[idx];
       if (!otherChart || !slot?.symbol) return;
       const otherFull = allTimeframesData[slot.timeframe] || [];
+
       if (otherFull.length > 0) {
         (otherChart as any)._isProgrammaticScroll = true;
-        otherChart.setDataLoader({
-          getBars: ({ type: loadType, callback }: any) => {
-            if (loadType === 'init') callback(otherFull);
-            else callback([]);
-          },
-        });
-        otherChart.resetData();
         const otherWidth = otherChart.getSize()?.width || 800;
         const otherTargetOffset = otherWidth * resetRatio;
         otherChart.setOffsetRightDistance(otherTargetOffset);
@@ -179,20 +188,6 @@ export function useReplayCoordinator(
     const targetOffset = chartWidth * resetRatio;
     const currentCandleOffset = currentOffset !== null ? currentOffset : targetOffset;
 
-    // Ingest full dataset into active chart
-    (chart as any)._isProgrammaticScroll = true;
-    chart.setDataLoader({
-      getBars: ({ type: loadType, callback }: any) => {
-        if (loadType === 'init') {
-          console.log(`[DEBUG] exitReplayMode dataLoader - Ingesting full dataset (${fullData.length} bars)`);
-          callback(fullData);
-        } else {
-          callback([]);
-        }
-      },
-    });
-    chart.resetData();
-
     // Restore manual Y-axis scale so candle heights don't jump
     if (wasManualScaleRef.current && capturedYAxisRangeRef.current) {
       const p = chart.getDrawPaneById?.('candle_pane');
@@ -202,6 +197,7 @@ export function useReplayCoordinator(
         ya.setAutoCalcTickFlag?.(false);
       }
     }
+
 
     // startOffset positions candle slicedIndex at its exact current on-screen pixel (zero visual jump)
     const startOffset = currentCandleOffset - (remainingCandles * space);
@@ -311,6 +307,70 @@ export function useReplayCoordinator(
 
       setIsReplayActive(true);
       setIsReplayPlaying(false);
+
+      // Initialize visibility boundary and trigger replay mask repaint
+      replayVisibilityBoundary.setReplayState(true, timestamp);
+      slots.forEach((slot, idx) => {
+        const c = chartInstancesRef.current[idx];
+        if (c && slot?.symbol) {
+          if (typeof c.updatePane === 'function') {
+            c.updatePane(0, 'candle_pane');
+          }
+          c.resize();
+        }
+      });
+
+
+      // Align active chart camera viewport to selected cut point
+      const activeChart = chartInstancesRef.current[activeChartIndex];
+      if (activeChart) {
+        const chartSize = activeChart.getSize();
+        const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+        const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
+        const targetOffset = chartWidth * resetRatio;
+
+        const barSpaceVal = activeChart.getBarSpace();
+        let barSpace = 6;
+        if (typeof barSpaceVal === 'number') {
+          barSpace = barSpaceVal;
+        } else if (typeof barSpaceVal === 'object' && barSpaceVal) {
+          barSpace = (barSpaceVal as any).bar || 6;
+        }
+
+        const remainingCandles = Math.max(0, (fullData.length - 1) - startIndex);
+        const hiddenWidth = remainingCandles * barSpace;
+
+        const effectiveTargetOffset = targetOffset - hiddenWidth;
+        const startOffset = clickX !== undefined ? (chartWidth - clickX) - hiddenWidth : effectiveTargetOffset;
+
+        (activeChart as any)._isProgrammaticScroll = true;
+        activeChart.setOffsetRightDistance(startOffset);
+
+        if (Math.abs(effectiveTargetOffset - startOffset) > 2) {
+          const startTime = performance.now();
+          const duration = 500;
+          const animate = (time: number) => {
+            const chartInst = chartInstancesRef.current[activeChartIndex];
+            if (!chartInst) return;
+            const elapsed = time - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const currentOffset = startOffset + (effectiveTargetOffset - startOffset) * eased;
+            chartInst.setOffsetRightDistance(currentOffset);
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              chartInst.setOffsetRightDistance(effectiveTargetOffset);
+              (chartInst as any)._isProgrammaticScroll = false;
+            }
+          };
+          requestAnimationFrame(animate);
+        } else {
+          activeChart.setOffsetRightDistance(effectiveTargetOffset);
+          (activeChart as any)._isProgrammaticScroll = false;
+        }
+      }
+
     } catch (err) {
       console.error('[ReplayCoordinator] Failed to create replay session:', err);
       setIsReplayActive(false);
@@ -479,39 +539,25 @@ export function useReplayCoordinator(
     lastSyncedSlotsRef.current = slots;
     lastReplayActiveRef.current = isReplayActive;
 
-    slots.forEach(async (slot, index) => {
+    // Synchronize replay visibility boundary and trigger replay mask repaint
+    replayVisibilityBoundary.setReplayState(true, replayCurrentTimestamp);
+
+    slots.forEach((slot, index) => {
       const chart = chartInstancesRef.current[index];
       if (!chart || !slot.symbol) return;
 
       const isActiveSlot = index === activeChartIndex;
 
-      // Capture scroll offset and Y-axis state BEFORE data reload (active slot only)
-      let currentOffset: number | null = null;
-      let yAxis: any = null;
-      let wasManualScale = false;
-      let prevRange: any = null;
-      if (isActiveSlot) {
-        currentOffset = capturedOffsetRef.current !== null
-          ? capturedOffsetRef.current
-          : getTrueOffsetRightDistance(chart);
-        if (capturedOffsetRef.current !== null) {
-          capturedOffsetRef.current = null;
-        }
-        const pane = chart.getDrawPaneById?.('candle_pane');
-        yAxis = pane?.getYAxisComponents?.()?.[0];
-        wasManualScale = yAxis ? !yAxis.getAutoCalcTickFlag() : false;
-        prevRange = wasManualScale && yAxis ? yAxis.getRange() : null;
+      if (typeof chart.updatePane === 'function') {
+        chart.updatePane(0, 'candle_pane');
       }
+      chart.resize();
 
-      // Check for pending cut animation to override the starting offset
-      const anim = isActiveSlot ? pendingCutAnimation.current : null;
-      let tempOffset = currentOffset;
-      if (anim && anim.timestamp === replayCurrentTimestamp && currentOffset !== null) {
-        const chartSize = chart.getSize();
-        const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-        tempOffset = chartWidth - anim.clickX;
-        console.log(`[DEBUG] dataSync - Cut animation offset override: ${tempOffset} (clickX: ${anim.clickX})`);
-      } else if (!useReplayStore.getState().isAutoShiftEnabled && prevTimestamp !== null && currentOffset !== null) {
+
+
+      // Handle optional auto-shift scroll adjustment without resetting chart data
+      if (!useReplayStore.getState().isAutoShiftEnabled && prevTimestamp !== null && isActiveSlot) {
+        const currentOffset = getTrueOffsetRightDistance(chart);
         const fullData = allTimeframesData[slot.timeframe] || [];
         if (fullData.length > 0) {
           const prevIdx = findCandleIndexByTimestamp(fullData, prevTimestamp);
@@ -524,63 +570,18 @@ export function useReplayCoordinator(
               if (typeof barSpaceVal === 'number') space = barSpaceVal;
               else if (typeof barSpaceVal === 'object' && barSpaceVal) space = barSpaceVal.bar || 6;
 
-              tempOffset = currentOffset - (deltaBars * space);
-              console.log(`[DEBUG] dataSync - Auto Shift OFF: adjusting offset by -${deltaBars * space}px to keep viewport stationary (new offset: ${tempOffset})`);
+              const tempOffset = currentOffset - (deltaBars * space);
+              chart.setOffsetRightDistance(tempOffset);
             }
           }
         }
       }
-
-      // Reload data for this slot using loadDataForSlot with preserved/custom offset
-      (chart as any)._isProgrammaticScroll = true;
-      await loadDataForSlotRef.current(
-        index,
-        chart,
-        isActiveSlot && tempOffset !== null
-          ? { customOffset: tempOffset }
-          : { preserveOffset: true }
-      );
-      requestAnimationFrame(() => {
-        (chart as any)._isProgrammaticScroll = false;
-      });
-
-      // Restore or unlock Y-axis scale (active slot only)
-      if (isActiveSlot && yAxis) {
-        if (wasManualScale && prevRange) {
-          console.log('[DEBUG] dataSync - Restoring manual Y-axis range:', prevRange);
-          yAxis.setRange({ ...prevRange });
-          yAxis.setAutoCalcTickFlag(false);
-        } else {
-          yAxis.setAutoCalcTickFlag(true);
-        }
-      }
-
-      // Run the cut-point slide-in animation (active slot, consumed once)
-      if (isActiveSlot && anim && anim.timestamp === replayCurrentTimestamp && tempOffset !== null) {
-        pendingCutAnimation.current = null;
-        const startTime = performance.now();
-        const startOffset = tempOffset;
-        const endOffset = anim.savedOffset;
-        const duration = 700;
-        console.log(`[DEBUG] dataSync - Animating offset: ${startOffset} to ${endOffset} over ${duration}ms`);
-        const animate = (time: number) => {
-          const activeChart = chartInstancesRef.current[activeChartIndex];
-          if (!activeChart || !isReplayActive) return;
-          const elapsed = time - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          activeChart.setOffsetRightDistance(startOffset + (endOffset - startOffset) * eased);
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            console.log(`[DEBUG] dataSync - Animation done. Final offset: ${endOffset}`);
-            activeChart.setOffsetRightDistance(endOffset);
-          }
-        };
-        requestAnimationFrame(animate);
-      }
     });
-  }, [replayCurrentTimestamp, isReplayActive, slots, activeChartIndex, loadDataForSlot]);
+  }, [replayCurrentTimestamp, isReplayActive, slots, activeChartIndex, allTimeframesData]);
+
+
+
+
 
   // ─── Cut-Point Pickup Line DOM Event Listeners ───────────────────────────
   // Binds click (capture phase), mousemove and mouseleave on the active chart

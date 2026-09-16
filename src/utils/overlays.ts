@@ -1,12 +1,13 @@
 import { registerOverlay } from 'klinecharts';
 import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter, getOriginalDrawingId, calculateAngleSnapPoint, isAngleSnapSupportedTool } from '@/engine/charting';
+import { replayVisibilityBoundary } from '@/engine/replay/ReplayVisibilityBoundary';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
-
 export function registerCustomOverlays() {
   // Initialize new tool framework
   initializeToolFramework();
+
 
   // Custom drawing tools are registered via the tool framework.
 
@@ -19,8 +20,8 @@ export function registerCustomOverlays() {
       if (!chart._showPriceLine) return [];
 
       const dataList = chart.getDataList();
-      if (dataList.length === 0) return [];
-      const lastData = dataList[dataList.length - 1];
+      if (!dataList || dataList.length === 0) return [];
+      const lastData = replayVisibilityBoundary.getEffectiveLastCandle(dataList);
       if (!lastData) return [];
 
       const close = lastData.close;
@@ -32,7 +33,8 @@ export function registerCustomOverlays() {
       // Determine color
       let color = chart._priceLineColor || '#2196f3';
       if (chart._priceLineUseCandleColor) {
-        const prevData = dataList[dataList.length - 2];
+        const { end } = replayVisibilityBoundary.getRevealedIndexRange(dataList);
+        const prevData = end > 0 ? dataList[end - 1] : undefined;
         const comparePrice = prevData ? prevData.close : open;
         if (close > comparePrice) {
           color = chart._bullColor || '#26a69a';
@@ -600,10 +602,14 @@ export function getInteractiveOverlayOptions(
           }));
 
           const convertedPoints = event.chart.convertFromPixel(targetPixels, { paneId: 'candle_pane' });
+          const dataList = event.chart.getDataList();
+          const clampedPoints = (replayVisibilityBoundary.isActive() && dataList && dataList.length > 0 && convertedPoints)
+            ? convertedPoints.map((pt: any) => replayVisibilityBoundary.clampPointToRevealedBoundary(pt, dataList))
+            : convertedPoints;
 
-          if (convertedPoints && convertedPoints.length === startPoints.length) {
+          if (clampedPoints && clampedPoints.length === startPoints.length) {
             const newPoints = startPoints.map((pt: any, i: number) => {
-              const conv = convertedPoints[i];
+              const conv = clampedPoints[i];
               return {
                 ...pt,
                 timestamp: conv?.timestamp ?? pt.timestamp,
@@ -618,6 +624,7 @@ export function getInteractiveOverlayOptions(
             });
             mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
           }
+
         }
 
         if (event.chart._handleMultiMove) {
@@ -668,9 +675,15 @@ export function getInteractiveOverlayOptions(
           snappedPt = snapPointToCandle(event, rawX, rawY);
         }
 
-        const currentPoints = snappedPt
+        const rawPointsConverted = snappedPt
           ? [snappedPt]
           : event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' });
+
+        const dataList = event.chart.getDataList();
+        const currentPoints = (replayVisibilityBoundary.isActive() && dataList && dataList.length > 0 && rawPointsConverted)
+          ? rawPointsConverted.map((pt: any) => replayVisibilityBoundary.clampPointToRevealedBoundary(pt, dataList))
+          : rawPointsConverted;
+
         if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
           const newPoints = [...initialPoints];
           newPoints[draggedIndex] = currentPoints[0];
@@ -680,6 +693,7 @@ export function getInteractiveOverlayOptions(
           });
           mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
         }
+
       } else if (event.overlay && event.overlay.points) {
         // Live in-progress drawing creation point updates
         mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: event.overlay.points }, chartInstancesRef);

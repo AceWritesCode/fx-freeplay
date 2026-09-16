@@ -1,3 +1,6 @@
+import { replayVisibilityBoundary } from '../replay/ReplayVisibilityBoundary.ts';
+
+
 export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   // Always read mode from the live chart-level flag so drag events on
   // pre-existing overlays still respect the current magnet state.
@@ -11,10 +14,23 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   const dataList = event.chart.getDataList();
   if (!dataList || dataList.length === 0) return null;
 
+  if (replayVisibilityBoundary.isActive()) {
+    const { end } = replayVisibilityBoundary.getRevealedIndexRange(dataList);
+    const rawIndex = Math.round(point.dataIndex);
+    if (end === -1 || rawIndex > end || (point.timestamp && !replayVisibilityBoundary.isTimestampRevealed(point.timestamp))) {
+      return null;
+    }
+  }
+
   const rawIndex = Math.round(point.dataIndex);
   const dataIndex = Math.max(0, Math.min(dataList.length - 1, rawIndex));
   const candle = dataList[dataIndex];
   if (!candle) return null;
+
+  if (replayVisibilityBoundary.isActive() && !replayVisibilityBoundary.isTimestampRevealed(candle.timestamp)) {
+    return null;
+  }
+
 
   const prices = [candle.open, candle.high, candle.low, candle.close];
   let closestPrice = prices[0];
