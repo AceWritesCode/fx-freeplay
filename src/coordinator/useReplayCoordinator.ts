@@ -4,6 +4,7 @@ import type { SlotConfig } from '@/store/types';
 import { replayEngine, findCandleIndexByTimestamp } from '@/engine/replay';
 import type { ReplaySession } from '@/engine/replay';
 import { getTrueOffsetRightDistance } from '@/engine/charting';
+import { applyAxisRange } from '@/engine/workspace';
 
 export function useReplayCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
@@ -197,7 +198,7 @@ export function useReplayCoordinator(
       const p = chart.getDrawPaneById?.('candle_pane');
       const ya = p?.getYAxisComponents?.()?.[0];
       if (ya) {
-        ya.setRange(capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
+        applyAxisRange(ya, capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
         ya.setAutoCalcTickFlag?.(false);
       }
     }
@@ -249,7 +250,7 @@ export function useReplayCoordinator(
           const p = activeChart.getDrawPaneById?.('candle_pane');
           const ya = p?.getYAxisComponents?.()?.[0];
           if (ya) {
-            ya.setRange(capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
+            applyAxisRange(ya, capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
             ya.setAutoCalcTickFlag?.(false);
           }
         }
