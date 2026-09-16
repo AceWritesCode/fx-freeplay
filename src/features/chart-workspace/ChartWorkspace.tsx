@@ -1,13 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Trash2,
-  Upload,
   FileSpreadsheet,
-  AlertCircle,
   X,
-  FolderOpen,
-  Database,
-  AlertTriangle,
 } from 'lucide-react';
 import { init, dispose } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
@@ -35,6 +29,10 @@ import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { WorkspaceFooter } from './components/WorkspaceFooter';
 import { ChartGrid } from './components/ChartGrid';
 import { ChartSlot } from './components/ChartSlot';
+import { WorkspaceModals } from './components/WorkspaceModals';
+import { ResetViewOverlay } from './components/ResetViewOverlay';
+import { WorkspaceImportOverlay } from './components/WorkspaceImportOverlay';
+import { HEADER_TIMEFRAMES, WORKSPACE_LAYOUT_OPTIONS } from './config/workspaceLayouts';
 
 import { PRESET_TIMEFRAMES, TIMEZONE_OPTIONS } from '@/config';
 import type { ChartSettings } from '@/config';
@@ -69,123 +67,9 @@ import {
 } from '@/coordinator';
 import { workspaceLayoutRepository, settingsRepository } from '@/repository';
 
-const HEADER_TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M'];
-
 // Stable empty array to prevent useDrawingStore selectors from returning new [] instances on every render
 // (which would cause "getSnapshot should be cached" infinite loop)
 const EMPTY_DRAWING_LIST: ReturnType<typeof useDrawingStore.getState>['drawingsBySymbol'][string] = [];
-
-const layoutsList = [
-  {
-    type: '1',
-    label: '1 Chart',
-    icon: <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated" />,
-  },
-  {
-    type: '2v',
-    label: '2 Columns',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex">
-        <div className="w-1/2 h-full border-r border-border-sub" />
-        <div className="w-1/2 h-full" />
-      </div>
-    ),
-  },
-  {
-    type: '2h',
-    label: '2 Rows',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex flex-col">
-        <div className="w-full h-1/2 border-b border-border-sub" />
-        <div className="w-full h-1/2" />
-      </div>
-    ),
-  },
-  {
-    type: '3v',
-    label: '3 Columns',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex">
-        <div className="w-1/3 h-full border-r border-border-sub" />
-        <div className="w-1/3 h-full border-r border-border-sub" />
-        <div className="w-1/3 h-full" />
-      </div>
-    ),
-  },
-  {
-    type: '3h',
-    label: '3 Rows',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex flex-col">
-        <div className="w-full h-1/3 border-b border-border-sub" />
-        <div className="w-full h-1/3 border-b border-border-sub" />
-        <div className="w-full h-1/3" />
-      </div>
-    ),
-  },
-  {
-    type: '3g1',
-    label: '3 Split Left',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex">
-        <div className="w-1/2 h-full border-r border-border-sub" />
-        <div className="w-1/2 h-full flex flex-col">
-          <div className="w-full h-1/2 border-b border-border-sub" />
-          <div className="w-full h-1/2" />
-        </div>
-      </div>
-    ),
-  },
-  {
-    type: '3g2',
-    label: '3 Split Top',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex flex-col">
-        <div className="w-full h-1/2 border-b border-border-sub" />
-        <div className="w-full h-1/2 flex">
-          <div className="w-1/2 h-full border-r border-border-sub" />
-          <div className="w-1/2 h-full" />
-        </div>
-      </div>
-    ),
-  },
-  {
-    type: '4g',
-    label: '2x2 Grid',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated grid grid-cols-2 grid-rows-2">
-        <div className="border-r border-b border-border-sub" />
-        <div className="border-b border-border-sub" />
-        <div className="border-r border-border-sub" />
-        <div className="h-full w-full" />
-      </div>
-    ),
-  },
-  {
-    type: '4v',
-    label: '4 Columns',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex">
-        <div className="w-1/4 h-full border-r border-border-sub" />
-        <div className="w-1/4 h-full border-r border-border-sub" />
-        <div className="w-1/4 h-full border-r border-border-sub" />
-        <div className="w-1/4 h-full" />
-      </div>
-    ),
-  },
-  {
-    type: '4h',
-    label: '4 Rows',
-    icon: (
-      <div className="w-6 h-6 border border-border-def rounded bg-surface-elevated flex flex-col">
-        <div className="w-full h-1/4 border-b border-border-sub" />
-        <div className="w-full h-1/4 border-b border-border-sub" />
-        <div className="w-full h-1/4 border-b border-border-sub" />
-        <div className="w-full h-1/4" />
-      </div>
-    ),
-  },
-];
 
 export interface ChartWorkspaceProps {
   onNavigateHome?: () => void;
@@ -1641,7 +1525,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         isLayoutDropdownOpen={isLayoutDropdownOpen}
         setIsLayoutDropdownOpen={setIsLayoutDropdownOpen}
         layoutType={layoutType}
-        LAYOUT_OPTIONS={layoutsList}
+        LAYOUT_OPTIONS={WORKSPACE_LAYOUT_OPTIONS}
         handleSelectLayout={handleSelectLayout}
         onOpenThemeModal={() => setIsSettingsOpen(true)}
         onOpenDataManagementModal={() => setIsDataManagementOpen(true)}
@@ -1793,129 +1677,13 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         />
 
         <main className={`flex-1 h-full relative overflow-hidden bg-app-bg ${layoutType !== '1' ? 'p-1' : 'p-0'} flex`}>
-          {workspaceCoord.importProgress ? (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-overlay-bg backdrop-blur-xs p-6 text-center select-none transition-all duration-300">
-              <div className="max-w-md w-full bg-modal-bg border border-border-def rounded-xl p-6 shadow-2xl flex flex-col items-center gap-5">
-                {workspaceCoord.importProgress.status === 'error' ? (
-                  <>
-                    <div className="w-12 h-12 rounded-full bg-status-error/10 border border-status-error/20 flex items-center justify-center">
-                      <AlertTriangle className="w-6 h-6 text-status-error" />
-                    </div>
-                    <div className="flex flex-col gap-1.5 w-full">
-                      <h2 className="text-base font-bold text-txt-primary tracking-tight">Import Failed</h2>
-                      <p className="text-xs text-status-error bg-status-error/10 border border-status-error/20 rounded-lg p-3 text-left whitespace-pre-wrap font-mono max-h-36 overflow-y-auto">
-                        {workspaceCoord.importProgress.errorMessage}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 w-full pt-1">
-                      <button
-                        onClick={() => workspaceCoord.resetImportProgress()}
-                        className="flex-1 py-2 px-3 bg-surface-elevated hover:bg-surface-hover text-txt-secondary rounded-lg text-xs font-semibold border border-border-def transition-all cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
-                        className="flex-1 py-2 px-3 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5" />
-                        <span>Select Folder</span>
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-12 h-12 rounded-full bg-accent-muted border border-accent/20 flex items-center justify-center">
-                      <Database className="w-6 h-6 text-accent animate-pulse" />
-                    </div>
-                    <div className="flex flex-col gap-1 w-full">
-                      <h2 className="text-base font-bold text-txt-primary tracking-tight">Loading Market Data</h2>
-                      <p className="text-xs text-txt-muted">
-                        {workspaceCoord.importProgress.currentActivity}
-                      </p>
-                    </div>
-
-                    {/* Real Progress Bar */}
-                    <div className="w-full flex flex-col gap-2">
-                      <div className="w-full bg-app-bg rounded-full h-2 overflow-hidden border border-border-sub relative">
-                        {workspaceCoord.importProgress.status === 'scanning' ? (
-                          <div className="h-full bg-accent rounded-full animate-pulse w-full" />
-                        ) : (
-                          <div
-                            className="h-full bg-accent rounded-full transition-all duration-300"
-                            style={{
-                              width: `${
-                                workspaceCoord.importProgress.totalCount > 0
-                                  ? Math.min(
-                                      100,
-                                      Math.round(
-                                        (workspaceCoord.importProgress.processedCount /
-                                          workspaceCoord.importProgress.totalCount) *
-                                          100
-                                      )
-                                    )
-                                  : 0
-                              }%`,
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-txt-muted font-medium px-0.5">
-                        <span>
-                          {workspaceCoord.importProgress.status === 'scanning'
-                            ? 'Scanning files...'
-                            : workspaceCoord.importProgress.status === 'validating'
-                            ? 'Validating files...'
-                            : workspaceCoord.importProgress.status === 'preparing'
-                            ? 'Preparing chart...'
-                            : `Processing ${workspaceCoord.importProgress.processedCount} / ${workspaceCoord.importProgress.totalCount}`}
-                        </span>
-                        <span>
-                          {workspaceCoord.importProgress.totalCount > 0 && workspaceCoord.importProgress.status !== 'scanning'
-                            ? `${Math.min(
-                                100,
-                                Math.round(
-                                  (workspaceCoord.importProgress.processedCount /
-                                    workspaceCoord.importProgress.totalCount) *
-                                    100
-                                )
-                              )}%`
-                            : ''}
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : !isBootstrapped ? (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-app-bg select-none">
-              <div className="w-8 h-8 rounded-full border-[3px] border-border-def border-t-accent animate-spin" />
-            </div>
-          ) : !hasData ? (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-app-bg p-6 text-center select-none">
-              <div className="max-w-md flex flex-col items-center gap-6">
-                <div className="w-16 h-16 rounded-full bg-accent-muted border border-accent/20 flex items-center justify-center animate-pulse">
-                  <Upload className="w-7 h-7 text-accent" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <h2 className="text-xl font-bold text-txt-primary tracking-tight">Load Forex Market Data</h2>
-                  <p className="text-txt-muted text-xs leading-relaxed px-4">
-                    Import MT5 CSV candlesticks to replay, annotate, and test your trading edge.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2.5 w-full">
-                  <button
-                    onClick={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
-                    className="w-full py-2.5 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <FolderOpen className="w-4 h-4" />
-                    <span>Open Directory (Folder Mode)</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
+          <WorkspaceImportOverlay
+            importProgress={workspaceCoord.importProgress}
+            isBootstrapped={isBootstrapped}
+            hasData={hasData}
+            onResetImportProgress={() => workspaceCoord.resetImportProgress()}
+            onSelectFolder={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
+          />
           <div
             data-chart-workspace="true"
             className="h-full w-full relative"
@@ -1937,101 +1705,49 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
                 <div className="w-8 h-8 rounded-full border-[3px] border-border-def border-t-accent animate-spin" />
               </div>
             )}
-            {/* Reset View Point Setting Active Banner */}
-            {isSettingResetView && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-surface-elevated/95 border border-accent shadow-xl backdrop-blur-md text-[11px] font-semibold text-accent select-none">
-                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
-                <span>Click anywhere on the chart to set your new Reset View point</span>
-                <button
-                  onClick={() => {
-                    setIsSettingResetView(false);
-                    setResetViewHoverX(null);
-                  }}
-                  className="ml-2 px-2 py-0.5 rounded text-[10px] text-txt-muted hover:text-txt-primary hover:bg-surface-hover cursor-pointer"
-                >
-                  Cancel (Esc)
-                </button>
-              </div>
-            )}
-            {hasData && !isSettingResetView && (
-              <button
-                onPointerDown={(e) => {
-                  if (e.button !== 0) return;
-                  resetViewHoldStartTimeRef.current = Date.now();
-                  setIsHoldingResetView(true);
-                  resetViewHoldTimerRef.current = setTimeout(() => {
-                    setIsHoldingResetView(false);
-                    setIsSettingResetView(true);
-                    setWatchlistToast({
-                      msg: 'Click anywhere on the chart canvas to set the new Reset View point (Esc to cancel).',
-                      type: 'info',
-                    });
-                    setTimeout(() => setWatchlistToast(null), 4000);
-                  }, 2000);
-                }}
-                onPointerUp={() => {
-                  if (resetViewHoldTimerRef.current) {
-                    clearTimeout(resetViewHoldTimerRef.current);
-                    resetViewHoldTimerRef.current = null;
-                  }
-                  const elapsed = Date.now() - resetViewHoldStartTimeRef.current;
+            {/* Reset View Floating Overlay & Setting Active Banner */}
+            <ResetViewOverlay
+              hasData={hasData}
+              isSettingResetView={isSettingResetView}
+              isHoldingResetView={isHoldingResetView}
+              isHoveringBottom10={isHoveringBottom10}
+              onCancelSettingResetView={() => {
+                setIsSettingResetView(false);
+                setResetViewHoverX(null);
+              }}
+              onResetPointerDown={(e) => {
+                if (e.button !== 0) return;
+                resetViewHoldStartTimeRef.current = Date.now();
+                setIsHoldingResetView(true);
+                resetViewHoldTimerRef.current = setTimeout(() => {
                   setIsHoldingResetView(false);
-                  if (elapsed < 2000 && !isSettingResetView) {
-                    resetChartView();
-                  }
-                }}
-                onPointerLeave={() => {
-                  if (resetViewHoldTimerRef.current) {
-                    clearTimeout(resetViewHoldTimerRef.current);
-                    resetViewHoldTimerRef.current = null;
-                  }
-                  setIsHoldingResetView(false);
-                }}
-                title="Click to reset view • Hold 2s to set reset view point"
-                className={`
-                  absolute bottom-8 left-1/2 -translate-x-1/2 z-20
-                  relative overflow-hidden flex items-center gap-1.5
-                  px-3.5 py-1.5
-                  bg-surface-elevated/90 hover:bg-surface-hover
-                  border ${isHoldingResetView ? 'border-accent shadow-accent/20' : 'border-border-def hover:border-border-focus'}
-                  text-txt-secondary hover:text-txt-primary
-                  text-[10px] font-semibold tracking-wider uppercase
-                  rounded-full
-                  backdrop-blur-xs
-                  shadow-lg
-                  transition-all duration-200
-                  select-none
-                  cursor-pointer
-                  ${isHoveringBottom10 || isHoldingResetView ? 'opacity-100 pointer-events-auto scale-100' : 'opacity-0 pointer-events-none scale-95'}
-                `}
-              >
-                {/* Hold visual progress indicator */}
-                {isHoldingResetView && (
-                  <span
-                    className="absolute inset-0 bg-accent/20 transition-all duration-[2000ms] ease-linear"
-                    style={{ width: isHoldingResetView ? '100%' : '0%' }}
-                  />
-                )}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={isHoldingResetView ? 'animate-spin text-accent' : ''}
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
-                <span className="relative z-10">
-                  {isHoldingResetView ? 'Hold to Set...' : 'Reset View'}
-                </span>
-              </button>
-            )}
+                  setIsSettingResetView(true);
+                  setWatchlistToast({
+                    msg: 'Click anywhere on the chart canvas to set the new Reset View point (Esc to cancel).',
+                    type: 'info',
+                  });
+                  setTimeout(() => setWatchlistToast(null), 4000);
+                }, 2000);
+              }}
+              onResetPointerUp={() => {
+                if (resetViewHoldTimerRef.current) {
+                  clearTimeout(resetViewHoldTimerRef.current);
+                  resetViewHoldTimerRef.current = null;
+                }
+                const elapsed = Date.now() - resetViewHoldStartTimeRef.current;
+                setIsHoldingResetView(false);
+                if (elapsed < 2000 && !isSettingResetView) {
+                  resetChartView();
+                }
+              }}
+              onResetPointerLeave={() => {
+                if (resetViewHoldTimerRef.current) {
+                  clearTimeout(resetViewHoldTimerRef.current);
+                  resetViewHoldTimerRef.current = null;
+                }
+                setIsHoldingResetView(false);
+              }}
+            />
           </div>
         </main>
 
@@ -2126,68 +1842,17 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         }}
       />
 
-      {/* Watchlist Remove Confirmation Dialog */}
-      {pendingRemoveSymbol && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-overlay-bg backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[340px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-status-error/10 border border-status-error/20 flex items-center justify-center text-status-error">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-txt-primary">Delete Symbol Data</h3>
-                <p className="text-txt-muted text-[11px] mt-0.5">This action cannot be undone.</p>
-              </div>
-            </div>
-            <p className="text-txt-secondary text-xs leading-normal">
-              Are you sure you want to delete symbol <span className="font-semibold text-txt-primary">"{pendingRemoveSymbol}"</span>? This will permanently delete its timeframe data, drawings, and info profile from local storage. Other symbols will not be affected.
-            </p>
-            <div className="flex gap-2.5 mt-2">
-              <button
-                onClick={() => setPendingRemoveSymbol(null)}
-                className="flex-1 py-2 bg-surface-elevated border border-border-def text-txt-secondary text-xs font-semibold rounded hover:bg-surface-hover hover:text-txt-primary transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const target = pendingRemoveSymbol;
-                  setPendingRemoveSymbol(null);
-                  await workspaceCoord.handleWatchlistRemoveConfirm(target);
-                }}
-                className="flex-1 py-2 bg-status-error hover:bg-status-error/90 border border-status-error text-txt-inverse text-xs font-semibold rounded transition-colors cursor-pointer"
-              >
-                Delete Symbol
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Alert Overlay Modal */}
-      {workspaceCoord.customAlert && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-overlay-bg backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-modal-bg border border-border-def rounded-xl shadow-2xl w-[360px] p-5 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 text-status-warning">
-              <div className="w-10 h-10 rounded-full bg-status-warning/10 border border-status-warning/20 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-txt-primary">{workspaceCoord.customAlert.title}</h3>
-              </div>
-            </div>
-            <p className="text-txt-secondary text-xs leading-normal">
-              {workspaceCoord.customAlert.message}
-            </p>
-            <button
-              onClick={() => workspaceCoord.setCustomAlert(null)}
-              className="w-full mt-2 py-2 bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-semibold rounded transition-colors cursor-pointer"
-            >
-              Acknowledge
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Confirmation & Alert Modals */}
+      <WorkspaceModals
+        pendingRemoveSymbol={pendingRemoveSymbol}
+        onCancelRemoveSymbol={() => setPendingRemoveSymbol(null)}
+        onConfirmRemoveSymbol={async (symbol) => {
+          setPendingRemoveSymbol(null);
+          await workspaceCoord.handleWatchlistRemoveConfirm(symbol);
+        }}
+        customAlert={workspaceCoord.customAlert}
+        onAcknowledgeAlert={() => workspaceCoord.setCustomAlert(null)}
+      />
 
       {/* Drawing Floating Toolbar */}
       <DrawingFloatingToolbar

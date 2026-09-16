@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
-import { SearchableDropdown } from './DrawingSettingsDialog';
+import { SearchableDropdown } from './common/SearchableDropdown';
 import { useDrawingTemplates } from '@/framework/tools/useDrawingTemplates';
 
 interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

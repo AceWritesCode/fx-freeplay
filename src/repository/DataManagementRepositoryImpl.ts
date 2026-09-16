@@ -1,4 +1,5 @@
 import { STORES, executeTx } from './db';
+import { clearWorkspaceCaches } from '@/coordinator/workspaceCache';
 import type {
   DataManagementRepository,
   CategoryStorageSummary,
@@ -783,7 +784,6 @@ export class DataManagementRepositoryImpl implements DataManagementRepository {
 
     // 4. Clear in-memory market data caches
     try {
-      const { clearWorkspaceCaches } = await import('@/coordinator/useWorkspaceCoordinator');
       clearWorkspaceCaches();
     } catch (err) {
       console.warn('[DataManagementRepository] Failed to clear workspace caches:', err);

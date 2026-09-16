@@ -26,37 +26,30 @@ import {
   buildTimeframeCache,
   parseTimezoneToLabelAndOffset,
   scanDirectoryHandles,
-  validateImportedSymbol,
 } from '@/engine/market';
 import { persistenceService, captureChartViewport, restoreChartViewport, type ViewportScaleState } from '@/engine/workspace';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
 import { getTrueOffsetRightDistance } from '@/engine/charting';
 
-export { parseTimezoneToLabelAndOffset };
+import {
+  getRawDataCache,
+  hasRawDataCache,
+  setRawDataCache,
+  getTimezoneAdjustedBars,
+  setTimezoneAdjustedBars,
+  clearTimezoneAdjustedCache,
+  getSymbolProfileCache,
+  hasSymbolProfileCache,
+  setSymbolProfileCache,
+  clearWorkspaceCaches,
+} from './workspaceCache';
+import {
+  executeImportPipeline,
+  type ImportProgressState,
+} from './workspaceImportPipeline';
 
-// Static, in-memory cache for raw 1-minute candlestick data to isolate heavy payloads from React state diffing
-const rawDataCache = new Map<string, KLineData[]>();
-
-// Static, in-memory cache for timezone-adjusted timeframe data to avoid repeated IndexedDB reads and timezone conversions
-const timezoneAdjustedCache = new Map<string, Record<string, KLineData[]>>();
-
-// Static, in-memory cache for symbol profiles to avoid IndexedDB reads during symbol switching
-const symbolProfileCache = new Map<string, any>();
-
-export interface ImportProgressState {
-  status: 'idle' | 'scanning' | 'validating' | 'importing' | 'preparing' | 'error';
-  currentActivity: string;
-  processedCount: number;
-  totalCount: number;
-  currentSymbol?: string;
-  errorMessage?: string;
-}
-
-export function clearWorkspaceCaches() {
-  rawDataCache.clear();
-  timezoneAdjustedCache.clear();
-  symbolProfileCache.clear();
-}
+export { parseTimezoneToLabelAndOffset, clearWorkspaceCaches };
+export type { ImportProgressState };
 
 export function useWorkspaceCoordinator(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>,
@@ -199,7 +192,7 @@ export function useWorkspaceCoordinator(
             if (slot && slot.symbol && isMounted) {
               const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
               if (bars1m && bars1m.length > 0) {
-                rawDataCache.set(slot.symbol, bars1m);
+                setRawDataCache(slot.symbol, bars1m);
               }
               // Pre-load slot's timeframe data in background to make initial boot instant
               getOrImportTimeframeData(slot.symbol, slot.timeframe).catch(console.error);
@@ -233,12 +226,12 @@ export function useWorkspaceCoordinator(
 
   // Invalidate timezoneAdjustedCache when timezone settings change
   useEffect(() => {
-    timezoneAdjustedCache.clear();
+    clearTimezoneAdjustedCache();
   }, [settings.userTimezoneOffset, settings.brokerTimezoneOffset, settings.timezoneAdjustmentEnabled]);
 
   // Helper to retrieve raw 1m data for a symbol from in-memory cache
   const getRawDataFromCache = (symbol: string): KLineData[] => {
-    return rawDataCache.get(symbol) || [];
+    return getRawDataCache(symbol) || [];
   };
 
   const adjustTimezone = useCallback((bars: KLineData[]): KLineData[] => {
@@ -252,19 +245,16 @@ export function useWorkspaceCoordinator(
 
   const getOrImportTimeframeData = useCallback(async (symbol: string, tf: string): Promise<KLineData[]> => {
     // 1. Try to read from in-memory timezoneAdjustedCache first!
-    const cachedSymbol = timezoneAdjustedCache.get(symbol);
-    if (cachedSymbol && cachedSymbol[tf]) {
-      return cachedSymbol[tf];
+    const cachedBars = getTimezoneAdjustedBars(symbol, tf);
+    if (cachedBars) {
+      return cachedBars;
     }
 
     // 2. Try to read from IndexedDB repository first!
     const data = await marketDataRepository.getBars(symbol, tf) || [];
     if (data.length > 0) {
       const adjusted = adjustTimezone(data);
-      if (!timezoneAdjustedCache.has(symbol)) {
-        timezoneAdjustedCache.set(symbol, {});
-      }
-      timezoneAdjustedCache.get(symbol)![tf] = adjusted;
+      setTimezoneAdjustedBars(symbol, tf, adjusted);
       return adjusted;
     }
 
@@ -287,10 +277,7 @@ export function useWorkspaceCoordinator(
           // Save the RAW parsed timeframe data so we never have to parse it again!
           await marketDataRepository.saveBars(symbol, tf, tfData);
           const adjusted = adjustTimezone(tfData);
-          if (!timezoneAdjustedCache.has(symbol)) {
-            timezoneAdjustedCache.set(symbol, {});
-          }
-          timezoneAdjustedCache.get(symbol)![tf] = adjusted;
+          setTimezoneAdjustedBars(symbol, tf, adjusted);
           return adjusted;
         }
       }
@@ -301,7 +288,7 @@ export function useWorkspaceCoordinator(
     if (raw1m.length === 0) {
       raw1m = await marketDataRepository.getBars(symbol, '1m') || [];
       if (raw1m.length > 0) {
-        rawDataCache.set(symbol, raw1m);
+        setRawDataCache(symbol, raw1m);
       }
     }
     if (raw1m.length > 0) {
@@ -309,10 +296,7 @@ export function useWorkspaceCoordinator(
       // Save raw resampled bars to DB
       await marketDataRepository.saveBars(symbol, tf, tfData);
       const adjusted = adjustTimezone(tfData);
-      if (!timezoneAdjustedCache.has(symbol)) {
-        timezoneAdjustedCache.set(symbol, {});
-      }
-      timezoneAdjustedCache.get(symbol)![tf] = adjusted;
+      setTimezoneAdjustedBars(symbol, tf, adjusted);
       return adjusted;
     }
 
@@ -598,19 +582,19 @@ export function useWorkspaceCoordinator(
             setActiveWatchlistSymbol(symbolName);
 
             // 3. Cache raw 1m if not already cached
-            if (!rawDataCache.has(symbolName)) {
+            if (!hasRawDataCache(symbolName)) {
               const raw1m = await marketDataRepository.getBars(symbolName, '1m');
               if (raw1m.length > 0) {
-                rawDataCache.set(symbolName, raw1m);
+                setRawDataCache(symbolName, raw1m);
               }
             }
 
             // 4. Load profile from cache (instant) or DB
-            let profile = symbolProfileCache.get(symbolName) || null;
+            let profile = getSymbolProfileCache(symbolName) || null;
             if (!profile) {
               profile = await watchlistRepository.getSymbolProfile(symbolName);
               if (profile) {
-                symbolProfileCache.set(symbolName, profile);
+                setSymbolProfileCache(symbolName, profile);
               }
             }
             let updatedSettings = { ...settings };
@@ -691,9 +675,7 @@ export function useWorkspaceCoordinator(
     setParseFeedback(null);
 
     // 4. Clear memory caches
-    rawDataCache.clear();
-    timezoneAdjustedCache.clear();
-    symbolProfileCache.clear();
+    clearWorkspaceCaches();
     setAllTimeframesData({ '1m': [] });
 
     // 5. Reset Replay
@@ -742,39 +724,13 @@ export function useWorkspaceCoordinator(
         return;
       }
 
-      // Validate all discovered symbols
-      setImportProgress({
-        status: 'validating',
-        currentActivity: `Validating ${symbolsList.length} symbol folders...`,
-        processedCount: 0,
-        totalCount: symbolsList.length,
+      const { validSymbols, validationErrors } = await executeImportPipeline({
+        symbolsList,
+        mergedSymbolMap,
+        mergedProfileMap,
+        adjustTimezone,
+        onProgress: setImportProgress,
       });
-
-      const validSymbols: string[] = [];
-      const validationErrors: string[] = [];
-      const parsedProfiles: Record<string, any> = {};
-
-      for (let i = 0; i < symbolsList.length; i++) {
-        const sym = symbolsList[i];
-        setImportProgress({
-          status: 'validating',
-          currentActivity: `Validating ${sym}...`,
-          processedCount: i,
-          totalCount: symbolsList.length,
-          currentSymbol: sym,
-        });
-
-        const profileFile = mergedProfileMap[sym];
-        const tfFiles = mergedSymbolMap[sym];
-
-        const validationResult = await validateImportedSymbol(sym, tfFiles, profileFile);
-        if (validationResult.isValid) {
-          validSymbols.push(sym);
-          parsedProfiles[sym] = validationResult.profileData;
-        } else {
-          validationErrors.push(validationResult.errorMsg || `Validation failed for ${sym}`);
-        }
-      }
 
       if (validSymbols.length === 0) {
         setImportProgress({
@@ -792,55 +748,6 @@ export function useWorkspaceCoordinator(
         setCustomAlert({
           title: 'Import Warning',
           message: `The following folders failed validation and were skipped:\n\n${validationErrors.join('\n')}\n\nValid symbols will be imported.`,
-        });
-      }
-
-      // Commit valid symbols' data and profiles to persistent storage
-      let completedSymbols = 0;
-      setImportProgress({
-        status: 'importing',
-        currentActivity: `Importing ${validSymbols.length} market symbols...`,
-        processedCount: 0,
-        totalCount: validSymbols.length,
-      });
-
-      for (const sym of validSymbols) {
-        setImportProgress({
-          status: 'importing',
-          currentActivity: `Processing market data for ${sym}...`,
-          processedCount: completedSymbols,
-          totalCount: validSymbols.length,
-          currentSymbol: sym,
-        });
-
-        const profile = parsedProfiles[sym];
-        await watchlistRepository.saveSymbolProfile(sym, profile);
-        symbolProfileCache.set(sym, profile);
-
-        const tfFiles = mergedSymbolMap[sym];
-        const importPromises = Object.entries(tfFiles).map(async ([tf, file]) => {
-          const text = await file.text();
-          const parsed = parseCSV(text);
-          if (parsed.parsedCount > 0) {
-            await marketDataRepository.saveBars(sym, tf, parsed.data);
-            
-            // Pre-populate in-memory cache so switching after import is instant with zero loading screen
-            const adjusted = adjustTimezone(parsed.data);
-            if (!timezoneAdjustedCache.has(sym)) {
-              timezoneAdjustedCache.set(sym, {});
-            }
-            timezoneAdjustedCache.get(sym)![tf] = adjusted;
-          }
-        });
-        await Promise.all(importPromises);
-        completedSymbols++;
-
-        setImportProgress({
-          status: 'importing',
-          currentActivity: `Imported ${sym} (${completedSymbols} of ${validSymbols.length})`,
-          processedCount: completedSymbols,
-          totalCount: validSymbols.length,
-          currentSymbol: sym,
         });
       }
 
@@ -928,9 +835,9 @@ export function useWorkspaceCoordinator(
             [tf]: tfData,
           };
         });
-        const profile = symbolProfileCache.get(slot.symbol) || await watchlistRepository.getSymbolProfile(slot.symbol);
-        if (profile && !symbolProfileCache.has(slot.symbol)) {
-          symbolProfileCache.set(slot.symbol, profile);
+        const profile = getSymbolProfileCache(slot.symbol) || await watchlistRepository.getSymbolProfile(slot.symbol);
+        if (profile && !hasSymbolProfileCache(slot.symbol)) {
+          setSymbolProfileCache(slot.symbol, profile);
         }
         const precision = profile?.pricePrecision !== undefined
           ? profile.pricePrecision
@@ -1035,7 +942,7 @@ export function useWorkspaceCoordinator(
       if (!text) return;
       const result = parseCSV(text);
       if (result.parsedCount > 0) {
-        rawDataCache.set(cleanName, result.data);
+        setRawDataCache(cleanName, result.data);
 
         const exists = watchlistSymbols.some((s) => s.name === cleanName);
         const nextList = [...watchlistSymbols];
