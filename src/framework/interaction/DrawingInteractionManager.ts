@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo } from 'react';
 import { ModifierKeyTracker } from './ModifierKeyTracker';
 import { MarqueeSelectionHandler } from './MarqueeSelectionHandler';
 import { DrawingKeyboardShortcuts } from './DrawingKeyboardShortcuts';
+import { DrawingDragReleaseHandler } from './DrawingDragReleaseHandler';
 
 export interface DrawingInteractionConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -20,6 +21,7 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
   const modifierTracker = useMemo(() => new ModifierKeyTracker(), []);
   const marqueeHandlerRef = useRef<MarqueeSelectionHandler | null>(null);
   const shortcutsRef = useRef<DrawingKeyboardShortcuts | null>(null);
+  const dragReleaseHandlerRef = useRef<DrawingDragReleaseHandler | null>(null);
 
   // Expose modifier ref on chart instances for overlay clicks
   const localCtrlRef = useRef(false);
@@ -134,6 +136,37 @@ export function useDrawingInteraction(config: DrawingInteractionConfig) {
     config.onDeleteSelected,
     config.onCancelTool,
     config.onSelectOverlayIds,
+  ]);
+
+  // Two-Anchor Drag-Release Creation Lifecycle
+  useEffect(() => {
+    if (!dragReleaseHandlerRef.current) {
+      dragReleaseHandlerRef.current = new DrawingDragReleaseHandler({
+        chartContainersRef: config.chartContainersRef,
+        chartInstancesRef: config.chartInstancesRef,
+        activeTool: config.activeTool,
+        isSpacePressedRef,
+      });
+    } else {
+      dragReleaseHandlerRef.current.updateOptions({
+        chartContainersRef: config.chartContainersRef,
+        chartInstancesRef: config.chartInstancesRef,
+        activeTool: config.activeTool,
+        isSpacePressedRef,
+      });
+    }
+
+    dragReleaseHandlerRef.current.attach();
+
+    return () => {
+      dragReleaseHandlerRef.current?.detach();
+    };
+  }, [
+    config.chartContainersRef,
+    config.chartInstancesRef,
+    config.activeTool,
+    config.slots,
+    isSpacePressedRef,
   ]);
 
   return {

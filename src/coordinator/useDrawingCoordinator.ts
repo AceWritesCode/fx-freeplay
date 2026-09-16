@@ -138,6 +138,7 @@ export function useDrawingCoordinator(
         ...(interactiveOptions.extendData || {}),
         ...(overlayData.extendData || {}),
       },
+      onDrawing: interactiveOptions.onDrawing,
       onDrawEnd: interactiveOptions.onDrawEnd,
       onRemoved: interactiveOptions.onRemoved,
       onMouseEnter: interactiveOptions.onMouseEnter,

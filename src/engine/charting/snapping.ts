@@ -76,3 +76,58 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
 
   return null;
 }
+
+/**
+ * Tools that support angle snapping to 45-degree increments when Shift is held.
+ */
+export function isAngleSnapSupportedTool(toolOrOverlayName?: string): boolean {
+  if (!toolOrOverlayName) return false;
+  return toolOrOverlayName === 'trendLine' || toolOrOverlayName === 'ray' || toolOrOverlayName === 'arrow';
+}
+
+/**
+ * Calculates the snapped target coordinate in chart data space so that the vector
+ * from pBase to target snaps to the nearest 45-degree increment (PI / 4).
+ * Reuses the exact projection and coordinate conversion logic established in drawing editing.
+ */
+export function calculateAngleSnapPoint(
+  chart: any,
+  pBase: any,
+  targetPixelX: number,
+  targetPixelY: number,
+  paneId: string = 'candle_pane'
+): { timestamp?: number; dataIndex?: number; value?: number } | null {
+  if (!chart || !pBase) return null;
+
+  try {
+    const pixels = chart.convertToPixel([pBase], { paneId });
+    if (!pixels || pixels.length === 0 || !pixels[0]) return null;
+
+    const x1 = pixels[0].x;
+    const y1 = pixels[0].y;
+    const x2 = targetPixelX;
+    const y2 = targetPixelY;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const r = Math.sqrt(dx * dx + dy * dy);
+    if (r <= 0) return null;
+
+    const angle = Math.atan2(dy, dx);
+    const angleSteps = Math.PI / 4;
+    const nearestStep = Math.round(angle / angleSteps);
+    const snappedAngle = nearestStep * angleSteps;
+
+    const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
+    const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
+    const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
+
+    const snappedPoints = chart.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId });
+    if (snappedPoints) {
+      const pt = Array.isArray(snappedPoints) ? snappedPoints[0] : snappedPoints;
+      if (pt) return pt;
+    }
+  } catch (_) {}
+
+  return null;
+}

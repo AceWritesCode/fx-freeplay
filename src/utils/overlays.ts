@@ -1,5 +1,5 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter, getOriginalDrawingId } from '@/engine/charting';
+import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter, getOriginalDrawingId, calculateAngleSnapPoint, isAngleSnapSupportedTool } from '@/engine/charting';
 import { useDrawingStore, useLayoutStore } from '@/store';
 
 import { initializeToolFramework, ToolRegistry } from '../framework/tools';
@@ -190,6 +190,45 @@ export function getInteractiveOverlayOptions(
     extendData: {
       customSettings: defaultSettings,
       ...(lookupKey === 'text' || toolName === 'text' || lookupKey === 'fxText' || toolName === 'fxText' ? { isNewText: true } : {})
+    },
+    onDrawing: (event: any) => {
+      const overlay = event.overlay;
+      const chart = event.chart || chartInstanceRef.current;
+      if (!overlay || !overlay.points || overlay.points.length < 2 || !chart) return;
+
+      const isAngleSnap = isShiftPressedRef?.current ||
+        chart._isShiftPressedRef?.current ||
+        event.shiftKey ||
+        event.originalEvent?.shiftKey ||
+        false;
+
+      if (isAngleSnap && isAngleSnapSupportedTool(overlay.name || toolName)) {
+        const pBase = overlay.points[0];
+        if (pBase) {
+          let targetX = event.x;
+          let targetY = event.y;
+
+          if (targetX === undefined || targetY === undefined) {
+            const pts = chart.convertToPixel([overlay.points[1]], { paneId: 'candle_pane' });
+            if (pts && pts[0]) {
+              targetX = pts[0].x;
+              targetY = pts[0].y;
+            }
+          }
+
+          if (targetX !== undefined && targetY !== undefined) {
+            const snapped = calculateAngleSnapPoint(chart, pBase, targetX, targetY, 'candle_pane');
+            if (snapped) {
+              overlay.points[1] = snapped;
+              if (typeof chart.updatePane === 'function') {
+                chart.updatePane(1, 'candle_pane');
+              }
+            }
+          }
+        }
+      }
+
+      mirrorLiveOverlayUpdate(chart, overlay.id, { points: overlay.points }, chartInstancesRef);
     },
     onDrawEnd: (event: any) => {
       const chartIdx = chartInstanceRef.current?._chartIndex ?? 0;
@@ -595,46 +634,24 @@ export function getInteractiveOverlayOptions(
         ? startPoints
         : event.overlay.points;
 
-      if (toolName === 'trendLine') {
+      if (isAngleSnapSupportedTool(toolName || event.overlay.name)) {
         if (initialPoints && initialPoints.length === 2) {
           const movingIndex = draggedIndex;
           const baseIndex = draggedIndex === 0 ? 1 : 0;
           const pBase = initialPoints[baseIndex];
-          const isAngleSnap = isShiftPressedRef?.current || event.chart?._isCtrlPressedRef?.current || event.chart?._isShiftPressedRef?.current || false;
-          
+          const isAngleSnap = isShiftPressedRef?.current || event.chart?._isShiftPressedRef?.current || false;
+
           if (isAngleSnap && pBase) {
-            const pixels = event.chart.convertToPixel([pBase], { paneId: 'candle_pane' });
-            if (pixels && pixels.length > 0 && pixels[0]) {
-              const x1 = pixels[0].x;
-              const y1 = pixels[0].y;
-              const x2 = event.x;
-              const y2 = event.y;
-
-              const dx = x2 - x1;
-              const dy = y2 - y1;
-              const r = Math.sqrt(dx * dx + dy * dy);
-              if (r > 0) {
-                const angle = Math.atan2(dy, dx);
-                const angleSteps = Math.PI / 4;
-                const nearestStep = Math.round(angle / angleSteps);
-                const snappedAngle = nearestStep * angleSteps;
-
-                const projLength = dx * Math.cos(snappedAngle) + dy * Math.sin(snappedAngle);
-                const x2_snapped = x1 + projLength * Math.cos(snappedAngle);
-                const y2_snapped = y1 + projLength * Math.sin(snappedAngle);
-
-                const snappedPoints = event.chart.convertFromPixel([{ x: x2_snapped, y: y2_snapped }], { paneId: 'candle_pane' });
-                if (snappedPoints && snappedPoints.length > 0 && snappedPoints[0]) {
-                  const newPoints = [...initialPoints];
-                  newPoints[movingIndex] = snappedPoints[0];
-                  event.chart.overrideOverlay({
-                    id: event.overlay.id,
-                    points: newPoints
-                  });
-                  mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
-                  return;
-                }
-              }
+            const snapped = calculateAngleSnapPoint(event.chart, pBase, event.x, event.y, 'candle_pane');
+            if (snapped) {
+              const newPoints = [...initialPoints];
+              newPoints[movingIndex] = snapped;
+              event.chart.overrideOverlay({
+                id: event.overlay.id,
+                points: newPoints
+              });
+              mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
+              return;
             }
           }
         }

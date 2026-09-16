@@ -7,3 +7,4 @@ export * from './useBrushDrawing';
 export * from './useEraserDrawing';
 export * from './useMeasurementTool';
 export * from './useZoomTool';
+export * from './DrawingDragReleaseHandler';
