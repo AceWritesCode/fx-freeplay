@@ -300,6 +300,12 @@ export function useMeasurementTool({
 
       const isShift = e.shiftKey;
       const isMeasureTool = activeToolRef.current === 'measure';
+      const isAnotherToolActive = activeToolRef.current !== null && !isMeasureTool;
+
+      // Avoid conflict if another tool (e.g. drawing tools, brush, eraser) is actively running
+      if (isAnotherToolActive) {
+        return;
+      }
 
       // If we already have a completed measurement on canvas, dismiss it
       if (measurementRef.current?.isComplete) {
@@ -310,11 +316,6 @@ export function useMeasurementTool({
       }
 
       if (!isMeasureTool && !isShift) {
-        return;
-      }
-
-      // Avoid conflict if another tool like eraser or brush is actively running
-      if (!isMeasureTool && (activeToolRef.current === 'eraser' || activeToolRef.current === 'brush' || activeToolRef.current === 'highlighter')) {
         return;
       }
 

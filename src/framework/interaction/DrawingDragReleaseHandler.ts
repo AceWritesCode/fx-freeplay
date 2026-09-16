@@ -41,6 +41,7 @@ interface DragState {
   startX: number;
   startY: number;
   hasDragged: boolean;
+  startStep: number;
 }
 
 function convertCoordinateToPoint(
@@ -69,14 +70,8 @@ function convertCoordinateToPoint(
 }
 
 /**
- * Handles click-drag-release creation for two-anchor drawing tools (totalStep === 3).
- *
- * Requirements:
- * 1. Activates ONLY when a new drawing is actively being created (activeTool is non-null)
- *    and the active overlay is in its initial anchor-creation state (isStart() === true, currentStep === 1).
- * 2. Never intercepts drag gestures for moving/editing an already-completed drawing.
- * 3. Preserves the existing click-click workflow without regression (distance < 5px does not commit on mouseup,
- *    allowing native KLineCharts click event to place Anchor 1 and enter standard step 2 preview).
+ * Handles click-drag-release creation for two-anchor drawing tools (totalStep === 3)
+ * as well as Shift-held second-anchor commit during click-click creation.
  */
 export class DrawingDragReleaseHandler {
   private _options: DrawingDragReleaseOptions;
@@ -191,8 +186,13 @@ export class DrawingDragReleaseHandler {
     // Constraint: MUST be a two-anchor tool (totalStep === 3)
     if (overlay.totalStep !== 3) return;
 
-    // Constraint: MUST be in initial anchor-creation state (isStart() === true, currentStep === 1)
-    if (!overlay.isDrawing?.() || !overlay.isStart?.() || overlay.currentStep !== 1) {
+    const isShift = e.shiftKey || chart._isShiftPressedRef?.current || false;
+    const isAngleSnapTool = isAngleSnapSupportedTool(overlay.name);
+    const isInitialStep = overlay.currentStep === 1;
+    const isShiftStep2 = overlay.currentStep === 2 && isShift && isAngleSnapTool;
+
+    // Constraint: MUST be in step 1 (drag-release candidate) OR step 2 with Shift held on angle-snap tool
+    if (!overlay.isDrawing?.() || (!isInitialStep && !isShiftStep2)) {
       return;
     }
 
@@ -217,6 +217,7 @@ export class DrawingDragReleaseHandler {
       startX,
       startY,
       hasDragged: false,
+      startStep: overlay.currentStep,
     };
   }
 
@@ -305,15 +306,21 @@ export class DrawingDragReleaseHandler {
     const state = this._dragState;
     this._dragState = null;
 
-    if (state.hasDragged) {
-      // Drag occurred: commit Anchor 2 at release point and complete drawing
+    const isShift = e.shiftKey ||
+      state.chart?._isShiftPressedRef?.current ||
+      false;
+
+    const isShiftAngleSnapCommit =
+      !state.hasDragged &&
+      state.startStep === 2 &&
+      isShift &&
+      isAngleSnapSupportedTool(state.overlay.name);
+
+    if (state.hasDragged || isShiftAngleSnapCommit) {
+      // Commit Anchor 2 at release/click point and complete drawing
       const box = state.container.getBoundingClientRect();
       const currentX = Math.max(0, Math.min(box.width, e.clientX - box.left));
       const currentY = Math.max(0, Math.min(box.height, e.clientY - box.top));
-
-      const isShift = e.shiftKey ||
-        state.chart?._isShiftPressedRef?.current ||
-        false;
 
       let endPoint: any;
       if (isShift && isAngleSnapSupportedTool(state.overlay.name)) {
@@ -321,13 +328,8 @@ export class DrawingDragReleaseHandler {
         const snappedAnglePt = pBase
           ? calculateAngleSnapPoint(state.chart, pBase, currentX, currentY, state.paneId)
           : null;
-        endPoint = snappedAnglePt || convertCoordinateToPoint(
-          state.chart,
-          state.overlay,
-          state.paneId,
-          currentX,
-          currentY
-        );
+        const rawPt = convertCoordinateToPoint(state.chart, state.overlay, state.paneId, currentX, currentY);
+        endPoint = snappedAnglePt || rawPt;
       } else {
         endPoint = convertCoordinateToPoint(
           state.chart,
@@ -354,9 +356,6 @@ export class DrawingDragReleaseHandler {
         invalidateOverlayPane(state.chart, state.paneId);
       }
     }
-    // If hasDragged is false (movement < 5px):
-    // Do nothing! KLineCharts' native EventHandlerImp._mouseUpHandler will fire mouseClickEvent,
-    // which places Anchor 1 natively and enters standard step 2 preview for the click-click workflow.
   }
 
   private _handleKeyUp(e: KeyboardEvent): void {
@@ -446,11 +445,13 @@ export class DrawingDragReleaseHandler {
 
         let currentPoint: any;
         if (isShift && pBase) {
-          const snappedAnglePt = calculateAngleSnapPoint(chart, pBase, currentX, currentY, progressInfo.paneId || 'candle_pane');
+          const paneId = progressInfo.paneId || 'candle_pane';
+          const snappedAnglePt = calculateAngleSnapPoint(chart, pBase, currentX, currentY, paneId);
+
           currentPoint = snappedAnglePt || convertCoordinateToPoint(
             chart,
             overlay,
-            progressInfo.paneId || 'candle_pane',
+            paneId,
             currentX,
             currentY
           );

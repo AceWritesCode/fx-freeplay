@@ -508,5 +508,50 @@ describe('DrawingDragReleaseHandler', () => {
       assert.ok(lastMoved);
       assert.equal(lastMoved.value, 100 - 50 * 0.1, 'Preview snapped when Shift key pressed while stationary');
     });
+
+    it('commits Anchor 2 at snapped coordinate when clicking on step 2 while Shift is held', () => {
+      mockOverlay.name = 'trendLine';
+      mockOverlay.currentStep = 2;
+      mockOverlay.points = [{ dataIndex: 5, value: 95 }];
+
+      (handler as any)._handleMouseDown({
+        button: 0,
+        clientX: 250,
+        clientY: 155,
+        target: mockContainer,
+        currentTarget: mockContainer,
+        shiftKey: true,
+      });
+
+      assert.ok((handler as any)._dragState, '_dragState is captured when Shift is held on step 2');
+
+      (handler as any)._handleMouseUp({
+        clientX: 250,
+        clientY: 155,
+        shiftKey: true,
+      });
+
+      assert.equal(mockOverlay.currentStep, -1, 'Overlay completed on click while holding Shift');
+      const finalPoint = movedPoints[movedPoints.length - 1];
+      assert.ok(finalPoint);
+      assert.equal(finalPoint.value, 100 - 50 * 0.1, 'Anchor 2 committed at snapped horizontal coordinate');
+    });
+
+    it('does NOT capture mousedown on step 2 when Shift is NOT held (leaves native KLineCharts behavior untouched)', () => {
+      mockOverlay.name = 'trendLine';
+      mockOverlay.currentStep = 2;
+      mockOverlay.points = [{ dataIndex: 5, value: 95 }];
+
+      (handler as any)._handleMouseDown({
+        button: 0,
+        clientX: 250,
+        clientY: 155,
+        target: mockContainer,
+        currentTarget: mockContainer,
+        shiftKey: false,
+      });
+
+      assert.equal((handler as any)._dragState, null, '_dragState is NOT captured when Shift is not held on step 2');
+    });
   });
 });
