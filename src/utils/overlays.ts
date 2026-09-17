@@ -577,15 +577,97 @@ export function getInteractiveOverlayOptions(
       const rawId = event.overlay.id;
       const id = getOriginalDrawingId(rawId);
 
+      const isCtrl =
+        actualChart?._isCtrlPressedRef?.current ||
+        (event as any)?.originalEvent?.ctrlKey ||
+        (event as any)?.originalEvent?.metaKey ||
+        (event as any)?.event?.ctrlKey ||
+        (event as any)?.event?.metaKey ||
+        false;
+
+      const isCtrlDuplication = isCtrl && !isHandle && !id.startsWith('sync_');
+
+      if (isCtrlDuplication) {
+        const resolved = useDrawingStore.getState().findSymbolByDrawingId(id);
+        const targetSymbol = resolved?.symbol || actualChart?._symbol;
+
+        if (targetSymbol && resolved?.drawing) {
+          const prepared = actualChart?._preparedDuplicate;
+          const cloneId = (prepared && prepared.sourceId === id && prepared.cloneId)
+            ? prepared.cloneId
+            : `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+          if (actualChart) {
+            actualChart._preparedDuplicate = null;
+          }
+
+          // 1. Immediately create the duplicate in the authoritative store and canonical sequence
+          useDrawingStore.getState().duplicateSymbolDrawing(targetSymbol, id, cloneId);
+
+          // 2. Reconcile workspace immediately so the new clone overlay instance is rendered
+          runWorkspaceReconciliation(chartInstancesRef);
+
+          // 3. Immediately select the new clone so the UI floating toolbar and handles attach to it
+          if (actualChart && actualChart._setSelectedOverlayIds) {
+            actualChart._setSelectedOverlayIds([cloneId]);
+          }
+
+          // 4. Calculate start pixel coordinates for the clone drag
+          const startMousePt = event.chart.convertFromPixel([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0];
+          const startMousePixel = { x: event.x, y: event.y };
+          const startPointsPixels = pts || event.chart.convertToPixel(rawPoints, { paneId: 'candle_pane' });
+          const startPoints = JSON.parse(JSON.stringify(event.overlay.points || []));
+
+          // 5. Clean redirection: queueMicrotask redirects KLineCharts internal pressed overlay from ORIGINAL -> CLONE
+          queueMicrotask(() => {
+            const store = actualChart?.getChartStore?.();
+            if (!store) return;
+
+            const currentPressed = store.getPressedOverlayInfo();
+            if (!currentPressed || currentPressed.overlay?.id !== event.overlay.id) return;
+
+            const cloneOverlay = actualChart.getOverlays().find((o: any) => o.id === cloneId);
+            if (!cloneOverlay) return;
+
+            const prevPressedPoint = currentPressed.overlay?._prevPressedPoint ||
+              actualChart.convertFromPixel?.([{ x: event.x, y: event.y }], { paneId: 'candle_pane' })?.[0] ||
+              { x: event.x, y: event.y };
+
+            if (typeof cloneOverlay.startPressedMove === 'function') {
+              cloneOverlay.startPressedMove(prevPressedPoint);
+            }
+
+            cloneOverlay.extendData = {
+              ...(cloneOverlay.extendData || {}),
+              hoveredAnchorIndex: null,
+              draggedIndex: null,
+              startPoints,
+              startPointsPixels,
+              startMousePixel,
+              startMousePt,
+            };
+
+            actualChart.overrideOverlay({
+              id: cloneId,
+              extendData: cloneOverlay.extendData,
+            });
+
+            store.setPressedOverlayInfo({
+              paneId: currentPressed.paneId || 'candle_pane',
+              overlay: cloneOverlay,
+              figureType: currentPressed.figureType || 'other',
+              figureIndex: currentPressed.figureIndex ?? 0,
+              figure: currentPressed.figure,
+            });
+          });
+
+          // Original overlay is NOT selected, NOT modified, and NOT added to multiMove.
+          return;
+        }
+      }
+
       // Now safe to call _setSelectedOverlayIds — reconciler will see the drag index above
       if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
-        const isCtrl =
-          actualChart?._isCtrlPressedRef?.current ||
-          (event as any)?.originalEvent?.ctrlKey ||
-          (event as any)?.originalEvent?.metaKey ||
-          (event as any)?.event?.ctrlKey ||
-          (event as any)?.event?.metaKey ||
-          false;
         const currentSelected = useDrawingStore.getState().selectedOverlayIds || actualChart._selectedOverlayIds || [];
         if (!currentSelected.includes(id)) {
           if (!isCtrl) {
@@ -611,7 +693,7 @@ export function getInteractiveOverlayOptions(
           startPoints: JSON.parse(JSON.stringify(event.overlay.points)),
           startPointsPixels,
           startMousePixel,
-          startMousePt
+          startMousePt,
         }
       };
 

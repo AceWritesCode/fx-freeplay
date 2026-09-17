@@ -257,6 +257,12 @@ export function useDrawingHoverCursor({
           setHoveredOverlayId(null);
         }
         chartInstancesRef.current.forEach((c: any) => {
+          if (c) {
+            c._isBodyHovered = false;
+            c._isAnchorHovered = false;
+            c._hoveredOverlay = null;
+            c._preparedDuplicate = null;
+          }
           if (c?._promotedOverlayInfo && !c._isMouseDown) {
             if (!isPromotedOverlaySelected(c, selectedOverlayIds)) {
               DrawingChartAdapter.restorePromotedOverlay(c);
@@ -267,9 +273,15 @@ export function useDrawingHoverCursor({
       }
 
       chartInstancesRef.current.forEach((c: any, idx: number) => {
-        if (idx !== activeIndex && c?._promotedOverlayInfo && !c._isMouseDown) {
-          if (!isPromotedOverlaySelected(c, selectedOverlayIds)) {
-            DrawingChartAdapter.restorePromotedOverlay(c);
+        if (idx !== activeIndex && c) {
+          c._isBodyHovered = false;
+          c._isAnchorHovered = false;
+          c._hoveredOverlay = null;
+          c._preparedDuplicate = null;
+          if (c._promotedOverlayInfo && !c._isMouseDown) {
+            if (!isPromotedOverlaySelected(c, selectedOverlayIds)) {
+              DrawingChartAdapter.restorePromotedOverlay(c);
+            }
           }
         }
       });
@@ -281,6 +293,10 @@ export function useDrawingHoverCursor({
         if (hoveredOverlayId !== null) {
           setHoveredOverlayId(null);
         }
+        chart._isBodyHovered = false;
+        chart._isAnchorHovered = false;
+        chart._hoveredOverlay = null;
+        chart._preparedDuplicate = null;
         return;
       }
 
@@ -458,7 +474,7 @@ export function useDrawingHoverCursor({
             if (minDistToStroke <= 14) {
               if (thisZ >= currentHoveredZ) {
                 hoveredInteractiveOverlay = ov;
-                isInsideBody = false;
+                isInsideBody = true;
               }
             }
           }
@@ -477,8 +493,44 @@ export function useDrawingHoverCursor({
       }
 
       // An anchor hit unconditionally wins over any body hit
-      const winningOverlay = (isAnchorHit && targetOverlayForAnchor) ? targetOverlayForAnchor : hoveredInteractiveOverlay;
+      const isAnchorHovered = !!(isAnchorHit && targetOverlayForAnchor);
+      const isBodyHovered = !isAnchorHovered && !!hoveredInteractiveOverlay;
+      const winningOverlay = isAnchorHovered ? targetOverlayForAnchor : hoveredInteractiveOverlay;
       const nextHoveredId = winningOverlay?.id || null;
+
+      chart._isBodyHovered = isBodyHovered;
+      chart._isAnchorHovered = isAnchorHovered;
+      chart._hoveredOverlay = winningOverlay || null;
+
+      // ── Ctrl+Hover Duplicate Preparation (Armed in memory) ────────────────
+      const isCtrl = chart._isCtrlPressedRef?.current || e.ctrlKey || e.metaKey || false;
+      if (isCtrl && isBodyHovered && hoveredInteractiveOverlay && !isAnchorHovered) {
+        const rawId = hoveredInteractiveOverlay.id;
+        const originalId = getOriginalDrawingId(rawId);
+        const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+        const targetSymbol = resolved?.symbol || chart._symbol;
+        if (resolved?.drawing && targetSymbol) {
+          if (!chart._preparedDuplicate || chart._preparedDuplicate.sourceId !== originalId) {
+            chart._preparedDuplicate = {
+              sourceId: originalId,
+              symbol: targetSymbol,
+              cloneId: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              preparedData: {
+                ...resolved.drawing,
+                points: JSON.parse(JSON.stringify(resolved.drawing.points || [])),
+                extendData: resolved.drawing.extendData
+                  ? JSON.parse(JSON.stringify(resolved.drawing.extendData))
+                  : undefined,
+              },
+            };
+          }
+        } else {
+          chart._preparedDuplicate = null;
+        }
+      } else {
+        chart._preparedDuplicate = null;
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       // Handle temporary z-level promotion for hidden drawing anchor hover
       const isActivelyDragging =
@@ -615,7 +667,7 @@ export function useDrawingHoverCursor({
         finalCursor = isMouseDown ? 'grabbing' : 'grab';
       } else if (drawingCoord.activeTool === 'eraser') {
         finalCursor = ERASER_CURSOR;
-      } else if (isInsideBody) {
+      } else if (isBodyHovered || isInsideBody) {
         finalCursor = 'grab';
       } else if (drawingCoord.activeTool === 'brush' || drawingCoord.activeTool === 'highlighter') {
         finalCursor = isAnchorHit ? 'pointer' : 'crosshair';

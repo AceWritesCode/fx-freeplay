@@ -7,12 +7,9 @@ import fs from 'node:fs';
 
 import {
   CANDLES_SENTINEL,
-  type SymbolOrderState,
   type DrawingFolderLookup,
   validateOrderSequence,
   normalizeOrderSequence,
-  repairFolderContiguity,
-  getFolderBlockRange,
   bringToFront,
   sendToBack,
   bringForward,

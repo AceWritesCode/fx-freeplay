@@ -18,44 +18,9 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
       assert.equal(isExclusiveMarqueeMode(chart, event), true);
     });
 
-    it('returns true when chart._isCtrlPressedRef.current is true', () => {
-      const chart = { _isCtrlPressedRef: { current: true } };
-      assert.equal(isExclusiveMarqueeMode(chart), true);
-    });
-
-    it('returns true when event.chart._isCtrlPressedRef.current is true', () => {
-      const chart = {};
-      const event = { chart: { _isCtrlPressedRef: { current: true } } };
-      assert.equal(isExclusiveMarqueeMode(chart, event), true);
-    });
-
-    it('returns true when event.originalEvent.ctrlKey is true', () => {
-      const chart = {};
-      const event = { originalEvent: { ctrlKey: true } };
-      assert.equal(isExclusiveMarqueeMode(chart, event), true);
-    });
-
-    it('returns true when event.originalEvent.metaKey is true (Mac Command key)', () => {
-      const chart = {};
-      const event = { originalEvent: { metaKey: true } };
-      assert.equal(isExclusiveMarqueeMode(chart, event), true);
-    });
-
-    it('returns true when event.event.ctrlKey is true', () => {
-      const chart = {};
-      const event = { event: { ctrlKey: true } };
-      assert.equal(isExclusiveMarqueeMode(chart, event), true);
-    });
-
-    it('returns true when event.event.metaKey is true', () => {
-      const chart = {};
-      const event = { event: { metaKey: true } };
-      assert.equal(isExclusiveMarqueeMode(chart, event), true);
-    });
-
-    it('returns false when no marquee or Ctrl state is active', () => {
-      const chart = { _isMarqueeSelecting: false, _isCtrlPressedRef: { current: false } };
-      const event = { originalEvent: { ctrlKey: false, metaKey: false } };
+    it('returns false when neither chart nor event.chart is actively marquee selecting', () => {
+      const chart = { _isMarqueeSelecting: false };
+      const event = { chart: { _isMarqueeSelecting: false }, originalEvent: { ctrlKey: true } };
       assert.equal(isExclusiveMarqueeMode(chart, event), false);
     });
   });
@@ -81,6 +46,8 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
 
       mockChart = {
         _isMarqueeSelecting: false,
+        _isBodyHovered: false,
+        _isAnchorHovered: false,
         _justFinishedMarquee: false,
         setScrollEnabled: () => {},
         setZoomEnabled: () => {},
@@ -93,6 +60,8 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
 
       mockOtherChart = {
         _isMarqueeSelecting: false,
+        _isBodyHovered: false,
+        _isAnchorHovered: false,
         _justFinishedMarquee: false,
       };
 
@@ -134,8 +103,11 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
       assert.equal((handler as any)._isMarqueeActive, false);
     });
 
-    it('authoritatively sets _isMarqueeSelecting across all chart instances on Ctrl+mousedown', () => {
+    it('initiates marquee mode on Ctrl+mousedown over empty canvas', () => {
       modifierTracker.isCtrlPressed = true;
+      mockChart._isBodyHovered = false;
+      mockChart._isAnchorHovered = false;
+
       const mousedownEvent: any = {
         button: 0,
         clientX: 100,
@@ -153,8 +125,55 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
       assert.equal((handler as any)._isMarqueeActive, true);
     });
 
+    it('does NOT initiate marquee mode when pointer is over drawing body (body-hover priority)', () => {
+      modifierTracker.isCtrlPressed = true;
+      mockChart._isBodyHovered = true;
+      mockChart._isAnchorHovered = false;
+
+      const mousedownEvent: any = {
+        button: 0,
+        clientX: 100,
+        clientY: 100,
+        currentTarget: mockContainer,
+        target: mockContainer,
+        ctrlKey: true,
+        metaKey: false,
+      };
+
+      (handler as any)._handleMouseDown(mousedownEvent);
+
+      assert.equal(mockChart._isMarqueeSelecting, false, 'Marquee mode must not activate over drawing body');
+      assert.equal(mockOtherChart._isMarqueeSelecting, false);
+      assert.equal((handler as any)._isMarqueeActive, false);
+    });
+
+    it('does NOT initiate marquee mode when pointer is over anchor handle', () => {
+      modifierTracker.isCtrlPressed = true;
+      mockChart._isBodyHovered = false;
+      mockChart._isAnchorHovered = true;
+
+      const mousedownEvent: any = {
+        button: 0,
+        clientX: 100,
+        clientY: 100,
+        currentTarget: mockContainer,
+        target: mockContainer,
+        ctrlKey: true,
+        metaKey: false,
+      };
+
+      (handler as any)._handleMouseDown(mousedownEvent);
+
+      assert.equal(mockChart._isMarqueeSelecting, false, 'Marquee mode must not activate over anchor');
+      assert.equal(mockOtherChart._isMarqueeSelecting, false);
+      assert.equal((handler as any)._isMarqueeActive, false);
+    });
+
     it('resets _isMarqueeSelecting across all chart instances on mouseup', () => {
       modifierTracker.isCtrlPressed = true;
+      mockChart._isBodyHovered = false;
+      mockChart._isAnchorHovered = false;
+
       const mousedownEvent: any = {
         button: 0,
         clientX: 100,
@@ -178,6 +197,9 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
 
     it('sets _justFinishedMarquee flag after completing marquee selection box drag', () => {
       modifierTracker.isCtrlPressed = true;
+      mockChart._isBodyHovered = false;
+      mockChart._isAnchorHovered = false;
+
       const mousedownEvent: any = {
         button: 0,
         clientX: 100,
@@ -205,6 +227,9 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
 
     it('safely handles cancel / blur / escape without leaking marquee state', () => {
       modifierTracker.isCtrlPressed = true;
+      mockChart._isBodyHovered = false;
+      mockChart._isAnchorHovered = false;
+
       const mousedownEvent: any = {
         button: 0,
         clientX: 100,
@@ -238,12 +263,12 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
         startPoints: JSON.parse(JSON.stringify(overlay.points)),
         startMousePixel: { x: event.x, y: event.y },
       };
-      return true; // Initialized
+      return true;
     };
 
     const simulateOnPressedMoving = (chart: any, overlay: any, event: any) => {
       if (isExclusiveMarqueeMode(chart, event)) {
-        return false; // Blocked
+        return false;
       }
       const startPoints = overlay.extendData?.startPoints;
       if (!startPoints) {
@@ -326,12 +351,11 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
     it('guarantees trailing click is suppressed when _justFinishedMarquee is true', () => {
       const chart = { _justFinishedMarquee: true };
       let toggleCalled = false;
-
-      simulateOnClick(chart, () => {
+      const result = simulateOnClick(chart, () => {
         toggleCalled = true;
       });
-
-      assert.equal(toggleCalled, false, 'Trailing onClick must be suppressed');
+      assert.equal(result, true);
+      assert.equal(toggleCalled, false, 'Click toggle must be suppressed after completing marquee selection');
     });
 
     it('allows normal dragging to mutate and commit when not in marquee mode', () => {
@@ -341,23 +365,23 @@ describe('Marquee Selection Isolation & Exclusivity', () => {
         points: [{ timestamp: 1000, value: 1.15 }],
         extendData: {},
       };
-      const event = { x: 100, y: 100 };
+      const event = { x: 150, y: 250 };
       let storeUpdated = false;
 
       const startResult = simulateOnPressedMoveStart(chart, overlay, event);
       assert.equal(startResult, true);
+      assert.equal(chart._activeDraggingIndex, 0);
       assert.ok(overlay.extendData.startPoints);
 
       const moveResult = simulateOnPressedMoving(chart, overlay, event);
       assert.equal(moveResult, true);
-      assert.equal(overlay.points[0].value, 1.20, 'Normal drag should update coordinates');
+      assert.equal(overlay.points[0].value, 1.2);
 
-      const endResult = simulateOnPressedMoveEnd(chart, overlay, event, (ov) => {
+      const endResult = simulateOnPressedMoveEnd(chart, overlay, event, () => {
         storeUpdated = true;
-        assert.equal(ov.points[0].value, 1.20);
       });
       assert.equal(endResult, true);
-      assert.equal(storeUpdated, true, 'Normal drag must commit to store');
+      assert.equal(storeUpdated, true);
     });
   });
 });

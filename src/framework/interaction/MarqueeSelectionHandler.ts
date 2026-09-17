@@ -20,10 +20,6 @@ export interface MarqueeSelectionOptions {
 export function isExclusiveMarqueeMode(chart: any, event?: any): boolean {
   if (chart?._isMarqueeSelecting) return true;
   if (event?.chart?._isMarqueeSelecting) return true;
-  if (chart?._isCtrlPressedRef?.current) return true;
-  if (event?.chart?._isCtrlPressedRef?.current) return true;
-  if ((event as any)?.originalEvent?.ctrlKey || (event as any)?.originalEvent?.metaKey) return true;
-  if ((event as any)?.event?.ctrlKey || (event as any)?.event?.metaKey) return true;
   return false;
 }
 
@@ -99,6 +95,11 @@ export class MarqueeSelectionHandler {
 
     const chart = this._options.chartInstancesRef.current[slotIndex];
     if (!chart) return;
+
+    // Body hover or anchor hover gives drawing interaction priority over marquee canvas selection
+    if (chart._isBodyHovered || chart._isAnchorHovered) {
+      return;
+    }
 
     const targetContainer = containers[slotIndex]!;
     this._mouseDownPos = { x: e.clientX, y: e.clientY };

@@ -1923,7 +1923,6 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           syncAllDrawings={drawingCoord.syncAllDrawings}
           drawingTrigger={drawingCoord.drawingTrigger}
           setDrawingTrigger={drawingCoord.setDrawingTrigger}
-          createOverlayWithHandlers={drawingCoord.createOverlayWithHandlers}
           activeChartIndex={activeChartIndex}
           activeTimeframe={activeTimeframe}
           watchlistToast={watchlistToast}

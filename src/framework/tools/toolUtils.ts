@@ -69,7 +69,6 @@ export const isOverlayVisible = (overlay: any, chart: any): boolean => {
 
 // Aliases for compatibility
 export const checkOverlayVisible = isOverlayVisible;
-export const isOverlayTimeframeVisible = isOverlayVisible;
 
 /**
  * Shared grab handle renderer for overlays.

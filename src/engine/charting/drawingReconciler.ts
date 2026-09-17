@@ -228,19 +228,6 @@ export function reconcileWorkspace(
 }
 
 /**
- * Legacy compatibility alias for existing reconcileChartsFromStore calls.
- */
-export function reconcileChartsFromStore(
-  _symbol: string,
-  slots: { symbol: string | null; timeframe: string }[],
-  chartInstancesRef: React.MutableRefObject<(any | null)[]>,
-  activeIndex: number = 0
-): void {
-  const syncDrawings = useLayoutStore.getState().syncDrawings;
-  reconcileWorkspace(slots, chartInstancesRef, activeIndex, syncDrawings);
-}
-
-/**
  * Universal Storage-First Reconciliation Trigger.
  * Reads current workspace layout state and executes reconcileWorkspace().
  */

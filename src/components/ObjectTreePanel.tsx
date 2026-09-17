@@ -33,8 +33,6 @@ interface ObjectTreePanelProps {
   setDrawingTrigger: React.Dispatch<React.SetStateAction<number>>;
   activeSymbol: string;
   activeTimeframe: string;
-  /** @deprecated Kept optional for backward compatibility, unused */
-  createOverlayWithHandlers?: (chart: any, overlayData: any) => void;
 }
 
 interface FolderItem {
@@ -54,7 +52,6 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   setDrawingTrigger,
   activeSymbol,
   activeTimeframe,
-  createOverlayWithHandlers: _createOverlayWithHandlers,
 }) => {
   const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('objectTree');
 

@@ -5,13 +5,6 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 
-import {
-  CANDLES_SENTINEL,
-  type SymbolOrderState,
-  type DrawingFolderLookup,
-  migrateLegacyOrderToCanonical,
-  validateOrderSequence,
-} from '../../engine/charting/orderEngine.ts';
 
 // In-memory mock repository state for store tests
 export const mockRepositoryState = {

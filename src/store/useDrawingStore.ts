@@ -67,7 +67,6 @@ interface DrawingState {
   setFolderVisibility: (symbol: string, folderId: string, isVisible: boolean) => void;
   setFolderLock: (symbol: string, folderId: string, isLocked: boolean) => void;
   setFolders: (folders: FolderItem[] | ((prev: FolderItem[]) => FolderItem[])) => void;
-  addFolder: (folder: FolderItem) => void;
   updateFolder: (id: string, updates: Partial<FolderItem>) => void;
   removeFolder: (id: string) => void;
   setSelectedOverlayIds: (ids: string[] | ((prev: string[]) => string[])) => void;
@@ -221,7 +220,8 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     const clonedItem: DrawingItem = {
       ...sourceItem,
       id: cloneId,
-      extendData: sourceItem.extendData ? { ...sourceItem.extendData } : undefined,
+      points: JSON.parse(JSON.stringify(sourceItem.points || [])),
+      extendData: sourceItem.extendData ? JSON.parse(JSON.stringify(sourceItem.extendData)) : undefined,
     };
 
     let updatedList: DrawingItem[] = [];
@@ -693,8 +693,6 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     set((state) => ({
       folders: typeof folders === 'function' ? folders(state.folders) : folders,
     })),
-
-  addFolder: (folder) => set((state) => ({ folders: [...state.folders, folder] })),
 
   updateFolder: (id, updates) =>
     set((state) => ({

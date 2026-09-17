@@ -31,9 +31,6 @@ export function getChartInstance(slotIndex: number): KLineChartViewportProvider 
   return chartRegistry[slotIndex] || null;
 }
 
-export function getAllChartInstances(): (KLineChartViewportProvider | null)[] {
-  return [...chartRegistry];
-}
 
 export interface VisibleDateRange {
   fromTimestamp: number;

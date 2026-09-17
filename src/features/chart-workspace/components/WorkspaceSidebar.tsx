@@ -47,7 +47,6 @@ interface WorkspaceSidebarProps {
   syncAllDrawings: () => void;
   drawingTrigger: number;
   setDrawingTrigger: (v: any) => void;
-  createOverlayWithHandlers: (chart: any, overlay: any) => void;
   watchlistToast: { msg: string; type: 'info' | 'error' | 'success' } | null;
   activeChartIndex: number;
   activeTimeframe: string;
@@ -71,7 +70,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     syncAllDrawings,
     drawingTrigger,
     setDrawingTrigger,
-    createOverlayWithHandlers,
     watchlistToast,
     activeChartIndex,
     activeTimeframe,
@@ -257,7 +255,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               setDrawingTrigger={setDrawingTrigger}
               activeSymbol={activeSymbol || 'No Symbol'}
               activeTimeframe={activeTimeframe}
-              createOverlayWithHandlers={createOverlayWithHandlers}
             />
           ) : activeRightTab === 'sessionDisplay' ? (
             <SessionDisplayPanel />
