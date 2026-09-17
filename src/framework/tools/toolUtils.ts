@@ -1,4 +1,4 @@
-import { getTimeframeMinutes } from '@/domain/market';
+import { getTimeframeMinutes } from '../../domain/market/timeframeUtils.ts';
 
 /**
  * Timeframe parser helper for drawing overlays visibility checks.

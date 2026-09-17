@@ -1,21 +1,31 @@
-import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
-import { snapPointToCandle } from '@/engine/charting';
-import { isOverlayVisible, makeOpaqueColor, boostColorOpacity, getCandleIntervalMs } from '../toolUtils';
-import { findCandleIndexByTimestamp, replayVisibilityBoundary } from '@/engine/replay';
+import React from 'react';
+import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry.ts';
+import { snapPointToCandle } from '../../../engine/charting/snapping.ts';
+import { isOverlayVisible, makeOpaqueColor, boostColorOpacity, getCandleIntervalMs } from '../toolUtils.ts';
+import { findCandleIndexByTimestamp } from '../../../engine/replay/replayNavigation.ts';
+import { replayVisibilityBoundary } from '../../../engine/replay/ReplayVisibilityBoundary.ts';
 
 // ─── Long Position Icon ──────────────────────────────────────────────────────
-const LongPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
-    <path fill="currentColor" d="M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M25 18H5v-1h20zm-11-4h3v1h-4V9h1zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3" />
-  </svg>
-);
+const LongPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) =>
+  React.createElement(
+    'svg',
+    { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 28 28', className, style },
+    React.createElement('path', {
+      fill: 'currentColor',
+      d: 'M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M25 18H5v-1h20zm-11-4h3v1h-4V9h1zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3'
+    })
+  );
 
 // ─── Short Position Icon ─────────────────────────────────────────────────────
-const ShortPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
-    <path fill="currentColor" d="M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m9.52-7q.53 0 .93.2l.2.1q.27.17.46.43l.06.1q.2.3.25.73v.02h-.82v-.01a1 1 0 0 0-.36-.55 1.2 1.2 0 0 0-.73-.2q-.22 0-.4.06l-.12.04a1 1 0 0 0-.36.3 1 1 0 0 0-.13.43v.01q0 .2.09.34t.26.25q.19.1.48.2l.76.21q.71.2 1.06.57l.08.1q.27.36.27.9v.02q0 .45-.2.81l-.07.1a2 2 0 0 1-.72.62q-.45.22-1.02.22-.42 0-.77-.1l-.22-.1a2 2 0 0 1-.7-.55 2 2 0 0 1-.3-.84v-.02h.86v.01q.1.36.39.57t.76.22q.34 0 .59-.11a1 1 0 0 0 .4-.31l.06-.1q.09-.17.08-.36a1 1 0 0 0-.1-.38l-.1-.1a1.5 1.5 0 0 0-.65-.34l-.78-.21q-.46-.13-.77-.34-.3-.21-.45-.51-.14-.3-.14-.73 0-.5.24-.88l.06-.09q.24-.32.61-.5.43-.23.96-.23M25 12H5v-1h20zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3" />
-  </svg>
-);
+const ShortPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) =>
+  React.createElement(
+    'svg',
+    { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 28 28', className, style },
+    React.createElement('path', {
+      fill: 'currentColor',
+      d: 'M5.5 20c1.2 0 2.22.86 2.45 2H25v1H7.95a2.5 2.5 0 1 1-2.45-3m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m9.52-7q.53 0 .93.2l.2.1q.27.17.46.43l.06.1q.2.3.25.73v.02h-.82v-.01a1 1 0 0 0-.36-.55 1.2 1.2 0 0 0-.73-.2q-.22 0-.4.06l-.12.04a1 1 0 0 0-.36.3 1 1 0 0 0-.13.43v.01q0 .2.09.34t.26.25q.19.1.48.2l.76.21q.71.2 1.06.57l.08.1q.27.36.27.9v.02q0 .45-.2.81l-.07.1a2 2 0 0 1-.72.62q-.45.22-1.02.22-.42 0-.77-.1l-.22-.1a2 2 0 0 1-.7-.55 2 2 0 0 1-.3-.84v-.02h.86v.01q.1.36.39.57t.76.22q.34 0 .59-.11a1 1 0 0 0 .4-.31l.06-.1q.09-.17.08-.36a1 1 0 0 0-.1-.38l-.1-.1a1.5 1.5 0 0 0-.65-.34l-.78-.21q-.46-.13-.77-.34-.3-.21-.45-.51-.14-.3-.14-.73 0-.5.24-.88l.06-.09q.24-.32.61-.5.43-.23.96-.23M25 12H5v-1h20zM5.5 4c1.2 0 2.22.86 2.45 2H25v1H7.95A2.5 2.5 0 1 1 5.5 4m0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3'
+    })
+  );
 
 // ─── Pip Formatting Helper ───────────────────────────────────────────────────
 
@@ -298,15 +308,31 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
     const isReplayActive = replayVisibilityBoundary.isActive();
     const replayCutoffTimestamp = isReplayActive ? replayVisibilityBoundary.getCurrentTimestamp() : null;
 
-    const diMin = overlay.points[4]?.dataIndex ?? 0;
-    const diMax = overlay.points[5]?.dataIndex ?? (dataList.length - 1);
-    const startIdx = Math.max(0, diMin);
+    const entryTs = overlay.points[4]?.timestamp;
+    const endTs = overlay.points[5]?.timestamp;
+
+    let startIdx = 0;
+    if (typeof entryTs === 'number' && dataList.length > 0) {
+      const foundStart = findCandleIndexByTimestamp(dataList, entryTs);
+      startIdx = foundStart >= 0 ? foundStart : 0;
+    } else if (typeof overlay.points[4]?.dataIndex === 'number') {
+      startIdx = Math.max(0, Math.min(dataList.length - 1, overlay.points[4].dataIndex));
+    }
+
+    let maxSearchIdx = dataList.length - 1;
+    if (typeof endTs === 'number' && dataList.length > 0) {
+      const foundEnd = findCandleIndexByTimestamp(dataList, endTs);
+      maxSearchIdx = foundEnd >= 0 ? foundEnd : (dataList.length - 1);
+    } else if (typeof overlay.points[5]?.dataIndex === 'number') {
+      maxSearchIdx = Math.max(0, Math.min(dataList.length - 1, overlay.points[5].dataIndex));
+    }
 
     let activationCandle: any = null;
     let activationIndex = -1;
 
     if (dataList.length > 0 && startIdx < dataList.length) {
-      for (let i = startIdx; i < dataList.length; i++) {
+      const limitIdx = Math.min(maxSearchIdx, dataList.length - 1);
+      for (let i = startIdx; i <= limitIdx; i++) {
         const c = dataList[i];
         if (replayCutoffTimestamp !== null && c && typeof c.timestamp === 'number' && c.timestamp > replayCutoffTimestamp) {
           break;
@@ -335,14 +361,14 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
         actPt = convertedAct[0];
       }
 
-      // Scan forward from activation to determine exit (TP or SL) up to diMax
+      // Scan forward from activation to determine exit (TP or SL) up to maxSearchIdx
       let exitCandle: any = null;
       let exitIndex = -1;
       let exitPrice = entryPrice;
 
-      const maxSearchIdx = Math.min(diMax, dataList.length - 1);
+      const maxExitSearchIdx = Math.min(maxSearchIdx, dataList.length - 1);
 
-      for (let i = activationIndex; i <= maxSearchIdx; i++) {
+      for (let i = activationIndex; i <= maxExitSearchIdx; i++) {
         const c = dataList[i];
         if (!c || typeof c.low !== 'number' || typeof c.high !== 'number') continue;
         if (replayCutoffTimestamp !== null && typeof c.timestamp === 'number' && c.timestamp > replayCutoffTimestamp) {
@@ -386,9 +412,9 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
         }
       }
 
-      // If trade is in progress (no TP/SL exit hit yet up to diMax)
+      // If trade is in progress (no TP/SL exit hit yet up to maxExitSearchIdx)
       if (!isExited) {
-        let currentIdx = Math.max(activationIndex, maxSearchIdx);
+        let currentIdx = Math.max(activationIndex, maxExitSearchIdx);
         if (replayCutoffTimestamp !== null) {
           while (currentIdx >= activationIndex && dataList[currentIdx] && typeof dataList[currentIdx].timestamp === 'number' && dataList[currentIdx].timestamp > replayCutoffTimestamp) {
             currentIdx--;
@@ -572,7 +598,7 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
     const midX          = (left + right) / 2;
 
     const textColor      = customSettings.textColor || '#ffffff';
-    const alwaysShowStats = customSettings.alwaysShowStats !== false;
+    const alwaysShowStats = customSettings.alwaysShowStats === true;
     const showStats       = alwaysShowStats || isHovered || isSelected;
 
     if (showStats) {
@@ -948,7 +974,7 @@ export const LongPositionTool: ToolDefinition = {
     { id: 'activationHighlightOpacity', label: 'Activation Highlight Opacity',type: 'number',  defaultValue: 0.28 },
     { id: 'showMarkers',                label: 'Show Markers',                type: 'boolean', defaultValue: true },
     { id: 'initialSizePercent',         label: 'Initial Size (%)',            type: 'number',  defaultValue: 18 },
-    { id: 'alwaysShowStats',            label: 'Always Show Stats',           type: 'boolean', defaultValue: true }
+    { id: 'alwaysShowStats',            label: 'Always Show Stats',           type: 'boolean', defaultValue: false }
   ],
   defaultTemplates: [{
     id: 'default',
@@ -967,7 +993,7 @@ export const LongPositionTool: ToolDefinition = {
       activationHighlightOpacity: 0.28,
       showMarkers:                true,
       initialSizePercent:         18,
-      alwaysShowStats:            true
+      alwaysShowStats:            false
     }
   }],
   createOverlayDef:  () => createRiskRewardOverlayDef('longPosition', true),
@@ -994,7 +1020,7 @@ export const ShortPositionTool: ToolDefinition = {
     { id: 'activationHighlightOpacity', label: 'Activation Highlight Opacity',type: 'number',  defaultValue: 0.28 },
     { id: 'showMarkers',                label: 'Show Markers',                type: 'boolean', defaultValue: true },
     { id: 'initialSizePercent',         label: 'Initial Size (%)',            type: 'number',  defaultValue: 18 },
-    { id: 'alwaysShowStats',            label: 'Always Show Stats',           type: 'boolean', defaultValue: true }
+    { id: 'alwaysShowStats',            label: 'Always Show Stats',           type: 'boolean', defaultValue: false }
   ],
   defaultTemplates: [{
     id: 'default',
@@ -1013,7 +1039,7 @@ export const ShortPositionTool: ToolDefinition = {
       activationHighlightOpacity: 0.28,
       showMarkers:                true,
       initialSizePercent:         18,
-      alwaysShowStats:            true
+      alwaysShowStats:            false
     }
   }],
   createOverlayDef:  () => createRiskRewardOverlayDef('shortPosition', false),

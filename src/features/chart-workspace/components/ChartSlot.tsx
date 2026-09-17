@@ -75,6 +75,8 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
       data-chart-bg={settings.background || '#131722'}
       data-chart-bg-stop={settings.backgroundGradientStop || '#1e222d'}
       onClick={() => onSelectSlot(slotIndex)}
+      onPointerDown={() => onSelectSlot(slotIndex)}
+      onMouseDown={() => onSelectSlot(slotIndex)}
       className={`
         relative w-full h-full bg-slot-bg overflow-hidden transition-colors duration-200 cursor-pointer min-w-[150px] min-h-[150px]
         ${isMultiChart ? 'rounded' : ''}

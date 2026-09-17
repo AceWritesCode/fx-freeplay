@@ -49,6 +49,7 @@ import {
 } from '@/domain/market';
 
 import {
+  isSyncEngineActive,
   syncCrosshairs as executeCrosshairSync,
   syncTimeScale as executeTimeSync,
   syncDateRange as executeDateRangeSync,
@@ -89,9 +90,10 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   const isSyncingRangeRef = useRef<boolean>(false);
   const syncTimeRef = useRef<boolean>(false);
   const syncDateRangeRef = useRef<boolean>(false);
+  const syncDateRangeRafIdRef = useRef<number | null>(null);
+  const pendingDateRangeSourceIndexRef = useRef<number | null>(null);
   const syncDrawingsRef = useRef<boolean>(false);
   const activeChartIndexRef = useRef<number>(0);
-  const userInteractingSlotRef = useRef<number | null>(null);
   const slotsRef = useRef<any[]>([]);
   const layoutTypeRef = useRef<string>('1');
   const prevSlotsRef = useRef<any[] | null>(null);
@@ -601,7 +603,19 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   }, [syncTime]);
   useEffect(() => {
     syncDateRangeRef.current = syncDateRange;
+    if (!syncDateRange && syncDateRangeRafIdRef.current !== null) {
+      cancelAnimationFrame(syncDateRangeRafIdRef.current);
+      syncDateRangeRafIdRef.current = null;
+    }
   }, [syncDateRange]);
+  useEffect(() => {
+    return () => {
+      if (syncDateRangeRafIdRef.current !== null) {
+        cancelAnimationFrame(syncDateRangeRafIdRef.current);
+        syncDateRangeRafIdRef.current = null;
+      }
+    };
+  }, []);
   useEffect(() => {
     syncDrawingsRef.current = syncDrawings;
     drawingCoord.syncAllDrawings();
@@ -614,6 +628,11 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   }, [slots]);
   useEffect(() => {
     layoutTypeRef.current = layoutType;
+    if (!isSyncEngineActive(layoutType) && syncDateRangeRafIdRef.current !== null) {
+      cancelAnimationFrame(syncDateRangeRafIdRef.current);
+      syncDateRangeRafIdRef.current = null;
+      pendingDateRangeSourceIndexRef.current = null;
+    }
   }, [layoutType]);
   const drawingTargetChartIndexRef = useRef<number | null>(drawingCoord.drawingTargetChartIndex);
   useEffect(() => {
@@ -738,7 +757,6 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
                 e.stopImmediatePropagation();
                 return;
               }
-              userInteractingSlotRef.current = i;
               handleSelectSlot(i);
             };
             container.addEventListener('mousedown', markUserInteraction, { capture: true });
@@ -1006,24 +1024,40 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
   // Crosshairs & Scales Event Handlers
   const handleCrosshairSync = (sourceIndex: number, params: any) => {
+    // 0. Lifecycle check: Sync Engine is only active in multi-chart layouts (>= 2 charts)
+    if (!isSyncEngineActive(layoutTypeRef.current)) return;
+
+    // 1. Strict Leader check: Only events originating from the active leader chart initiate crosshair sync
+    if (sourceIndex !== activeChartIndexRef.current) return;
     if (isSyncingCrosshairRef.current || !syncCrosshairRef.current) return;
+
     isSyncingCrosshairRef.current = true;
-    executeCrosshairSync(sourceIndex, params, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
-    isSyncingCrosshairRef.current = false;
+    try {
+      executeCrosshairSync(sourceIndex, params, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
+    } catch (err) {
+      console.error('Error syncing crosshair:', err);
+    } finally {
+      isSyncingCrosshairRef.current = false;
+    }
   };
 
   const handleTimeSync = (sourceIndex: number, param: any) => {
-    if (isSyncingRangeRef.current || !syncTimeRef.current) return;
-    isSyncingRangeRef.current = true;
-    executeTimeSync(sourceIndex, param, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current, syncCrosshairRef.current);
-    isSyncingRangeRef.current = false;
-  };
+    // 0. Lifecycle check: Sync Engine is only active in multi-chart layouts (>= 2 charts)
+    if (!isSyncEngineActive(layoutTypeRef.current)) return;
 
-  const prevActiveChartIndexRef = useRef<number>(activeChartIndex);
-  useEffect(() => {
-    prevActiveChartIndexRef.current = activeChartIndex;
-    activeChartIndexRef.current = activeChartIndex;
-  }, [activeChartIndex]);
+    // 1. Strict Leader check: Only events originating from the active leader chart initiate time sync
+    if (sourceIndex !== activeChartIndexRef.current) return;
+    if (isSyncingRangeRef.current || !syncTimeRef.current) return;
+
+    isSyncingRangeRef.current = true;
+    try {
+      executeTimeSync(sourceIndex, param, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current, syncCrosshairRef.current);
+    } catch (err) {
+      console.error('Error syncing time scale:', err);
+    } finally {
+      isSyncingRangeRef.current = false;
+    }
+  };
 
   const handleSelectSlot = (i: number) => {
     if (drawingCoord.drawingTargetChartIndex !== null && drawingCoord.drawingTargetChartIndex !== i) {
@@ -1034,24 +1068,48 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   };
 
   const handleDateRangeSync = (eventSlotIndex: number) => {
+    // 0. Lifecycle check: Sync Engine is only active in multi-chart layouts (>= 2 charts)
+    if (!isSyncEngineActive(layoutTypeRef.current)) return;
+
+    // 1. Strict Leader check: Only events originating from the current active leader chart initiate date-range sync
+    if (eventSlotIndex !== activeChartIndexRef.current) return;
+
+    // 2. Guard against inactive sync toggle, active sync transaction, or ongoing timeframe switch
     if (!syncDateRangeRef.current || isSyncingRangeRef.current || workspaceCoord.isSwitchingTimeframeRef.current) return;
 
-    // Distinguish genuine physical user interaction from programmatic sync update
-    const isPhysicalUserSource = userInteractingSlotRef.current === eventSlotIndex || activeChartIndexRef.current === eventSlotIndex;
-    if (!isPhysicalUserSource && userInteractingSlotRef.current !== null) return;
+    // Always record the most recent leader source index
+    pendingDateRangeSourceIndexRef.current = eventSlotIndex;
 
-    const sourceIndex = eventSlotIndex;
+    // If an animation frame is already scheduled, it will pick up the latest leader viewport state on execution
+    if (syncDateRangeRafIdRef.current !== null) return;
 
-    isSyncingRangeRef.current = true;
-    try {
-      executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
-    } catch (err) {
-      console.error('Error syncing date ranges:', err);
-    } finally {
-      requestAnimationFrame(() => {
+    syncDateRangeRafIdRef.current = requestAnimationFrame(() => {
+      syncDateRangeRafIdRef.current = null;
+      const sourceIndex = pendingDateRangeSourceIndexRef.current;
+      pendingDateRangeSourceIndexRef.current = null;
+
+      // Re-validate guards at RAF execution time
+      if (
+        !isSyncEngineActive(layoutTypeRef.current) ||
+        sourceIndex === null ||
+        sourceIndex !== activeChartIndexRef.current ||
+        !syncDateRangeRef.current ||
+        isSyncingRangeRef.current ||
+        workspaceCoord.isSwitchingTimeframeRef.current
+      ) {
+        return;
+      }
+
+      // 3. Synchronous transaction boundary: prevent recursive echo while updating follower charts
+      isSyncingRangeRef.current = true;
+      try {
+        executeDateRangeSync(sourceIndex, chartInstancesRef.current, slotsRef.current, layoutTypeRef.current);
+      } catch (err) {
+        console.error('Error syncing date ranges:', err);
+      } finally {
         isSyncingRangeRef.current = false;
-      });
-    }
+      }
+    });
   };
 
   // Resizing layout columns
@@ -1560,7 +1618,11 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       }
     });
     
-    // Immediately synchronize if the flag is enabled
+    // Immediately synchronize across slots ONLY if sync engine is active (multi-chart layout)
+    if (!isSyncEngineActive(layoutTypeRef.current)) {
+      return;
+    }
+
     if (key === 'syncSymbol') {
       setSelectedOverlayIds([]);
       if (val) {

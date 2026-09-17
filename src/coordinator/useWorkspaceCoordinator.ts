@@ -29,7 +29,7 @@ import {
 } from '@/engine/market';
 import { persistenceService, captureChartViewport, restoreChartViewport, type ViewportScaleState } from '@/engine/workspace';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
-import { getTrueOffsetRightDistance } from '@/engine/charting';
+import { getTrueOffsetRightDistance, isSyncEngineActive } from '@/engine/charting';
 
 import {
   getRawDataCache,
@@ -412,12 +412,14 @@ export function useWorkspaceCoordinator(
       
       newSlots[activeChartIndex] = { symbol: currentSymbol, timeframe: tf };
       
-      if (layoutStore.syncSymbol && currentSymbol) {
+      const isMulti = isSyncEngineActive(layoutStore.layoutType);
+      
+      if (isMulti && layoutStore.syncSymbol && currentSymbol) {
         newSlots.forEach((_, idx) => {
           newSlots[idx] = { ...newSlots[idx], symbol: currentSymbol };
         });
       }
-      if (layoutStore.syncInterval) {
+      if (isMulti && layoutStore.syncInterval) {
         newSlots.forEach((_, idx) => {
           newSlots[idx] = { ...newSlots[idx], timeframe: tf };
         });
@@ -428,8 +430,8 @@ export function useWorkspaceCoordinator(
 
       const visibleCount = getLayoutChartCount(layoutStore.layoutType);
       const affectedIndices = isSymbolSwitch
-        ? (layoutStore.syncSymbol ? Array.from({ length: visibleCount }, (_, i) => i) : [activeChartIndex])
-        : (layoutStore.syncInterval ? Array.from({ length: visibleCount }, (_, i) => i) : [activeChartIndex]);
+        ? (isMulti && layoutStore.syncSymbol ? Array.from({ length: visibleCount }, (_, i) => i) : [activeChartIndex])
+        : (isMulti && layoutStore.syncInterval ? Array.from({ length: visibleCount }, (_, i) => i) : [activeChartIndex]);
 
       for (const idx of affectedIndices) {
         const chart = chartInstancesRef.current[idx];

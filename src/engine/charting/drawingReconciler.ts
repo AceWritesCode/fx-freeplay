@@ -1,4 +1,5 @@
 import { useDrawingStore, useLayoutStore } from '@/store';
+import { isSyncEngineActive } from './syncEngine';
 import {
   calculateWorkspaceSyncPlan,
   parseOverlaySyncId,
@@ -247,8 +248,9 @@ export function runWorkspaceReconciliation(
   chartInstancesRef: React.MutableRefObject<(any | null)[]>
 ): void {
   if (!chartInstancesRef || !chartInstancesRef.current) return;
-  const { slots, activeChartIndex, syncDrawings } = useLayoutStore.getState();
-  reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, syncDrawings);
+  const { slots, activeChartIndex, syncDrawings, layoutType } = useLayoutStore.getState();
+  const isMulti = isSyncEngineActive(layoutType);
+  reconcileWorkspace(slots, chartInstancesRef, activeChartIndex, isMulti ? syncDrawings : false);
 }
 
 /**

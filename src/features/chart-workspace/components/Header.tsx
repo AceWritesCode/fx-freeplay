@@ -383,134 +383,138 @@ export const Header: React.FC<HeaderProps> = (props) => {
                       </div>
                     </div>
 
-                    <div className="h-px bg-border-sub" />
+                    {layoutType !== '1' && (
+                      <>
+                        <div className="h-px bg-border-sub" />
 
-                    <div>
-                      <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-3">
-                        SYNC IN LAYOUT
-                      </div>
-                      <div className="flex flex-col gap-3.5 text-xs text-txt-secondary">
-                        {/* Symbol Sync */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
-                            <span>Symbol</span>
-                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                        <div>
+                          <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-3">
+                            SYNC IN LAYOUT
                           </div>
-                          <div
-                            onClick={() => onSyncSettingChange('syncSymbol', !syncSymbol)}
-                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncSymbol ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
-                                syncSymbol ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
-                              }`}
-                            />
+                          <div className="flex flex-col gap-3.5 text-xs text-txt-secondary">
+                            {/* Symbol Sync */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
+                                <span>Symbol</span>
+                                <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                              </div>
+                              <div
+                                onClick={() => onSyncSettingChange('syncSymbol', !syncSymbol)}
+                                className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                                  syncSymbol ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                    syncSymbol ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Interval Sync */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
+                                <span>Interval</span>
+                                <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                              </div>
+                              <div
+                                onClick={() => onSyncSettingChange('syncInterval', !syncInterval)}
+                                className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                                  syncInterval ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                    syncInterval ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Crosshair Sync */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
+                                <span>Crosshair</span>
+                                <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                              </div>
+                              <div
+                                onClick={() => onSyncSettingChange('syncCrosshair', !syncCrosshair)}
+                                className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                                  syncCrosshair ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                    syncCrosshair ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Time Sync */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
+                                <span>Time</span>
+                                <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                              </div>
+                              <div
+                                onClick={() => onSyncSettingChange('syncTime', !syncTime)}
+                                className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                                  syncTime ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                    syncTime ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Date range Sync */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
+                                <span>Date range</span>
+                                <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                              </div>
+                              <div
+                                onClick={() => onSyncSettingChange('syncDateRange', !syncDateRange)}
+                                className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                                  syncDateRange ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                    syncDateRange ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Drawings Sync */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
+                                <span>Drawings</span>
+                                <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
+                              </div>
+                              <div
+                                onClick={() => onSyncSettingChange('syncDrawings', !syncDrawings)}
+                                className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
+                                  syncDrawings ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
+                                    syncDrawings ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
-
-                        {/* Interval Sync */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
-                            <span>Interval</span>
-                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
-                          </div>
-                          <div
-                            onClick={() => onSyncSettingChange('syncInterval', !syncInterval)}
-                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncInterval ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
-                                syncInterval ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
-                              }`}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Crosshair Sync */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
-                            <span>Crosshair</span>
-                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
-                          </div>
-                          <div
-                            onClick={() => onSyncSettingChange('syncCrosshair', !syncCrosshair)}
-                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncCrosshair ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
-                                syncCrosshair ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
-                              }`}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Time Sync */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
-                            <span>Time</span>
-                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
-                          </div>
-                          <div
-                            onClick={() => onSyncSettingChange('syncTime', !syncTime)}
-                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncTime ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
-                                syncTime ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
-                              }`}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Date range Sync */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
-                            <span>Date range</span>
-                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
-                          </div>
-                          <div
-                            onClick={() => onSyncSettingChange('syncDateRange', !syncDateRange)}
-                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncDateRange ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
-                                syncDateRange ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
-                              }`}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Drawings Sync */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[13px] font-medium text-txt-primary">
-                            <span>Drawings</span>
-                            <Info className="w-3.5 h-3.5 text-txt-muted hover:text-txt-primary transition-colors cursor-help" />
-                          </div>
-                          <div
-                            onClick={() => onSyncSettingChange('syncDrawings', !syncDrawings)}
-                            className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors duration-200 ${
-                              syncDrawings ? 'bg-accent' : 'bg-surface-elevated border border-border-def'
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full absolute top-[1px] left-[2px] transition-transform duration-200 ${
-                                syncDrawings ? 'bg-white translate-x-[16px]' : 'bg-txt-muted translate-x-0'
-                              }`}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </>

@@ -1,16 +1,28 @@
 import type { KLineData } from '@/utils/dataUtils';
 
 /**
- * Searches the candle data array from right to left to find the index of the candle
- * whose timestamp is less than or equal to the target timestamp.
+ * Binary searches the candle data array (sorted ascending by timestamp) to find the
+ * greatest index whose timestamp is less than or equal to the target timestamp (floor index).
+ * Returns -1 if the dataset is empty or if all candles are strictly after the target timestamp.
  */
 export const findCandleIndexByTimestamp = (data: KLineData[], timestamp: number): number => {
-  for (let i = data.length - 1; i >= 0; i--) {
-    if (data[i].timestamp <= timestamp) {
-      return i;
+  if (!data || data.length === 0) return -1;
+
+  let low = 0;
+  let high = data.length - 1;
+  let result = -1;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (data[mid].timestamp <= timestamp) {
+      result = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
     }
   }
-  return -1;
+
+  return result;
 };
 
 /**

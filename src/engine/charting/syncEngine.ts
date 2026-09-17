@@ -17,10 +17,18 @@ export const getTimeframeMs = (tf: string): number => {
 };
 
 /**
+ * Single activation authority predicate for the Sync Engine lifecycle.
+ * The Sync Engine is active ONLY when the workspace layout contains 2 or more charts.
+ */
+export const isSyncEngineActive = (layoutType: string): boolean => {
+  return getLayoutChartCount(layoutType) > 1;
+};
+
+/**
  * Gets the current bar spacing for the given chart instance safely.
  */
 export const getChartBarSpace = (chart: any): number => {
-  const space = chart.getBarSpace();
+  const space = chart?.getBarSpace?.();
   if (typeof space === 'object' && space !== null) {
     return space.bar || space.barSpace || 6;
   }
@@ -38,7 +46,7 @@ export const getTrueOffsetRightDistance = (chart: any): number => {
     const space = getChartBarSpace(chart);
     return chart._chartStore._lastBarRightSideDiffBarCount * space;
   }
-  return chart ? chart.getOffsetRightDistance() : 0;
+  return chart?.getOffsetRightDistance?.() ?? 0;
 };
 
 /**
@@ -46,7 +54,7 @@ export const getTrueOffsetRightDistance = (chart: any): number => {
  * Interpolates index position if timestamp falls between points or outside ranges.
  */
 export const findDataIndexByTimestamp = (data: any[], timestamp: number, tfMs: number): number => {
-  if (data.length === 0) return 0;
+  if (!data || data.length === 0) return 0;
   if (timestamp < data[0].timestamp) {
     const diff = data[0].timestamp - timestamp;
     return -Math.round(diff / tfMs);
@@ -72,7 +80,7 @@ export const findDataIndexByTimestamp = (data: any[], timestamp: number, tfMs: n
  * Finds the index of the largest candle timestamp less than or equal to the target timestamp.
  */
 export const findFloorIndexByTimestamp = (data: any[], timestamp: number): number => {
-  if (data.length === 0) return 0;
+  if (!data || data.length === 0) return 0;
   if (timestamp < data[0].timestamp) return 0;
   if (timestamp >= data[data.length - 1].timestamp) return data.length - 1;
 
@@ -92,16 +100,128 @@ export const findFloorIndexByTimestamp = (data: any[], timestamp: number): numbe
 };
 
 /**
+ * Converts a visible range (realFrom, realTo) to start/end timestamps (t1, t2).
+ * Pure calculation helper with no side effects.
+ */
+export const calculateVisibleTimestamps = (
+  sourceData: any[],
+  sourceVisibleRange: { realFrom: number; realTo: number } | null | undefined,
+  sourceTfMs: number
+): { t1: number; t2: number } | null => {
+  if (!sourceData || sourceData.length === 0 || !sourceVisibleRange) return null;
+
+  const fromIdx = Math.round(sourceVisibleRange.realFrom);
+  let t1: number;
+  if (fromIdx < 0) {
+    t1 = sourceData[0].timestamp + fromIdx * sourceTfMs;
+  } else if (fromIdx >= sourceData.length) {
+    t1 = sourceData[sourceData.length - 1].timestamp + (fromIdx - (sourceData.length - 1)) * sourceTfMs;
+  } else {
+    t1 = sourceData[fromIdx].timestamp;
+  }
+
+  const toIdx = Math.round(sourceVisibleRange.realTo);
+  let t2: number;
+  if (toIdx < 0) {
+    t2 = sourceData[0].timestamp + toIdx * sourceTfMs;
+  } else if (toIdx >= sourceData.length) {
+    t2 = sourceData[sourceData.length - 1].timestamp + (toIdx - (sourceData.length - 1)) * sourceTfMs;
+  } else {
+    t2 = sourceData[toIdx].timestamp;
+  }
+
+  if (isNaN(t1) || isNaN(t2)) return null;
+
+  return { t1, t2 };
+};
+
+export interface TargetViewportCalculationParams {
+  sourceBarSpace: number;
+  sourceOffset: number;
+  isSameSymbolAndTf: boolean;
+  t1: number;
+  t2: number;
+  targetData: any[];
+  targetTfMs: number;
+  targetWidth: number;
+}
+
+export interface TargetViewportResult {
+  barSpace: number;
+  offsetRightDistance: number;
+}
+
+/**
+ * Calculates the required barSpace and offsetRightDistance for a target chart.
+ * Pure calculation helper with no side effects.
+ */
+export const calculateTargetViewport = (
+  params: TargetViewportCalculationParams
+): TargetViewportResult => {
+  const {
+    sourceBarSpace,
+    sourceOffset,
+    isSameSymbolAndTf,
+    t1,
+    t2,
+    targetData,
+    targetTfMs,
+    targetWidth,
+  } = params;
+
+  if (isSameSymbolAndTf) {
+    return {
+      barSpace: sourceBarSpace,
+      offsetRightDistance: sourceOffset,
+    };
+  }
+
+  if (!targetData || targetData.length === 0) {
+    return {
+      barSpace: sourceBarSpace,
+      offsetRightDistance: sourceOffset,
+    };
+  }
+
+  const targetFrom = findDataIndexByTimestamp(targetData, t1, targetTfMs);
+  const targetTo = findDataIndexByTimestamp(targetData, t2, targetTfMs);
+  const visibleBarsCount = Math.max(1, targetTo - targetFrom);
+  const width = targetWidth > 0 ? targetWidth : 800;
+  const desiredBarSpace = width / visibleBarsCount;
+  const offsetRightDistance = (targetTo - targetData.length) * desiredBarSpace;
+
+  return {
+    barSpace: desiredBarSpace,
+    offsetRightDistance,
+  };
+};
+
+/**
+ * Calculates the offset to center a target data index on a chart.
+ * Pure calculation helper with no side effects.
+ */
+export const calculateCenterOffset = (
+  dataLength: number,
+  targetIndex: number,
+  chartWidth: number,
+  barSpace: number
+): number => {
+  const width = chartWidth > 0 ? chartWidth : 800;
+  return (targetIndex - dataLength) * barSpace + (width / 2);
+};
+
+/**
  * Recalculates and sets offset to center the given timestamp on the chart.
  */
 export const centerTimestampOnChart = (chart: any, timestamp: number, tfMs: number) => {
-  const data = chart.getDataList();
+  if (!chart) return;
+  const data = chart.getDataList?.() || [];
   if (data.length === 0) return;
   const targetIndex = findDataIndexByTimestamp(data, timestamp, tfMs);
-  const size = chart.getSize();
+  const size = chart.getSize?.();
   const width = size?.width || 800;
   const space = getChartBarSpace(chart);
-  const offsetRightDistance = (targetIndex - data.length) * space + (width / 2);
+  const offsetRightDistance = calculateCenterOffset(data.length, targetIndex, width, space);
   chart.setOffsetRightDistance(offsetRightDistance);
 };
 
@@ -115,6 +235,7 @@ export const syncCrosshairs = (
   slots: { symbol: string; timeframe: string }[],
   layoutType: string
 ) => {
+  if (!isSyncEngineActive(layoutType)) return;
   const visibleCount = getLayoutChartCount(layoutType);
   const sourceChart = chartInstances[sourceIndex];
   if (!sourceChart) return;
@@ -165,6 +286,7 @@ export const syncTimeScale = (
   layoutType: string,
   syncCrosshairEnabled: boolean
 ) => {
+  if (!isSyncEngineActive(layoutType)) return;
   const timestamp = param?.data?.current?.timestamp || param?.data?.timestamp || param?.timestamp;
   if (!timestamp) return;
 
@@ -224,6 +346,7 @@ export const syncDateRange = (
   slots: { symbol: string; timeframe: string }[],
   layoutType: string
 ) => {
+  if (!isSyncEngineActive(layoutType)) return;
   const visibleCount = getLayoutChartCount(layoutType);
   const sourceChart = chartInstances[sourceIndex];
   if (!sourceChart) return;
@@ -233,28 +356,14 @@ export const syncDateRange = (
   if (sourceData.length === 0 || !sourceVisibleRange) return;
 
   const sourceTfMs = getTimeframeMs(slots[sourceIndex]?.timeframe || '1m');
-  
-  const fromIdx = Math.round(sourceVisibleRange.realFrom);
-  let t1: number;
-  if (fromIdx < 0) {
-    t1 = sourceData[0].timestamp + fromIdx * sourceTfMs;
-  } else if (fromIdx >= sourceData.length) {
-    t1 = sourceData[sourceData.length - 1].timestamp + (fromIdx - (sourceData.length - 1)) * sourceTfMs;
-  } else {
-    t1 = sourceData[fromIdx].timestamp;
-  }
+  const timestamps = calculateVisibleTimestamps(sourceData, sourceVisibleRange, sourceTfMs);
+  if (!timestamps) return;
 
-  const toIdx = Math.round(sourceVisibleRange.realTo);
-  let t2: number;
-  if (toIdx < 0) {
-    t2 = sourceData[0].timestamp + toIdx * sourceTfMs;
-  } else if (toIdx >= sourceData.length) {
-    t2 = sourceData[sourceData.length - 1].timestamp + (toIdx - (sourceData.length - 1)) * sourceTfMs;
-  } else {
-    t2 = sourceData[toIdx].timestamp;
-  }
-
-  if (isNaN(t1) || isNaN(t2)) return;
+  const { t1, t2 } = timestamps;
+  const oldSpace = getChartBarSpace(sourceChart);
+  const oldOffset = getTrueOffsetRightDistance(sourceChart);
+  const sourceSymbol = slots[sourceIndex]?.symbol;
+  const sourceTf = slots[sourceIndex]?.timeframe;
 
   for (let i = 0; i < visibleCount; i++) {
     if (i === sourceIndex) continue;
@@ -266,36 +375,31 @@ export const syncDateRange = (
 
     const targetTfMs = getTimeframeMs(slots[i]?.timeframe || '1m');
     const targetSymbol = slots[i]?.symbol;
-    const sourceSymbol = slots[sourceIndex]?.symbol;
-    if (sourceSymbol === targetSymbol && slots[i]?.timeframe === slots[sourceIndex]?.timeframe) {
-      const oldSpace = getChartBarSpace(sourceChart);
-      const oldOffset = getTrueOffsetRightDistance(sourceChart);
-      targetChart.setBarSpace(oldSpace);
-      targetChart.setOffsetRightDistance(oldOffset);
-    } else {
-      const targetFrom = findDataIndexByTimestamp(targetData, t1, targetTfMs);
-      const targetTo = findDataIndexByTimestamp(targetData, t2, targetTfMs);
-      const visibleBarsCount = Math.max(1, targetTo - targetFrom);
-      const targetWidth = targetChart.getSize()?.width || 800;
-      const desiredBarSpace = targetWidth / visibleBarsCount;
-      
-      targetChart.setBarSpace(desiredBarSpace);
-      const actualSpace = getChartBarSpace(targetChart);
-      const offsetRightDistance = (targetTo - targetData.length) * actualSpace;
-      
-      targetChart.setOffsetRightDistance(offsetRightDistance);
-    }
+    const targetTf = slots[i]?.timeframe;
+    const isSame = sourceSymbol === targetSymbol && sourceTf === targetTf;
 
-    // Invalidate target chart's candle pane natively to force an immediate canvas repaint
-    const pane = targetChart.getDrawPaneById?.('candle_pane');
-    if (pane) {
-      if (typeof pane.getWidget === 'function' && typeof pane.getWidget()?.invalidate === 'function') {
-        pane.getWidget().invalidate();
-      } else if (typeof pane.requestInvalidate === 'function') {
-        pane.requestInvalidate();
-      } else if (typeof pane.invalidate === 'function') {
-        pane.invalidate();
-      }
+    const targetWidth = targetChart.getSize()?.width || 800;
+    const targetViewport = calculateTargetViewport({
+      sourceBarSpace: oldSpace,
+      sourceOffset: oldOffset,
+      isSameSymbolAndTf: isSame,
+      t1,
+      t2,
+      targetData,
+      targetTfMs,
+      targetWidth,
+    });
+
+    targetChart.setBarSpace(targetViewport.barSpace);
+    const actualSpace = getChartBarSpace(targetChart);
+
+    // If different timeframe/symbol, adjust offset using the actual clamped bar space
+    if (!isSame) {
+      const targetTo = findDataIndexByTimestamp(targetData, t2, targetTfMs);
+      const offsetRightDistance = (targetTo - targetData.length) * actualSpace;
+      targetChart.setOffsetRightDistance(offsetRightDistance);
+    } else {
+      targetChart.setOffsetRightDistance(targetViewport.offsetRightDistance);
     }
   }
 };

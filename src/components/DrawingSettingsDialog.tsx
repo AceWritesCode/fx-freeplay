@@ -83,7 +83,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [fillBackground, setFillBackground] = useState(true);
   const [profitColor, setProfitColor] = useState('rgba(76, 175, 80, 0.12)');
   const [lossColor, setLossColor] = useState('rgba(244, 67, 54, 0.12)');
-  const [alwaysShowStats, setAlwaysShowStats] = useState(true);
+  const [alwaysShowStats, setAlwaysShowStats] = useState(false);
   const [showLines, setShowLines] = useState(false);
   const [showActivationLine, setShowActivationLine] = useState(true);
   const [activationLineColor, setActivationLineColor] = useState('#808285');
@@ -174,6 +174,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setFillBackground(customSettings.fillBackground !== false);
     setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
     setLossColor(customSettings.lossColor || 'rgba(244, 67, 54, 0.12)');
+    setAlwaysShowStats(customSettings.alwaysShowStats === true);
     setShowLines(customSettings.showLines === true);
     setShowActivationLine(customSettings.showActivationLine !== false);
     setActivationLineColor(customSettings.activationLineColor || '#808285');
@@ -464,7 +465,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setFillBackground(settings.fillBackground !== false);
     setProfitColor(settings.profitColor || 'rgba(76, 175, 80, 0.12)');
     setLossColor(settings.lossColor || 'rgba(244, 67, 54, 0.12)');
-    setAlwaysShowStats(settings.alwaysShowStats !== false);
+    setAlwaysShowStats(settings.alwaysShowStats === true);
     setShowLines(settings.showLines === true);
     setShowActivationLine(settings.showActivationLine !== false);
     setActivationLineColor(settings.activationLineColor || '#808285');
@@ -494,7 +495,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       fillBackground: settings.fillBackground !== false,
       profitColor: settings.profitColor || 'rgba(76, 175, 80, 0.12)',
       lossColor: settings.lossColor || 'rgba(244, 67, 54, 0.12)',
-      alwaysShowStats: settings.alwaysShowStats !== false,
+      alwaysShowStats: settings.alwaysShowStats === true,
       showLines: settings.showLines === true,
       showActivationLine: settings.showActivationLine !== false,
       activationLineColor: settings.activationLineColor || '#808285',
@@ -592,7 +593,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setFillBackground(true);
     setProfitColor('rgba(76, 175, 80, 0.12)');
     setLossColor('rgba(244, 67, 54, 0.12)');
-    setAlwaysShowStats(true);
+    setAlwaysShowStats(false);
     setShowLines(false);
     setShowActivationLine(true);
     setActivationLineColor('#808285');
