@@ -757,7 +757,7 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
       drawings = await get().loadSymbolDrawings(key);
     }
     // Also guarantee folders for this symbol are loaded into repository/store
-    const folders = await drawingRepository.getFolders(key);
+    await drawingRepository.getFolders(key);
 
     const knownIds = drawings.map((d) => d.id);
     const lookup: DrawingFolderLookup = {};

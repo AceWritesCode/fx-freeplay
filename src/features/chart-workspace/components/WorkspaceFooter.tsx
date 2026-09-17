@@ -212,7 +212,6 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => {
-              console.log('[DEBUG] Replay Footer - Clicked Jump To.');
               setIsSelectingCutPoint(true);
             }}
             title="Jump to new cutpoint (Click on chart)"
@@ -273,7 +272,6 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
             onChange={(e) => {
               const idx = Number(e.target.value);
               const speedVal = speedSteps[idx];
-              console.log(`[DEBUG] Replay Footer Speed - Slider changed to index ${idx} -> speed ${speedVal}s/b`);
               onSpeedChange(speedVal);
             }}
             className={`${compact ? 'w-16' : 'w-20'} h-1 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-accent focus:outline-none flex-shrink-0`}
@@ -356,7 +354,6 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
       {isExitReplay ? (
         <button
           onClick={() => {
-            console.log('[DEBUG] Replay Footer - Exit Replay clicked.');
             exitReplayMode();
           }}
           className="flex items-center gap-1 px-3 py-1 rounded-lg border border-status-error/30 bg-status-error/10 text-status-error hover:bg-status-error/20 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 ml-1"
@@ -426,7 +423,6 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
             {/* Right side: Exit Button */}
             <button
               onClick={() => {
-                console.log('[DEBUG] Replay Footer - Exit Replay clicked.');
                 exitReplayMode();
               }}
               className="flex items-center gap-1 px-3 py-1 rounded-lg border border-status-error/30 bg-status-error/10 text-status-error hover:bg-status-error/20 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 ml-2"

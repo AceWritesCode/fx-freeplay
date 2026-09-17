@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Folder, FolderOpen, Eye, EyeOff, Lock, Unlock, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDrawingStore } from '@/store';
 import {
   DrawingChartAdapter,
@@ -7,7 +6,6 @@ import {
   buildTreeHierarchyFromCanonical,
 } from '@/engine/charting';
 import { ToolRegistry } from '@/framework/tools';
-import { DeleteIcon } from '@/features/chart-workspace/components/DrawingToolbar';
 import { DataWindow } from '@/features/chart-workspace/components/DataWindow';
 import { ObjectTreeToolbar } from './object-tree/ObjectTreeToolbar';
 import { ObjectTreeEmptyState } from './object-tree/ObjectTreeEmptyState';
@@ -80,8 +78,6 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   // Drag and drop coordination hook
   const {
     isDragging,
-    draggedItemId,
-    draggedItemType,
     dragOverItemId,
     dragOverPosition,
     dragOverFolderId,
@@ -95,7 +91,6 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     handleDragOverItem,
     handleDragLeaveItem,
     handleDropOnItem,
-    reorderRootItems,
   } = useObjectTreeDragDrop({
     activeSymbol,
     drawings,
@@ -757,31 +752,9 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                     }}
                     onDragStart={(e) => handleDragStart(e, 'candles', 'candles')}
                     onDragEnd={handleDragEnd}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const relativeY = e.clientY - rect.top;
-                      const isAbove = relativeY < rect.height / 2;
-                      setDragOverItemId('candles');
-                      setDragOverPosition(isAbove ? 'above' : 'below');
-                    }}
-                    onDragLeave={() => {
-                      setDragOverItemId(null);
-                      setDragOverPosition(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const dragType = draggedItemType;
-                      const dragId = draggedItemId;
-                      const dropPosition = dragOverPosition;
-                      handleDragEnd();
-
-                      if (dragId && dragType && dragId !== 'candles') {
-                        reorderRootItems(dragId, dragType, 'candles', 'candles', dropPosition || 'above');
-                      }
-                    }}
+                    onDragOver={(e) => handleDragOverItem(e, 'candles')}
+                    onDragLeave={handleDragLeaveItem}
+                    onDrop={(e) => handleDropOnItem(e, 'candles')}
                   />
                 );
               } else {

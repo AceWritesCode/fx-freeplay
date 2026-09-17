@@ -65,7 +65,7 @@ export function useDrawingCoordinator(
   });
 
   const handleToggleMagnet = () => {
-    const nextMode: typeof magnetMode = magnetMode === 'normal' ? 'normal_magnet' : 'normal';
+    const nextMode: typeof magnetMode = magnetMode === 'normal' ? 'weak_magnet' : 'normal';
     setMagnetMode(nextMode);
     try {
       localStorage.setItem('fx_magnet_mode', nextMode);
@@ -82,12 +82,8 @@ export function useDrawingCoordinator(
   };
 
   const getMagnetSensitivity = (mode: string, s: typeof settings) => {
-    if (mode === 'normal_magnet') return s.magnetNormalSensitivity ?? 30;
-    if (mode === 'weak_magnet') return s.magnetWeakSensitivity ?? 10;
-    if (mode === 'strong_magnet') {
-      const v = s.magnetStrongSensitivity ?? 85;
-      return v >= 100 ? 999999 : v;
-    }
+    if (mode === 'weak_magnet' || mode === 'normal_magnet') return s.magnetWeakSensitivity ?? 10;
+    if (mode === 'strong_magnet') return s.magnetStrongSensitivity ?? 60;
     return 999999;
   };
 
@@ -231,6 +227,7 @@ export function useDrawingCoordinator(
     magnetMode,
     handleToggleMagnet,
     selectMagnetMode,
+    applyMagnetModeToCharts,
     createOverlayWithHandlers,
     syncAllDrawings,
     handleSelectTool,

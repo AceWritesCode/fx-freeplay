@@ -1,7 +1,7 @@
 import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
 import { snapPointToCandle } from '@/engine/charting';
 import { isOverlayVisible, makeOpaqueColor, boostColorOpacity, getCandleIntervalMs } from '../toolUtils';
-import { findCandleIndexByTimestamp } from '@/engine/replay';
+import { findCandleIndexByTimestamp, replayVisibilityBoundary } from '@/engine/replay';
 
 // ─── Long Position Icon ──────────────────────────────────────────────────────
 const LongPositionIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
@@ -295,6 +295,9 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
 
     // ─── Trade Activation & Exit Calculation ──────────────────────────────────
     const dataList = chart?.getDataList?.() || [];
+    const isReplayActive = replayVisibilityBoundary.isActive();
+    const replayCutoffTimestamp = isReplayActive ? replayVisibilityBoundary.getCurrentTimestamp() : null;
+
     const diMin = overlay.points[4]?.dataIndex ?? 0;
     const diMax = overlay.points[5]?.dataIndex ?? (dataList.length - 1);
     const startIdx = Math.max(0, diMin);
@@ -305,6 +308,9 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
     if (dataList.length > 0 && startIdx < dataList.length) {
       for (let i = startIdx; i < dataList.length; i++) {
         const c = dataList[i];
+        if (replayCutoffTimestamp !== null && c && typeof c.timestamp === 'number' && c.timestamp > replayCutoffTimestamp) {
+          break;
+        }
         if (c && typeof c.low === 'number' && typeof c.high === 'number') {
           if (c.low <= entryPrice && c.high >= entryPrice) {
             activationCandle = c;
@@ -339,6 +345,9 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
       for (let i = activationIndex; i <= maxSearchIdx; i++) {
         const c = dataList[i];
         if (!c || typeof c.low !== 'number' || typeof c.high !== 'number') continue;
+        if (replayCutoffTimestamp !== null && typeof c.timestamp === 'number' && c.timestamp > replayCutoffTimestamp) {
+          break;
+        }
 
         let hitTP = false;
         let hitSL = false;
@@ -379,20 +388,27 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
 
       // If trade is in progress (no TP/SL exit hit yet up to diMax)
       if (!isExited) {
-        const currentIdx = Math.max(activationIndex, maxSearchIdx);
-        exitCandle = dataList[currentIdx];
-        exitIndex = currentIdx;
+        let currentIdx = Math.max(activationIndex, maxSearchIdx);
+        if (replayCutoffTimestamp !== null) {
+          while (currentIdx >= activationIndex && dataList[currentIdx] && typeof dataList[currentIdx].timestamp === 'number' && dataList[currentIdx].timestamp > replayCutoffTimestamp) {
+            currentIdx--;
+          }
+        }
+        if (currentIdx >= activationIndex) {
+          exitCandle = dataList[currentIdx];
+          exitIndex = currentIdx;
 
-        if (exitCandle) {
-          const rawClose = typeof exitCandle.close === 'number' ? exitCandle.close : entryPrice;
-          const minBound = Math.min(targetPrice, stopPrice);
-          const maxBound = Math.max(targetPrice, stopPrice);
-          const clampedClose = Math.max(minBound, Math.min(maxBound, rawClose));
-          exitPrice = clampedClose;
-          if (isLong) {
-            activeSide = rawClose >= entryPrice ? 'TP' : 'SL';
-          } else {
-            activeSide = rawClose <= entryPrice ? 'TP' : 'SL';
+          if (exitCandle) {
+            const rawClose = typeof exitCandle.close === 'number' ? exitCandle.close : entryPrice;
+            const minBound = Math.min(targetPrice, stopPrice);
+            const maxBound = Math.max(targetPrice, stopPrice);
+            const clampedClose = Math.max(minBound, Math.min(maxBound, rawClose));
+            exitPrice = clampedClose;
+            if (isLong) {
+              activeSide = rawClose >= entryPrice ? 'TP' : 'SL';
+            } else {
+              activeSide = rawClose <= entryPrice ? 'TP' : 'SL';
+            }
           }
         }
       }

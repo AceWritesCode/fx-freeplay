@@ -1,10 +1,7 @@
-import { replayVisibilityBoundary } from '../replay/ReplayVisibilityBoundary.ts';
-
-
 export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   // Always read mode from the live chart-level flag so drag events on
   // pre-existing overlays still respect the current magnet state.
-  const mode: string = event.chart._magnetMode ?? event.overlay.mode ?? 'normal';
+  const mode: string = event.chart._magnetMode ?? event.overlay?.mode ?? 'normal';
   if (mode !== 'normal_magnet' && mode !== 'weak_magnet' && mode !== 'strong_magnet') {
     return null;
   }
@@ -14,23 +11,10 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
   const dataList = event.chart.getDataList();
   if (!dataList || dataList.length === 0) return null;
 
-  if (replayVisibilityBoundary.isActive()) {
-    const { end } = replayVisibilityBoundary.getRevealedIndexRange(dataList);
-    const rawIndex = Math.round(point.dataIndex);
-    if (end === -1 || rawIndex > end || (point.timestamp && !replayVisibilityBoundary.isTimestampRevealed(point.timestamp))) {
-      return null;
-    }
-  }
-
   const rawIndex = Math.round(point.dataIndex);
   const dataIndex = Math.max(0, Math.min(dataList.length - 1, rawIndex));
   const candle = dataList[dataIndex];
   if (!candle) return null;
-
-  if (replayVisibilityBoundary.isActive() && !replayVisibilityBoundary.isTimestampRevealed(candle.timestamp)) {
-    return null;
-  }
-
 
   const prices = [candle.open, candle.high, candle.low, candle.close];
   let closestPrice = prices[0];
@@ -43,34 +27,32 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
     }
   }
 
-  const sensitivity = event.overlay.modeSensitivity;
+  const sensitivity = event.overlay?.modeSensitivity;
+
+  let snappedResult: any = null;
 
   if (mode === 'strong_magnet') {
-    // 999999 = always snap (user set slider to 100). Otherwise use pixel threshold.
     if (sensitivity === undefined || sensitivity >= 999999) {
-      return {
+      snappedResult = {
         value: closestPrice,
         timestamp: point.timestamp,
-        dataIndex: point.dataIndex
+        dataIndex: point.dataIndex,
       };
+    } else {
+      const closestPixelResult = event.chart.convertToPixel(
+        [{ timestamp: candle.timestamp, value: closestPrice }],
+        { paneId: 'candle_pane' }
+      );
+      const closestPixelY = closestPixelResult?.[0]?.y;
+      if (closestPixelY !== undefined && Math.abs(rawY - closestPixelY) <= sensitivity) {
+        snappedResult = {
+          value: closestPrice,
+          timestamp: point.timestamp,
+          dataIndex: point.dataIndex,
+        };
+      }
     }
-    // Proximity-based snap for strong mode when user reduced from "always"
-    const closestPixelResult = event.chart.convertToPixel(
-      [{ timestamp: candle.timestamp, value: closestPrice }],
-      { paneId: 'candle_pane' }
-    );
-    const closestPixelY = closestPixelResult?.[0]?.y;
-    if (closestPixelY !== undefined && Math.abs(rawY - closestPixelY) <= sensitivity) {
-      return {
-        value: closestPrice,
-        timestamp: point.timestamp,
-        dataIndex: point.dataIndex
-      };
-    }
-    return null;
-  }
-
-  if (mode === 'normal_magnet' || mode === 'weak_magnet') {
+  } else if (mode === 'normal_magnet' || mode === 'weak_magnet') {
     const defaultSens = mode === 'normal_magnet' ? 30 : 10;
     const proximitySens = sensitivity || defaultSens;
     const closestPixelResult = event.chart.convertToPixel(
@@ -81,16 +63,16 @@ export function snapPointToCandle(event: any, rawX: number, rawY: number) {
     if (closestPixelY !== undefined) {
       const pixelDist = Math.abs(rawY - closestPixelY);
       if (pixelDist <= proximitySens) {
-        return {
+        snappedResult = {
           value: closestPrice,
           timestamp: point.timestamp,
-          dataIndex: point.dataIndex
+          dataIndex: point.dataIndex,
         };
       }
     }
   }
 
-  return null;
+  return snappedResult;
 }
 
 /**

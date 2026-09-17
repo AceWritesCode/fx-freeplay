@@ -1397,13 +1397,13 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Magnet Sensitivity */}
                 <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mt-2 mb-1">Magnet Snap Intensity</div>
                 
-                {/* Weak Magnet slider (0-20) */}
+                {/* Weak Magnet slider (0-40px) */}
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-xs text-txt-secondary w-32">Weak magnet</span>
                   <input
                     type="range"
                     min={0}
-                    max={20}
+                    max={40}
                     step={1}
                     value={formState.magnetWeakSensitivity}
                     onChange={(e) => handleFieldChange('magnetWeakSensitivity', parseInt(e.target.value))}
@@ -1414,37 +1414,20 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   </span>
                 </div>
 
-                {/* Normal Magnet slider (20-60) */}
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-xs text-txt-secondary w-32">Normal magnet</span>
-                  <input
-                    type="range"
-                    min={20}
-                    max={60}
-                    step={1}
-                    value={formState.magnetNormalSensitivity}
-                    onChange={(e) => handleFieldChange('magnetNormalSensitivity', parseInt(e.target.value))}
-                    className="w-40 h-1.5 appearance-none rounded-full bg-surface-elevated accent-accent cursor-pointer"
-                  />
-                  <span className="text-xs font-mono text-accent w-14 text-right">
-                    {formState.magnetNormalSensitivity}px
-                  </span>
-                </div>
-
-                {/* Strong Magnet slider (60-100) */}
+                {/* Strong Magnet slider (40-80px) */}
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-xs text-txt-secondary w-32">Strong magnet</span>
                   <input
                     type="range"
-                    min={60}
-                    max={100}
+                    min={40}
+                    max={80}
                     step={1}
                     value={formState.magnetStrongSensitivity}
                     onChange={(e) => handleFieldChange('magnetStrongSensitivity', parseInt(e.target.value))}
                     className="w-40 h-1.5 appearance-none rounded-full bg-surface-elevated accent-accent cursor-pointer"
                   />
                   <span className="text-xs font-mono text-accent w-14 text-right">
-                    {formState.magnetStrongSensitivity >= 100 ? 'Always' : `${formState.magnetStrongSensitivity}px`}
+                    {formState.magnetStrongSensitivity}px
                   </span>
                 </div>
               </div>

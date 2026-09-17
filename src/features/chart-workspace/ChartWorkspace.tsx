@@ -26,6 +26,7 @@ import {
   registerReplayMaskIndicator,
   REPLAY_MASK_INDICATOR_NAME,
 } from '@/engine/charting';
+import { findCandleIndexByTimestamp } from '@/engine/replay';
 
 
 import { Header } from './components/Header';
@@ -198,6 +199,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   const [isHoldingResetView, setIsHoldingResetView] = useState<boolean>(false);
   const resetViewHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const resetViewHoldStartTimeRef = useRef<number>(0);
+  const simulatedReplayMagnetAreaRef = useRef<'VISIBLE' | 'HIDDEN' | null>(null);
 
   const handleCanvasContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -291,14 +293,13 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             downColor: s.bearColor,
             noChangeColor: '#888888',
             line: {
-              show: false,
+              show: isReplayActive ? false : s.showPriceLine,
               style: s.priceLineStyle,
               size: s.priceLineSize,
               color: s.priceLineColor,
             },
-
             text: {
-              show: s.showPriceLineLabel,
+              show: isReplayActive ? false : s.showPriceLineLabel,
               size: 11,
               family: 'Noto Sans, sans-serif',
               color: '#ffffff',
@@ -356,6 +357,14 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     settings,
     workspaceCoord.isSwitchingTimeframeRef
   );
+
+  // Clean up simulated replay magnet state when drawing tool is deselected
+  useEffect(() => {
+    if (drawingCoord.activeTool === null && simulatedReplayMagnetAreaRef.current !== null) {
+      simulatedReplayMagnetAreaRef.current = null;
+      drawingCoord.applyMagnetModeToCharts(drawingCoord.magnetMode);
+    }
+  }, [drawingCoord.activeTool, drawingCoord.magnetMode]);
 
   // Connect toast triggers
   useEffect(() => {
@@ -499,7 +508,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         applySettingsToChart(chart, settings);
       }
     });
-  }, [settings]);
+  }, [settings, isReplayActive]);
 
   // Keep chart selection & active tool state synced to chart instances
   useEffect(() => {
@@ -747,21 +756,85 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
               handleCrosshairSync(i, params);
+
+              const replayState = useReplayStore.getState();
+              const chartActiveTool = (chart as any)._activeTool ?? null;
+              const isAutoMagnetActive = replayState.isReplayActive && replayState.replayCurrentTimestamp !== null && chartActiveTool !== null;
+
+              if (isAutoMagnetActive) {
+                if (params && typeof params.x === 'number' && typeof params.y === 'number') {
+                  const points = chart.convertFromPixel([{ x: params.x, y: params.y }], { paneId: 'candle_pane' });
+                  const pt = Array.isArray(points) ? points[0] : points;
+                  const cursorTimestamp = pt?.timestamp;
+                  const replayCurrentTimestamp = replayState.replayCurrentTimestamp;
+
+                  if (cursorTimestamp !== undefined && cursorTimestamp !== null && replayCurrentTimestamp !== null) {
+                    const isHidden = cursorTimestamp > replayCurrentTimestamp;
+                    const currentArea = isHidden ? 'HIDDEN' : 'VISIBLE';
+
+                    if (simulatedReplayMagnetAreaRef.current !== currentArea) {
+                      simulatedReplayMagnetAreaRef.current = currentArea;
+                      if (isHidden) {
+                        drawingCoord.applyMagnetModeToCharts('normal');
+                      } else {
+                        drawingCoord.applyMagnetModeToCharts(drawingCoord.magnetMode);
+                      }
+                    }
+                  }
+                }
+              } else if (simulatedReplayMagnetAreaRef.current !== null) {
+                simulatedReplayMagnetAreaRef.current = null;
+                drawingCoord.applyMagnetModeToCharts(drawingCoord.magnetMode);
+              }
             });
 
             chart.subscribeAction('onVisibleRangeChange', () => {
               handleDateRangeSync(i);
             });
 
-            chart.subscribeAction('onScroll', () => {
-              if ((chart as any)._isProgrammaticScroll || isSyncingRangeRef.current) return;
-              if ((chart as any)._clickedOnOverlay || drawingCoord.activeTool !== null) return;
+            // Direct canvas pointer interaction detection for manual chart panning during Replay Auto Shift
+            let panDragStartX = 0;
+            let panDragStartY = 0;
+            let isPanDragCandidate = false;
+
+            const handlePointerDown = (e: PointerEvent) => {
+              if (e.button !== 0) return;
               const replayState = useReplayStore.getState();
-              if (replayState.isReplayActive && replayState.isAutoShiftEnabled) {
-                console.log('[DEBUG] Chart pan detected during replay - Disabling Auto Shift');
+              if (!replayState.isReplayActive || !replayState.isAutoShiftEnabled) return;
+              if (drawingCoord.activeTool !== null || (chart as any)._clickedOnOverlay || replayCoord.isSelectingCutPoint) return;
+
+              isPanDragCandidate = true;
+              panDragStartX = e.clientX;
+              panDragStartY = e.clientY;
+            };
+
+            const handlePointerMove = (e: PointerEvent) => {
+              if (!isPanDragCandidate) return;
+              const replayState = useReplayStore.getState();
+              if (!replayState.isReplayActive || !replayState.isAutoShiftEnabled) {
+                isPanDragCandidate = false;
+                return;
+              }
+              if (drawingCoord.activeTool !== null || (chart as any)._clickedOnOverlay || replayCoord.isSelectingCutPoint) {
+                isPanDragCandidate = false;
+                return;
+              }
+
+              const dist = Math.hypot(e.clientX - panDragStartX, e.clientY - panDragStartY);
+              if (dist >= 5) {
+                isPanDragCandidate = false;
                 replayState.setIsAutoShiftEnabled(false);
               }
-            });
+            };
+
+            const handlePointerUpOrCancel = () => {
+              isPanDragCandidate = false;
+            };
+
+            container.addEventListener('pointerdown', handlePointerDown);
+            container.addEventListener('pointermove', handlePointerMove);
+            container.addEventListener('pointerup', handlePointerUpOrCancel);
+            container.addEventListener('pointercancel', handlePointerUpOrCancel);
 
             chart.subscribeAction('onCandleBarClick', (param: any) => {
               handleTimeSync(i, param);
@@ -1129,7 +1202,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     await workspaceCoord.handleWatchlistSymbolSwitch(symbolName);
   };
 
-  const resetChartView = () => {
+  const resetChartView = (overrideRatio?: number) => {
     chartInstancesRef.current.forEach((chart, index) => {
       if (!chart) return;
       const chartSize = chart.getSize();
@@ -1138,13 +1211,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       if (!slot) return;
       const fullData = workspaceCoord.allTimeframesData[slot.timeframe] || [];
       if (fullData.length === 0) return;
-      
-      const activeData = isReplayActive && replayCurrentTimestamp !== null
-        ? fullData.filter((d: any) => d.timestamp <= replayCurrentTimestamp)
-        : fullData;
-        
-      if (activeData.length === 0) return;
-      
+
       // Re-enable Y-axis auto-scale so prices appear correctly
       try {
         const pane = (chart as any).getDrawPaneById?.('candle_pane') || (chart as any)._paneIdMap?.get?.('candle_pane');
@@ -1153,16 +1220,34 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           yAxis.setAutoCalcTickFlag?.(true);
         }
       } catch (_) {}
-      
-      const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
-      const targetOffset = chartWidth * resetRatio;
-      chart.resize();
-      chart.setOffsetRightDistance(targetOffset);
-      chart.scrollToDataIndex(activeData.length - 1);
 
-      // Lock the offset in the next frame so scrollToDataIndex cannot override it
+      const resetRatio = overrideRatio ?? settings.resetViewOffsetRatio ?? 0.5;
+      const targetOffset = chartWidth * resetRatio;
+
+      let effectiveOffset = targetOffset;
+      if (isReplayActive && replayCurrentTimestamp !== null) {
+        const lastRevealedIndex = findCandleIndexByTimestamp(fullData, replayCurrentTimestamp);
+        if (lastRevealedIndex !== -1) {
+          const barSpaceVal = chart.getBarSpace();
+          let space = 6;
+          if (typeof barSpaceVal === 'number') space = barSpaceVal;
+          else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
+
+          const remainingCandles = Math.max(0, (fullData.length - 1) - lastRevealedIndex);
+          const hiddenWidth = remainingCandles * space;
+          effectiveOffset = targetOffset - hiddenWidth;
+        }
+      }
+
+      (chart as any)._isProgrammaticScroll = true;
+      chart.resize();
+      chart.setOffsetRightDistance(effectiveOffset);
+
       requestAnimationFrame(() => {
-        chart.setOffsetRightDistance(targetOffset);
+        chart.setOffsetRightDistance(effectiveOffset);
+        setTimeout(() => {
+          (chart as any)._isProgrammaticScroll = false;
+        }, 50);
       });
     });
   };
@@ -1195,20 +1280,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       setResetViewHoverX(null);
 
       // Slide all chart instances to the new reset view point
-      chartInstancesRef.current.forEach((chart, idx) => {
-        if (!chart) return;
-        const width = chart.getSize() && chart.getSize().width > 0 ? chart.getSize().width : chartWidth;
-        const targetOffset = width * ratio;
-        const slot = slots[idx];
-        const tfData = workspaceCoord.allTimeframesData[slot?.timeframe || '1m'] || [];
-        const lastIdx = tfData.length > 0 ? tfData.length - 1 : 0;
-        chart.resize();
-        chart.setOffsetRightDistance(targetOffset);
-        chart.scrollToDataIndex(lastIdx);
-        requestAnimationFrame(() => {
-          chart.setOffsetRightDistance(targetOffset);
-        });
-      });
+      resetChartView(ratio);
 
       setWatchlistToast({
         msg: `Reset view point set to ${Math.round(ratio * 100)}% from right edge.`,

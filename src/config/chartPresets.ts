@@ -45,9 +45,9 @@ export interface ChartSettings {
   timeFormat?: '12h' | '24h'; // 12-hour (06:00 PM) or 24-hour (18:00) format (default: '24h')
 
   // Magnet Sensitivity Settings (pixel proximity thresholds per mode)
-  magnetWeakSensitivity: number;   // 0-20
-  magnetNormalSensitivity: number; // 20-60
-  magnetStrongSensitivity: number; // 60-100 (100 = always snap)
+  magnetWeakSensitivity: number;   // 0-40
+  magnetNormalSensitivity: number; // Legacy, kept for schema backward compatibility
+  magnetStrongSensitivity: number; // 40-80
 
   // Replay Speed Range Settings (seconds per bar)
   replayMaxDuration: number; // Slowest speed (default: 3.0)
@@ -103,7 +103,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     timeFormat: '24h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
-    magnetStrongSensitivity: 85,
+    magnetStrongSensitivity: 60,
     replayMaxDuration: 3.0,
     replayMinDuration: 0.01,
   },
@@ -149,7 +149,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     timeFormat: '24h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
-    magnetStrongSensitivity: 85,
+    magnetStrongSensitivity: 60,
     replayMaxDuration: 3.0,
     replayMinDuration: 0.01,
   },
@@ -195,7 +195,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     timeFormat: '24h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
-    magnetStrongSensitivity: 85,
+    magnetStrongSensitivity: 60,
     replayMaxDuration: 3.0,
     replayMinDuration: 0.01,
   },

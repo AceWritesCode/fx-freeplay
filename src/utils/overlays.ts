@@ -21,7 +21,8 @@ export function registerCustomOverlays() {
 
       const dataList = chart.getDataList();
       if (!dataList || dataList.length === 0) return [];
-      const lastData = replayVisibilityBoundary.getEffectiveLastCandle(dataList);
+      const lastData: any = replayVisibilityBoundary.getEffectiveLastCandle(dataList);
+
       if (!lastData) return [];
 
       const close = lastData.close;
@@ -61,6 +62,75 @@ export function registerCustomOverlays() {
             color: color,
             size: chart._priceLineSize || 1,
             dashedValue: [4, 4]
+          }
+        }
+      ];
+    },
+    createYAxisFigures: ({ chart, yAxis, bounding }: any) => {
+      if (!chart._showPriceLine) return [];
+
+      const dataList = chart.getDataList();
+      if (!dataList || dataList.length === 0) return [];
+      const lastData: any = replayVisibilityBoundary.getEffectiveLastCandle(dataList);
+
+      if (!lastData) return [];
+
+      const close = lastData.close;
+      const open = lastData.open;
+      const priceY = yAxis.convertToPixel(close);
+
+      let color = chart._priceLineColor || '#2196f3';
+      if (chart._priceLineUseCandleColor) {
+        const { end } = replayVisibilityBoundary.getRevealedIndexRange(dataList);
+        const prevData = end > 0 ? dataList[end - 1] : undefined;
+        const comparePrice = prevData ? prevData.close : open;
+        if (close > comparePrice) {
+          color = chart._bullColor || '#26a69a';
+        } else if (close < comparePrice) {
+          color = chart._bearColor || '#ef5350';
+        } else {
+          color = '#8b93a6';
+        }
+      }
+
+      const pricePrecision = chart.getSymbol?.()?.pricePrecision ?? 5;
+      const formatPrice = (p: number) => {
+        if (typeof p !== 'number' || isNaN(p)) return '-';
+        return p.toFixed(pricePrecision);
+      };
+
+      const isFromZero = yAxis.isFromZero?.() ?? false;
+      const textAlign = isFromZero ? 'left' : 'right';
+      const textX = isFromZero ? 6 : (bounding?.width ?? 60) - 6;
+
+      return [
+        {
+          type: 'rect',
+          attrs: {
+            x: 0,
+            y: priceY - 10,
+            width: bounding?.width ?? 60,
+            height: 20
+          },
+          styles: {
+            style: 'fill',
+            color: color
+          }
+        },
+        {
+          type: 'text',
+          attrs: {
+            x: textX,
+            y: priceY,
+            text: formatPrice(close),
+            align: textAlign,
+            baseline: 'middle'
+          },
+          styles: {
+            color: '#ffffff',
+            size: 11,
+            family: 'Noto Sans, sans-serif',
+            backgroundColor: 'transparent'
           }
         }
       ];
@@ -602,14 +672,10 @@ export function getInteractiveOverlayOptions(
           }));
 
           const convertedPoints = event.chart.convertFromPixel(targetPixels, { paneId: 'candle_pane' });
-          const dataList = event.chart.getDataList();
-          const clampedPoints = (replayVisibilityBoundary.isActive() && dataList && dataList.length > 0 && convertedPoints)
-            ? convertedPoints.map((pt: any) => replayVisibilityBoundary.clampPointToRevealedBoundary(pt, dataList))
-            : convertedPoints;
 
-          if (clampedPoints && clampedPoints.length === startPoints.length) {
+          if (convertedPoints && convertedPoints.length === startPoints.length) {
             const newPoints = startPoints.map((pt: any, i: number) => {
-              const conv = clampedPoints[i];
+              const conv = convertedPoints[i];
               return {
                 ...pt,
                 timestamp: conv?.timestamp ?? pt.timestamp,
@@ -624,7 +690,6 @@ export function getInteractiveOverlayOptions(
             });
             mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
           }
-
         }
 
         if (event.chart._handleMultiMove) {
@@ -675,15 +740,9 @@ export function getInteractiveOverlayOptions(
           snappedPt = snapPointToCandle(event, rawX, rawY);
         }
 
-        const rawPointsConverted = snappedPt
+        const currentPoints = snappedPt
           ? [snappedPt]
           : event.chart.convertFromPixel([{ x: rawX, y: rawY }], { paneId: 'candle_pane' });
-
-        const dataList = event.chart.getDataList();
-        const currentPoints = (replayVisibilityBoundary.isActive() && dataList && dataList.length > 0 && rawPointsConverted)
-          ? rawPointsConverted.map((pt: any) => replayVisibilityBoundary.clampPointToRevealedBoundary(pt, dataList))
-          : rawPointsConverted;
-
         if (currentPoints && currentPoints.length > 0 && currentPoints[0]) {
           const newPoints = [...initialPoints];
           newPoints[draggedIndex] = currentPoints[0];
@@ -693,7 +752,6 @@ export function getInteractiveOverlayOptions(
           });
           mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: newPoints }, chartInstancesRef);
         }
-
       } else if (event.overlay && event.overlay.points) {
         // Live in-progress drawing creation point updates
         mirrorLiveOverlayUpdate(event.chart, event.overlay.id, { points: event.overlay.points }, chartInstancesRef);

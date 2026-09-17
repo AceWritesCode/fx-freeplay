@@ -30,6 +30,7 @@ export function registerReplayMaskIndicator(): void {
 
     calc: () => [],
     figures: [],
+    shouldUpdate: () => ({ calc: false, draw: true }),
 
     styles: {
       tooltip: {
