@@ -858,6 +858,10 @@ export function useWorkspaceCoordinator(
           },
         });
         chart.resetData();
+        if (typeof chart.resize === 'function') {
+          chart.resize();
+          (chart as any)._layout?.();
+        }
         if (visibleData.length > 0) {
           const chartSize = chart.getSize();
           const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;

@@ -662,8 +662,6 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     prevSlotsRef.current = slots;
     prevLayoutTypeRef.current = layoutType;
 
-    const forceAll = !prevSlots || layoutTypeChanged;
-
     const promises: Promise<void>[] = [];
     for (let i = 0; i < visibleCount; i++) {
       const chart = chartInstancesRef.current[i];
@@ -680,7 +678,10 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           continue;
         }
 
-        if (forceAll || symbolChanged || timeframeChanged) {
+        const dataList = (chart.getDataList?.() || []) as any[];
+        const hasNoData = dataList.length === 0;
+
+        if (symbolChanged || timeframeChanged || hasNoData) {
           promises.push(workspaceCoord.loadDataForSlot(i, chart));
         }
       }
@@ -694,6 +695,55 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       });
     }
   }, [slots, layoutType, hasData]);
+
+  const resetChartView = useCallback((overrideRatio?: number) => {
+    const visibleCount = getLayoutChartCount(layoutType);
+    for (let index = 0; index < visibleCount; index++) {
+      const chart = chartInstancesRef.current[index];
+      if (!chart) continue;
+      chart.resize();
+      (chart as any)._layout?.();
+      (chart as any)._resetYAxisAutoCalcTickFlag?.();
+      (chart as any)._layout?.();
+
+      const chartSize = chart.getSize();
+      const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+      const slot = slots[index];
+      if (!slot) continue;
+      const fullData = (workspaceCoord.allTimeframesData[slot.timeframe]?.length > 0)
+        ? workspaceCoord.allTimeframesData[slot.timeframe]
+        : ((chart.getDataList?.() || []) as any[]);
+      if (fullData.length === 0) continue;
+
+      const resetRatio = overrideRatio ?? settings.resetViewOffsetRatio ?? 0.5;
+      const targetOffset = chartWidth * resetRatio;
+
+      let effectiveOffset = targetOffset;
+      if (isReplayActive && replayCurrentTimestamp !== null) {
+        const lastRevealedIndex = findCandleIndexByTimestamp(fullData, replayCurrentTimestamp);
+        if (lastRevealedIndex !== -1) {
+          const barSpaceVal = chart.getBarSpace();
+          let space = 6;
+          if (typeof barSpaceVal === 'number') space = barSpaceVal;
+          else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
+
+          const remainingCandles = Math.max(0, (fullData.length - 1) - lastRevealedIndex);
+          const hiddenWidth = remainingCandles * space;
+          effectiveOffset = targetOffset - hiddenWidth;
+        }
+      }
+
+      (chart as any)._isProgrammaticScroll = true;
+      chart.setOffsetRightDistance(effectiveOffset);
+
+      requestAnimationFrame(() => {
+        chart.setOffsetRightDistance(effectiveOffset);
+        setTimeout(() => {
+          (chart as any)._isProgrammaticScroll = false;
+        }, 50);
+      });
+    }
+  }, [layoutType, slots, workspaceCoord.allTimeframesData, settings.resetViewOffsetRatio, isReplayActive, replayCurrentTimestamp]);
 
   // Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
@@ -898,6 +948,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             (chart as any)._activeTool = drawingCoord.activeTool;
             workspaceCoord.loadDataForSlot(i, chart);
             chart.resize();
+            (chart as any)._layout?.();
           }
         }
       }
@@ -919,11 +970,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     }
 
     // Resize and re-center charts to fit the new layout size changes
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       for (let i = 0; i < visibleCount; i++) {
         const chart = chartInstancesRef.current[i];
         if (chart) {
           chart.resize();
+          (chart as any)._layout?.();
           (chart as any)._onDrawingSync = drawingCoord.syncAllDrawings;
           (chart as any)._onHoverChange = () => {
             drawingCoord.setDrawingTrigger(prev => prev + 1);
@@ -931,10 +983,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         }
       }
       if (hasData) {
-        workspaceCoord.handleTimeframeSwitch(activeTimeframe, undefined);
+        resetChartView();
       }
     }, 150);
-  }, [layoutType, hasData]);
+
+    return () => clearTimeout(timer);
+  }, [layoutType, hasData, resetChartView]);
 
   // Clean up all charts on unmount
   useEffect(() => {
@@ -1159,7 +1213,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     const handleMouseUp = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-      chartInstancesRef.current.forEach((c) => c && c.resize());
+      chartInstancesRef.current.forEach((c) => {
+        if (c) {
+          c.resize();
+          (c as any)._layout?.();
+        }
+      });
       workspaceLayoutRepository.saveLayoutConfig({
         layoutSizes: useLayoutStore.getState().layoutSizes,
       });
@@ -1260,55 +1319,6 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     await workspaceCoord.handleWatchlistSymbolSwitch(symbolName);
   };
 
-  const resetChartView = (overrideRatio?: number) => {
-    chartInstancesRef.current.forEach((chart, index) => {
-      if (!chart) return;
-      const chartSize = chart.getSize();
-      const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-      const slot = slots[index];
-      if (!slot) return;
-      const fullData = workspaceCoord.allTimeframesData[slot.timeframe] || [];
-      if (fullData.length === 0) return;
-
-      // Re-enable Y-axis auto-scale so prices appear correctly
-      try {
-        const pane = (chart as any).getDrawPaneById?.('candle_pane') || (chart as any)._paneIdMap?.get?.('candle_pane');
-        const yAxis = pane?.getYAxisComponents?.()?.[0] || chart._candlePaneYAxis;
-        if (yAxis) {
-          yAxis.setAutoCalcTickFlag?.(true);
-        }
-      } catch (_) {}
-
-      const resetRatio = overrideRatio ?? settings.resetViewOffsetRatio ?? 0.5;
-      const targetOffset = chartWidth * resetRatio;
-
-      let effectiveOffset = targetOffset;
-      if (isReplayActive && replayCurrentTimestamp !== null) {
-        const lastRevealedIndex = findCandleIndexByTimestamp(fullData, replayCurrentTimestamp);
-        if (lastRevealedIndex !== -1) {
-          const barSpaceVal = chart.getBarSpace();
-          let space = 6;
-          if (typeof barSpaceVal === 'number') space = barSpaceVal;
-          else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
-
-          const remainingCandles = Math.max(0, (fullData.length - 1) - lastRevealedIndex);
-          const hiddenWidth = remainingCandles * space;
-          effectiveOffset = targetOffset - hiddenWidth;
-        }
-      }
-
-      (chart as any)._isProgrammaticScroll = true;
-      chart.resize();
-      chart.setOffsetRightDistance(effectiveOffset);
-
-      requestAnimationFrame(() => {
-        chart.setOffsetRightDistance(effectiveOffset);
-        setTimeout(() => {
-          (chart as any)._isProgrammaticScroll = false;
-        }, 50);
-      });
-    });
-  };
 
   // Interactive listener for setting custom reset view point
   useEffect(() => {
