@@ -16,6 +16,7 @@ import {
 import type { SettingsSectionId, WrapperSettingsState } from '../types';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import type { ThemeMode } from '@/config/themes';
+import { Select } from '@/components/common';
 import { loadWrapperSettings, saveWrapperSettings } from '../wrapperPersistence';
 import pkg from '../../../../package.json';
 import { savePendingReleaseNotes, renderSimpleMarkdown, extractWhatsNew } from '../releaseNotesParser';
@@ -278,17 +279,19 @@ export const WrapperSettings: React.FC<WrapperSettingsProps> = ({ onBack }) => {
                     <div className="text-sm font-semibold text-txt-primary">Default Launch View</div>
                     <div className="text-xs text-txt-muted mt-0.5">Which view loads immediately on application start</div>
                   </div>
-                  <select
+                  <Select
                     value={settings.defaultModuleOnLaunch}
-                    onChange={(e) => handleSelectDefaultModule(e.target.value)}
-                    className="bg-surface-elevated border border-border-def rounded-lg text-xs text-txt-primary px-3 py-1.5 cursor-pointer focus:outline-none focus:border-accent"
-                  >
-                    <option value="home">Workspace Hub (Home)</option>
-                    <option value="charts">Charts</option>
-                    <option value="journal">Journal (Coming Soon)</option>
-                    <option value="backtesting">Backtesting (Coming Soon)</option>
-                    <option value="research">Research (Coming Soon)</option>
-                  </select>
+                    onChange={(val) => handleSelectDefaultModule(String(val))}
+                    options={[
+                      { value: 'home', label: 'Workspace Hub (Home)' },
+                      { value: 'charts', label: 'Charts' },
+                      { value: 'journal', label: 'Journal (Coming Soon)' },
+                      { value: 'backtesting', label: 'Backtesting (Coming Soon)' },
+                      { value: 'research', label: 'Research (Coming Soon)' },
+                    ]}
+                    className="w-56 bg-surface-elevated"
+                    menuClassName="w-56"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between p-5">

@@ -99,8 +99,30 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
     : null;
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerContainerRef = useRef<HTMLDivElement>(null);
   const dropdownListRef = useRef<HTMLDivElement>(null);
   const selectedOptionRef = useRef<HTMLButtonElement>(null);
+
+  // Close date picker on click outside or Escape
+  useEffect(() => {
+    if (!isDatePickerOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (datePickerContainerRef.current && !datePickerContainerRef.current.contains(event.target as Node)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsDatePickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDatePickerOpen]);
 
   // Auto-scroll dropdown list so the currently selected timezone is centered in view when opened
   useEffect(() => {
@@ -134,36 +156,35 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
         {isFooterTzOpen && (
           <div
             ref={dropdownListRef}
-            className="absolute bottom-full mb-1.5 left-0 bg-surface border border-border-def rounded-xl shadow-2xl z-50 min-w-[260px] max-h-[420px] overflow-y-auto py-1.5 scrollbar-thin scrollbar-thumb-surface-elevated"
+            className="absolute bottom-full mb-1.5 left-0 bg-surface border border-border-def rounded-xl shadow-2xl z-50 min-w-[260px] max-h-[420px] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-surface-elevated animate-in fade-in zoom-in-95 duration-100"
           >
-            {timezoneOptions.map((opt) => {
-              const isSelected = opt.value === 'exchange'
-                ? !settings.timezoneAdjustmentEnabled
-                : settings.timezoneAdjustmentEnabled && settings.userTimezoneLabel === opt.label;
-              return (
-                <button
-                  key={opt.label}
-                  ref={isSelected ? selectedOptionRef : undefined}
-                  type="button"
-                  onClick={() => {
-                    setIsFooterTzOpen(false);
-                    if (opt.value === 'exchange') {
-                      onClearTimezoneAdjustment();
-                    } else {
-                      onUserTimezoneChange(opt.label);
-                    }
-                  }}
-                  className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-surface-hover hover:text-txt-primary cursor-pointer flex items-center justify-between ${
-                    isSelected ? 'text-accent font-bold bg-accent-muted' : 'text-txt-muted'
-                  }`}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent ml-2 flex-shrink-0" />
-                  )}
-                </button>
-              );
-            })}
+            <div className="flex flex-col gap-0.5">
+              {timezoneOptions.map((opt) => {
+                const isSelected = opt.value === 'exchange'
+                  ? !settings.timezoneAdjustmentEnabled
+                  : settings.timezoneAdjustmentEnabled && settings.userTimezoneLabel === opt.label;
+                return (
+                  <button
+                    key={opt.label}
+                    ref={isSelected ? selectedOptionRef : undefined}
+                    type="button"
+                    onClick={() => {
+                      setIsFooterTzOpen(false);
+                      if (opt.value === 'exchange') {
+                        onClearTimezoneAdjustment();
+                      } else {
+                        onUserTimezoneChange(opt.label);
+                      }
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                      isSelected ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-hover'
+                    }`}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -173,7 +194,8 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
   const renderReplayControls = (compact: boolean = false) => {
     const speedSteps = calculateSpeedSteps(
       settings?.replayMaxDuration ?? 3.0,
-      settings?.replayMinDuration ?? 0.1
+      settings?.replayMinDuration ?? 0.1,
+      10
     );
     const activeIdx = getClosestStepIndex(speedSteps, replaySpeed);
 
@@ -245,7 +267,7 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
               const speedVal = speedSteps[idx];
               onSpeedChange(speedVal);
             }}
-            className={`${compact ? 'w-16' : 'w-20'} h-1 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-accent focus:outline-none flex-shrink-0`}
+            className={`${compact ? 'w-24' : 'w-32 sm:w-36'} h-1.5 bg-surface-elevated rounded-lg appearance-none cursor-pointer accent-accent focus:outline-none flex-shrink-0`}
             title={`Playback speed: ${replaySpeed} seconds per bar`}
           />
           <span className="text-[11px] font-mono font-bold text-accent w-12 text-right flex-shrink-0">{replaySpeed}s/b</span>
@@ -271,20 +293,37 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
           <span className={compact ? 'hidden xl:inline' : ''}>Auto Shift</span>
         </button>
 
-        <div className="w-px h-5 bg-border-sub flex-shrink-0" />
-
         {/* Date time feedback & interactive picker button */}
-        <button
-          type="button"
-          onClick={() => setIsDatePickerOpen(true)}
-          className="flex items-center gap-2 bg-app-bg hover:bg-surface border border-border-sub hover:border-border-def focus:border-accent px-3 py-1 rounded-lg flex-shrink-0 cursor-pointer transition-all shadow-xs"
-          title="Click to jump to date & time"
-        >
-          <Clock className="w-3.5 h-3.5 text-accent flex-shrink-0" />
-          <span className="text-[11px] font-mono font-semibold text-txt-primary tracking-wide whitespace-nowrap select-none">
-            {replayCurrentTimestamp ? formatDateFeedback(replayCurrentTimestamp) : 'Click cut point to set start...'}
-          </span>
-        </button>
+        <div className="relative" ref={datePickerContainerRef}>
+          <button
+            type="button"
+            onClick={() => setIsDatePickerOpen((prev) => !prev)}
+            className={`flex items-center gap-2 bg-app-bg hover:bg-surface border ${
+              isDatePickerOpen ? 'border-accent text-accent' : 'border-border-sub hover:border-border-def'
+            } focus:border-accent px-3 py-1 rounded-lg flex-shrink-0 cursor-pointer transition-all shadow-xs`}
+            title="Click to jump to date & time"
+          >
+            <Clock className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+            <span className="text-[11px] font-mono font-semibold text-txt-primary tracking-wide whitespace-nowrap select-none">
+              {replayCurrentTimestamp ? formatDateFeedback(replayCurrentTimestamp) : 'Click cut point to set start...'}
+            </span>
+          </button>
+
+          {isDatePickerOpen && (
+            <ReplayDateTimePickerModal
+              isOpen={isDatePickerOpen}
+              onClose={() => setIsDatePickerOpen(false)}
+              currentTimestamp={replayCurrentTimestamp}
+              allTimeframesData={allTimeframesData}
+              activeTimeframe={activeTimeframe}
+              activeSymbol={assetName}
+              anchorRef={datePickerContainerRef}
+              onSelectTimestamp={(ts) => {
+                handleJumpToDate?.(ts);
+              }}
+            />
+          )}
+        </div>
       </div>
     );
   };
@@ -394,18 +433,6 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
           </div>
         )}
       </footer>
-
-      <ReplayDateTimePickerModal
-        isOpen={isDatePickerOpen}
-        onClose={() => setIsDatePickerOpen(false)}
-        currentTimestamp={replayCurrentTimestamp}
-        allTimeframesData={allTimeframesData}
-        activeTimeframe={activeTimeframe}
-        activeSymbol={assetName}
-        onSelectTimestamp={(ts) => {
-          handleJumpToDate?.(ts);
-        }}
-      />
     </>
   );
 };

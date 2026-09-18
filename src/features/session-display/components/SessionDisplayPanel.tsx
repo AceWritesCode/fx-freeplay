@@ -10,6 +10,7 @@ import {
   X
 } from 'lucide-react';
 import { ColorPicker } from '@/components/ColorPicker';
+import { Select } from '@/components/common';
 import { TimePickerInput } from './TimePickerInput';
 import { useSettingsStore } from '@/store';
 import { settingsRepository } from '@/repository';
@@ -441,18 +442,16 @@ export const SessionDisplayPanel: React.FC = () => {
                 {sessionScope === 'latest' ? 'Show latest session' : 'Show all sessions'}
               </span>
             </div>
-            <div className="relative">
-              <select
-                value={sessionScope}
-                onChange={(e) => setSessionScope(e.target.value as SessionScope)}
-                className="appearance-none bg-surface-elevated border border-border-def rounded-md text-xs text-txt-primary font-semibold py-1 pl-2.5 pr-6 cursor-pointer focus:outline-none focus:border-accent hover:border-txt-muted transition-colors"
-                title="Choose whether to show all sessions or only the latest sessions"
-              >
-                <option value="all">Show All</option>
-                <option value="latest">Show Latest</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-txt-muted absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            <Select
+              value={sessionScope}
+              onChange={(val) => setSessionScope(val as SessionScope)}
+              options={[
+                { value: 'all', label: 'Show All' },
+                { value: 'latest', label: 'Show Latest' },
+              ]}
+              className="bg-surface-elevated font-semibold min-w-[110px]"
+              title="Choose whether to show all sessions or only the latest sessions"
+            />
           </div>
         </div>
 

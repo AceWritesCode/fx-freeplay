@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronDown, 
   Settings, 
   LayoutGrid,
   Info,
   Database,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
 import { CaptureButton } from '@/features/capture-recording';
+import { Select } from '@/components/common';
 
 interface HeaderProps {
   onNavigateHome?: () => void;
@@ -43,6 +46,155 @@ interface HeaderProps {
   syncDateRange: boolean;
   onSyncSettingChange: (key: 'syncSymbol' | 'syncInterval' | 'syncCrosshair' | 'syncTime' | 'syncDateRange' | 'syncDrawings', val: boolean) => void;
 }
+
+interface CustomIntervalStepperProps {
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (val: number) => void;
+}
+
+const CustomIntervalStepper: React.FC<CustomIntervalStepperProps> = ({
+  value,
+  min = 1,
+  max = 1000,
+  onChange,
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [text, setText] = useState(() => String(value));
+
+  useEffect(() => {
+    if (!isFocused) {
+      setText(String(value));
+    }
+  }, [value, isFocused]);
+
+  const handleDecrement = () => {
+    const next = Math.max(min, (value || min) - 1);
+    onChange(next);
+    setText(String(next));
+  };
+
+  const handleIncrement = () => {
+    const next = Math.min(max, (value || min) + 1);
+    onChange(next);
+    setText(String(next));
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY < 0) {
+      handleIncrement();
+    } else if (e.deltaY > 0) {
+      handleDecrement();
+    }
+  };
+
+  const commitValue = (inputStr: string) => {
+    const num = parseInt(inputStr, 10);
+    const finalVal = isNaN(num) ? min : Math.max(min, Math.min(max, num));
+    onChange(finalVal);
+    setText(String(finalVal));
+  };
+
+  return (
+    <div
+      onWheel={handleWheel}
+      className="flex items-center justify-between bg-surface-elevated border border-border-sub hover:border-border-def focus-within:border-accent rounded-lg p-1 transition-colors h-9 select-none"
+    >
+      <button
+        type="button"
+        onClick={handleDecrement}
+        disabled={value <= min}
+        className="w-7 h-7 flex items-center justify-center rounded-md bg-app-bg hover:bg-surface-hover text-txt-muted hover:text-txt-primary active:scale-95 transition-all cursor-pointer border border-border-sub/40 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+        title="Decrease interval"
+        aria-label="Decrease interval"
+      >
+        <Minus className="w-3.5 h-3.5" />
+      </button>
+
+      <input
+        type="text"
+        inputMode="numeric"
+        value={isFocused ? text : String(value)}
+        onFocus={(e) => {
+          setIsFocused(true);
+          setText(String(value));
+          e.target.select();
+        }}
+        onBlur={(e) => {
+          setIsFocused(false);
+          commitValue(e.target.value);
+        }}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+          setText(raw);
+          if (raw !== '') {
+            const num = parseInt(raw, 10);
+            if (!isNaN(num)) {
+              onChange(Math.max(min, Math.min(max, num)));
+            }
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            handleIncrement();
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            handleDecrement();
+          } else if (e.key === 'Enter') {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-10 text-center font-mono text-xs font-bold text-txt-primary bg-transparent focus:outline-hidden tracking-wider cursor-text select-text"
+        aria-label="Custom Interval Value"
+      />
+
+      <button
+        type="button"
+        onClick={handleIncrement}
+        disabled={value >= max}
+        className="w-7 h-7 flex items-center justify-center rounded-md bg-app-bg hover:bg-surface-hover text-txt-muted hover:text-txt-primary active:scale-95 transition-all cursor-pointer border border-border-sub/40 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+        title="Increase interval"
+        aria-label="Increase interval"
+      >
+        <Plus className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+};
+
+type CustomUnitType = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
+
+interface CustomIntervalUnitDropdownProps {
+  value: CustomUnitType;
+  onChange: (val: CustomUnitType) => void;
+}
+
+const UNIT_OPTIONS: Array<{ value: CustomUnitType; label: string }> = [
+  { value: 'minutes', label: 'Minutes' },
+  { value: 'hours', label: 'Hours' },
+  { value: 'days', label: 'Days' },
+  { value: 'weeks', label: 'Weeks' },
+  { value: 'months', label: 'Months' },
+];
+
+const CustomIntervalUnitDropdown: React.FC<CustomIntervalUnitDropdownProps> = ({
+  value,
+  onChange,
+}) => {
+  return (
+    <Select
+      value={value}
+      onChange={(val) => onChange(val as CustomUnitType)}
+      options={UNIT_OPTIONS}
+      className="h-9 w-full bg-surface-elevated font-bold"
+      menuClassName="min-w-full"
+    />
+  );
+};
 
 export const Header: React.FC<HeaderProps> = (props) => {
   const {
@@ -289,39 +441,32 @@ export const Header: React.FC<HeaderProps> = (props) => {
                 <div className="h-px bg-border-sub my-0.5" />
 
                 {/* Add Custom Interval Form */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider">Add Custom Interval</div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min="1"
-                      max="1000"
+                <div className="flex flex-col gap-2">
+                  <div className="text-txt-muted text-[10px] font-bold uppercase tracking-wider">
+                    Add Custom Interval
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 items-center">
+                    <CustomIntervalStepper
                       value={customValue}
-                      onChange={(e) => setCustomValue(parseInt(e.target.value) || 1)}
-                      className="w-16 px-2.5 py-1.5 bg-app-bg border border-border-def rounded-lg text-xs text-txt-primary focus:outline-none focus:border-border-focus text-center font-semibold"
+                      min={1}
+                      max={1000}
+                      onChange={setCustomValue}
                     />
-                    
-                    <select
+                    <CustomIntervalUnitDropdown
                       value={customUnit}
-                      onChange={(e: any) => setCustomUnit(e.target.value)}
-                      className="flex-1 px-2.5 py-1.5 bg-app-bg border border-border-def rounded-lg text-xs text-txt-primary focus:outline-none focus:border-border-focus font-semibold"
-                    >
-                      <option value="minutes">Minutes</option>
-                      <option value="hours">Hours</option>
-                      <option value="days">Days</option>
-                      <option value="weeks">Weeks</option>
-                      <option value="months">Months</option>
-                    </select>
+                      onChange={setCustomUnit}
+                    />
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       handleAddCustomTimeframe(customValue, customUnit);
                       setIsTfDropdownOpen(false);
                     }}
-                    className="w-full py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-bold rounded-lg transition-all shadow-md cursor-pointer"
+                    className="w-full py-2 bg-accent hover:bg-accent-hover text-txt-inverse text-xs font-bold rounded-lg transition-all shadow-md cursor-pointer active:scale-[0.99] flex items-center justify-center gap-1.5"
                   >
-                    Add Option
+                    Add Custom Interval
                   </button>
                 </div>
               </div>

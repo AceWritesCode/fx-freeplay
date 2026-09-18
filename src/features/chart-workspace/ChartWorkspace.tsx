@@ -15,6 +15,7 @@ import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { FavoriteDrawingToolbar } from '@/components/FavoriteDrawingToolbar';
 import { DrawingSettingsDialog } from '@/components/DrawingSettingsDialog';
 import { DataManagementDashboard } from '@/components/DataManagementDashboard';
+import { Select } from '@/components/common';
 import { initThemeFromStorage } from '@/utils/themeApplier';
 import { useDrawingInteraction, useDrawingHoverCursor, useBrushDrawing, useEraserDrawing, useMeasurementTool, useZoomTool } from '@/framework/interaction';
 import {
@@ -1778,18 +1779,19 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-semibold text-txt-muted">Timezone Shift</label>
-                  <select
+                  <Select
                     value={tempBrokerOffset}
-                    onChange={(e) => setTempBrokerOffset(e.target.value)}
-                    className="bg-app-bg border border-border-def text-txt-primary rounded p-2 text-xs focus:outline-none focus:border-accent"
-                  >
-                    <option value="exchange">No Timezone Shift (Local)</option>
-                    {TIMEZONE_OPTIONS.map((opt) => (
-                      <option key={opt.label} value={opt.label}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setTempBrokerOffset(String(val))}
+                    options={[
+                      { value: 'exchange', label: 'No Timezone Shift (Local)' },
+                      ...TIMEZONE_OPTIONS.map((opt) => ({
+                        value: opt.label,
+                        label: opt.label,
+                      })),
+                    ]}
+                    className="w-full bg-app-bg"
+                    menuClassName="w-full"
+                  />
                 </div>
               </div>
             </div>

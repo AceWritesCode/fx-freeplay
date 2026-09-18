@@ -6,6 +6,7 @@ import type { ChartSettings, CustomThemePalette, ThemeMode, SavedCustomTheme } f
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens, formatToHex } from '@/config';
 import { getStoredSyncChartBackground, storeSyncChartBackground, getStoredSavedThemes, storeSavedThemes } from '@/utils/themeApplier';
 import { CaptureSettingsTab } from '@/features/capture-recording';
+import { Checkbox, Select } from './common';
 
 const CUSTOM_PRESETS_KEY = 'fx_custom_presets';
 
@@ -1070,15 +1071,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                 {/* Body Colors */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showBody}
-                      onChange={(e) => handleFieldChange('showBody', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Body Fill</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showBody}
+                    onChange={(e) => handleFieldChange('showBody', e.target.checked)}
+                    label="Body Fill"
+                  />
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullColor}
@@ -1101,15 +1098,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                 {/* Borders Colors */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showBorders}
-                      onChange={(e) => handleFieldChange('showBorders', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Borders</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showBorders}
+                    onChange={(e) => handleFieldChange('showBorders', e.target.checked)}
+                    label="Borders"
+                  />
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullBorderColor}
@@ -1132,15 +1125,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                 {/* Wick Colors */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showWicks}
-                      onChange={(e) => handleFieldChange('showWicks', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Wick Color</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showWicks}
+                    onChange={(e) => handleFieldChange('showWicks', e.target.checked)}
+                    label="Wick Color"
+                  />
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullWickColor}
@@ -1166,68 +1155,60 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                 {/* Price Line settings */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showPriceLine}
-                      onChange={(e) => handleFieldChange('showPriceLine', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Last Price Line</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showPriceLine}
+                    onChange={(e) => handleFieldChange('showPriceLine', e.target.checked)}
+                    label="Last Price Line"
+                  />
                   
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       disabled={!formState.showPriceLine}
                       value={formState.priceLineStyle}
-                      onChange={(e) => handleFieldChange('priceLineStyle', e.target.value)}
-                      className="w-20 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                    >
-                      <option value="dashed">Dashed</option>
-                      <option value="solid">Solid</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('priceLineStyle', val)}
+                      options={[
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'solid', label: 'Solid' },
+                      ]}
+                      className="w-24"
+                    />
                     
-                    <select
+                    <Select
                       disabled={!formState.showPriceLine}
                       value={formState.priceLineSize}
-                      onChange={(e) => handleFieldChange('priceLineSize', parseInt(e.target.value))}
-                      className="w-16 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                    >
-                      <option value="1">1 px</option>
-                      <option value="2">2 px</option>
-                      <option value="3">3 px</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('priceLineSize', Number(val))}
+                      options={[
+                        { value: 1, label: '1 px' },
+                        { value: 2, label: '2 px' },
+                        { value: 3, label: '3 px' },
+                      ]}
+                      className="w-20"
+                    />
                   </div>
                 </div>
 
                 {/* Price Line Label Toggle */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      disabled={!formState.showPriceLine}
-                      checked={formState.showPriceLineLabel}
-                      onChange={(e) => handleFieldChange('showPriceLineLabel', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-40"
-                    />
-                    <span className={!formState.showPriceLine ? 'text-txt-muted' : ''}>Last Price Line Label</span>
-                  </label>
+                  <Checkbox
+                    disabled={!formState.showPriceLine}
+                    checked={formState.showPriceLineLabel}
+                    onChange={(e) => handleFieldChange('showPriceLineLabel', e.target.checked)}
+                    label="Last Price Line Label"
+                    labelClassName={!formState.showPriceLine ? 'text-txt-muted' : ''}
+                  />
                 </div>
 
                 {/* Price Line Color & Candle Color Matching */}
                 <div className="flex items-center justify-between">
                   <span className={!formState.showPriceLine ? 'text-txt-muted' : ''}>Price Line Color</span>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 select-none cursor-pointer text-[11px]">
-                      <input
-                        type="checkbox"
-                        disabled={!formState.showPriceLine}
-                        checked={formState.priceLineUseCandleColor}
-                        onChange={(e) => handleFieldChange('priceLineUseCandleColor', e.target.checked)}
-                        className="w-3 h-3 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-40"
-                      />
-                      <span className={!formState.showPriceLine ? 'text-txt-muted' : ''}>Match Candle</span>
-                    </label>
+                    <Checkbox
+                      disabled={!formState.showPriceLine}
+                      checked={formState.priceLineUseCandleColor}
+                      onChange={(e) => handleFieldChange('priceLineUseCandleColor', e.target.checked)}
+                      label="Match Candle"
+                      labelClassName={`text-[11px] ${!formState.showPriceLine ? 'text-txt-muted' : ''}`}
+                    />
                     <ColorPickerButton
                       color={formState.priceLineColor}
                       disabled={!formState.showPriceLine || formState.priceLineUseCandleColor}
@@ -1245,17 +1226,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Precision Dropdown */}
                 <div className="flex items-center justify-between">
                   <span>Price Precision</span>
-                  <select
+                  <Select
                     value={formState.pricePrecision}
-                    onChange={(e) => handleFieldChange('pricePrecision', parseInt(e.target.value))}
-                    className="w-32 bg-surface border border-border-def rounded px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="0">Auto (Detect)</option>
-                    <option value="2">2 Decimals</option>
-                    <option value="3">3 Decimals</option>
-                    <option value="4">4 Decimals</option>
-                    <option value="5">5 Decimals</option>
-                  </select>
+                    onChange={(val) => handleFieldChange('pricePrecision', Number(val))}
+                    options={[
+                      { value: 0, label: 'Auto (Detect)' },
+                      { value: 2, label: '2 Decimals' },
+                      { value: 3, label: '3 Decimals' },
+                      { value: 4, label: '4 Decimals' },
+                      { value: 5, label: '5 Decimals' },
+                    ]}
+                    className="w-36"
+                  />
                 </div>
               </div>
             )}
@@ -1269,15 +1251,12 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span>Canvas Background</span>
                   <div className="flex items-center gap-2.5">
-                    <select
+                    <Select
                       value={formState.backgroundType}
-                      onChange={(e) => handleFieldChange('backgroundType', e.target.value)}
-                      className="w-28 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
-                    >
-                      <option value="Solid">Solid</option>
-                      <option value="Gradient">Gradient</option>
-                      <option value="None">None</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('backgroundType', val)}
+                      options={['Solid', 'Gradient', 'None']}
+                      className="w-28"
+                    />
                     
                     <div className="flex items-center gap-1.5">
                       <ColorPickerButton
@@ -1306,25 +1285,27 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span>Grid Lines</span>
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={formState.gridType}
-                      onChange={(e) => handleFieldChange('gridType', e.target.value)}
-                      className="w-28 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
-                    >
-                      <option value="Vert and Horiz">Vert & Horiz</option>
-                      <option value="Horizontal Only">Horizontal Only</option>
-                      <option value="Vertical Only">Vertical Only</option>
-                      <option value="None">None</option>
-                    </select>
-                    <select
+                      onChange={(val) => handleFieldChange('gridType', val)}
+                      options={[
+                        { value: 'Vert and Horiz', label: 'Vert & Horiz' },
+                        { value: 'Horizontal Only', label: 'Horizontal Only' },
+                        { value: 'Vertical Only', label: 'Vertical Only' },
+                        { value: 'None', label: 'None' },
+                      ]}
+                      className="w-32"
+                    />
+                    <Select
                       value={formState.gridStyle}
                       disabled={formState.gridType === 'None'}
-                      onChange={(e) => handleFieldChange('gridStyle', e.target.value)}
-                      className="w-20 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                    >
-                      <option value="dashed">Dashed</option>
-                      <option value="solid">Solid</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('gridStyle', val)}
+                      options={[
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'solid', label: 'Solid' },
+                      ]}
+                      className="w-24"
+                    />
                     <ColorPickerButton
                       color={formState.gridColor}
                       disabled={formState.gridType === 'None'}
@@ -1338,50 +1319,44 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                 {/* Watermark Toggle */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showWatermark}
-                      onChange={(e) => handleFieldChange('showWatermark', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Asset Watermark</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showWatermark}
+                    onChange={(e) => handleFieldChange('showWatermark', e.target.checked)}
+                    label="Asset Watermark"
+                  />
                 </div>
 
                 {/* Session Breaks */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showSessionBreaks}
-                      onChange={(e) => handleFieldChange('showSessionBreaks', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Session breaks</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showSessionBreaks}
+                    onChange={(e) => handleFieldChange('showSessionBreaks', e.target.checked)}
+                    label="Session breaks"
+                  />
                   
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={formState.sessionBreaksStyle}
                       disabled={!formState.showSessionBreaks}
-                      onChange={(e) => handleFieldChange('sessionBreaksStyle', e.target.value)}
-                      className="w-20 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                    >
-                      <option value="dashed">Dashed</option>
-                      <option value="solid">Solid</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('sessionBreaksStyle', val)}
+                      options={[
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'solid', label: 'Solid' },
+                      ]}
+                      className="w-24"
+                    />
 
-                    <select
+                    <Select
                       value={formState.sessionBreaksSize}
                       disabled={!formState.showSessionBreaks}
-                      onChange={(e) => handleFieldChange('sessionBreaksSize', parseInt(e.target.value, 10))}
-                      className="w-16 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                    >
-                      <option value="1">1 px</option>
-                      <option value="2">2 px</option>
-                      <option value="3">3 px</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('sessionBreaksSize', Number(val))}
+                      options={[
+                        { value: 1, label: '1 px' },
+                        { value: 2, label: '2 px' },
+                        { value: 3, label: '3 px' },
+                      ]}
+                      className="w-20"
+                    />
 
                     <ColorPickerButton
                       color={formState.sessionBreaksColor}
@@ -1442,17 +1417,18 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span>Axis Labels (Text)</span>
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={formState.scalesTextSize}
-                      onChange={(e) => handleFieldChange('scalesTextSize', parseInt(e.target.value))}
-                      className="w-20 bg-surface border border-border-def rounded px-2 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
-                    >
-                      <option value="10">10 px</option>
-                      <option value="11">11 px</option>
-                      <option value="12">12 px</option>
-                      <option value="13">13 px</option>
-                      <option value="14">14 px</option>
-                    </select>
+                      onChange={(val) => handleFieldChange('scalesTextSize', Number(val))}
+                      options={[
+                        { value: 10, label: '10 px' },
+                        { value: 11, label: '11 px' },
+                        { value: 12, label: '12 px' },
+                        { value: 13, label: '13 px' },
+                        { value: 14, label: '14 px' },
+                      ]}
+                      className="w-24"
+                    />
                     <ColorPickerButton
                       color={formState.scalesTextColor}
                       title="Scales Text Color"
@@ -1465,15 +1441,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
                 {/* Scale Axis Lines */}
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.showScalesLines}
-                      onChange={(e) => handleFieldChange('showScalesLines', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                    <span>Scale Axis Lines</span>
-                  </label>
+                  <Checkbox
+                    checked={formState.showScalesLines}
+                    onChange={(e) => handleFieldChange('showScalesLines', e.target.checked)}
+                    label="Scale Axis Lines"
+                  />
                   <ColorPickerButton
                     color={formState.scalesLinesColor}
                     disabled={!formState.showScalesLines}
@@ -1494,43 +1466,37 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Adjustment Toggle */}
                 <div className="flex items-center justify-between">
                   <span>Enable Timezone Adjustment</span>
-                  <label className="flex items-center select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.timezoneAdjustmentEnabled}
-                      onChange={(e) => handleFieldChange('timezoneAdjustmentEnabled', e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-border-def bg-surface-elevated text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                    />
-                  </label>
+                  <Checkbox
+                    checked={formState.timezoneAdjustmentEnabled}
+                    onChange={(e) => handleFieldChange('timezoneAdjustmentEnabled', e.target.checked)}
+                  />
                 </div>
 
                 {/* Broker Timezone Select */}
                 <div className="flex items-center justify-between">
                   <span className={!formState.timezoneAdjustmentEnabled ? 'opacity-40' : ''}>Broker's Server Timezone</span>
-                  <select
+                  <Select
                     disabled={!formState.timezoneAdjustmentEnabled}
                     value={formState.brokerTimezoneLabel || ''}
-                    onChange={(e) => {
-                      const label = e.target.value;
+                    onChange={(val) => {
+                      const label = String(val);
                       const offset = getLabelOffset(label);
                       setFormState(prev => ({ ...prev, brokerTimezoneLabel: label, brokerTimezoneOffset: offset }));
                     }}
-                    className="w-40 bg-surface border border-border-def rounded px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                  >
-                    {TIMEZONE_OPTIONS.filter(opt => opt.value !== 'exchange').map(opt => (
-                      <option key={opt.label} value={opt.label}>{opt.label}</option>
-                    ))}
-                  </select>
+                    options={TIMEZONE_OPTIONS.filter(opt => opt.value !== 'exchange').map(opt => ({ value: opt.label, label: opt.label }))}
+                    className="w-56"
+                    menuClassName="w-56"
+                  />
                 </div>
 
                 {/* User Timezone Select */}
                 <div className="flex items-center justify-between">
                   <span className={!formState.timezoneAdjustmentEnabled ? 'opacity-40' : ''}>User's Target Timezone</span>
-                  <select
+                  <Select
                     disabled={!formState.timezoneAdjustmentEnabled}
                     value={formState.timezoneAdjustmentEnabled ? (formState.userTimezoneLabel || '') : 'Exchange'}
-                    onChange={(e) => {
-                      const label = e.target.value;
+                    onChange={(val) => {
+                      const label = String(val);
                       if (label === 'Exchange') {
                         setFormState(prev => ({ ...prev, timezoneAdjustmentEnabled: false }));
                       } else {
@@ -1538,12 +1504,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         setFormState(prev => ({ ...prev, timezoneAdjustmentEnabled: true, userTimezoneLabel: label, userTimezoneOffset: offset }));
                       }
                     }}
-                    className="w-40 bg-surface border border-border-def rounded px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer disabled:opacity-40"
-                  >
-                    {TIMEZONE_OPTIONS.map(opt => (
-                      <option key={opt.label} value={opt.label}>{opt.label}</option>
-                    ))}
-                  </select>
+                    options={TIMEZONE_OPTIONS.map(opt => ({ value: opt.label, label: opt.label }))}
+                    className="w-56"
+                    menuClassName="w-56"
+                  />
                 </div>
 
                 {/* Time Format Select (12h vs 24h) */}
@@ -1552,14 +1516,16 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <span>Time Format</span>
                     <div className="text-[10px] text-txt-muted">Clock display for scales, inputs, and session highlights</div>
                   </div>
-                  <select
+                  <Select
                     value={formState.timeFormat || '24h'}
-                    onChange={(e) => handleFieldChange('timeFormat', e.target.value as '12h' | '24h')}
-                    className="w-40 bg-surface border border-border-def rounded px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="24h">24 Hours (18:00)</option>
-                    <option value="12h">12 Hours (06:00 PM)</option>
-                  </select>
+                    onChange={(val) => handleFieldChange('timeFormat', val as '12h' | '24h')}
+                    options={[
+                      { value: '24h', label: '24 Hours (18:00)' },
+                      { value: '12h', label: '12 Hours (06:00 PM)' },
+                    ]}
+                    className="w-56"
+                    menuClassName="w-56"
+                  />
                 </div>
               </div>
             )}
@@ -1579,7 +1545,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                         <HelpCircle className="w-3.5 h-3.5" />
                       </button>
                       <div className="absolute left-0 top-full mt-1.5 hidden group-hover/tooltip:flex flex-col z-50 w-64 p-2.5 bg-modal-bg border border-border-def text-txt-secondary text-[11px] font-normal normal-case tracking-normal leading-relaxed rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-                        <span>Sets the overall playback speed boundaries for bar replay. The application calculates 5 logarithmic speed steps between the slowest and fastest limits for smooth speed control on the replay footer slider.</span>
+                        <span>Sets the overall playback speed boundaries for bar replay. The application calculates 10 logarithmic speed steps between the slowest and fastest limits for smooth speed control on the replay footer slider.</span>
                         <div className="absolute -top-1 left-3 w-2 h-2 bg-modal-bg border-t border-l border-border-def rotate-45" />
                       </div>
                     </div>

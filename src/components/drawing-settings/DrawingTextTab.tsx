@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from '../ColorPicker';
+import { Checkbox } from '../common';
 
 export interface DrawingTextTabProps {
   isTextOverlay: boolean;
@@ -89,16 +90,18 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
           {activeSelect === 'fontSize' && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-              <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
-                {[10, 11, 12, 14, 16, 20, 24].map(sz => (
-                  <button
-                    key={sz}
-                    onClick={() => { setFontSize(sz); setActiveSelect(null); }}
-                    className={`w-full text-center px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold ${fontSize === sz ? 'text-accent bg-accent-muted' : 'text-txt-secondary'}`}
-                  >
-                    {sz}
-                  </button>
-                ))}
+              <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-16 overflow-hidden">
+                <div className="flex flex-col gap-0.5">
+                  {[10, 11, 12, 14, 16, 20, 24].map(sz => (
+                    <button
+                      key={sz}
+                      onClick={() => { setFontSize(sz); setActiveSelect(null); }}
+                      className={`w-full text-center px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold cursor-pointer ${fontSize === sz ? 'bg-accent text-txt-inverse shadow-xs' : 'text-txt-secondary hover:text-txt-primary'}`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -162,15 +165,12 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
       {/* Text Tool specific: Show Border option */}
       {isTextOverlay ? (
         <div className="flex items-center justify-between min-h-[36px] pt-1">
-          <label className="flex items-center gap-2.5 text-txt-primary font-medium cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showBorder}
-              onChange={(e) => setShowBorder(e.target.checked)}
-              className="rounded border-border-def text-accent focus:ring-0 w-4 h-4 cursor-pointer"
-            />
-            <span className="text-[12.5px]">Show border</span>
-          </label>
+          <Checkbox
+            checked={showBorder}
+            onChange={(e) => setShowBorder(e.target.checked)}
+            label="Show border"
+            labelClassName="text-txt-primary font-medium"
+          />
         </div>
       ) : (
         <>
@@ -190,16 +190,18 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
                 {activeSelect === 'valign' && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                      {['top', 'middle', 'bottom'].map(v => (
-                        <button
-                          key={v}
-                          onClick={() => { setTextValign(v); setActiveSelect(null); }}
-                          className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textValign === v ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
-                        >
-                          {v}
-                        </button>
-                      ))}
+                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-24 overflow-hidden">
+                      <div className="flex flex-col gap-0.5">
+                        {['top', 'middle', 'bottom'].map(v => (
+                          <button
+                            key={v}
+                            onClick={() => { setTextValign(v); setActiveSelect(null); }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${textValign === v ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'}`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
@@ -217,16 +219,18 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
                 {activeSelect === 'halign' && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                      {['left', 'center', 'right'].map(h => (
-                        <button
-                          key={h}
-                          onClick={() => { setTextHalign(h); setActiveSelect(null); }}
-                          className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textHalign === h ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
-                        >
-                          {h}
-                        </button>
-                      ))}
+                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-24 overflow-hidden">
+                      <div className="flex flex-col gap-0.5">
+                        {['left', 'center', 'right'].map(h => (
+                          <button
+                            key={h}
+                            onClick={() => { setTextHalign(h); setActiveSelect(null); }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${textHalign === h ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'}`}
+                          >
+                            {h}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
@@ -248,16 +252,18 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
               {activeSelect === 'textPlacement' && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-28 overflow-hidden">
-                    {['inside', 'outside'].map(p => (
-                      <button
-                        key={p}
-                        onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
-                        className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${textPlacement === p ? 'text-accent bg-accent-muted font-semibold' : 'text-txt-secondary'}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
+                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-28 overflow-hidden">
+                    <div className="flex flex-col gap-0.5">
+                      {['inside', 'outside'].map(p => (
+                        <button
+                          key={p}
+                          onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
+                          className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${textPlacement === p ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}

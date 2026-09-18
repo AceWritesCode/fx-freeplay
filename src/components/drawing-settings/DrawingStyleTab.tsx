@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { ColorPicker } from '../ColorPicker';
+import { Checkbox } from '../common';
 
 export interface DrawingStyleTabProps {
   overlay: any;
@@ -132,22 +133,23 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             </button>
             {activeSelect === 'lineWidth' && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden max-h-60 overflow-y-auto">
-                  {(overlay.name === 'highlighter' ? [8, 12, 20, 32, 48, 64, 80, 96] : [1, 2, 3, 4]).map((w) => (
-                    <button
-                      key={w}
-                      onClick={() => {
-                        setLineWidth(w);
-                        setActiveSelect(null);
-                      }}
-                      className={`w-full text-center px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold ${
-                        lineWidth === w ? 'text-accent bg-accent-muted' : 'text-txt-secondary'
-                      }`}
-                    >
-                      {w}px
-                    </button>
-                  ))}
+                <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-16 overflow-hidden max-h-60 overflow-y-auto">
+                  <div className="flex flex-col gap-0.5">
+                    {(overlay.name === 'highlighter' ? [8, 12, 20, 32, 48, 64, 80, 96] : [1, 2, 3, 4]).map((w) => (
+                      <button
+                        key={w}
+                        onClick={() => {
+                          setLineWidth(w);
+                          setActiveSelect(null);
+                        }}
+                        className={`w-full text-center px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold cursor-pointer ${
+                          lineWidth === w ? 'bg-accent text-txt-inverse shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                        }`}
+                      >
+                        {w}px
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -169,23 +171,25 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
               {activeSelect === 'lineStyle' && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                    {(overlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(
-                      (s) => (
-                        <button
-                          key={s}
-                          onClick={() => {
-                            setLineStyle(s);
-                            setActiveSelect(null);
-                          }}
-                          className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] capitalize ${
-                            lineStyle === s ? 'text-accent bg-accent-muted' : 'text-txt-secondary'
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      )
-                    )}
+                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-24 overflow-hidden">
+                    <div className="flex flex-col gap-0.5">
+                      {(overlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(
+                        (s) => (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              setLineStyle(s);
+                              setActiveSelect(null);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${
+                              lineStyle === s ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
                 </>
               )}
@@ -222,37 +226,39 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
               {activeSelect === 'startArrow' && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                  <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 py-1.5 w-32 overflow-hidden">
-                    <button
-                      onClick={() => {
-                        setStartArrow('normal');
-                        setActiveSelect(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${
-                        startArrow === 'normal' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'
-                      }`}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="5" cy="10" r="2.5" fill="currentColor" />
-                        <line x1="7.5" y1="10" x2="16" y2="10" strokeWidth="2" />
-                      </svg>
-                      <span>Normal</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setStartArrow('arrow');
-                        setActiveSelect(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${
-                        startArrow === 'arrow' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'
-                      }`}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="16" y1="10" x2="4" y2="10" />
-                        <polyline points="9 5 4 10 9 15" />
-                      </svg>
-                      <span>Arrow</span>
-                    </button>
+                  <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-32 overflow-hidden">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => {
+                          setStartArrow('normal');
+                          setActiveSelect(null);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-medium cursor-pointer ${
+                          startArrow === 'normal' ? 'bg-accent text-txt-inverse font-bold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                        }`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <circle cx="5" cy="10" r="2.5" fill="currentColor" />
+                          <line x1="7.5" y1="10" x2="16" y2="10" strokeWidth="2" />
+                        </svg>
+                        <span>Normal</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStartArrow('arrow');
+                          setActiveSelect(null);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-medium cursor-pointer ${
+                          startArrow === 'arrow' ? 'bg-accent text-txt-inverse font-bold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                        }`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="16" y1="10" x2="4" y2="10" />
+                          <polyline points="9 5 4 10 9 15" />
+                        </svg>
+                        <span>Arrow</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -289,37 +295,39 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
               {activeSelect === 'endArrow' && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                  <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 py-1.5 w-32 overflow-hidden">
-                    <button
-                      onClick={() => {
-                        setEndArrow('normal');
-                        setActiveSelect(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${
-                        endArrow === 'normal' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'
-                      }`}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <line x1="4" y1="10" x2="12.5" y2="10" strokeWidth="2" />
-                        <circle cx="15" cy="10" r="2.5" fill="currentColor" />
-                      </svg>
-                      <span>Normal</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEndArrow('arrow');
-                        setActiveSelect(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-medium ${
-                        endArrow === 'arrow' ? 'text-accent bg-accent-muted font-bold' : 'text-txt-secondary'
-                      }`}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="4" y1="10" x2="16" y2="10" />
-                        <polyline points="11 5 16 10 11 15" />
-                      </svg>
-                      <span>Arrow</span>
-                    </button>
+                  <div className="absolute left-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-32 overflow-hidden">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => {
+                          setEndArrow('normal');
+                          setActiveSelect(null);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-medium cursor-pointer ${
+                          endArrow === 'normal' ? 'bg-accent text-txt-inverse font-bold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                        }`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <line x1="4" y1="10" x2="12.5" y2="10" strokeWidth="2" />
+                          <circle cx="15" cy="10" r="2.5" fill="currentColor" />
+                        </svg>
+                        <span>Normal</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEndArrow('arrow');
+                          setActiveSelect(null);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-medium cursor-pointer ${
+                          endArrow === 'arrow' ? 'bg-accent text-txt-inverse font-bold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                        }`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="4" y1="10" x2="16" y2="10" />
+                          <polyline points="11 5 16 10 11 15" />
+                        </svg>
+                        <span>Arrow</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -346,26 +354,28 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             {activeSelect === 'extend' && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-48 overflow-hidden">
-                  {[
-                    { val: 'none', label: "Don't extend" },
-                    { val: 'left', label: 'Extend left' },
-                    { val: 'right', label: 'Extend right' },
-                    { val: 'both', label: 'Extend both' }
-                  ].map((item) => (
-                    <button
-                      key={item.val}
-                      onClick={() => {
-                        setExtendType(item.val);
-                        setActiveSelect(null);
-                      }}
-                      className={`w-full text-left px-4 py-2 hover:bg-surface-hover transition-colors text-[12px] ${
-                        extendType === item.val ? 'text-accent bg-accent-muted' : 'text-txt-secondary'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+                <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-48 overflow-hidden">
+                  <div className="flex flex-col gap-0.5">
+                    {[
+                      { val: 'none', label: "Don't extend" },
+                      { val: 'left', label: 'Extend left' },
+                      { val: 'right', label: 'Extend right' },
+                      { val: 'both', label: 'Extend both' }
+                    ].map((item) => (
+                      <button
+                        key={item.val}
+                        onClick={() => {
+                          setExtendType(item.val);
+                          setActiveSelect(null);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] cursor-pointer ${
+                          extendType === item.val ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -376,18 +386,13 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
       {/* Background Fill (Rectangle/Circle) */}
       {(overlay.name === 'rectangle' || overlay.name === 'circle') && (
         <div className="flex items-center justify-between min-h-[36px]">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="fillBackground"
-              checked={fillBackground}
-              onChange={(e) => setFillBackground(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-            />
-            <label htmlFor="fillBackground" className="text-txt-muted font-medium cursor-pointer">
-              Background
-            </label>
-          </div>
+          <Checkbox
+            id="fillBackground"
+            checked={fillBackground}
+            onChange={(e) => setFillBackground(e.target.checked)}
+            label="Background"
+            labelClassName="text-txt-muted font-medium"
+          />
           {fillBackground && (
             <div className="relative">
               <button
@@ -458,29 +463,23 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 min-h-[36px]">
-            <input
-              type="checkbox"
+          <div className="flex items-center min-h-[36px]">
+            <Checkbox
               id="alwaysShowStats"
               checked={alwaysShowStats}
               onChange={(e) => setAlwaysShowStats(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              label="Always Show Stats"
+              labelClassName="text-txt-muted font-medium"
             />
-            <label htmlFor="alwaysShowStats" className="text-txt-muted font-medium cursor-pointer">
-              Always Show Stats
-            </label>
           </div>
-          <div className="flex items-center gap-2 min-h-[36px]">
-            <input
-              type="checkbox"
+          <div className="flex items-center min-h-[36px]">
+            <Checkbox
               id="showLines"
               checked={showLines}
               onChange={(e) => setShowLines(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              label="Show Lines"
+              labelClassName="text-txt-muted font-medium"
             />
-            <label htmlFor="showLines" className="text-txt-muted font-medium cursor-pointer">
-              Show Lines
-            </label>
           </div>
 
           {/* Activation Visualization Controls */}
@@ -490,17 +489,14 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             </div>
 
             {/* Show Activation Line Checkbox */}
-            <div className="flex items-center gap-2 min-h-[32px]">
-              <input
-                type="checkbox"
+            <div className="flex items-center min-h-[32px]">
+              <Checkbox
                 id="showActivationLine"
                 checked={showActivationLine}
                 onChange={(e) => setShowActivationLine(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                label="Show Activation Line"
+                labelClassName="text-txt-muted font-medium"
               />
-              <label htmlFor="showActivationLine" className="text-txt-muted font-medium cursor-pointer">
-                Show Activation Line
-              </label>
             </div>
 
             {/* Activation Line Color / Width / Style Row */}
@@ -542,21 +538,23 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
                     {activeSelect === 'actLineWidth' && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                        <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-16 overflow-hidden">
-                          {[1, 2, 3, 4].map((w) => (
-                            <button
-                              key={w}
-                              onClick={() => {
-                                setActivationLineWidth(w);
-                                setActiveSelect(null);
-                              }}
-                              className={`w-full text-center px-3 py-2 hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold ${
-                                activationLineWidth === w ? 'text-accent bg-accent-muted' : 'text-txt-secondary'
-                              }`}
-                            >
-                              {w}px
-                            </button>
-                          ))}
+                        <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-16 overflow-hidden">
+                          <div className="flex flex-col gap-0.5">
+                            {[1, 2, 3, 4].map((w) => (
+                              <button
+                                key={w}
+                                onClick={() => {
+                                  setActivationLineWidth(w);
+                                  setActiveSelect(null);
+                                }}
+                                className={`w-full text-center px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold cursor-pointer ${
+                                  activationLineWidth === w ? 'bg-accent text-txt-inverse shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                                }`}
+                              >
+                                {w}px
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </>
                     )}
@@ -577,21 +575,23 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
                     {activeSelect === 'actLineStyle' && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                        <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-lg shadow-2xl z-50 py-1 w-24 overflow-hidden">
-                          {['solid', 'dashed', 'dotted'].map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => {
-                                setActivationLineStyle(s);
-                                setActiveSelect(null);
-                              }}
-                              className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover transition-colors text-[12px] capitalize ${
-                                activationLineStyle === s ? 'text-accent bg-accent-muted' : 'text-txt-secondary'
-                              }`}
-                            >
-                              {s}
-                            </button>
-                          ))}
+                        <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-24 overflow-hidden">
+                          <div className="flex flex-col gap-0.5">
+                            {['solid', 'dashed', 'dotted'].map((s) => (
+                              <button
+                                key={s}
+                                onClick={() => {
+                                  setActivationLineStyle(s);
+                                  setActiveSelect(null);
+                                }}
+                                className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${
+                                  activationLineStyle === s ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </>
                     )}
@@ -601,17 +601,14 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             )}
 
             {/* Show Activation Highlight Checkbox */}
-            <div className="flex items-center gap-2 min-h-[32px]">
-              <input
-                type="checkbox"
+            <div className="flex items-center min-h-[32px]">
+              <Checkbox
                 id="showActivationHighlight"
                 checked={showActivationHighlight}
                 onChange={(e) => setShowActivationHighlight(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                label="Show Activation Highlight"
+                labelClassName="text-txt-muted font-medium"
               />
-              <label htmlFor="showActivationHighlight" className="text-txt-muted font-medium cursor-pointer">
-                Show Activation Highlight
-              </label>
             </div>
 
             {/* Activation Highlight Opacity */}
@@ -636,17 +633,14 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             )}
 
             {/* Show Markers Checkbox */}
-            <div className="flex items-center gap-2 min-h-[32px]">
-              <input
-                type="checkbox"
+            <div className="flex items-center min-h-[32px]">
+              <Checkbox
                 id="showMarkers"
                 checked={showMarkers}
                 onChange={(e) => setShowMarkers(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-border-def bg-app-bg text-accent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                label="Show Markers"
+                labelClassName="text-txt-muted font-medium"
               />
-              <label htmlFor="showMarkers" className="text-txt-muted font-medium cursor-pointer">
-                Show Markers
-              </label>
             </div>
           </div>
         </>
