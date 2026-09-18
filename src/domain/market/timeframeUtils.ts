@@ -137,10 +137,21 @@ export const shiftCandlesTimezone = (
   if (!timezoneAdjustmentEnabled) return raw1m;
   const offsetDiffMs = (userTimezoneOffset - brokerTimezoneOffset) * 60 * 1000;
   if (offsetDiffMs === 0) return raw1m;
-  return raw1m.map(c => ({
-    ...c,
-    timestamp: c.timestamp + offsetDiffMs
-  }));
+
+  const len = raw1m.length;
+  const result: KLineData[] = new Array(len);
+  for (let i = 0; i < len; i++) {
+    const c = raw1m[i];
+    result[i] = {
+      timestamp: c.timestamp + offsetDiffMs,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: c.volume,
+    };
+  }
+  return result;
 };
 
 /**

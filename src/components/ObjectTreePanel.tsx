@@ -53,7 +53,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
   activeSymbol,
   activeTimeframe,
 }) => {
-  const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('objectTree');
+  const [activeTab, setActiveTab] = useState<'objectTree' | 'dataWindow'>('dataWindow');
 
   // Connect to global drawing store
   const {

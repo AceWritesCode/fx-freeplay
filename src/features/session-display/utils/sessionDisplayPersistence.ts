@@ -11,7 +11,7 @@ import {
   DEFAULT_SESSION_DISPLAY_SETTINGS,
 } from '../types';
 
-const STORAGE_KEY = 'fx_session_display_settings_v1';
+const STORAGE_KEY = 'fx_session_display_settings_v2';
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /**

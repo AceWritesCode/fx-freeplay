@@ -21,6 +21,10 @@ import {
   type SessionScope,
   isBuiltInSessionId 
 } from '../types';
+import { 
+  gmtTimeToDisplayTime, 
+  displayTimeToGmtTime 
+} from '../engine/timezoneResolver';
 
 // Custom ToggleSwitch component matching FX Freeplay visual styling
 interface ToggleSwitchProps {
@@ -228,8 +232,9 @@ export const SessionDisplayPanel: React.FC = () => {
     updateSession(id, { enabled });
   };
 
-  const handleTimeChange = (id: SessionId, field: 'startTime' | 'endTime', value: string) => {
-    updateSession(id, { [field]: value });
+  const handleTimeChange = (id: SessionId, field: 'startTime' | 'endTime', displayValue: string) => {
+    const gmtValue = displayTimeToGmtTime(displayValue, activeTimezone);
+    updateSession(id, { [field]: gmtValue });
   };
 
   const handleColorChange = (id: SessionId, color: string) => {
@@ -239,7 +244,10 @@ export const SessionDisplayPanel: React.FC = () => {
   const handleAddCustomSession = () => {
     // Ensure the custom group is open so the user sees the newly added card immediately
     setOpenGroups(prev => ({ ...prev, custom: true }));
-    addCustomSession();
+    // Default 12:00-15:00 in current display timezone, converted to GMT for storage
+    const defaultStartGmt = displayTimeToGmtTime('12:00', activeTimezone);
+    const defaultEndGmt = displayTimeToGmtTime('15:00', activeTimezone);
+    addCustomSession({ startTime: defaultStartGmt, endTime: defaultEndGmt });
   };
 
   const handleRemoveCustomSession = (idToRemove: string) => {
@@ -260,6 +268,9 @@ export const SessionDisplayPanel: React.FC = () => {
   const renderSessionRow = (session: SessionConfig, onDelete?: () => void) => {
     const isMasterOff = !settings.enabled;
     const isSessionDisabled = isMasterOff || !session.enabled;
+
+    const displayedStartTime = gmtTimeToDisplayTime(session.startTime, activeTimezone);
+    const displayedEndTime = gmtTimeToDisplayTime(session.endTime, activeTimezone);
 
     return (
       <div 
@@ -328,7 +339,7 @@ export const SessionDisplayPanel: React.FC = () => {
         {/* Time Range Selector Row matching user's reference */}
         <div className="flex items-center justify-between gap-1.5 pt-0.5 border-t border-border-sub/40 flex-shrink-0">
           <TimePickerInput
-            value={session.startTime}
+            value={displayedStartTime}
             disabled={isSessionDisabled}
             timeFormat={timeFormat}
             onChange={(val) => handleTimeChange(session.id, 'startTime', val)}
@@ -336,7 +347,7 @@ export const SessionDisplayPanel: React.FC = () => {
           />
           <span className="text-txt-muted text-xs font-semibold select-none flex-shrink-0">–</span>
           <TimePickerInput
-            value={session.endTime}
+            value={displayedEndTime}
             disabled={isSessionDisabled}
             timeFormat={timeFormat}
             onChange={(val) => handleTimeChange(session.id, 'endTime', val)}

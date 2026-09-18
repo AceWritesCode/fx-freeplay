@@ -92,6 +92,11 @@ export function registerSessionBackgroundIndicator(): void {
         return true;
       }
 
+      // Retrieve application active timezone and coordinate offset metadata attached to chart instance
+      const chartWithMetadata = chart as unknown as { _appTimezone?: string; _chartOffsetMs?: number };
+      const appTimezone = chartWithMetadata._appTimezone || undefined;
+      const chartOffsetMs = chartWithMetadata._chartOffsetMs || 0;
+
       // 2. Determine visible viewport time range in UTC milliseconds
       const visibleRange = chart.getVisibleRange();
       const fromIndex = Math.max(0, Math.min(dataList.length - 1, Math.floor(visibleRange.from)));
@@ -105,21 +110,18 @@ export function registerSessionBackgroundIndicator(): void {
       }
 
       // Add a generous buffer (e.g. 7 days before and after) to ensure sessions
-      // crossing viewport edges are fully discovered by the generator
+      // crossing viewport edges are fully discovered by the generator.
+      // Subtract chartOffsetMs so visibleStart / visibleEnd are in true UTC milliseconds.
       const BUFFER_MS = 7 * 24 * 60 * 60 * 1000;
-      const visibleStart = Math.max(0, firstVisibleBar.timestamp - BUFFER_MS);
-      const visibleEnd = lastVisibleBar.timestamp + BUFFER_MS;
+      const visibleStart = Math.max(0, firstVisibleBar.timestamp - chartOffsetMs - BUFFER_MS);
+      const visibleEnd = lastVisibleBar.timestamp - chartOffsetMs + BUFFER_MS;
 
-      // 3. Obtain current chart / application time
+      // 3. Obtain current chart / application time in true UTC milliseconds
       // Use the timestamp of the most recent candle in the chart's data list.
       // NOTE: dataList.length === 0 is already guarded above (returns early at line 85-87),
       //       so latestBar is guaranteed to be non-null here. No wall-clock fallback allowed.
       const latestBar = dataList[dataList.length - 1];
-      const currentTime = latestBar.timestamp;
-
-      // Retrieve application active timezone label attached to chart instance if present
-      const chartWithMetadata = chart as unknown as { _appTimezone?: string };
-      const appTimezone = chartWithMetadata._appTimezone || undefined;
+      const currentTime = latestBar.timestamp - chartOffsetMs;
 
       // 4. Calculate session occurrences via pure Step 3 engine
       const calculationResult = calculateSessionOccurrences({
@@ -159,9 +161,10 @@ export function registerSessionBackgroundIndicator(): void {
       };
 
       for (const occ of occurrences) {
+        // Shift occurrence UTC timestamps into chart candle coordinate space
         const bounds = computeSessionPixelBounds(
-          occ.startTimestamp,
-          occ.endTimestamp,
+          occ.startTimestamp + chartOffsetMs,
+          occ.endTimestamp + chartOffsetMs,
           convertTimestampToPixel,
           boundingWidth
         );

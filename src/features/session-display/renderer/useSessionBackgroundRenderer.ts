@@ -17,6 +17,7 @@ import type { SessionDisplaySettings } from '../types.ts';
 
 interface ChartInstanceWithCustomProps {
   _appTimezone?: string;
+  _chartOffsetMs?: number;
   updatePane?: (level: number, paneId?: string) => void;
   _chartStore?: {
     getPaneStore?: () => {
@@ -33,6 +34,7 @@ interface ChartInstanceWithCustomProps {
 interface UseSessionBackgroundRendererProps {
   chartInstancesRef: MutableRefObject<(ChartInstanceWithCustomProps | null)[]>;
   appTimezone?: string;
+  chartOffsetMs?: number;
 }
 
 /**
@@ -69,17 +71,20 @@ export function invalidateSessionBackgrounds(chart: ChartInstanceWithCustomProps
 export function useSessionBackgroundRenderer({
   chartInstancesRef,
   appTimezone,
+  chartOffsetMs = 0,
 }: UseSessionBackgroundRendererProps): void {
   const prevSettingsRef = useRef<SessionDisplaySettings | null>(null);
 
-  // Keep chart._appTimezone synced whenever appTimezone changes
+  // Keep chart._appTimezone and chart._chartOffsetMs synced whenever appTimezone or chartOffsetMs changes
   useEffect(() => {
     chartInstancesRef.current.forEach((chart) => {
       if (chart) {
         chart._appTimezone = appTimezone;
+        chart._chartOffsetMs = chartOffsetMs;
+        invalidateSessionBackgrounds(chart);
       }
     });
-  }, [appTimezone, chartInstancesRef]);
+  }, [appTimezone, chartOffsetMs, chartInstancesRef]);
 
   // Subscribe to useSessionDisplayStore changes
   useEffect(() => {

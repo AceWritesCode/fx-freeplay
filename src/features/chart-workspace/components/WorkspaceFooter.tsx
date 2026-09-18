@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Scissors, 
   ChevronLeft, 
@@ -14,6 +14,7 @@ import { formatDateFeedback } from '@/components/ThemeSettingsModal';
 import { calculateSpeedSteps, getClosestStepIndex } from '@/utils/replayUtils';
 import { RecordingFloatingBar, useCaptureStore } from '@/features/capture-recording';
 import { formatTimeframeDisplay, formatDataRangeDate } from '@/domain/market/timeframeUtils';
+import { ReplayDateTimePickerModal } from './ReplayDateTimePickerModal';
 
 interface WorkspaceFooterProps {
   isReplayActive: boolean;
@@ -97,56 +98,19 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
     ? `${formatTimeframeDisplay(activeTimeframe)} Data: ${formatDataRangeDate(activeTfData[0].timestamp)} — ${formatDataRangeDate(activeTfData[activeTfData.length - 1].timestamp)}`
     : null;
 
-  const dateTimePickerRef = React.useRef<HTMLInputElement>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const dropdownListRef = useRef<HTMLDivElement>(null);
+  const selectedOptionRef = useRef<HTMLButtonElement>(null);
 
-  // Helper to format timestamp as YYYY-MM-DDTHH:mm for datetime-local input
-  const getDateTimePickerValue = (timestamp: number | null) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return '';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
-  // Helper to get min and max dates/times of current timeframe data
-  const getReplayDateTimeBounds = () => {
-    const fullData = allTimeframesData?.[activeTimeframe] || [];
-    if (!fullData || fullData.length === 0) return { min: '', max: '' };
-
-    const formatDateTime = (ts: number) => {
-      const date = new Date(ts);
-      if (isNaN(date.getTime())) return '';
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      const h = String(date.getHours()).padStart(2, '0');
-      const min = String(date.getMinutes()).padStart(2, '0');
-      return `${y}-${m}-${d}T${h}:${min}`;
-    };
-
-    return {
-      min: formatDateTime(fullData[0].timestamp),
-      max: formatDateTime(fullData[fullData.length - 1].timestamp),
-    };
-  };
-
-  const handleDateTimePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (!val || !handleJumpToDate) return;
-
-    const [datePart, timePart] = val.split('T');
-    if (!datePart || !timePart) return;
-
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hour, minute] = timePart.split(':').map(Number);
-
-    const targetDate = new Date(year, month - 1, day, hour, minute, 0);
-    handleJumpToDate(targetDate.getTime());
-  };
+  // Auto-scroll dropdown list so the currently selected timezone is centered in view when opened
+  useEffect(() => {
+    if (isFooterTzOpen && dropdownListRef.current && selectedOptionRef.current) {
+      const container = dropdownListRef.current;
+      const selectedEl = selectedOptionRef.current;
+      const offset = selectedEl.offsetTop - container.clientHeight / 2 + selectedEl.clientHeight / 2;
+      container.scrollTop = Math.max(0, offset);
+    }
+  }, [isFooterTzOpen]);
 
   const renderTimezonePicker = () => (
     <div className="flex items-center gap-2 flex-shrink-0">
@@ -168,7 +132,10 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
         </button>
 
         {isFooterTzOpen && (
-          <div className="absolute bottom-full mb-1.5 left-0 bg-surface border border-border-def rounded-xl shadow-2xl z-50 min-w-[220px] max-h-60 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-surface-elevated">
+          <div
+            ref={dropdownListRef}
+            className="absolute bottom-full mb-1.5 left-0 bg-surface border border-border-def rounded-xl shadow-2xl z-50 min-w-[260px] max-h-[420px] overflow-y-auto py-1.5 scrollbar-thin scrollbar-thumb-surface-elevated"
+          >
             {timezoneOptions.map((opt) => {
               const isSelected = opt.value === 'exchange'
                 ? !settings.timezoneAdjustmentEnabled
@@ -176,6 +143,7 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
               return (
                 <button
                   key={opt.label}
+                  ref={isSelected ? selectedOptionRef : undefined}
                   type="button"
                   onClick={() => {
                     setIsFooterTzOpen(false);
@@ -185,11 +153,14 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
                       onUserTimezoneChange(opt.label);
                     }
                   }}
-                  className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-surface-hover hover:text-txt-primary cursor-pointer ${
+                  className={`w-full text-left px-4 py-2 text-xs transition-colors hover:bg-surface-hover hover:text-txt-primary cursor-pointer flex items-center justify-between ${
                     isSelected ? 'text-accent font-bold bg-accent-muted' : 'text-txt-muted'
                   }`}
                 >
-                  {opt.label}
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent ml-2 flex-shrink-0" />
+                  )}
                 </button>
               );
             })}
@@ -302,41 +273,18 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
 
         <div className="w-px h-5 bg-border-sub flex-shrink-0" />
 
-        {/* Date time feedback & interactive picker */}
-        <div
-          onClick={() => {
-            const input = dateTimePickerRef.current;
-            if (!input) return;
-            try {
-              const inputWithPicker = input as HTMLInputElement & { showPicker?: () => void };
-              if (typeof inputWithPicker.showPicker === 'function') {
-                inputWithPicker.showPicker();
-              } else {
-                input.focus();
-              }
-            } catch {
-              input.focus();
-            }
-          }}
-          className="relative flex items-center gap-2 bg-app-bg hover:bg-surface border border-border-sub hover:border-border-def focus-within:border-accent px-3 py-1 rounded-lg flex-shrink-0 cursor-pointer transition-all shadow-xs"
+        {/* Date time feedback & interactive picker button */}
+        <button
+          type="button"
+          onClick={() => setIsDatePickerOpen(true)}
+          className="flex items-center gap-2 bg-app-bg hover:bg-surface border border-border-sub hover:border-border-def focus:border-accent px-3 py-1 rounded-lg flex-shrink-0 cursor-pointer transition-all shadow-xs"
           title="Click to jump to date & time"
         >
-          <Clock className="w-3.5 h-3.5 text-accent flex-shrink-0 pointer-events-none" />
-          <span className="text-[11px] font-mono font-semibold text-txt-primary tracking-wide whitespace-nowrap pointer-events-none select-none">
+          <Clock className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+          <span className="text-[11px] font-mono font-semibold text-txt-primary tracking-wide whitespace-nowrap select-none">
             {replayCurrentTimestamp ? formatDateFeedback(replayCurrentTimestamp) : 'Click cut point to set start...'}
           </span>
-          <input
-            ref={dateTimePickerRef}
-            type="datetime-local"
-            value={getDateTimePickerValue(replayCurrentTimestamp)}
-            min={getReplayDateTimeBounds().min}
-            max={getReplayDateTimeBounds().max}
-            onChange={handleDateTimePickerChange}
-            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer [color-scheme:dark]"
-            tabIndex={-1}
-            aria-label="Select replay date and time"
-          />
-        </div>
+        </button>
       </div>
     );
   };
@@ -383,68 +331,82 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
   );
 
   return (
-    <footer className="h-12 bg-surface border-t border-border-def flex items-center justify-between px-4 z-20 select-none">
-      {isReplayActive ? (
-        isRecordingActive ? (
-          /* 4-Section Row: Timezone | Recording Controls | Replay Controls | Precision Replay */
-          <div className="flex items-center justify-between w-full h-full gap-2 overflow-hidden">
-            {/* 1. Timezone on the left */}
+    <>
+      <footer className="h-12 bg-surface border-t border-border-def flex items-center justify-between px-4 z-20 select-none">
+        {isReplayActive ? (
+          isRecordingActive ? (
+            /* 4-Section Row: Timezone | Recording Controls | Replay Controls | Precision Replay */
+            <div className="flex items-center justify-between w-full h-full gap-2 overflow-hidden">
+              {/* 1. Timezone on the left */}
+              {renderTimezonePicker()}
+
+              {/* 2. Recording Controls inline */}
+              <RecordingFloatingBar />
+
+              {/* 3. Replay Controls beside them */}
+              {renderReplayControls(true)}
+
+              {/* 4. Precision Replay on the right */}
+              {renderPrecisionSection(true)}
+            </div>
+          ) : (
+            /* Normal non-recording Replay layout (UNCHANGED) */
+            <div className="flex items-center justify-between w-full h-full">
+              {/* Left side: Replay Active Status & Data Range */}
+              <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse flex-shrink-0" />
+                <span className="text-xs font-bold text-txt-primary uppercase tracking-wider whitespace-nowrap">Replay Active</span>
+                {availableDataRangeText && (
+                  <>
+                    <span className="text-txt-muted text-xs">•</span>
+                    <span className="text-[11px] font-mono text-txt-muted truncate whitespace-nowrap">
+                      {availableDataRangeText}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Center: Replay Controls */}
+              {renderReplayControls(false)}
+
+              {/* Right side: Exit Button */}
+              <button
+                onClick={() => {
+                  exitReplayMode();
+                }}
+                className="flex items-center gap-1 px-3 py-1 rounded-lg border border-status-error/30 bg-status-error/10 text-status-error hover:bg-status-error/20 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 ml-2"
+                title="Exit Replay"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Exit Replay</span>
+              </button>
+            </div>
+          )
+        ) : (
+          /* Replay not active */
+          <div className="flex items-center justify-between w-full h-full text-[10px] text-txt-muted uppercase tracking-wider font-semibold">
             {renderTimezonePicker()}
 
-            {/* 2. Recording Controls inline */}
-            <RecordingFloatingBar />
+            {/* If recording while Replay is not active, render recording controls inline */}
+            {isRecordingActive && <RecordingFloatingBar />}
 
-            {/* 3. Replay Controls beside them */}
-            {renderReplayControls(true)}
-
-            {/* 4. Precision Replay on the right */}
-            {renderPrecisionSection(true)}
+            {renderPrecisionSection(false)}
           </div>
-        ) : (
-          /* Normal non-recording Replay layout (UNCHANGED) */
-          <div className="flex items-center justify-between w-full h-full">
-            {/* Left side: Replay Active Status & Data Range */}
-            <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-              <span className="w-2 h-2 rounded-full bg-accent animate-pulse flex-shrink-0" />
-              <span className="text-xs font-bold text-txt-primary uppercase tracking-wider whitespace-nowrap">Replay Active</span>
-              {availableDataRangeText && (
-                <>
-                  <span className="text-txt-muted text-xs">•</span>
-                  <span className="text-[11px] font-mono text-txt-muted truncate whitespace-nowrap">
-                    {availableDataRangeText}
-                  </span>
-                </>
-              )}
-            </div>
+        )}
+      </footer>
 
-            {/* Center: Replay Controls */}
-            {renderReplayControls(false)}
-
-            {/* Right side: Exit Button */}
-            <button
-              onClick={() => {
-                exitReplayMode();
-              }}
-              className="flex items-center gap-1 px-3 py-1 rounded-lg border border-status-error/30 bg-status-error/10 text-status-error hover:bg-status-error/20 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 ml-2"
-              title="Exit Replay"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Exit Replay</span>
-            </button>
-          </div>
-        )
-      ) : (
-        /* Replay not active */
-        <div className="flex items-center justify-between w-full h-full text-[10px] text-txt-muted uppercase tracking-wider font-semibold">
-          {renderTimezonePicker()}
-
-          {/* If recording while Replay is not active, render recording controls inline */}
-          {isRecordingActive && <RecordingFloatingBar />}
-
-          {renderPrecisionSection(false)}
-        </div>
-      )}
-    </footer>
+      <ReplayDateTimePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        currentTimestamp={replayCurrentTimestamp}
+        allTimeframesData={allTimeframesData}
+        activeTimeframe={activeTimeframe}
+        activeSymbol={assetName}
+        onSelectTimestamp={(ts) => {
+          handleJumpToDate?.(ts);
+        }}
+      />
+    </>
   );
 };
 

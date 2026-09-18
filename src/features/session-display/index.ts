@@ -8,4 +8,5 @@ export * from './renderer/sessionGeometry';
 export * from './renderer/sessionBackgroundIndicator';
 export * from './renderer/useSessionBackgroundRenderer';
 export * from './engine/activeSessionDerivation';
+export * from './engine/timezoneResolver';
 export { ActiveSessionBanners } from './components/ActiveSessionBanners';

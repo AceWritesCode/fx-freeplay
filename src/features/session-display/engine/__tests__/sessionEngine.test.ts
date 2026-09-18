@@ -14,6 +14,8 @@ import {
   resolveEffectiveTimezone,
   wallClockToUtcTimestamp,
   utcTimestampToWallClock,
+  gmtTimeToDisplayTime,
+  displayTimeToGmtTime,
 } from '../timezoneResolver.ts';
 import {
   generateOccurrenceForDate,
@@ -289,14 +291,15 @@ describe('Session Calculation Engine (Step 3)', () => {
 
   // 12. Latest Sessions before earliest session start (previous day fallback)
   it('12. Latest Sessions before earliest session start falls back to previous day cycle', () => {
-    const settings = createTestSettings({
-      sessionScope: 'latest',
+    const base = createTestSettings({ sessionScope: 'latest' });
+    const settings: SessionDisplaySettings = {
+      ...base,
       builtInSessions: {
-        ...DEFAULT_BUILT_IN_SESSIONS,
+        ...base.builtInSessions,
         london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '06:00', endTime: '14:00' },
         newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '08:00', endTime: '16:00' },
       },
-    });
+    };
 
     // Earliest session is 06:00.
     // Current time is 12 Aug 2026 03:00 (before today's 06:00 has started).
@@ -323,14 +326,15 @@ describe('Session Calculation Engine (Step 3)', () => {
 
   // 13. Latest Sessions exactly at earliest session start
   it('13. Latest Sessions exactly at earliest session start begins new daily cycle', () => {
-    const settings = createTestSettings({
-      sessionScope: 'latest',
+    const base = createTestSettings({ sessionScope: 'latest' });
+    const settings: SessionDisplaySettings = {
+      ...base,
       builtInSessions: {
-        ...DEFAULT_BUILT_IN_SESSIONS,
+        ...base.builtInSessions,
         london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '06:00', endTime: '14:00' },
         newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '08:00', endTime: '16:00' },
       },
-    });
+    };
 
     // Current time is exactly at 12 Aug 2026 06:00
     const currentTime = Date.UTC(2026, 7, 12, 6, 0);
@@ -363,14 +367,15 @@ describe('Session Calculation Engine (Step 3)', () => {
 
   // 14. Latest Sessions shortly after earliest session
   it('14. Latest Sessions shortly after earliest session (06:12) shows only started session', () => {
-    const settings = createTestSettings({
-      sessionScope: 'latest',
+    const base = createTestSettings({ sessionScope: 'latest' });
+    const settings: SessionDisplaySettings = {
+      ...base,
       builtInSessions: {
-        ...DEFAULT_BUILT_IN_SESSIONS,
+        ...base.builtInSessions,
         london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '06:00', endTime: '14:00' },
         newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '08:00', endTime: '16:00' },
       },
-    });
+    };
 
     const currentTime = Date.UTC(2026, 7, 12, 6, 12);
     const visibleStart = Date.UTC(2026, 7, 12, 0, 0);
@@ -389,15 +394,16 @@ describe('Session Calculation Engine (Step 3)', () => {
 
   // 15 & 16. Latest Sessions progressive reveal and future session exclusion
   it('15 & 16. Progressive reveal as currentTime moves forward; future sessions excluded', () => {
-    const settings = createTestSettings({
-      sessionScope: 'latest',
+    const base = createTestSettings({ sessionScope: 'latest' });
+    const settings: SessionDisplaySettings = {
+      ...base,
       builtInSessions: {
-        ...DEFAULT_BUILT_IN_SESSIONS,
+        ...base.builtInSessions,
         london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '06:00', endTime: '14:00' },
         newYork: { ...DEFAULT_BUILT_IN_SESSIONS.newYork, enabled: true, startTime: '08:00', endTime: '16:00' },
         tokyo: { ...DEFAULT_BUILT_IN_SESSIONS.tokyo, enabled: true, startTime: '10:00', endTime: '18:00' },
       },
-    });
+    };
 
     const visibleStart = Date.UTC(2026, 7, 12, 0, 0);
     const visibleEnd = Date.UTC(2026, 7, 12, 23, 59);
@@ -432,13 +438,14 @@ describe('Session Calculation Engine (Step 3)', () => {
 
   // 17. Latest Sessions + viewport filtering
   it('17. Latest Sessions that are completely outside the viewport are excluded', () => {
-    const settings = createTestSettings({
-      sessionScope: 'latest',
+    const base = createTestSettings({ sessionScope: 'latest' });
+    const settings: SessionDisplaySettings = {
+      ...base,
       builtInSessions: {
-        ...DEFAULT_BUILT_IN_SESSIONS,
+        ...base.builtInSessions,
         london: { ...DEFAULT_BUILT_IN_SESSIONS.london, enabled: true, startTime: '06:00', endTime: '10:00' },
       },
-    });
+    };
 
     // Current time is 12 Aug 07:00 (London is eligible)
     const currentTime = Date.UTC(2026, 7, 12, 7, 0);
@@ -775,6 +782,174 @@ describe('Session Calculation Engine (Step 3)', () => {
       const sessionIds = result.occurrences.map((o) => o.sessionId);
       assert.ok(sessionIds.includes('london'), 'London included when currentTime is omitted');
       assert.ok(sessionIds.includes('newYork'), 'New York included when currentTime is omitted');
+    });
+  });
+
+  // Step 2: Session Timezone Correctness Suite
+  describe('Step 2: Session Timezone Correctness & Display Invariance', () => {
+    it('Session configured in IST (06:00 IST) displays at 20:30 previous day in GMT-4 and 06:00 in IST', () => {
+      // 1. Session configured in IST
+      const istSession: SessionConfig = {
+        id: 'custom_ist',
+        name: 'IST Morning Session',
+        enabled: true,
+        startTime: '06:00',
+        endTime: '12:00',
+        color: 'rgba(255, 152, 0, 0.2)',
+        isCustom: true,
+      };
+
+      const date = { year: 2026, month: 8, day: 12 };
+      const occ = generateOccurrenceForDate(istSession, date, 'Asia/Kolkata');
+
+      assert.ok(occ, 'Occurrence must be generated');
+      // 06:00 IST on 2026-08-12 is 00:30 UTC on 2026-08-12
+      const expectedUtcStart = Date.UTC(2026, 7, 12, 0, 30);
+      const expectedUtcEnd = Date.UTC(2026, 7, 12, 6, 30);
+      assert.equal(occ.startTimestamp, expectedUtcStart);
+      assert.equal(occ.endTimestamp, expectedUtcEnd);
+
+      // 2. Chart Display in GMT-4 (New York EDT: offset = -240 min = -4h)
+      const gmtMinus4OffsetMs = -4 * 60 * 60 * 1000;
+      const chartTsGmtMinus4 = occ.startTimestamp + gmtMinus4OffsetMs;
+      const dateGmtMinus4 = new Date(chartTsGmtMinus4);
+      // In GMT-4, 00:30 UTC Aug 12 is 20:30 Aug 11 (previous calendar day)
+      assert.equal(dateGmtMinus4.getUTCFullYear(), 2026);
+      assert.equal(dateGmtMinus4.getUTCMonth(), 7); // August
+      assert.equal(dateGmtMinus4.getUTCDate(), 11);  // 11th (previous day)
+      assert.equal(dateGmtMinus4.getUTCHours(), 20); // 20:30
+      assert.equal(dateGmtMinus4.getUTCMinutes(), 30);
+
+      // 3. Chart Display in IST (+5:30: offset = +330 min = +5.5h)
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const chartTsIst = occ.startTimestamp + istOffsetMs;
+      const dateIst = new Date(chartTsIst);
+      assert.equal(dateIst.getUTCDate(), 12);
+      assert.equal(dateIst.getUTCHours(), 6);
+      assert.equal(dateIst.getUTCMinutes(), 0);
+
+      // 4. Chart Display in UTC (offset = 0)
+      const utcOffsetMs = 0;
+      const chartTsUtc = occ.startTimestamp + utcOffsetMs;
+      const dateUtc = new Date(chartTsUtc);
+      assert.equal(dateUtc.getUTCDate(), 12);
+      assert.equal(dateUtc.getUTCHours(), 0);
+      assert.equal(dateUtc.getUTCMinutes(), 30);
+    });
+
+    it('Maintains timezone invariance of active session countdown', () => {
+      // Session ending at 12:00 UTC
+      const sessionOcc: import('../../types.ts').SessionOccurrence = {
+        id: 'session_countdown_test',
+        sessionId: 'test',
+        sessionName: 'Test Session',
+        startTimestamp: Date.UTC(2026, 7, 12, 6, 0),
+        endTimestamp: Date.UTC(2026, 7, 12, 12, 0),
+        color: '#fff',
+        isCustom: false,
+      };
+
+      // In any timezone, when market candle is at 11:30 UTC:
+      const currentCandleTimeUtc = Date.UTC(2026, 7, 12, 11, 30);
+      const remainingMs = sessionOcc.endTimestamp - currentCandleTimeUtc;
+      assert.equal(remainingMs, 30 * 60 * 1000, 'Remaining time must be exactly 30 minutes');
+    });
+
+    it('Preserves New York session across winter (EST) and summer (EDT) DST boundaries', () => {
+      const nySession: SessionConfig = {
+        id: 'newYork',
+        name: 'New York',
+        enabled: true,
+        startTime: '09:30',
+        endTime: '16:00',
+        color: '#fff',
+      };
+
+      // Winter: Jan 15, 2026 (EST, UTC-5)
+      const winterOcc = generateOccurrenceForDate(nySession, { year: 2026, month: 1, day: 15 }, 'America/New_York')!;
+      assert.equal(winterOcc.startTimestamp, Date.UTC(2026, 0, 15, 14, 30)); // 09:30 + 5h = 14:30 UTC
+
+      // Summer: July 15, 2026 (EDT, UTC-4)
+      const summerOcc = generateOccurrenceForDate(nySession, { year: 2026, month: 7, day: 15 }, 'America/New_York')!;
+      assert.equal(summerOcc.startTimestamp, Date.UTC(2026, 6, 15, 13, 30)); // 09:30 + 4h = 13:30 UTC
+    });
+
+    it('Translates 06:00 IST session to 20:30 previous day in New York (EDT) and converts back faithfully', () => {
+      // 06:00 IST is 00:30 GMT
+      const summerRef = new Date(Date.UTC(2026, 6, 15)); // EDT (UTC-4)
+      const istStartGmt = '00:30';
+      const istEndGmt = '06:00'; // 11:30 IST
+
+      // 1. GMT -> New York UI translation
+      const nyStartTime = gmtTimeToDisplayTime(istStartGmt, 'America/New_York', summerRef);
+      const nyEndTime = gmtTimeToDisplayTime(istEndGmt, 'America/New_York', summerRef);
+      assert.equal(nyStartTime, '20:30', '00:30 GMT (06:00 IST) must translate to 20:30 New York');
+      assert.equal(nyEndTime, '02:00', '06:00 GMT (11:30 IST) must translate to 02:00 New York');
+
+      // 2. GMT -> IST UI translation
+      const istStartTime = gmtTimeToDisplayTime(istStartGmt, 'Asia/Kolkata', summerRef);
+      const istEndTime = gmtTimeToDisplayTime(istEndGmt, 'Asia/Kolkata', summerRef);
+      assert.equal(istStartTime, '06:00', '00:30 GMT must translate to 06:00 IST');
+      assert.equal(istEndTime, '11:30', '06:00 GMT must translate to 11:30 IST');
+
+      // 3. New York UI edit -> GMT conversion
+      const backToGmt = displayTimeToGmtTime('20:30', 'America/New_York', summerRef);
+      assert.equal(backToGmt, '00:30', '20:30 New York must convert back to 00:30 GMT');
+    });
+
+    it('Translates default global GMT forex sessions accurately across timezones and midnight rollovers', () => {
+      const summerRef = new Date(Date.UTC(2026, 6, 15)); // EDT (UTC-4), BST (UTC+1), JST (UTC+9)
+
+      // Sydney: 22:00 – 07:00 GMT
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.sydney.startTime, 'America/New_York', summerRef), '18:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.sydney.endTime, 'America/New_York', summerRef), '03:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.sydney.startTime, 'Europe/London', summerRef), '23:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.sydney.endTime, 'Europe/London', summerRef), '08:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.sydney.startTime, 'Asia/Tokyo', summerRef), '07:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.sydney.endTime, 'Asia/Tokyo', summerRef), '16:00');
+
+      // Tokyo: 00:00 – 09:00 GMT
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.tokyo.startTime, 'America/New_York', summerRef), '20:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.tokyo.endTime, 'America/New_York', summerRef), '05:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.tokyo.startTime, 'Asia/Tokyo', summerRef), '09:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.tokyo.endTime, 'Asia/Tokyo', summerRef), '18:00');
+
+      // London: 08:00 – 17:00 GMT
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.london.startTime, 'America/New_York', summerRef), '04:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.london.endTime, 'America/New_York', summerRef), '13:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.london.startTime, 'Europe/London', summerRef), '09:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.london.endTime, 'Europe/London', summerRef), '18:00');
+
+      // New York: 13:00 – 22:00 GMT
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.newYork.startTime, 'America/New_York', summerRef), '09:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.newYork.endTime, 'America/New_York', summerRef), '18:00');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.newYork.startTime, 'Asia/Kolkata', summerRef), '18:30');
+      assert.equal(gmtTimeToDisplayTime(DEFAULT_BUILT_IN_SESSIONS.newYork.endTime, 'Asia/Kolkata', summerRef), '03:30');
+    });
+
+    it('Preserves underlying session definition when display timezone changes', () => {
+      const storedSession: SessionConfig = {
+        id: 'test_session',
+        name: 'Test Session',
+        enabled: true,
+        startTime: '08:00', // 08:00 GMT
+        endTime: '17:00',   // 17:00 GMT
+        color: '#fff',
+      };
+
+      const summerRef = new Date(Date.UTC(2026, 6, 15));
+
+      // Display in New York -> displays 04:00 - 13:00
+      const nyStart = gmtTimeToDisplayTime(storedSession.startTime, 'America/New_York', summerRef);
+      assert.equal(nyStart, '04:00');
+
+      // Display in Kolkata -> displays 13:30 - 22:30
+      const istStart = gmtTimeToDisplayTime(storedSession.startTime, 'Asia/Kolkata', summerRef);
+      assert.equal(istStart, '13:30');
+
+      // Stored session remains 08:00 GMT
+      assert.equal(storedSession.startTime, '08:00', 'Underlying session startTime must not be mutated');
+      assert.equal(storedSession.endTime, '17:00', 'Underlying session endTime must not be mutated');
     });
   });
 });

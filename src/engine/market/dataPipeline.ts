@@ -5,11 +5,12 @@ import { resample1mToTimeframe } from '@/utils/dataUtils';
 
 /**
  * Builds the timezone-adjusted timeframe cache dictionary.
+ * Shifts raw 1m data exactly once and resamples all requested unique timeframes.
  */
 export const buildTimeframeCache = (
   raw1m: KLineData[],
   s: ChartSettings,
-  activeTimeframe: string
+  activeTimeframes: string | string[]
 ): Record<string, KLineData[]> => {
   const baseData = shiftCandlesTimezone(
     raw1m,
@@ -19,11 +20,17 @@ export const buildTimeframeCache = (
   );
 
   const newTimeframesData: Record<string, KLineData[]> = {
-    '1m': baseData
+    '1m': baseData,
   };
 
-  if (activeTimeframe && activeTimeframe !== '1m') {
-    newTimeframesData[activeTimeframe] = resample1mToTimeframe(baseData, getTimeframeMinutes(activeTimeframe));
+  const timeframes = Array.isArray(activeTimeframes)
+    ? activeTimeframes
+    : (activeTimeframes ? [activeTimeframes] : []);
+
+  for (const tf of timeframes) {
+    if (tf && tf !== '1m' && !newTimeframesData[tf]) {
+      newTimeframesData[tf] = resample1mToTimeframe(baseData, getTimeframeMinutes(tf));
+    }
   }
 
   return newTimeframesData;

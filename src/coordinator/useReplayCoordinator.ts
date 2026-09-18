@@ -134,6 +134,15 @@ export function useReplayCoordinator(
     slots.forEach((_, idx) => {
       const c = chartInstancesRef.current[idx];
       if (c) {
+        if (typeof c.setLeftMinVisibleBarCount === 'function') {
+          c.setLeftMinVisibleBarCount(2);
+        }
+        if (typeof c.setMaxOffsetLeftDistance === 'function') {
+          c.setMaxOffsetLeftDistance(10000);
+        }
+        if (typeof c.setMaxOffsetRightDistance === 'function') {
+          c.setMaxOffsetRightDistance(10000);
+        }
         if (typeof c.overrideIndicator === 'function') {
           c.overrideIndicator({ name: REPLAY_MASK_INDICATOR_NAME });
         }
@@ -302,71 +311,56 @@ export function useReplayCoordinator(
       setIsReplayActive(true);
       setIsReplayPlaying(false);
 
-      // Initialize visibility boundary and trigger replay mask repaint
+      // Initialize visibility boundary, scroll boundary, and position viewport to cut point
       replayVisibilityBoundary.setReplayState(true, timestamp);
       slots.forEach((slot, idx) => {
         const c = chartInstancesRef.current[idx];
-        if (c && slot?.symbol) {
-          if (typeof c.overrideIndicator === 'function') {
-            c.overrideIndicator({ name: REPLAY_MASK_INDICATOR_NAME });
-          }
-          if (typeof c.updatePane === 'function') {
-            c.updatePane(3, 'candle_pane');
-          }
-          c.resize();
-        }
-      });
+        if (!c || !slot?.symbol) return;
 
+        const slotFullData = (allTimeframesData[slot.timeframe]?.length > 0)
+          ? allTimeframesData[slot.timeframe]
+          : ((c.getDataList?.() || []) as any[]);
 
-      // Align active chart camera viewport to selected cut point
-      const activeChart = chartInstancesRef.current[activeChartIndex];
-      if (activeChart) {
-        const chartSize = activeChart.getSize();
-        const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-        const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
-        const targetOffset = chartWidth * resetRatio;
-
-        const barSpaceVal = activeChart.getBarSpace();
-        let barSpace = 6;
-        if (typeof barSpaceVal === 'number') {
-          barSpace = barSpaceVal;
-        } else if (typeof barSpaceVal === 'object' && barSpaceVal) {
-          barSpace = (barSpaceVal as any).bar || 6;
-        }
-
-        const remainingCandles = Math.max(0, (fullData.length - 1) - startIndex);
-        const hiddenWidth = remainingCandles * barSpace;
-
-        const effectiveTargetOffset = targetOffset - hiddenWidth;
-        const startOffset = clickX !== undefined ? (chartWidth - clickX) - hiddenWidth : effectiveTargetOffset;
-
-        (activeChart as any)._isProgrammaticScroll = true;
-        activeChart.setOffsetRightDistance(startOffset);
-
-        if (Math.abs(effectiveTargetOffset - startOffset) > 2) {
-          const startTime = performance.now();
-          const duration = 500;
-          const animate = (time: number) => {
-            const chartInst = chartInstancesRef.current[activeChartIndex];
-            if (!chartInst) return;
-            const elapsed = time - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            const currentOffset = startOffset + (effectiveTargetOffset - startOffset) * eased;
-            chartInst.setOffsetRightDistance(currentOffset);
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            } else {
-              chartInst.setOffsetRightDistance(effectiveTargetOffset);
-              (chartInst as any)._isProgrammaticScroll = false;
+        if (slotFullData.length > 0) {
+          const lastRevealed = findCandleIndexByTimestamp(slotFullData, timestamp);
+          if (lastRevealed !== -1) {
+            const N = slotFullData.length;
+            const K = lastRevealed;
+            const H = Math.max(0, N - 1 - K);
+            if (typeof c.setLeftMinVisibleBarCount === 'function') {
+              c.setLeftMinVisibleBarCount(H + 1);
             }
-          };
-          requestAnimationFrame(animate);
-        } else {
-          activeChart.setOffsetRightDistance(effectiveTargetOffset);
-          (activeChart as any)._isProgrammaticScroll = false;
+
+            const chartSize = c.getSize();
+            const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+            const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
+            const targetOffset = chartWidth * resetRatio;
+
+            const barSpaceVal = c.getBarSpace();
+            let space = 6;
+            if (typeof barSpaceVal === 'number') space = barSpaceVal;
+            else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
+
+            const hiddenWidth = H * space;
+            const effectiveOffset = targetOffset - hiddenWidth;
+
+            (c as any)._isProgrammaticScroll = true;
+            c.setOffsetRightDistance(effectiveOffset);
+            requestAnimationFrame(() => {
+              c.setOffsetRightDistance(effectiveOffset);
+              (c as any)._isProgrammaticScroll = false;
+            });
+          }
         }
-      }
+
+        if (typeof c.overrideIndicator === 'function') {
+          c.overrideIndicator({ name: REPLAY_MASK_INDICATOR_NAME });
+        }
+        if (typeof c.updatePane === 'function') {
+          c.updatePane(3, 'candle_pane');
+        }
+        c.resize();
+      });
 
     } catch (err) {
       console.error('[ReplayCoordinator] Failed to create replay session:', err);
@@ -455,6 +449,20 @@ export function useReplayCoordinator(
       if (lastReplayActiveRef.current) {
         lastReplayActiveRef.current = false;
         replayVisibilityBoundary.reset();
+        slots.forEach((_, index) => {
+          const chart = chartInstancesRef.current[index];
+          if (chart) {
+            if (typeof chart.setLeftMinVisibleBarCount === 'function') {
+              chart.setLeftMinVisibleBarCount(2);
+            }
+            if (typeof chart.setMaxOffsetLeftDistance === 'function') {
+              chart.setMaxOffsetLeftDistance(10000);
+            }
+            if (typeof chart.setMaxOffsetRightDistance === 'function') {
+              chart.setMaxOffsetRightDistance(10000);
+            }
+          }
+        });
       }
       prevReplayTimestampRef.current = null;
       return;
@@ -469,6 +477,15 @@ export function useReplayCoordinator(
     slots.forEach((slot, index) => {
       const chart = chartInstancesRef.current[index];
       if (!chart || !slot.symbol) return;
+
+      const fullData = (allTimeframesData[slot.timeframe]?.length > 0)
+        ? allTimeframesData[slot.timeframe]
+        : ((chart.getDataList?.() || []) as any[]);
+
+      if (fullData.length > 0 && typeof chart.setLeftMinVisibleBarCount === 'function') {
+        const minBars = replayVisibilityBoundary.getLeftMinVisibleBarCount(fullData);
+        chart.setLeftMinVisibleBarCount(minBars);
+      }
 
       const isActiveSlot = index === activeChartIndex;
 
@@ -758,12 +775,45 @@ export function useReplayCoordinator(
       console.error('[ReplayCoordinator] Failed to recreate replay session on jump to date:', err);
     }
 
-    // Ensure the chart viewport centers on the newly jumped candle using the preferred reset view offset
-    const activeChart = chartInstancesRef.current[activeChartIndex];
-    const chartSize = activeChart ? activeChart.getSize() : null;
-    const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-    const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
-    capturedOffsetRef.current = chartWidth * resetRatio;
+    // Position chart viewports to the target candle using the preferred reset view offset
+    slots.forEach((slot, idx) => {
+      const c = chartInstancesRef.current[idx];
+      if (!c || !slot?.symbol) return;
+
+      const slotFullData = (allTimeframesData[slot.timeframe]?.length > 0)
+        ? allTimeframesData[slot.timeframe]
+        : ((c.getDataList?.() || []) as any[]);
+
+      if (slotFullData.length > 0) {
+        const lastRevealed = findCandleIndexByTimestamp(slotFullData, closestCandle.timestamp);
+        if (lastRevealed !== -1) {
+          const H = Math.max(0, slotFullData.length - 1 - lastRevealed);
+          if (typeof c.setLeftMinVisibleBarCount === 'function') {
+            c.setLeftMinVisibleBarCount(H + 1);
+          }
+
+          const chartSize = c.getSize();
+          const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+          const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
+          const targetOffset = chartWidth * resetRatio;
+
+          const barSpaceVal = c.getBarSpace();
+          let space = 6;
+          if (typeof barSpaceVal === 'number') space = barSpaceVal;
+          else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
+
+          const hiddenWidth = H * space;
+          const effectiveOffset = targetOffset - hiddenWidth;
+
+          (c as any)._isProgrammaticScroll = true;
+          c.setOffsetRightDistance(effectiveOffset);
+          requestAnimationFrame(() => {
+            c.setOffsetRightDistance(effectiveOffset);
+            (c as any)._isProgrammaticScroll = false;
+          });
+        }
+      }
+    });
 
     setReplayCurrentTimestamp(closestCandle.timestamp);
     setIsReplayPlaying(false);

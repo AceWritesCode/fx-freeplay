@@ -57,6 +57,7 @@ interface DrawingState {
   getSymbolDrawings: (symbol: string) => DrawingItem[];
   findSymbolByDrawingId: (id: string) => { symbol: string; drawing: DrawingItem } | null;
   removeSymbolDrawingById: (id: string) => void;
+  shiftDrawingTimestamps: (deltaMs: number) => void;
 
   // Folder & Selection Actions
   loadSymbolFolders: (symbol: string) => Promise<FolderItem[]>;
@@ -492,6 +493,61 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     if (resolved) {
       get().removeSymbolDrawing(resolved.symbol, originalId);
     }
+  },
+
+  shiftDrawingTimestamps: (deltaMs: number) => {
+    if (deltaMs === 0 || !Number.isFinite(deltaMs)) return;
+
+    set((state) => {
+      const nextMap: Record<string, DrawingItem[]> = {};
+
+      Object.entries(state.drawingsBySymbol).forEach(([symbol, items]) => {
+        const updatedItems = items.map((item) => {
+          let hasPointChanges = false;
+          const newPoints = Array.isArray(item.points)
+            ? item.points.map((p: any) => {
+                if (p && typeof p.timestamp === 'number' && Number.isFinite(p.timestamp)) {
+                  hasPointChanges = true;
+                  return {
+                    ...p,
+                    timestamp: p.timestamp + deltaMs,
+                  };
+                }
+                return p;
+              })
+            : item.points;
+
+          let newExtendData = item.extendData;
+          if (newExtendData?.startPoints && Array.isArray(newExtendData.startPoints)) {
+            newExtendData = {
+              ...newExtendData,
+              startPoints: newExtendData.startPoints.map((p: any) => {
+                if (p && typeof p.timestamp === 'number' && Number.isFinite(p.timestamp)) {
+                  return { ...p, timestamp: p.timestamp + deltaMs };
+                }
+                return p;
+              }),
+            };
+          }
+
+          if (hasPointChanges || newExtendData !== item.extendData) {
+            return {
+              ...item,
+              points: newPoints,
+              extendData: newExtendData,
+            };
+          }
+          return item;
+        });
+
+        nextMap[symbol] = updatedItems;
+        drawingRepository.saveDrawings(symbol, updatedItems);
+      });
+
+      return {
+        drawingsBySymbol: nextMap,
+      };
+    });
   },
 
   loadSymbolFolders: async (symbol: string) => {

@@ -117,6 +117,19 @@ export class ReplayVisibilityBoundaryManager {
     this.currentTimestamp = null;
   }
 
+  public getLeftMinVisibleBarCount(dataList: Array<{ timestamp: number }>): number {
+    if (!this.active || this.currentTimestamp === null || !dataList || dataList.length === 0) {
+      return 2;
+    }
+    const { end } = this.getRevealedIndexRange(dataList);
+    if (end === -1) {
+      return dataList.length;
+    }
+    const N = dataList.length;
+    const K = end;
+    const H = Math.max(0, N - 1 - K);
+    return H + 1;
+  }
 }
 
 export const replayVisibilityBoundary = new ReplayVisibilityBoundaryManager();

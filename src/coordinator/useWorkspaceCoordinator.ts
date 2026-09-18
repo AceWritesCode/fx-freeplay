@@ -303,25 +303,61 @@ export function useWorkspaceCoordinator(
     return [];
   }, [adjustTimezone]);
 
+  const regenerateAllSlotsTimeframes = (
+    slotsToUpdate: Array<{ symbol: string; timeframe: string; slotIndex: number }>,
+    s: typeof settings
+  ) => {
+    if (slotsToUpdate.length === 0) return;
+
+    // Group slots by symbol to ensure raw 1m data is shifted only once per symbol
+    const slotsBySymbol = new Map<string, Array<{ timeframe: string; slotIndex: number }>>();
+    for (const slot of slotsToUpdate) {
+      const list = slotsBySymbol.get(slot.symbol) || [];
+      list.push({ timeframe: slot.timeframe, slotIndex: slot.slotIndex });
+      slotsBySymbol.set(slot.symbol, list);
+    }
+
+    const mergedTimeframesData: Record<string, KLineData[]> = {};
+
+    for (const [symbol, slotEntries] of slotsBySymbol.entries()) {
+      const raw1m = getRawDataFromCache(symbol);
+      if (raw1m.length === 0) continue;
+
+      const uniqueTfs = Array.from(new Set(slotEntries.map((e) => e.timeframe)));
+      const tfCache = buildTimeframeCache(raw1m, s, uniqueTfs);
+      Object.assign(mergedTimeframesData, tfCache);
+
+      for (const entry of slotEntries) {
+        const chart = chartInstancesRef.current[entry.slotIndex];
+        if (chart) {
+          const visibleData = tfCache[entry.timeframe] || [];
+          chart.setDataLoader({
+            getBars: ({ type: loadType, callback }: any) => {
+              if (loadType === 'init') {
+                callback(visibleData);
+              } else {
+                callback([]);
+              }
+            },
+          });
+          chart.applyNewData(visibleData, false);
+        }
+      }
+    }
+
+    setAllTimeframesData((prev) => ({ ...prev, ...mergedTimeframesData }));
+  };
+
   const regenerateTimeframes = (raw1m: KLineData[], s: typeof settings, timeframe: string, targetChartIndex?: number) => {
     if (raw1m.length === 0) return;
 
-    console.log('[DEBUG] regenerateTimeframes - Rebuilding timeframe cache with settings:', {
-      enabled: s.timezoneAdjustmentEnabled,
-      brokerOffset: s.brokerTimezoneOffset,
-      userOffset: s.userTimezoneOffset,
-    });
-
-    const newTimeframesData = buildTimeframeCache(raw1m, s, timeframe);
-    setAllTimeframesData(newTimeframesData);
-
     const idx = targetChartIndex !== undefined ? targetChartIndex : useLayoutStore.getState().activeChartIndex;
+    const tfCache = buildTimeframeCache(raw1m, s, timeframe);
+    setAllTimeframesData((prev) => ({ ...prev, ...tfCache }));
+
     const chart = chartInstancesRef.current[idx];
     if (chart) {
-      const fullData = newTimeframesData[timeframe] || [];
-      const visibleData = fullData;
-
-
+      const visibleData = tfCache[timeframe] || [];
       chart.setDataLoader({
         getBars: ({ type: loadType, callback }: any) => {
           if (loadType === 'init') {
@@ -331,9 +367,7 @@ export function useWorkspaceCoordinator(
           }
         },
       });
-
-      chart.resetData();
-      chart.resize();
+      chart.applyNewData(visibleData, false);
     }
   };
 
@@ -981,6 +1015,7 @@ export function useWorkspaceCoordinator(
     handleWatchlistAddFolder,
     handleWatchlistAddFile,
     regenerateTimeframes,
+    regenerateAllSlotsTimeframes,
     handleTimeframeSwitch,
     handleWatchlistSymbolSwitch,
     isSwitchingTimeframe,

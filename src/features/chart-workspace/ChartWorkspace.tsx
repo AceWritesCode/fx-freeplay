@@ -745,6 +745,9 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     }
   }, [layoutType, slots, workspaceCoord.allTimeframesData, settings.resetViewOffsetRatio, isReplayActive, replayCurrentTimestamp]);
 
+  const resetChartViewRef = useRef(resetChartView);
+  resetChartViewRef.current = resetChartView;
+
   // Layout Manager effect - handles creation and disposal of chart slots
   useEffect(() => {
     const visibleCount = getLayoutChartCount(layoutType);
@@ -983,12 +986,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         }
       }
       if (hasData) {
-        resetChartView();
+        resetChartViewRef.current();
       }
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [layoutType, hasData, resetChartView]);
+  }, [layoutType, hasData]);
 
   // Clean up all charts on unmount
   useEffect(() => {
@@ -1054,10 +1057,15 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     setActiveTool: drawingCoord.setActiveTool,
   });
 
+  const chartOffsetMs = settings.timezoneAdjustmentEnabled
+    ? (settings.userTimezoneOffset - settings.brokerTimezoneOffset) * 60 * 1000
+    : 0;
+
   // Session Display background renderer synchronization
   useSessionBackgroundRenderer({
     chartInstancesRef,
     appTimezone: settings.userTimezoneLabel,
+    chartOffsetMs,
   });
 
   // Close custom timezone and flyouts when clicking outside
@@ -1245,11 +1253,19 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     });
   };
 
+  const calculateTimezoneDeltaMs = (prevS: ChartSettings, newS: ChartSettings): number => {
+    const prevOffsetMs = prevS.timezoneAdjustmentEnabled ? (prevS.userTimezoneOffset - prevS.brokerTimezoneOffset) * 60 * 1000 : 0;
+    const newOffsetMs = newS.timezoneAdjustmentEnabled ? (newS.userTimezoneOffset - newS.brokerTimezoneOffset) * 60 * 1000 : 0;
+    return newOffsetMs - prevOffsetMs;
+  };
+
   const handleSettingsSave = (newSettings: ChartSettings) => {
-    const timezoneChanged =
-      newSettings.timezoneAdjustmentEnabled !== settings.timezoneAdjustmentEnabled ||
-      newSettings.brokerTimezoneOffset !== settings.brokerTimezoneOffset ||
-      newSettings.userTimezoneOffset !== settings.userTimezoneOffset;
+    const deltaMs = calculateTimezoneDeltaMs(settings, newSettings);
+    if (deltaMs !== 0) {
+      useDrawingStore.getState().shiftDrawingTimestamps(deltaMs);
+    }
+
+    const timezoneChanged = deltaMs !== 0;
 
     setSettings(newSettings);
     settingsRepository.saveSettings(newSettings);
@@ -1273,16 +1289,16 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     }
 
     if (timezoneChanged) {
+      const visibleSlots: Array<{ symbol: string; timeframe: string; slotIndex: number }> = [];
       for (let i = 0; i < visibleCount; i++) {
         const slot = slots[i];
         if (slot && slot.symbol) {
-          const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
-          if (rawData.length > 0) {
-            dataVersionRef.current += 1;
-            workspaceCoord.regenerateTimeframes(rawData, newSettings, slot.timeframe, i);
-          }
+          visibleSlots.push({ symbol: slot.symbol, timeframe: slot.timeframe, slotIndex: i });
         }
       }
+      dataVersionRef.current += 1;
+      workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
+      runWorkspaceReconciliation(chartInstancesRef);
     }
   };
 
@@ -1296,9 +1312,16 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       userTimezoneOffset: offset,
       userTimezoneLabel: label,
     };
+
+    const deltaMs = calculateTimezoneDeltaMs(settings, newSettings);
+    if (deltaMs !== 0) {
+      useDrawingStore.getState().shiftDrawingTimestamps(deltaMs);
+    }
+
     setSettings(newSettings);
     settingsRepository.saveSettings(newSettings);
     const visibleCount = getLayoutChartCount(layoutType);
+    const visibleSlots: Array<{ symbol: string; timeframe: string; slotIndex: number }> = [];
     for (let i = 0; i < visibleCount; i++) {
       const c = chartInstancesRef.current[i];
       if (c) {
@@ -1306,13 +1329,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       }
       const slot = slots[i];
       if (slot && slot.symbol) {
-        const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
-        if (rawData.length > 0) {
-          dataVersionRef.current += 1;
-          workspaceCoord.regenerateTimeframes(rawData, newSettings, slot.timeframe, i);
-        }
+        visibleSlots.push({ symbol: slot.symbol, timeframe: slot.timeframe, slotIndex: i });
       }
     }
+    dataVersionRef.current += 1;
+    workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
+    runWorkspaceReconciliation(chartInstancesRef);
   };
 
   const handleWatchlistSymbolSwitch = async (symbolName: string) => {
@@ -1934,7 +1956,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           drawingTrigger={drawingCoord.drawingTrigger}
           setDrawingTrigger={drawingCoord.setDrawingTrigger}
           activeChartIndex={activeChartIndex}
-          activeTimeframe={activeTimeframe}
+          activeTimeframe={slots[activeChartIndex]?.timeframe || activeTimeframe}
           watchlistToast={watchlistToast}
         />
       </div>
@@ -1967,19 +1989,24 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         onUserTimezoneChange={handleUserTimezoneChange}
         onClearTimezoneAdjustment={() => {
           const newSettings = { ...settings, timezoneAdjustmentEnabled: false };
+          const deltaMs = calculateTimezoneDeltaMs(settings, newSettings);
+          if (deltaMs !== 0) {
+            useDrawingStore.getState().shiftDrawingTimestamps(deltaMs);
+          }
+
           setSettings(newSettings);
           settingsRepository.saveSettings(newSettings);
           const visibleCount = getLayoutChartCount(layoutType);
+          const visibleSlots: Array<{ symbol: string; timeframe: string; slotIndex: number }> = [];
           for (let i = 0; i < visibleCount; i++) {
             const slot = slots[i];
             if (slot && slot.symbol) {
-              const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
-              if (rawData.length > 0) {
-                dataVersionRef.current += 1;
-                workspaceCoord.regenerateTimeframes(rawData, newSettings, slot.timeframe, i);
-              }
+              visibleSlots.push({ symbol: slot.symbol, timeframe: slot.timeframe, slotIndex: i });
             }
           }
+          dataVersionRef.current += 1;
+          workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
+          runWorkspaceReconciliation(chartInstancesRef);
         }}
         detectPricePrecision={detectPricePrecision}
       />

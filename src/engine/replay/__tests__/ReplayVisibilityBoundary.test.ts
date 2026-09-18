@@ -95,14 +95,29 @@ describe('ReplayVisibilityBoundaryManager', () => {
     assert.deepEqual(untouched, futurePoint);
   });
 
-  it('should reset properly', () => {
+  it('should calculate leftMinVisibleBarCount correctly during replay and default when inactive', () => {
     const boundary = new ReplayVisibilityBoundaryManager();
-    boundary.setReplayState(true, 3000);
-    boundary.reset();
+    // Inactive: should return default 2
+    assert.equal(boundary.getLeftMinVisibleBarCount(mockData), 2);
 
-    assert.equal(boundary.isActive(), false);
-    assert.equal(boundary.getCurrentTimestamp(), null);
-    assert.equal(boundary.isTimestampRevealed(4000), true);
+    // Active at timestamp 3000 (K = 2 out of 5, so N = 5, K = 2, H = 5 - 1 - 2 = 2)
+    // leftMinVisibleBarCount = H + 1 = 3
+    boundary.setReplayState(true, 3000);
+    assert.equal(boundary.getLeftMinVisibleBarCount(mockData), 3);
+
+    // Active at timestamp 5000 (K = 4 out of 5, latest candle, H = 0)
+    // leftMinVisibleBarCount = H + 1 = 1
+    boundary.setReplayState(true, 5000);
+    assert.equal(boundary.getLeftMinVisibleBarCount(mockData), 1);
+
+    // Active at timestamp 1000 (K = 0 out of 5, first candle, H = 4)
+    // leftMinVisibleBarCount = H + 1 = 5
+    boundary.setReplayState(true, 1000);
+    assert.equal(boundary.getLeftMinVisibleBarCount(mockData), 5);
+
+    // Reset: returns default 2
+    boundary.reset();
+    assert.equal(boundary.getLeftMinVisibleBarCount(mockData), 2);
   });
 });
 

@@ -272,3 +272,80 @@ export function utcTimestampToWallClock(timestamp: number, timeZone: string): Wa
 
   return { year, month, day, hour, minute, second };
 }
+
+/**
+ * Converts a canonical "HH:mm" time string in GMT/UTC to the corresponding "HH:mm" wall-clock time
+ * in the specified target timezone.
+ *
+ * @param gmtTimeStr - "HH:mm" in GMT/UTC (e.g. "08:00")
+ * @param targetTimezone - Target IANA timezone or app label (e.g. "America/New_York" or "(UTC-4) New York")
+ * @param referenceDate - Optional reference date (defaults to current date for accurate DST evaluation)
+ */
+export function gmtTimeToDisplayTime(
+  gmtTimeStr: string,
+  targetTimezone?: string,
+  referenceDate?: Date
+): string {
+  if (!targetTimezone || targetTimezone === 'Exchange' || targetTimezone === 'UTC') {
+    return gmtTimeStr;
+  }
+
+  const effectiveTz = resolveEffectiveTimezone(targetTimezone);
+  if (effectiveTz === 'UTC' || effectiveTz === 'Etc/UTC') {
+    return gmtTimeStr;
+  }
+
+  const parts = gmtTimeStr.split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+
+  const ref = referenceDate || new Date();
+  const utcMs = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), h, m, 0, 0);
+
+  const wallClock = utcTimestampToWallClock(utcMs, effectiveTz);
+  const hourStr = String(wallClock.hour).padStart(2, '0');
+  const minStr = String(wallClock.minute).padStart(2, '0');
+  return `${hourStr}:${minStr}`;
+}
+
+/**
+ * Converts a "HH:mm" wall-clock time entered in the specified display timezone
+ * back to the canonical "HH:mm" in GMT/UTC reference time.
+ *
+ * @param displayTimeStr - "HH:mm" in the display timezone (e.g. "04:00")
+ * @param displayTimezone - Source IANA timezone or app label (e.g. "America/New_York")
+ * @param referenceDate - Optional reference date (defaults to current date for accurate DST evaluation)
+ */
+export function displayTimeToGmtTime(
+  displayTimeStr: string,
+  displayTimezone?: string,
+  referenceDate?: Date
+): string {
+  if (!displayTimezone || displayTimezone === 'Exchange' || displayTimezone === 'UTC') {
+    return displayTimeStr;
+  }
+
+  const effectiveTz = resolveEffectiveTimezone(displayTimezone);
+  if (effectiveTz === 'UTC' || effectiveTz === 'Etc/UTC') {
+    return displayTimeStr;
+  }
+
+  const parts = displayTimeStr.split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+
+  const ref = referenceDate || new Date();
+  const utcMs = wallClockToUtcTimestamp(
+    ref.getUTCFullYear(),
+    ref.getUTCMonth() + 1,
+    ref.getUTCDate(),
+    h,
+    m,
+    effectiveTz
+  );
+
+  const wallClockGmt = utcTimestampToWallClock(utcMs, 'UTC');
+  const hourStr = String(wallClockGmt.hour).padStart(2, '0');
+  const minStr = String(wallClockGmt.minute).padStart(2, '0');
+  return `${hourStr}:${minStr}`;
+}

@@ -23,6 +23,7 @@ interface ChartInstanceWithData {
   subscribeAction?: (action: string, callback: () => void) => void;
   unsubscribeAction?: (action: string, callback: () => void) => void;
   _appTimezone?: string;
+  _chartOffsetMs?: number;
 }
 
 interface ActiveSessionBannersProps {
@@ -66,7 +67,7 @@ export const ActiveSessionBanners: React.FC<ActiveSessionBannersProps> = ({
     [chartInstancesRef, slotIndex]
   );
 
-  // Snapshot string "currentCandleTime|appTimezone" - compared by value to prevent tearing/infinite loops
+  // Snapshot string "currentCandleTime|appTimezone|chartOffsetMs" - compared by value to prevent tearing/infinite loops
   const getSnapshot = useCallback((): string => {
     const chart = chartInstancesRef.current[slotIndex] as ChartInstanceWithData | null;
     if (!chart || typeof chart.getDataList !== 'function') {
@@ -86,7 +87,7 @@ export const ActiveSessionBanners: React.FC<ActiveSessionBannersProps> = ({
       return '';
     }
 
-    return `${currentCandleTime}|${chart._appTimezone || ''}`;
+    return `${currentCandleTime}|${chart._appTimezone || ''}|${chart._chartOffsetMs || 0}`;
   }, [chartInstancesRef, slotIndex, isReplayActive, replayCurrentTimestamp]);
 
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => '');
@@ -95,27 +96,31 @@ export const ActiveSessionBanners: React.FC<ActiveSessionBannersProps> = ({
     return null;
   }
 
-  const separatorIndex = snapshot.indexOf('|');
-  const currentCandleTime = Number(snapshot.slice(0, separatorIndex));
-  const appTimezone = snapshot.slice(separatorIndex + 1) || undefined;
+  const parts = snapshot.split('|');
+  const currentCandleTime = Number(parts[0]);
+  const appTimezone = parts[1] || undefined;
+  const chartOffsetMs = Number(parts[2]) || 0;
 
   if (!Number.isFinite(currentCandleTime)) {
     return null;
   }
 
+  // Convert currentCandleTime from chart coordinate space into true UTC
+  const currentCandleTimeUtc = currentCandleTime - chartOffsetMs;
+
   const BUFFER_MS = 7 * 24 * 60 * 60 * 1000;
-  const visibleStart = Math.max(0, currentCandleTime - BUFFER_MS);
-  const visibleEnd = currentCandleTime + BUFFER_MS;
+  const visibleStart = Math.max(0, currentCandleTimeUtc - BUFFER_MS);
+  const visibleEnd = currentCandleTimeUtc + BUFFER_MS;
 
   const { occurrences } = calculateSessionOccurrences({
     settings,
     visibleStart,
     visibleEnd,
-    currentTime: currentCandleTime,
+    currentTime: currentCandleTimeUtc,
     appTimezone,
   });
 
-  const activeSessions = getActiveSessions(occurrences, currentCandleTime);
+  const activeSessions = getActiveSessions(occurrences, currentCandleTimeUtc);
   if (activeSessions.length === 0) {
     return null;
   }
