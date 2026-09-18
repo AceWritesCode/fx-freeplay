@@ -27,7 +27,7 @@ import {
   parseTimezoneToLabelAndOffset,
   scanDirectoryHandles,
 } from '@/engine/market';
-import { persistenceService, captureChartViewport, restoreChartViewport, type ViewportScaleState } from '@/engine/workspace';
+import { persistenceService, captureChartViewport, restoreChartViewport, applyAxisRange, type ViewportScaleState } from '@/engine/workspace';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
 import { getTrueOffsetRightDistance, isSyncEngineActive } from '@/engine/charting';
 
@@ -478,9 +478,7 @@ export function useWorkspaceCoordinator(
           : await getOrImportTimeframeData(slotSym, slotTf);
         if (!slotData || slotData.length === 0) continue;
 
-        const visibleData = activeReplay && alignedTimestamp !== null
-          ? slotData.filter((d) => d.timestamp <= alignedTimestamp)
-          : slotData;
+        const visibleData = slotData;
 
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {
@@ -495,47 +493,86 @@ export function useWorkspaceCoordinator(
         chart.setPeriod(parseTimeframeToPeriod(slotTf));
         (chart as any)._loadedTimeframe = slotTf;
 
-        let scrollIndex = -1;
-        let isHistorical = false;
-
         if (activeReplay && alignedTimestamp !== null) {
-          scrollIndex = findCandleIndexByTimestamp(visibleData, alignedTimestamp);
-        } else if (!activeReplay && capturedViewportState && !isSymbolSwitch) {
-          if (capturedViewportState.isNearRightEdge) {
-            scrollIndex = slotData.length - 1;
-          } else if (capturedViewportState.centerTimestamp) {
-            const matchedIdx = findCandleIndexByTimestamp(visibleData, capturedViewportState.centerTimestamp);
-            if (matchedIdx !== -1) {
-              scrollIndex = matchedIdx;
-              isHistorical = true;
+          const lastRevealed = findCandleIndexByTimestamp(slotData, alignedTimestamp);
+          if (lastRevealed !== -1) {
+            const N = slotData.length;
+            const K = lastRevealed;
+            const H = Math.max(0, N - 1 - K);
+            if (typeof chart.setLeftMinVisibleBarCount === 'function') {
+              chart.setLeftMinVisibleBarCount(H + 1);
+            }
+
+            const chartSize = chart.getSize?.();
+            const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+            const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
+            const targetOffset = chartWidth * resetRatio;
+
+            const barSpaceVal = chart.getBarSpace?.();
+            let space = 6;
+            if (typeof barSpaceVal === 'number') space = barSpaceVal;
+            else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
+
+            const hiddenWidth = H * space;
+            const effectiveOffset = targetOffset - hiddenWidth;
+
+            (chart as any)._isProgrammaticScroll = true;
+            chart.setOffsetRightDistance(effectiveOffset);
+            requestAnimationFrame(() => {
+              chart.setOffsetRightDistance(effectiveOffset);
+              (chart as any)._isProgrammaticScroll = false;
+            });
+          }
+
+          if (idx === activeChartIndex && wasManualScaleRef.current && capturedYAxisRangeRef.current) {
+            const p = chart.getDrawPaneById?.('candle_pane');
+            const ya = p?.getYAxisComponents?.()?.[0];
+            if (ya) {
+              applyAxisRange(ya, capturedYAxisRangeRef.current.from, capturedYAxisRangeRef.current.to);
+              ya.setAutoCalcTickFlag?.(false);
+            }
+          }
+        } else {
+          let scrollIndex = -1;
+          let isHistorical = false;
+
+          if (capturedViewportState && !isSymbolSwitch) {
+            if (capturedViewportState.isNearRightEdge) {
+              scrollIndex = slotData.length - 1;
+            } else if (capturedViewportState.centerTimestamp) {
+              const matchedIdx = findCandleIndexByTimestamp(visibleData, capturedViewportState.centerTimestamp);
+              if (matchedIdx !== -1) {
+                scrollIndex = matchedIdx;
+                isHistorical = true;
+              } else {
+                scrollIndex = slotData.length - 1;
+              }
             } else {
               scrollIndex = slotData.length - 1;
             }
           } else {
             scrollIndex = slotData.length - 1;
           }
-        } else {
-          scrollIndex = slotData.length - 1;
-        }
 
-        if (scrollIndex !== -1) {
-          if (idx === activeChartIndex) {
-            const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
+          if (scrollIndex !== -1) {
+            if (idx === activeChartIndex) {
+              const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
 
-            restoreChartViewport(
-              chart,
-              capturedViewportState || {
-                offset: capturedOffsetRef.current,
-                wasManualScale: wasManualScaleRef.current,
-                yAxisRange: capturedYAxisRangeRef.current,
-              },
-              scrollIndex,
-              isSymbolSwitch,
-              resetRatio,
-              isHistorical
-            );
-          } else {
-            chart.scrollToDataIndex(scrollIndex);
+              restoreChartViewport(
+                chart,
+                capturedViewportState || {
+                  offset: capturedOffsetRef.current,
+                  wasManualScale: wasManualScaleRef.current,
+                  yAxisRange: capturedYAxisRangeRef.current,
+                },
+                scrollIndex,
+                isSymbolSwitch,
+                resetRatio,
+                isHistorical
+              );
+            } else {
+              chart.scrollToDataIndex(scrollIndex);
+            }
           }
         }
       }

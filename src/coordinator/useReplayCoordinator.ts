@@ -649,8 +649,6 @@ export function useReplayCoordinator(
     if (lastActiveTimeframeRef.current === activeTimeframe) {
       return;
     }
-    lastActiveTimeframeRef.current = activeTimeframe;
-
     const fullData = allTimeframesData[activeTimeframe] || [];
     const currentTs = replayCurrentTimestampRef.current;
     if (fullData.length === 0 || currentTs === null) {
@@ -680,6 +678,7 @@ export function useReplayCoordinator(
           }
         });
         unsubscribeRef.current = unsub;
+        lastActiveTimeframeRef.current = activeTimeframe;
       } catch (err) {
         console.error('[ReplayCoordinator] Failed to sync session on timeframe switch:', err);
       }
@@ -694,129 +693,17 @@ export function useReplayCoordinator(
     if (fullData.length === 0) return;
 
     const firstCandle = fullData[0];
-    const firstTimestamp = firstCandle.timestamp;
-
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-
-    try {
-      const session = replayEngine.createSession({
-        symbol: slot.symbol,
-        historicalData: fullData,
-        startIndex: 0,
-      });
-      sessionRef.current = session;
-      session.setStatus('PAUSED');
-
-      const unsub = session.subscribe((state) => {
-        setReplayCurrentTimestamp(state.currentTimestamp);
-        setBookmarks(state.bookmarks);
-        if (state.status === 'COMPLETED') {
-          setIsReplayPlaying(false);
-        }
-      });
-      unsubscribeRef.current = unsub;
-    } catch (err) {
-      console.error('[ReplayCoordinator] Failed to recreate replay session on shift:', err);
-    }
-
-    // Ensure the chart viewport centers on the newly shifted candle
-    const activeChart = chartInstancesRef.current[activeChartIndex];
-    const chartSize = activeChart ? activeChart.getSize() : null;
-    const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-    const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
-    capturedOffsetRef.current = chartWidth * resetRatio;
-
-    setReplayCurrentTimestamp(firstTimestamp);
-    setIsReplayPlaying(false);
+    handleSelectCutPoint(firstCandle.timestamp);
   };
 
   const handleJumpToDate = (targetTimestamp: number) => {
     const fullData = allTimeframesData[activeTimeframe] || [];
     if (fullData.length === 0) return;
 
-    let closestCandle = fullData[0];
-    for (let i = 0; i < fullData.length; i++) {
-      if (fullData[i].timestamp <= targetTimestamp) {
-        closestCandle = fullData[i];
-      } else {
-        break;
-      }
-    }
+    const candleIdx = findCandleIndexByTimestamp(fullData, targetTimestamp);
+    const resolvedTimestamp = candleIdx !== -1 ? fullData[candleIdx].timestamp : fullData[0].timestamp;
 
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-
-    const startIndex = findCandleIndexByTimestamp(fullData, closestCandle.timestamp);
-
-    try {
-      const session = replayEngine.createSession({
-        symbol: slots[activeChartIndex]?.symbol || 'INGEST',
-        historicalData: fullData,
-        startIndex: startIndex !== -1 ? startIndex : 0,
-      });
-
-      sessionRef.current = session;
-      session.setStatus('PAUSED');
-
-      const unsub = session.subscribe((state) => {
-        setReplayCurrentTimestamp(state.currentTimestamp);
-        setBookmarks(state.bookmarks);
-        if (state.status === 'COMPLETED') {
-          setIsReplayPlaying(false);
-        }
-      });
-      unsubscribeRef.current = unsub;
-    } catch (err) {
-      console.error('[ReplayCoordinator] Failed to recreate replay session on jump to date:', err);
-    }
-
-    // Position chart viewports to the target candle using the preferred reset view offset
-    slots.forEach((slot, idx) => {
-      const c = chartInstancesRef.current[idx];
-      if (!c || !slot?.symbol) return;
-
-      const slotFullData = (allTimeframesData[slot.timeframe]?.length > 0)
-        ? allTimeframesData[slot.timeframe]
-        : ((c.getDataList?.() || []) as any[]);
-
-      if (slotFullData.length > 0) {
-        const lastRevealed = findCandleIndexByTimestamp(slotFullData, closestCandle.timestamp);
-        if (lastRevealed !== -1) {
-          const H = Math.max(0, slotFullData.length - 1 - lastRevealed);
-          if (typeof c.setLeftMinVisibleBarCount === 'function') {
-            c.setLeftMinVisibleBarCount(H + 1);
-          }
-
-          const chartSize = c.getSize();
-          const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-          const resetRatio = settings?.resetViewOffsetRatio ?? 0.5;
-          const targetOffset = chartWidth * resetRatio;
-
-          const barSpaceVal = c.getBarSpace();
-          let space = 6;
-          if (typeof barSpaceVal === 'number') space = barSpaceVal;
-          else if (typeof barSpaceVal === 'object' && barSpaceVal) space = (barSpaceVal as any).bar || 6;
-
-          const hiddenWidth = H * space;
-          const effectiveOffset = targetOffset - hiddenWidth;
-
-          (c as any)._isProgrammaticScroll = true;
-          c.setOffsetRightDistance(effectiveOffset);
-          requestAnimationFrame(() => {
-            c.setOffsetRightDistance(effectiveOffset);
-            (c as any)._isProgrammaticScroll = false;
-          });
-        }
-      }
-    });
-
-    setReplayCurrentTimestamp(closestCandle.timestamp);
-    setIsReplayPlaying(false);
+    handleSelectCutPoint(resolvedTimestamp);
   };
 
   return {

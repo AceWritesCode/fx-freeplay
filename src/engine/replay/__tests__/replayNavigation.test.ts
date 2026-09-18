@@ -5,6 +5,7 @@ import {
   getNextReplayTimestamp,
   getPrevReplayTimestamp
 } from '../replayNavigation.ts';
+import { calculateSpeedSteps, getClosestStepIndex } from '../../../utils/replayUtils.ts';
 import type { KLineData } from '../../../utils/dataUtils.ts';
 
 describe('replayNavigation - findCandleIndexByTimestamp Binary Search', () => {
@@ -117,4 +118,74 @@ describe('replayNavigation - findCandleIndexByTimestamp Binary Search', () => {
       assert.equal(actual, expected, `Mismatch for timestamp ${ts}: expected ${expected}, got ${actual}`);
     }
   });
+
+  it('correctly resolves jump-to-date target timestamps to valid candle cut points', () => {
+    // Exact match
+    const idx1 = findCandleIndexByTimestamp(sampleData, 3000);
+    assert.equal(sampleData[idx1].timestamp, 3000);
+
+    // In-between timestamps resolve to preceding floor candle
+    const idx2 = findCandleIndexByTimestamp(sampleData, 3500);
+    assert.equal(sampleData[idx2].timestamp, 3000);
+
+    // After last candle resolves to last candle
+    const idx3 = findCandleIndexByTimestamp(sampleData, 9999);
+    assert.equal(sampleData[idx3].timestamp, 5000);
+
+    // Before first candle falls back to first candle (or -1 handled by coordinator)
+    const idx4 = findCandleIndexByTimestamp(sampleData, 500);
+    assert.equal(idx4, -1);
+  });
 });
+
+describe('replayUtils - calculateSpeedSteps and getClosestStepIndex (10-point control)', () => {
+  it('generates exactly 10 distinct speed steps for default 3.0s to 0.1s range', () => {
+    const steps = calculateSpeedSteps(3.0, 0.1, 10);
+    assert.equal(steps.length, 10);
+    assert.equal(steps[0], 3.0); // Slowest (max duration)
+    assert.equal(steps[9], 0.1); // Fastest (min duration)
+
+    // Check strict monotonic decrease
+    for (let i = 1; i < steps.length; i++) {
+      assert.ok(steps[i] < steps[i - 1], `Step at ${i} (${steps[i]}) must be less than previous (${steps[i - 1]})`);
+    }
+
+    // Check all values are distinct
+    const uniqueSteps = new Set(steps);
+    assert.equal(uniqueSteps.size, 10);
+  });
+
+  it('preserves custom min and max speed boundaries dynamically', () => {
+    const steps = calculateSpeedSteps(5.0, 0.05, 10);
+    assert.equal(steps.length, 10);
+    assert.equal(steps[0], 5.0);
+    assert.equal(steps[9], 0.05);
+
+    for (let i = 1; i < steps.length; i++) {
+      assert.ok(steps[i] < steps[i - 1]);
+    }
+  });
+
+  it('handles degenerate min == max range safely', () => {
+    const steps = calculateSpeedSteps(2.0, 2.0, 10);
+    assert.equal(steps.length, 10);
+    assert.ok(steps.every((s) => s === 2.0));
+  });
+
+  it('accurately resolves closest step index for slider snapping', () => {
+    const steps = calculateSpeedSteps(3.0, 0.1, 10);
+    // Exact match
+    assert.equal(getClosestStepIndex(steps, 3.0), 0);
+    assert.equal(getClosestStepIndex(steps, 0.1), 9);
+
+    // Initial default speed (1.0s/b) maps cleanly to closest step
+    const defaultIdx = getClosestStepIndex(steps, 1.0);
+    assert.ok(defaultIdx >= 0 && defaultIdx < 10);
+    assert.ok(Math.abs(steps[defaultIdx] - 1.0) < 0.1);
+
+    // Mid-range value snaps to nearest
+    const step3 = steps[3];
+    assert.equal(getClosestStepIndex(steps, step3 + 0.001), 3);
+  });
+});
+

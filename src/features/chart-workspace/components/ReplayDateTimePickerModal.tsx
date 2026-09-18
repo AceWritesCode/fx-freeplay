@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Shuffle, FastForward, Calendar, Clock, Minus, Plus } from 'lucide-react';
 import type { KLineData } from '@/utils/dataUtils';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
@@ -13,6 +13,7 @@ interface ReplayDateTimePickerModalProps {
   activeTimeframe: string;
   activeSymbol: string;
   onSelectTimestamp: (timestamp: number) => void;
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 const DAYS_OF_WEEK = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -142,6 +143,20 @@ const TimeUnitControl: React.FC<TimeUnitControlProps> = ({
   );
 };
 
+const getAnchorCoords = (anchor: HTMLElement | null) => {
+  if (anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const width = 330;
+    const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
+    const bottom = Math.max(60, window.innerHeight - rect.top + 16);
+    return { bottom, left };
+  }
+  if (typeof window !== 'undefined') {
+    return { bottom: 60, left: Math.max(12, window.innerWidth / 2 - 165) };
+  }
+  return { bottom: 60, left: 12 };
+};
+
 export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps> = ({
   isOpen,
   onClose,
@@ -150,7 +165,49 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
   activeTimeframe,
   activeSymbol,
   onSelectTimestamp,
+  anchorRef,
 }) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ bottom: number; left: number }>(() => 
+    getAnchorCoords(anchorRef?.current ?? null)
+  );
+
+  const updatePosition = useCallback(() => {
+    setCoords(getAnchorCoords(anchorRef?.current ?? null));
+  }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [isOpen, updatePosition]);
+
+  // Close on Escape key or outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(target) &&
+        (!anchorRef?.current || !anchorRef.current.contains(target))
+      ) {
+        onClose();
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose, anchorRef]);
   const fullData = useMemo(() => {
     return allTimeframesData?.[activeTimeframe] || [];
   }, [allTimeframesData, activeTimeframe]);
@@ -223,7 +280,7 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
       setHour(initialDate.getHours());
       setMinute(initialDate.getMinutes());
     }
-  }, [isOpen, currentTimestamp, minTimestamp]);
+  }, [isOpen]);
 
   // Close on Escape key
   useEffect(() => {
@@ -238,6 +295,23 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  // Immediate timestamp calculation & dispatcher
+  const applyTimestampChange = (date: Date, h: number, m: number) => {
+    if (fullData.length === 0) return;
+    const targetDate = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      h,
+      m,
+      0
+    );
+    const targetTimestamp = targetDate.getTime();
+    const candleIdx = findCandleIndexByTimestamp(fullData, targetTimestamp);
+    const resolvedTimestamp = candleIdx !== -1 ? fullData[candleIdx].timestamp : fullData[0].timestamp;
+    onSelectTimestamp(resolvedTimestamp);
+  };
 
   // Calendar matrix computation
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1);
@@ -330,6 +404,17 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
     setSelectedDate(d);
     setViewYear(d.getFullYear());
     setViewMonth(d.getMonth());
+    applyTimestampChange(d, hour, minute);
+  };
+
+  const handleHourChange = (newHour: number) => {
+    setHour(newHour);
+    applyTimestampChange(selectedDate, newHour, minute);
+  };
+
+  const handleMinuteChange = (newMinute: number) => {
+    setMinute(newMinute);
+    applyTimestampChange(selectedDate, hour, newMinute);
   };
 
   const handleRandomDate = () => {
@@ -343,6 +428,7 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
       setViewMonth(d.getMonth());
       setHour(d.getHours());
       setMinute(d.getMinutes());
+      onSelectTimestamp(candle.timestamp);
     }
   };
 
@@ -356,31 +442,8 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
       setViewMonth(d.getMonth());
       setHour(d.getHours());
       setMinute(d.getMinutes());
+      onSelectTimestamp(firstCandle.timestamp);
     }
-  };
-
-  const handleConfirm = () => {
-    if (fullData.length === 0) {
-      onClose();
-      return;
-    }
-
-    const targetDate = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      hour,
-      minute,
-      0
-    );
-    const targetTimestamp = targetDate.getTime();
-
-    // Resolve to the closest candle in dataset
-    const candleIdx = findCandleIndexByTimestamp(fullData, targetTimestamp);
-    const resolvedTimestamp = candleIdx !== -1 ? fullData[candleIdx].timestamp : fullData[0].timestamp;
-
-    onSelectTimestamp(resolvedTimestamp);
-    onClose();
   };
 
   const formattedSelectedPreview = `${selectedDate.toLocaleDateString(undefined, {
@@ -391,195 +454,180 @@ export const ReplayDateTimePickerModal: React.FC<ReplayDateTimePickerModalProps>
   })} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-overlay-bg/70 backdrop-blur-xs flex items-center justify-center p-4 select-none">
-      <div 
-        className="bg-surface border border-border-def rounded-xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col text-txt-secondary"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-def bg-surface-elevated/40">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-accent" />
-            <h2 className="text-xs font-bold text-txt-primary">Jump to Replay Date</h2>
+    <div 
+      ref={popoverRef}
+      style={{ position: 'fixed', bottom: `${coords.bottom}px`, left: `${coords.left}px` }}
+      className="bg-surface border border-border-def rounded-xl shadow-2xl z-50 w-[330px] overflow-hidden flex flex-col text-txt-secondary select-none animate-in fade-in slide-in-from-bottom-3 duration-200 ease-out origin-bottom"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Popover Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-def bg-surface-elevated/40">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-accent" />
+          <h2 className="text-xs font-bold text-txt-primary">Jump to Replay Date</h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1 rounded-md text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Data Range Subheader */}
+      <div className="px-4 py-1.5 bg-app-bg/60 border-b border-border-sub/40 text-[10px] flex items-center justify-between text-txt-muted">
+        <span className="font-semibold text-txt-secondary">
+          {activeSymbol} · {formatTimeframeDisplay(activeTimeframe)}
+        </span>
+        <span className="truncate max-w-[170px]">
+          {minTimestamp && maxTimestamp
+            ? `${formatDataRangeDate(minTimestamp).split(' ')[0]} ${formatDataRangeDate(minTimestamp).split(' ')[1]} — ${formatDataRangeDate(maxTimestamp).split(' ')[0]} ${formatDataRangeDate(maxTimestamp).split(' ')[1]}`
+            : 'No data'}
+        </span>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-2 p-2.5 bg-surface border-b border-border-sub/40">
+        <button
+          type="button"
+          onClick={handleStartFromFirstData}
+          disabled={fullData.length === 0}
+          className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-surface-elevated hover:bg-surface-hover border border-border-sub text-[11px] font-medium text-txt-primary transition-all disabled:opacity-40 cursor-pointer"
+          title="Jump to the first available candle"
+        >
+          <FastForward className="w-3.5 h-3.5 rotate-180 text-accent" />
+          <span>Start From First</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleRandomDate}
+          disabled={fullData.length === 0}
+          className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-surface-elevated hover:bg-surface-hover border border-border-sub text-[11px] font-medium text-txt-primary transition-all disabled:opacity-40 cursor-pointer"
+          title="Pick a random date within available data"
+        >
+          <Shuffle className="w-3.5 h-3.5 text-accent" />
+          <span>Random Date</span>
+        </button>
+      </div>
+
+      {/* Calendar Navigation & Month Picker */}
+      <div className="p-3 space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-bold text-txt-primary">
+            {MONTH_NAMES[viewMonth]} {viewYear}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1 rounded-md hover:bg-surface-hover text-txt-muted hover:text-txt-primary transition-colors cursor-pointer"
+              title="Previous Month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1 rounded-md hover:bg-surface-hover text-txt-muted hover:text-txt-primary transition-colors cursor-pointer"
+              title="Next Month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-md text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
 
-        {/* Data Range Subheader */}
-        <div className="px-4 py-2 bg-app-bg/60 border-b border-border-sub/40 text-[11px] flex items-center justify-between text-txt-muted">
-          <span className="font-semibold text-txt-secondary">
-            {activeSymbol} · {formatTimeframeDisplay(activeTimeframe)}
-          </span>
-          <span>
-            {minTimestamp && maxTimestamp
-              ? `${formatDataRangeDate(minTimestamp).split(' ')[0]} ${formatDataRangeDate(minTimestamp).split(' ')[1]} ${formatDataRangeDate(minTimestamp).split(' ')[2]} — ${formatDataRangeDate(maxTimestamp).split(' ')[0]} ${formatDataRangeDate(maxTimestamp).split(' ')[1]} ${formatDataRangeDate(maxTimestamp).split(' ')[2]}`
-              : 'No data'}
-          </span>
+        {/* Calendar Grid */}
+        <div>
+          {/* Weekday Names */}
+          <div className="grid grid-cols-7 text-center mb-1 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
+            {DAYS_OF_WEEK.map((w) => (
+              <div key={w} className="py-1">{w}</div>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            {calendarDays.map((item, idx) => {
+              const isCurrentMonth = item.monthOffset === 0;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={!item.isAvailable}
+                  onClick={() => handleDaySelect(item.date)}
+                  className={`h-7 w-full flex items-center justify-center rounded-md font-medium text-xs transition-all cursor-pointer ${
+                    item.isSelected
+                      ? 'bg-accent text-txt-inverse font-bold shadow-xs'
+                      : item.isAvailable
+                      ? isCurrentMonth
+                        ? 'text-txt-primary hover:bg-surface-hover'
+                        : 'text-txt-muted/70 hover:bg-surface-hover'
+                      : 'text-txt-muted/30 cursor-not-allowed'
+                  }`}
+                >
+                  {item.day}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-2 p-3 bg-surface border-b border-border-sub/40">
-          <button
-            type="button"
-            onClick={handleStartFromFirstData}
-            disabled={fullData.length === 0}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-surface-elevated hover:bg-surface-hover border border-border-sub text-[11px] font-medium text-txt-primary transition-all disabled:opacity-40 cursor-pointer"
-            title="Jump to the first available candle"
-          >
-            <FastForward className="w-3.5 h-3.5 rotate-180 text-accent" />
-            <span>Start From First</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleRandomDate}
-            disabled={fullData.length === 0}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-surface-elevated hover:bg-surface-hover border border-border-sub text-[11px] font-medium text-txt-primary transition-all disabled:opacity-40 cursor-pointer"
-            title="Pick a random date within available data"
-          >
-            <Shuffle className="w-3.5 h-3.5 text-accent" />
-            <span>Random Date</span>
-          </button>
-        </div>
-
-        {/* Calendar Navigation & Month Picker */}
-        <div className="p-3 space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-txt-primary">
-              {MONTH_NAMES[viewMonth]} {viewYear}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="p-1 rounded-md hover:bg-surface-hover text-txt-muted hover:text-txt-primary transition-colors cursor-pointer"
-                title="Previous Month"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1 rounded-md hover:bg-surface-hover text-txt-muted hover:text-txt-primary transition-colors cursor-pointer"
-                title="Next Month"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+        {/* Time Picker Controls */}
+        <div className="pt-2 border-t border-border-sub/40 space-y-2">
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-1.5 text-txt-muted flex-shrink-0">
+              <Clock className="w-3.5 h-3.5 text-accent" />
+              <span className="font-semibold text-txt-primary">Time</span>
             </div>
-          </div>
 
-          {/* Calendar Grid */}
-          <div>
-            {/* Weekday Names */}
-            <div className="grid grid-cols-7 text-center mb-1 text-[10px] font-bold text-txt-muted uppercase tracking-wider">
-              {DAYS_OF_WEEK.map((w) => (
-                <div key={w} className="py-1">{w}</div>
+            {/* Session Buttons sourced from Indicator Settings */}
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              {availableSessions.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  onClick={() => {
+                    const [h, m] = session.startTime.split(':').map(Number);
+                    if (!isNaN(h) && !isNaN(m)) {
+                      const validH = Math.max(0, Math.min(23, h));
+                      const validM = Math.max(0, Math.min(59, m));
+                      setHour(validH);
+                      setMinute(validM);
+                      applyTimestampChange(selectedDate, validH, validM);
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded bg-surface-elevated hover:bg-surface-hover border border-border-sub/40 text-[10px] font-semibold text-txt-secondary hover:text-txt-primary transition-all cursor-pointer shadow-xs active:scale-95"
+                  title={`Set to ${session.name} start (${session.startTime})`}
+                >
+                  {session.name}
+                </button>
               ))}
             </div>
-
-            {/* Days Grid */}
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {calendarDays.map((item, idx) => {
-                const isCurrentMonth = item.monthOffset === 0;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    disabled={!item.isAvailable}
-                    onClick={() => handleDaySelect(item.date)}
-                    className={`h-7 w-full flex items-center justify-center rounded-md font-medium text-xs transition-all cursor-pointer ${
-                      item.isSelected
-                        ? 'bg-accent text-txt-inverse font-bold shadow-xs'
-                        : item.isAvailable
-                        ? isCurrentMonth
-                          ? 'text-txt-primary hover:bg-surface-hover'
-                          : 'text-txt-muted/70 hover:bg-surface-hover'
-                        : 'text-txt-muted/30 cursor-not-allowed'
-                    }`}
-                  >
-                    {item.day}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          {/* Time Picker Controls */}
-          <div className="pt-2 border-t border-border-sub/40 space-y-2">
-            <div className="flex items-center justify-between text-xs gap-2">
-              <div className="flex items-center gap-1.5 text-txt-muted flex-shrink-0">
-                <Clock className="w-3.5 h-3.5 text-accent" />
-                <span className="font-semibold text-txt-primary">Time</span>
-              </div>
-
-              {/* Session Buttons sourced from Indicator Settings */}
-              <div className="flex items-center gap-1 flex-wrap justify-end">
-                {availableSessions.map((session) => (
-                  <button
-                    key={session.id}
-                    type="button"
-                    onClick={() => {
-                      const [h, m] = session.startTime.split(':').map(Number);
-                      if (!isNaN(h) && !isNaN(m)) {
-                        setHour(Math.max(0, Math.min(23, h)));
-                        setMinute(Math.max(0, Math.min(59, m)));
-                      }
-                    }}
-                    className="px-2 py-0.5 rounded bg-surface-elevated hover:bg-surface-hover border border-border-sub/40 text-[10px] font-semibold text-txt-secondary hover:text-txt-primary transition-all cursor-pointer shadow-xs active:scale-95"
-                    title={`Set to ${session.name} start (${session.startTime})`}
-                  >
-                    {session.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom Stepper & Editable Controls: Hours and Minutes */}
-            <div className="grid grid-cols-2 gap-2">
-              <TimeUnitControl
-                label="Hours"
-                value={hour}
-                max={23}
-                onChange={setHour}
-              />
-              <TimeUnitControl
-                label="Minutes"
-                value={minute}
-                max={59}
-                onChange={setMinute}
-              />
-            </div>
-          </div>
-
-          {/* Selected Preview */}
-          <div className="py-1 px-2.5 rounded-lg bg-surface-elevated/50 border border-border-sub/30 flex items-center justify-between text-[11px]">
-            <span className="text-txt-muted">Target:</span>
-            <span className="font-mono font-semibold text-txt-primary">{formattedSelectedPreview}</span>
+          {/* Custom Stepper & Editable Controls: Hours and Minutes */}
+          <div className="grid grid-cols-2 gap-2">
+            <TimeUnitControl
+              label="Hours"
+              value={hour}
+              max={23}
+              onChange={handleHourChange}
+            />
+            <TimeUnitControl
+              label="Minutes"
+              value={minute}
+              max={59}
+              onChange={handleMinuteChange}
+            />
           </div>
         </div>
 
-        {/* Modal Footer Buttons */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border-def bg-surface-elevated/30">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold bg-accent hover:bg-accent/90 text-txt-inverse transition-all shadow-sm cursor-pointer"
-          >
-            Confirm
-          </button>
+        {/* Selected Preview */}
+        <div className="py-1 px-2.5 rounded-lg bg-surface-elevated/50 border border-border-sub/30 flex items-center justify-between text-[11px]">
+          <span className="text-txt-muted">Target:</span>
+          <span className="font-mono font-semibold text-txt-primary">{formattedSelectedPreview}</span>
         </div>
       </div>
     </div>
