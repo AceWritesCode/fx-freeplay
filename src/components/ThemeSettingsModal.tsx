@@ -101,6 +101,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const { themeMode, setThemeMode, customTheme, setCustomTheme } = useSettingsStore();
   const [activeTab, setActiveTab] = useState<TabType>('Theme');
   const [formState, setFormState] = useState<ChartSettings>(() => ({
+    chartType: 'candlestick',
+    lineColor: '#2962FF',
     ...settings,
     syncChartBackgroundWithTheme: settings.syncChartBackgroundWithTheme ?? getStoredSyncChartBackground(),
   }));
@@ -114,6 +116,8 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       setFormState({
+        chartType: 'candlestick',
+        lineColor: '#2962FF',
         ...settings,
         syncChartBackgroundWithTheme: settings.syncChartBackgroundWithTheme ?? getStoredSyncChartBackground(),
       });
@@ -503,16 +507,15 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       };
     }
 
-    if (fieldKey in formState) {
-      const chartKey = fieldKey as keyof ChartSettings;
-      return {
-        title,
-        color: (formState[chartKey] as string) || '#ffffff',
-        onChange: (c: string) => handleFieldChange(chartKey, c),
-      };
-    }
+    const chartKey = fieldKey as keyof ChartSettings;
+    const currentColor = (formState[chartKey] as string | undefined) || 
+      (chartKey === 'lineColor' ? (formState.bullColor || '#2962FF') : '#ffffff');
 
-    return null;
+    return {
+      title,
+      color: currentColor,
+      onChange: (c: string) => handleFieldChange(chartKey, c),
+    };
   };
 
   const activeColorConfig = getActiveColorConfig();
@@ -1087,21 +1090,46 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   />
                 </div>
 
+                {/* Line Color setting (only when Line Chart is selected) */}
+                {formState.chartType === 'line' && (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-txt-primary">Line Color</span>
+                      <p className="text-[11px] text-txt-muted mt-0.5">
+                        Customize the stroke color for the line chart.
+                      </p>
+                    </div>
+                    <ColorPickerButton
+                      color={formState.lineColor || formState.bullColor || '#2962FF'}
+                      title="Line Chart Color"
+                      fieldKey="lineColor"
+                      activeKey={activeColorField?.fieldKey ?? null}
+                      onToggle={setActiveColorField}
+                    />
+                  </div>
+                )}
+
                 <div className="border-t border-border-sub my-1" />
 
-                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Candles</div>
+                <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                  formState.chartType === 'line' ? 'text-txt-muted/50' : 'text-txt-muted'
+                }`}>
+                  Candles {formState.chartType === 'line' ? '(Disabled in Line Mode)' : ''}
+                </div>
 
                 {/* Body Colors */}
                 <div className="flex items-center justify-between">
                   <Checkbox
+                    disabled={formState.chartType === 'line'}
                     checked={formState.showBody}
                     onChange={(e) => handleFieldChange('showBody', e.target.checked)}
                     label="Body Fill"
+                    labelClassName={formState.chartType === 'line' ? 'text-txt-muted/50' : ''}
                   />
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullColor}
-                      disabled={!formState.showBody}
+                      disabled={formState.chartType === 'line' || !formState.showBody}
                       title="Bullish Body Color"
                       fieldKey="bullColor"
                       activeKey={activeColorField?.fieldKey ?? null}
@@ -1109,7 +1137,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     />
                     <ColorPickerButton
                       color={formState.bearColor}
-                      disabled={!formState.showBody}
+                      disabled={formState.chartType === 'line' || !formState.showBody}
                       title="Bearish Body Color"
                       fieldKey="bearColor"
                       activeKey={activeColorField?.fieldKey ?? null}
@@ -1121,14 +1149,16 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Borders Colors */}
                 <div className="flex items-center justify-between">
                   <Checkbox
+                    disabled={formState.chartType === 'line'}
                     checked={formState.showBorders}
                     onChange={(e) => handleFieldChange('showBorders', e.target.checked)}
                     label="Borders"
+                    labelClassName={formState.chartType === 'line' ? 'text-txt-muted/50' : ''}
                   />
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullBorderColor}
-                      disabled={!formState.showBorders}
+                      disabled={formState.chartType === 'line' || !formState.showBorders}
                       title="Bullish Border Color"
                       fieldKey="bullBorderColor"
                       activeKey={activeColorField?.fieldKey ?? null}
@@ -1136,7 +1166,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     />
                     <ColorPickerButton
                       color={formState.bearBorderColor}
-                      disabled={!formState.showBorders}
+                      disabled={formState.chartType === 'line' || !formState.showBorders}
                       title="Bearish Border Color"
                       fieldKey="bearBorderColor"
                       activeKey={activeColorField?.fieldKey ?? null}
@@ -1148,14 +1178,16 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Wick Colors */}
                 <div className="flex items-center justify-between">
                   <Checkbox
+                    disabled={formState.chartType === 'line'}
                     checked={formState.showWicks}
                     onChange={(e) => handleFieldChange('showWicks', e.target.checked)}
                     label="Wick Color"
+                    labelClassName={formState.chartType === 'line' ? 'text-txt-muted/50' : ''}
                   />
                   <div className="flex items-center gap-2">
                     <ColorPickerButton
                       color={formState.bullWickColor}
-                      disabled={!formState.showWicks}
+                      disabled={formState.chartType === 'line' || !formState.showWicks}
                       title="Bullish Wick Color"
                       fieldKey="bullWickColor"
                       activeKey={activeColorField?.fieldKey ?? null}
@@ -1163,7 +1195,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     />
                     <ColorPickerButton
                       color={formState.bearWickColor}
-                      disabled={!formState.showWicks}
+                      disabled={formState.chartType === 'line' || !formState.showWicks}
                       title="Bearish Wick Color"
                       fieldKey="bearWickColor"
                       activeKey={activeColorField?.fieldKey ?? null}

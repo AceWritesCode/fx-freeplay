@@ -93,18 +93,19 @@ export function registerReplayMaskIndicator(): void {
         barWidth = (barSpaceVal as any).bar || 6;
       }
 
-      const maskStartX = maskX + (barWidth / 2) + 1;
-      const maskWidth = Math.max(0, boundingWidth - maskStartX);
-
-      if (maskWidth <= 0) {
-        return true;
-      }
-
       // Dynamic theme background color resolution
       const settingsStore = useSettingsStore.getState();
       const settings = settingsStore.settings;
       const themeMode = settingsStore.themeMode;
       const customTheme = settingsStore.customTheme;
+
+      const isLineChart = (chart as any)?._chartType === 'line' || settings?.chartType === 'line';
+      const maskStartX = isLineChart ? maskX : maskX + (barWidth / 2) + 1;
+      const maskWidth = Math.max(0, boundingWidth - maskStartX);
+
+      if (maskWidth <= 0) {
+        return true;
+      }
 
       const maskColor =
         settings?.background ||

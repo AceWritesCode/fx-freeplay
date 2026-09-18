@@ -48,6 +48,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     applyThemeToDOM(getThemeTokens(mode, custom));
     const syncEnabled = settings.syncChartBackgroundWithTheme ?? storedSync;
     const mergedSettings: ChartSettings = {
+      chartType: 'candlestick',
+      lineColor: '#2962FF',
       ...settings,
       syncChartBackgroundWithTheme: syncEnabled,
     };

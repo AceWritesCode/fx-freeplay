@@ -247,17 +247,18 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     chart._priceLineStyle = s.priceLineStyle;
     chart._priceLineSize = s.priceLineSize;
     chart._priceLineColor = s.priceLineColor;
+    const isLine = s.chartType === 'line';
+    const effectiveLineColor = s.lineColor || s.bullColor || '#2962FF';
+
     chart._priceLineUseCandleColor = s.priceLineUseCandleColor;
-    chart._bullColor = s.bullColor;
-    chart._bearColor = s.bearColor;
+    chart._bullColor = isLine ? effectiveLineColor : s.bullColor;
+    chart._bearColor = isLine ? effectiveLineColor : s.bearColor;
     chart._showSessionBreaks = s.showSessionBreaks;
     chart._sessionBreaksColor = s.sessionBreaksColor;
     chart._sessionBreaksStyle = s.sessionBreaksStyle;
     chart._sessionBreaksSize = s.sessionBreaksSize;
     chart._appTimezone = s.userTimezoneLabel;
     chart._chartType = s.chartType || 'candlestick';
-
-    const isLine = s.chartType === 'line';
 
     chart.setStyles({
       grid: {
@@ -277,8 +278,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         show: chart._showCandles !== false,
         type: isLine ? 'area' : (s.showBody ? 'candle_solid' : 'ohlc'),
         bar: {
-          upColor: s.bullColor,
-          downColor: s.bearColor,
+          upColor: isLine ? effectiveLineColor : s.bullColor,
+          downColor: isLine ? effectiveLineColor : s.bearColor,
           upBorderColor: s.showBorders ? s.bullBorderColor : 'transparent',
           downBorderColor: s.showBorders ? s.bearBorderColor : 'transparent',
           upWickColor: s.showWicks ? s.bullWickColor : 'transparent',
@@ -286,7 +287,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         },
         area: {
           lineSize: 2,
-          lineColor: s.bullColor,
+          lineColor: effectiveLineColor,
           value: 'close',
           smooth: false,
           backgroundColor: 'transparent',
