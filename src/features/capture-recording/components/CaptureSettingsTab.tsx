@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { Camera, Video, Film, RotateCcw, Check, Bookmark, HelpCircle } from 'lucide-react';
+import { Camera, Video, RotateCcw, Check, Bookmark, HelpCircle } from 'lucide-react';
 import { useCaptureStore } from '../store/useCaptureStore';
-import type {
-  CaptureType,
-  VideoCaptureArea,
-} from '../types';
+import type { VideoCaptureArea } from '../types';
 
 // ─── Custom UI Helper Components ─────────────────────────────────────────────
 
@@ -82,11 +79,10 @@ export const CaptureSettingsTab: React.FC = () => {
     setRememberSettings,
     updatePersistedScreenshotDefaults,
     updatePersistedVideoDefaults,
-    updatePersistedGifDefaults,
     resetToPersistedDefaults,
   } = useCaptureStore();
 
-  const [activeSubTab, setActiveSubTab] = useState<CaptureType>('screenshot');
+  const [activeSubTab, setActiveSubTab] = useState<'screenshot' | 'video'>('screenshot');
   const [resetFeedback, setResetFeedback] = useState(false);
 
   const handleReset = () => {
@@ -95,7 +91,7 @@ export const CaptureSettingsTab: React.FC = () => {
     setTimeout(() => setResetFeedback(false), 2500);
   };
 
-  const { screenshot, video, gif } = persistedDefaults;
+  const { screenshot, video } = persistedDefaults;
 
   return (
     <div className="flex flex-col gap-5 select-none text-xs text-txt-secondary pb-4">
@@ -157,22 +153,6 @@ export const CaptureSettingsTab: React.FC = () => {
           <Video className="w-3.5 h-3.5" />
           <span>Video Recording</span>
           {rememberSettings.video && (
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" title="Remember settings active" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('gif')}
-          className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            activeSubTab === 'gif'
-              ? 'bg-modal-bg text-txt-primary shadow-xs border border-border-def font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover/50'
-          }`}
-        >
-          <Film className="w-3.5 h-3.5" />
-          <span>GIF Animation</span>
-          {rememberSettings.gif && (
             <span className="w-1.5 h-1.5 rounded-full bg-accent" title="Remember settings active" />
           )}
         </button>
@@ -492,122 +472,6 @@ export const CaptureSettingsTab: React.FC = () => {
               <ToggleSwitch
                 checked={video.includeMicrophone}
                 onChange={(val) => updatePersistedVideoDefaults({ includeMicrophone: val })}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── 3. GIF TAB CONTENT ─────────────────────────────────────── */}
-      {activeSubTab === 'gif' && (
-        <div className="flex flex-col gap-4 animate-in fade-in duration-150">
-          {/* Dedicated Individual Remember Setting Card */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-surface/70 border border-border-sub hover:border-border-def transition-colors">
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-lg border transition-colors ${
-                  rememberSettings.gif
-                    ? 'bg-accent-muted text-accent border-accent/30'
-                    : 'bg-surface-elevated text-txt-muted border-border-sub'
-                }`}
-              >
-                <Bookmark className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-txt-primary">Remember GIF Settings</div>
-                <p className="text-[11px] text-txt-muted mt-0.5">
-                  When enabled, FPS, duration, and resolution choices automatically persist for future GIF creations.
-                </p>
-              </div>
-            </div>
-            <ToggleSwitch
-              checked={rememberSettings.gif}
-              onChange={(val) => setRememberSettings('gif', val)}
-              title="Toggle remember GIF settings"
-            />
-          </div>
-
-          {/* GIF Settings Group Card */}
-          <div className="p-4 bg-surface/40 border border-border-sub rounded-xl flex flex-col gap-4">
-            {/* Frame Rate (FPS) */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-txt-primary font-medium">Frame Rate</span>
-                <p className="text-[11px] text-txt-muted">Balance between smoothness and file size</p>
-              </div>
-              <SegmentedChoice
-                value={gif.fps}
-                onChange={(val) => updatePersistedGifDefaults({ fps: val })}
-                options={[
-                  { label: '10 FPS', value: 10 },
-                  { label: '15 FPS', value: 15 },
-                  { label: '24 FPS', value: 24 },
-                ]}
-              />
-            </div>
-
-            {/* Quality */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-txt-primary font-medium">Color Palette Quality</span>
-                <p className="text-[11px] text-txt-muted">Palette quantization and dithering quality</p>
-              </div>
-              <SegmentedChoice
-                value={gif.quality}
-                onChange={(val) => updatePersistedGifDefaults({ quality: val })}
-                options={[
-                  { label: 'Standard (Compact)', value: 'standard' },
-                  { label: 'High (Vibrant)', value: 'high' },
-                ]}
-              />
-            </div>
-
-            {/* Maximum Duration */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-txt-primary font-medium">Maximum Duration</span>
-                <p className="text-[11px] text-txt-muted">Maximum clip length before auto-completion</p>
-              </div>
-              <SegmentedChoice
-                value={gif.maxDurationSeconds}
-                onChange={(val) => updatePersistedGifDefaults({ maxDurationSeconds: val })}
-                options={[
-                  { label: '5s', value: 5 },
-                  { label: '10s', value: 10 },
-                  { label: '15s', value: 15 },
-                  { label: '30s', value: 30 },
-                ]}
-              />
-            </div>
-
-            {/* Resolution Scale */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-txt-primary font-medium">Resolution Scale</span>
-                <p className="text-[11px] text-txt-muted">Downscale factor to control GIF byte size</p>
-              </div>
-              <SegmentedChoice
-                value={gif.resolutionScale}
-                onChange={(val) => updatePersistedGifDefaults({ resolutionScale: val })}
-                options={[
-                  { label: '0.5x (Compact)', value: 0.5 },
-                  { label: '0.75x (Balanced)', value: 0.75 },
-                  { label: '1x (Full 1:1)', value: 1 },
-                ]}
-              />
-            </div>
-
-            <div className="h-px bg-border-sub" />
-
-            {/* Looping */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-txt-primary font-medium">Looping</span>
-                <p className="text-[11px] text-txt-muted">Repeat animation indefinitely in browsers and viewers</p>
-              </div>
-              <ToggleSwitch
-                checked={gif.loop}
-                onChange={(val) => updatePersistedGifDefaults({ loop: val })}
               />
             </div>
           </div>
