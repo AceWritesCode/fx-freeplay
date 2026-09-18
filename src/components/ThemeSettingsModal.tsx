@@ -1067,6 +1067,28 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             {/* Tab: Symbol */}
             {activeTab === 'Symbol' && (
               <div className="flex flex-col gap-5">
+                {/* Chart Type Selector */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-txt-primary">Chart Type</span>
+                    <p className="text-[11px] text-txt-muted mt-0.5">
+                      Select chart rendering presentation style.
+                    </p>
+                  </div>
+                  <Select
+                    value={formState.chartType || 'candlestick'}
+                    onChange={(val) => handleFieldChange('chartType', val as 'candlestick' | 'line' | 'heikin_ashi')}
+                    options={[
+                      { value: 'candlestick', label: 'Candlesticks' },
+                      { value: 'line', label: 'Line' },
+                      { value: 'heikin_ashi', label: 'Heikin Ashi' },
+                    ]}
+                    className="w-40"
+                  />
+                </div>
+
+                <div className="border-t border-border-sub my-1" />
+
                 <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Candles</div>
 
                 {/* Body Colors */}

@@ -10,6 +10,7 @@ import { drawingRepository } from '@/repository';
 import {
   detectPricePrecision,
 } from '@/utils/dataUtils';
+import { toPresentationData } from '@/utils/heikinAshi';
 import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { FavoriteDrawingToolbar } from '@/components/FavoriteDrawingToolbar';
@@ -254,6 +255,9 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     chart._sessionBreaksStyle = s.sessionBreaksStyle;
     chart._sessionBreaksSize = s.sessionBreaksSize;
     chart._appTimezone = s.userTimezoneLabel;
+    chart._chartType = s.chartType || 'candlestick';
+
+    const isLine = s.chartType === 'line';
 
     chart.setStyles({
       grid: {
@@ -271,7 +275,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       },
       candle: {
         show: chart._showCandles !== false,
-        type: s.showBody ? 'candle_solid' : 'ohlc',
+        type: isLine ? 'area' : (s.showBody ? 'candle_solid' : 'ohlc'),
         bar: {
           upColor: s.bullColor,
           downColor: s.bearColor,
@@ -279,6 +283,17 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           downBorderColor: s.showBorders ? s.bearBorderColor : 'transparent',
           upWickColor: s.showWicks ? s.bullWickColor : 'transparent',
           downWickColor: s.showWicks ? s.bearWickColor : 'transparent',
+        },
+        area: {
+          lineSize: 2,
+          lineColor: s.bullColor,
+          value: 'close',
+          smooth: false,
+          backgroundColor: 'transparent',
+          point: {
+            show: false,
+            animation: false,
+          },
         },
         tooltip: {
           showRule: 'always',
@@ -1289,6 +1304,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       }
     }
 
+    const chartTypeChanged = newSettings.chartType !== settings.chartType;
+
     if (timezoneChanged) {
       const visibleSlots: Array<{ symbol: string; timeframe: string; slotIndex: number }> = [];
       for (let i = 0; i < visibleCount; i++) {
@@ -1300,7 +1317,38 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       dataVersionRef.current += 1;
       workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
       runWorkspaceReconciliation(chartInstancesRef);
+    } else if (chartTypeChanged) {
+      // Re-feed presentation data to chart slots without regenerating underlying timeframe caches
+      for (let i = 0; i < visibleCount; i++) {
+        const c = chartInstancesRef.current[i];
+        const slot = slots[i];
+        if (c && slot && slot.symbol) {
+          const rawData = workspaceCoord.allTimeframesData[slot.timeframe] || [];
+          if (rawData.length > 0) {
+            const presentationData = toPresentationData(rawData, newSettings.chartType);
+            c.setDataLoader({
+              getBars: ({ type: loadType, callback }: any) => {
+                if (loadType === 'init') {
+                  callback(presentationData);
+                } else {
+                  callback([]);
+                }
+              },
+            });
+            c.applyNewData(presentationData, false);
+          }
+        }
+      }
     }
+  };
+
+  const handleChartTypeChange = (newType: 'candlestick' | 'line' | 'heikin_ashi') => {
+    if ((settings.chartType || 'candlestick') === newType) return;
+    const newSettings: ChartSettings = {
+      ...settings,
+      chartType: newType,
+    };
+    handleSettingsSave(newSettings);
   };
 
   const handleUserTimezoneChange = (label: string) => {
@@ -1692,6 +1740,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         parseFeedback={workspaceCoord.parseFeedback}
         showStats={workspaceCoord.showStats}
         setShowStats={workspaceCoord.setShowStats}
+        chartType={settings.chartType || 'candlestick'}
+        onChartTypeChange={handleChartTypeChange}
         activeTimeframe={activeTimeframe}
         onTimeframeSelect={(tf) => workspaceCoord.handleTimeframeSwitch(tf)}
         HEADER_TIMEFRAMES={HEADER_TIMEFRAMES}

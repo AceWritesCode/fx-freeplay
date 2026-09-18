@@ -15,6 +15,7 @@ import {
   detectPricePrecision,
 } from '@/utils/dataUtils';
 import type { KLineData } from '@/utils/dataUtils';
+import { toPresentationData } from '@/utils/heikinAshi';
 import {
   getTimeframeMinutes,
   getBestTimeframeFile,
@@ -330,7 +331,8 @@ export function useWorkspaceCoordinator(
       for (const entry of slotEntries) {
         const chart = chartInstancesRef.current[entry.slotIndex];
         if (chart) {
-          const visibleData = tfCache[entry.timeframe] || [];
+          const rawVisibleData = tfCache[entry.timeframe] || [];
+          const visibleData = toPresentationData(rawVisibleData, s.chartType);
           chart.setDataLoader({
             getBars: ({ type: loadType, callback }: any) => {
               if (loadType === 'init') {
@@ -357,7 +359,8 @@ export function useWorkspaceCoordinator(
 
     const chart = chartInstancesRef.current[idx];
     if (chart) {
-      const visibleData = tfCache[timeframe] || [];
+      const rawVisibleData = tfCache[timeframe] || [];
+      const visibleData = toPresentationData(rawVisibleData, s.chartType);
       chart.setDataLoader({
         getBars: ({ type: loadType, callback }: any) => {
           if (loadType === 'init') {
@@ -478,7 +481,7 @@ export function useWorkspaceCoordinator(
           : await getOrImportTimeframeData(slotSym, slotTf);
         if (!slotData || slotData.length === 0) continue;
 
-        const visibleData = slotData;
+        const visibleData = toPresentationData(slotData, settings.chartType);
 
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {
@@ -916,8 +919,7 @@ export function useWorkspaceCoordinator(
         chart.setPeriod(parseTimeframeToPeriod(tf));
         (chart as any)._loadedTimeframe = tf;
 
-        const visibleData = tfData;
-
+        const visibleData = toPresentationData(tfData, settings.chartType);
 
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {

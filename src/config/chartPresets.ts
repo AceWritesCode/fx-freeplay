@@ -1,5 +1,6 @@
 export interface ChartSettings {
   // Symbol Settings
+  chartType?: 'candlestick' | 'line' | 'heikin_ashi'; // 'candlestick' | 'line' | 'heikin_ashi' (default: 'candlestick')
   showBody: boolean;
   bullColor: string;
   bearColor: string;
@@ -62,6 +63,7 @@ export interface ChartSettings {
 
 export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
   classic: {
+    chartType: 'candlestick',
     syncChartBackgroundWithTheme: false,
     resetViewOffsetRatio: 0.5,
     showBody: true,
@@ -108,6 +110,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     replayMinDuration: 0.01,
   },
   obsidian: {
+    chartType: 'candlestick',
     syncChartBackgroundWithTheme: false,
     resetViewOffsetRatio: 0.5,
     showBody: true,
@@ -154,6 +157,7 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     replayMinDuration: 0.01,
   },
   matrix: {
+    chartType: 'candlestick',
     syncChartBackgroundWithTheme: false,
     resetViewOffsetRatio: 0.5,
     showBody: true,
