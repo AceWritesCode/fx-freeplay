@@ -61,7 +61,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     onResizeStart,
     onResizeEnd,
     watchlistSymbols,
-    importMode,
+    importMode: _importMode,
     loadSymbolFromFolder,
     activeSymbol,
     onRemoveSymbol,
@@ -167,7 +167,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               {/* Panel header */}
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-sub">
                 <div className="flex items-center gap-2">
-                  <WatchlistTabIcon className="w-3.5 h-3.5 text-accent" />
                   <span className="text-xs font-bold uppercase tracking-widest text-txt-primary">Watchlist</span>
                   {watchlistSymbols.length > 0 && (
                     <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent-muted text-accent border border-accent/30 rounded-full">
@@ -224,11 +223,6 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                       `}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        {importMode === 'folder' ? (
-                          <ObjectTreeTabIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-accent' : 'text-txt-muted group-hover/item:text-txt-primary'}`} />
-                        ) : (
-                          <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-accent' : 'bg-surface-active group-hover:bg-txt-muted'}`} />
-                        )}
                         <span className="truncate text-xs font-semibold">{item.name}</span>
                       </div>
 
