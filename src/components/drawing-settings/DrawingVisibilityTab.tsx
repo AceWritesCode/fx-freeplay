@@ -1,26 +1,6 @@
 import React from 'react';
-import { Check } from 'lucide-react';
 import { DualRangeSlider } from './DualRangeSlider';
-
-interface PremiumCheckboxProps {
-  checked: boolean;
-  onChange: (val: boolean) => void;
-  label: string;
-}
-
-const PremiumCheckbox: React.FC<PremiumCheckboxProps> = ({ checked, onChange, label }) => (
-  <label className="flex items-center gap-3 cursor-pointer group text-txt-secondary hover:text-txt-primary select-none py-1.5 w-full">
-    <div 
-      onClick={() => onChange(!checked)}
-      className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-        checked ? 'bg-accent border-accent text-txt-inverse' : 'border-border-def bg-app-bg group-hover:border-border-focus'
-      }`}
-    >
-      {checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-    </div>
-    <span className="text-[12.5px] font-medium tracking-wide">{label}</span>
-  </label>
-);
+import { Checkbox } from '../common';
 
 export interface DrawingVisibilityTabProps {
   visibility: Record<string, any>;
@@ -34,10 +14,12 @@ export const DrawingVisibilityTab: React.FC<DrawingVisibilityTabProps> = ({
   return (
     <div className="space-y-4 select-none pr-1">
       {/* Ticks Checkbox */}
-      <PremiumCheckbox 
+      <Checkbox 
         checked={!!visibility.ticks?.show}
-        onChange={(val) => onVisibilityChange('ticks', 'show', val)}
+        onChange={(e) => onVisibilityChange('ticks', 'show', e.target.checked)}
         label="Ticks" 
+        labelClassName="text-[12.5px] font-medium tracking-wide"
+        wrapperClassName="py-1.5 w-full"
       />
 
       {/* Timeframes Rows */}
@@ -53,10 +35,12 @@ export const DrawingVisibilityTab: React.FC<DrawingVisibilityTabProps> = ({
           <div key={unit} className="flex items-center justify-between min-h-[36px]">
             {/* Left Label + Checkbox */}
             <div className="w-24">
-              <PremiumCheckbox 
+              <Checkbox 
                 checked={!!visibility[unit]?.show}
-                onChange={(val) => onVisibilityChange(unit, 'show', val)}
+                onChange={(e) => onVisibilityChange(unit, 'show', e.target.checked)}
                 label={unit} 
+                labelClassName="text-[12.5px] font-medium tracking-wide capitalize"
+                wrapperClassName="py-1.5 w-full"
               />
             </div>
 

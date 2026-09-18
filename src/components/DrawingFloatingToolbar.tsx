@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GripVertical, LayoutTemplate, Palette, Minus, Baseline, Settings, Lock, Unlock, Trash2, MoreHorizontal, X, ChevronDown, Anchor, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
-import { SearchableDropdown } from './common/SearchableDropdown';
+import { SearchableDropdown, Checkbox } from './common';
 import { useDrawingTemplates } from '@/framework/tools/useDrawingTemplates';
 
 interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -627,15 +627,12 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
             
             {activeDropdown === 'fillColor' && (
               <div className="absolute top-full mt-2 left-0 z-50 p-2 bg-modal-bg border border-border-def rounded-lg shadow-xl flex flex-col gap-2">
-                <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={fillBackground}
-                    onChange={(e) => handleUpdate({ fillBackground: e.target.checked, backgroundColor: e.target.checked ? fillColor : 'transparent' }, false)}
-                    className="rounded border-border-def text-accent focus:ring-0"
-                  />
-                  <span>Show Background</span>
-                </label>
+                <Checkbox
+                  checked={fillBackground}
+                  onChange={(e) => handleUpdate({ fillBackground: e.target.checked, backgroundColor: e.target.checked ? fillColor : 'transparent' }, false)}
+                  label="Show Background"
+                  labelClassName="text-xs text-txt-secondary"
+                />
                 {fillBackground && (
                   <ColorPicker 
                     color={fillColor} 
