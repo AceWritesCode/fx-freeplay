@@ -16,8 +16,9 @@ import {
 import { LongPositionTool, ShortPositionTool } from './implementations/ForecastingTools';
 import { TextTool } from './implementations/TextTool';
 import { NoteTool } from './implementations/NoteTool';
+import { CalloutTool } from './implementations/CalloutTool';
 import { FibonacciRetracementTool } from './implementations/FibonacciRetracement';
-import { initializeToolFramework } from './klinechartsAdapter';
+import { initializeToolFramework, registerToolWithKLineCharts } from './klinechartsAdapter';
 
 // Register all tools
 ToolRegistry.register(TrendLineTool);
@@ -37,12 +38,17 @@ ToolRegistry.register(LongPositionTool);
 ToolRegistry.register(ShortPositionTool);
 ToolRegistry.register(TextTool);
 ToolRegistry.register(NoteTool);
+ToolRegistry.register(CalloutTool);
+
+// Initialize all tools with KLineCharts overlay registry
+initializeToolFramework();
 
 // Export registry, initialization function, and shared tool utilities
-export { ToolRegistry, initializeToolFramework };
+export { ToolRegistry, initializeToolFramework, registerToolWithKLineCharts };
 export * from './ToolRegistry';
 export * from './toolUtils';
 export * from './implementations/FibonacciRetracement';
 export * from './implementations/NoteTool';
+export * from './implementations/CalloutTool';
 export * from './implementations/TextTool';
 export * from './sharedTextLayout';

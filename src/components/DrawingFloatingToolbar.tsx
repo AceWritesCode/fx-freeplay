@@ -95,7 +95,10 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isBrush = firstOverlay?.name === 'brush';
   const isHighlighter = firstOverlay?.name === 'highlighter';
   const isFib = firstOverlay?.name === 'fibonacciRetracement';
-  const isLineTool = ['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'note'].includes(firstOverlay?.name || '');
+  const isCallout = firstOverlay?.name === 'callout';
+  const isNote = firstOverlay?.name === 'note';
+  const isLineTool = ['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
+  const hasTextSettings = isText || isCallout || isNote;
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const textAlign = customSettings.textAlign || 'left';
@@ -551,8 +554,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Font Size Selector for Text Tool */}
-        {isText && (
+        {/* Font Size Selector for Text / Note / Callout Tools */}
+        {hasTextSettings && (
           <div className="relative">
             <button 
               type="button"
@@ -595,8 +598,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Text Alignment Selector for Text Tool */}
-        {isText && (
+        {/* Text Alignment Selector for Text / Note / Callout Tools */}
+        {hasTextSettings && (
           <div 
             onMouseDown={(e) => {
               e.preventDefault();
@@ -643,8 +646,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Text Background Color for Text Tool */}
-        {isText && (
+        {/* Text Background Color for Text / Note / Callout Tools */}
+        {(isText || isCallout || isNote) && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'fillColor'}
@@ -674,7 +677,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* Line Width */}
-        {!isText && (
+        {!isText && !isCallout && !isNote && (
           <div className="relative">
             <button 
               onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
@@ -709,7 +712,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
         )}
 
         {/* Line Style */}
-        {!isText && !isBrush && !isHighlighter && (
+        {!isText && !isBrush && !isHighlighter && !isCallout && !isNote && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'style'}

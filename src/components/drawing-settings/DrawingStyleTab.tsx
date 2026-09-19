@@ -424,8 +424,8 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
         </div>
       )}
 
-      {/* Note Label Background & Border */}
-      {overlay.name === 'note' && (
+      {/* Note & Callout Label Background & Border */}
+      {(overlay.name === 'note' || overlay.name === 'callout') && (
         <>
           <div className="flex items-center justify-between min-h-[36px]">
             <Checkbox

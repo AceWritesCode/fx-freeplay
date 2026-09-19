@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { DrawingChartAdapter, getOriginalDrawingId, runWorkspaceReconciliation } from '@/engine/charting';
 import { useDrawingStore } from '@/store';
+import { computeCompositeCalloutLayout } from '@/framework/tools';
 
 export interface DrawingHoverCursorConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -375,6 +376,10 @@ export function useDrawingHoverCursor({
               { x: pts[0].x + boxW, y: pts[0].y + boxH / 2 },
             ];
           }
+          if (ov.name === 'callout' && Array.isArray(pts) && pts.length >= 1) {
+            // Callout only has 1 visible anchor: Anchor 0. Box center (pts[1]) is NOT an anchor handle.
+            pts = [pts[0]];
+          }
           if (ov.name === 'rectangle' && Array.isArray(pts) && pts.length === 2 && pts[0] && pts[1]) {
             const p1 = pts[0];
             const p2 = pts[1];
@@ -455,10 +460,66 @@ export function useDrawingHoverCursor({
               }
             }
           }
+        } else if (ov.points && ov.points.length >= 2 && ov.name === 'callout') {
+          const cleanPts = ov.points.map((p: any) => ({
+            ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
+            ...(p.dataIndex !== undefined ? { dataIndex: p.dataIndex } : {}),
+            value: p.value,
+          }));
+          let pts = chart.convertToPixel(cleanPts, { paneId: 'candle_pane' });
+          if (!pts || !Array.isArray(pts) || pts.some((p: any) => !p || typeof p.x !== 'number')) {
+            pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
+          }
+          if (Array.isArray(pts) && pts.length >= 2 && pts[0] && pts[1]) {
+            const cs = ov.extendData?.customSettings || {};
+            const text = typeof cs.text === 'string' ? cs.text : '';
+            const fontSize = cs.fontSize || 14;
+            const isBold = !!cs.bold;
+            const isItalic = !!cs.italic;
+            const textAlign = cs.textAlign || 'center';
+            const textValign = cs.textValign || 'middle';
+            const displayText = text.trim().length > 0 ? text : 'Add text';
+
+            const layout = computeCompositeCalloutLayout(
+              pts[0],
+              pts[1],
+              displayText,
+              fontSize,
+              isBold,
+              isItalic,
+              textAlign,
+              textValign
+            );
+
+            const isInsideBox =
+              xVal >= layout.box.x &&
+              xVal <= layout.box.x + layout.box.width &&
+              yVal >= layout.box.y &&
+              yVal <= layout.box.y + layout.box.height;
+
+            const p1 = pts[0];
+            const p2 = layout.attachment;
+            const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+            let distToTail = Infinity;
+            if (l2 > 0) {
+              let t = ((xVal - p1.x) * (p2.x - p1.x) + (yVal - p1.y) * (p2.y - p1.y)) / l2;
+              t = Math.max(0, Math.min(1, t));
+              distToTail = Math.sqrt((xVal - (p1.x + t * (p2.x - p1.x))) ** 2 + (yVal - (p1.y + t * (p2.y - p1.y))) ** 2);
+            } else {
+              distToTail = Math.sqrt((xVal - p1.x) ** 2 + (yVal - p1.y) ** 2);
+            }
+
+            if (isInsideBox || distToTail <= 14) {
+              if (thisZ >= currentHoveredZ) {
+                hoveredInteractiveOverlay = ov;
+                isInsideBody = true;
+              }
+            }
+          }
         } else if (
           ov.points &&
           ov.points.length >= 2 &&
-          ['brush', 'highlighter', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'curve', 'path', 'circle'].includes(ov.name)
+          ['brush', 'highlighter', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'curve', 'path', 'circle', 'note'].includes(ov.name)
         ) {
           const cleanPts = ov.points.map((p: any) => ({
             ...(p.timestamp !== undefined ? { timestamp: p.timestamp } : {}),
@@ -586,6 +647,8 @@ export function useDrawingHoverCursor({
             'rectangle',
             'fxText',
             'text',
+            'note',
+            'callout',
             'longPosition',
             'shortPosition',
             'trendLine',

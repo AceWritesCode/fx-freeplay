@@ -185,7 +185,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setStartArrow(customSettings.startArrow || 'normal');
     setEndArrow(customSettings.endArrow || (overlay.name === 'arrow' ? 'arrow' : 'normal'));
     setExtendType(customSettings.extendType || 'none');
-    setFillColor(customSettings.backgroundColor || customSettings.fillColor || (overlay.name === 'note' ? (customSettings.lineColor || '#2196F3') : 'rgba(33, 150, 243, 0.1)'));
+    setFillColor(customSettings.backgroundColor || customSettings.fillColor || (overlay.name === 'note' || overlay.name === 'callout' ? (customSettings.lineColor || '#2196F3') : 'rgba(33, 150, 243, 0.1)'));
     setFillBackground(customSettings.fillBackground !== false);
     setBorderColor(customSettings.borderColor || customSettings.lineColor || '#2196F3');
     setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
@@ -203,12 +203,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     // Text settings
     setText(customSettings.text || '');
-    setTextColor(customSettings.textColor || (overlay.name === 'longPosition' || overlay.name === 'shortPosition' || overlay.name === 'note' ? '#ffffff' : '#2196F3'));
+    setTextColor(customSettings.textColor || (overlay.name === 'longPosition' || overlay.name === 'shortPosition' || overlay.name === 'note' || overlay.name === 'callout' ? '#ffffff' : '#2196F3'));
     setFontSize(customSettings.fontSize || 14);
     setTextAlign(customSettings.textAlign || 'left');
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
-    setShowBorder(customSettings.showBorder !== undefined ? !!customSettings.showBorder : (overlay.name === 'note' ? false : true));
+    setShowBorder(customSettings.showBorder !== undefined ? !!customSettings.showBorder : (overlay.name === 'note' || overlay.name === 'callout' ? false : true));
     setIsAnchored(!!customSettings.isAnchored);
     setTextValign(customSettings.textPosition?.vertical || 'middle');
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
@@ -845,7 +845,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         className="flex justify-between items-center px-5 py-4 border-b border-border-def cursor-move active:cursor-grabbing hover:bg-surface-hover transition-colors rounded-t-xl"
       >
         <span className="font-semibold text-[13.5px] tracking-wide text-txt-primary capitalize">
-          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : overlay.name === 'fibonacciRetracement' ? 'Fib Retracement' : overlay.name === 'note' ? 'Note' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
+          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : overlay.name === 'fibonacciRetracement' ? 'Fib Retracement' : overlay.name === 'callout' ? 'Callout' : overlay.name === 'note' ? 'Note' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
         </span>
         <button onClick={handleCancel} className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer">
           <X className="w-4 h-4" />

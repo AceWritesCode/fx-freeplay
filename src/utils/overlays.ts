@@ -6,8 +6,7 @@ import { DrawingChartAdapter } from '../engine/charting/drawingChartAdapter.ts';
 import { replayVisibilityBoundary } from '../engine/replay/ReplayVisibilityBoundary.ts';
 import { useDrawingStore } from '../store/useDrawingStore.ts';
 import { useLayoutStore } from '../store/useLayoutStore.ts';
-import { initializeToolFramework } from '../framework/tools/klinechartsAdapter.ts';
-import { ToolRegistry } from '../framework/tools/ToolRegistry.ts';
+import { initializeToolFramework, ToolRegistry } from '../framework/tools/index.ts';
 export function registerCustomOverlays() {
   // Initialize new tool framework
   initializeToolFramework();
@@ -957,8 +956,20 @@ export function getInteractiveOverlayOptions(
           (event as any)?.event?.metaKey ||
           false;
         const currentSelected = useDrawingStore.getState().selectedOverlayIds || actualChart._selectedOverlayIds || [];
+        const isAlreadySelected = currentSelected.includes(id);
         const nextSelected = resolveSingleClickSelection(id, currentSelected, isCtrl);
         actualChart._setSelectedOverlayIds(nextSelected);
+
+        if (isAlreadySelected && !isCtrl && (event.overlay?.name === 'callout' || event.overlay?.name === 'note')) {
+          actualChart.overrideOverlay({
+            id: event.overlay.id,
+            extendData: {
+              ...(event.overlay.extendData || {}),
+              isEditingText: true,
+            },
+          });
+          DrawingChartAdapter.invalidatePane(actualChart);
+        }
       }
       return true;
     },

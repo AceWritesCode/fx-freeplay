@@ -18,6 +18,12 @@ export const NoteIcon = ({ className = "w-full h-full text-current", style }: { 
   </svg>
 );
 
+export const CalloutIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
+    <path fill="currentColor" fillRule="evenodd" d="M4 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-6.5l-4.5 4.5V18H6a2 2 0 0 1-2-2V5Zm2-1a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h6v3.086l3.086-3.086H22a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H6Z" />
+  </svg>
+);
+
 export const DeleteIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
     <path fill="currentColor" d="M18 7h5v1h-2.01l-1.33 14.64a1.5 1.5 0 0 1-1.5 1.36H9.84a1.5 1.5 0 0 1-1.49-1.36L7.01 8H5V7h5V6c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1Zm-6-2a1 1 0 0 0-1 1v1h6V6a1 1 0 0 0-1-1h-4ZM8.02 8l1.32 14.54a.5.5 0 0 0 .5.46h8.33a.5.5 0 0 0 .5-.46L19.99 8H8.02Z" />

@@ -6,6 +6,7 @@ import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { FloatingTextToolEditor } from '@/components/FloatingTextToolEditor';
 import { FloatingFibonacciText } from '@/components/FloatingFibonacciText';
 import { FloatingNoteText } from '@/components/FloatingNoteText';
+import { FloatingCalloutText } from '@/components/FloatingCalloutText';
 
 interface SlotFloatingTextOverlaysProps {
   chart: any;
@@ -27,7 +28,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
   if (!chart) return null;
 
   const allTextOverlays = chart.getOverlays().filter((o: any) =>
-    ['trendLine', 'rectangle', 'fxText', 'text', 'fibonacciRetracement', 'note'].includes(o.name)
+    ['trendLine', 'rectangle', 'fxText', 'text', 'fibonacciRetracement', 'note', 'callout'].includes(o.name)
   );
 
   return (
@@ -177,6 +178,20 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
         if (ov.name === 'note') {
           return (
             <FloatingNoteText
+              key={ov.id}
+              chart={chart}
+              overlay={ov}
+              isSelected={isSelected}
+              isHovered={hoveredOverlayId === ov.id}
+              onTextChange={handleTextChange}
+              onDelete={handleDeleteDrawing}
+              syncAllDrawings={syncAllDrawings}
+            />
+          );
+        }
+        if (ov.name === 'callout') {
+          return (
+            <FloatingCalloutText
               key={ov.id}
               chart={chart}
               overlay={ov}
