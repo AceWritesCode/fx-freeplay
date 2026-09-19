@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DrawingChartAdapter } from '@/engine/charting';
-import { checkOverlayVisible } from '@/framework/tools/toolUtils';
+import { checkOverlayVisible, TRENDLINE_TEXT_ANCHOR_OFFSET } from '@/framework/tools/toolUtils';
+import {
+  SHARED_TEXT_FONT_FAMILY,
+  getSharedTextLineHeight,
+  measureSingleLineText
+} from '@/framework/tools';
 
 interface FloatingTrendLineTextProps {
   chart: any;
@@ -17,7 +22,6 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   onTextChange,
   isSelected,
   isHovered = false,
-  syncAllDrawings
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,10 +51,12 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   const hasActualText = typeof text === 'string' && text.trim() !== '';
 
   // 1) When actual text exists: show whenever the line is drawn and visible on this timeframe
-  // 2) When no text exists (placeholder "+ Add text"): ONLY show when line is drawn + selected + (hovered or actively editing)
+  // 2) When no text exists (placeholder "+ Add text"): show when line is drawn + (selected or hovered or actively editing)
   const shouldShow = isLineDrawn && isLineVisible && (
     hasActualText || 
-    (isSelected && (isHoveredActive || isEditing))
+    isSelected || 
+    isHoveredActive || 
+    isEditing
   );
 
   useEffect(() => {
@@ -77,11 +83,11 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
             const uy = dy / len;
 
             if (textHalign === 'left') {
-              tx = pLeft.x + 2 * ux;
-              ty = pLeft.y + 2 * uy;
+              tx = pLeft.x + TRENDLINE_TEXT_ANCHOR_OFFSET * ux;
+              ty = pLeft.y + TRENDLINE_TEXT_ANCHOR_OFFSET * uy;
             } else if (textHalign === 'right') {
-              tx = pRight.x - 2 * ux;
-              ty = pRight.y - 2 * uy;
+              tx = pRight.x - TRENDLINE_TEXT_ANCHOR_OFFSET * ux;
+              ty = pRight.y - TRENDLINE_TEXT_ANCHOR_OFFSET * uy;
             }
           }
 
@@ -125,23 +131,6 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       active = false;
     };
   }, [overlay, chart, textHalign, textValign]);
-
-  // Measure DOM width and update overlay extendData in real-time
-  useEffect(() => {
-    if (elRef.current) {
-      const width = elRef.current.offsetWidth;
-      if (width && width !== overlay.extendData?.textWidth) {
-        chart.overrideOverlay({
-          id: overlay.id,
-          extendData: {
-            ...(overlay.extendData || {}),
-            textWidth: width
-          }
-        });
-        setTimeout(() => syncAllDrawings(), 50);
-      }
-    }
-  }, [text, inputText, isEditing, fontSize, isBold, isItalic]);
 
   // Guaranteed transient cleanup on unmount or removal
   useEffect(() => {
@@ -280,11 +269,12 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       }}
       className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
+        fontFamily: SHARED_TEXT_FONT_FAMILY,
         fontSize: `${fontSize}px`,
         color: textColor,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
-        lineHeight: '1.2',
+        lineHeight: `${getSharedTextLineHeight(fontSize)}px`,
         textAlign: textHalign,
       }}
     >
@@ -306,18 +296,19 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="+ Add text"
-          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text font-inherit select-text whitespace-nowrap"
+          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text select-text whitespace-nowrap"
           style={{
+            fontFamily: SHARED_TEXT_FONT_FAMILY,
             fontSize: `${fontSize}px`,
             color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
-            lineHeight: '1.2',
+            lineHeight: `${getSharedTextLineHeight(fontSize)}px`,
             textAlign: textHalign,
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            width: `${Math.max(30, (inputText || '+ Add text').length * (fontSize * 0.5) + 12)}px`
+            width: `${Math.max(30, Math.ceil(measureSingleLineText(inputText || '+ Add text', fontSize, isBold, isItalic).width + 8))}px`
           }}
         />
       ) : (
@@ -325,11 +316,12 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
           onClick={handleStartEdit}
           className="bg-transparent border-0 border-none outline-none p-0 m-0 cursor-text select-none whitespace-nowrap transition-opacity hover:opacity-80"
           style={{
+            fontFamily: SHARED_TEXT_FONT_FAMILY,
             fontSize: `${fontSize}px`,
             color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
-            lineHeight: '1.2',
+            lineHeight: `${getSharedTextLineHeight(fontSize)}px`,
             textAlign: textHalign,
             margin: 0,
             padding: 0,

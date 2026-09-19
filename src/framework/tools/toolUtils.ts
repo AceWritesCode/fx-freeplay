@@ -1,4 +1,5 @@
 import { getTimeframeMinutes } from '../../domain/market/timeframeUtils.ts';
+import { measureSingleLineText } from './sharedTextLayout.ts';
 
 /**
  * Timeframe parser helper for drawing overlays visibility checks.
@@ -321,6 +322,8 @@ export function computeLineSegmentsWithGaps(
   return segments.length > 0 ? segments : [{ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }];
 }
 
+export const TRENDLINE_TEXT_ANCHOR_OFFSET = 7.5;
+
 /**
  * Computes line segments for drawing lines (TrendLine, Fib level lines, etc.)
  * with an automatic gap when text is active and vertically centered (valign === 'middle').
@@ -332,7 +335,8 @@ export function computeLineSegmentsWithTextGap(
   textHalign: string = 'right',
   textValign: string = 'middle',
   fontSize: number = 14,
-  measuredTextWidth?: number
+  isBold: boolean = false,
+  isItalic: boolean = false
 ): { x1: number; y1: number; x2: number; y2: number }[] {
   const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
   const pLeft = p1.x < p2.x ? p1 : p2;
@@ -344,10 +348,8 @@ export function computeLineSegmentsWithTextGap(
     const dx = pRight.x - pLeft.x;
     const dy = pRight.y - pLeft.y;
     const len = Math.sqrt(dx * dx + dy * dy);
-    const calculatedWidth = textToShow.length * (fontSize * 0.5) + 6;
-    const textWidth = measuredTextWidth
-      ? Math.min(measuredTextWidth, calculatedWidth + 6)
-      : calculatedWidth;
+    const measured = measureSingleLineText(textToShow, fontSize, isBold, isItalic);
+    const textWidth = measured.width;
 
     if (len > 0.0001) {
       const ux = dx / len;
@@ -373,7 +375,7 @@ export function computeLineSegmentsWithTextGap(
           });
         }
       } else if (textHalign === 'left') {
-        const trimLen = textWidth + 4;
+        const trimLen = TRENDLINE_TEXT_ANCHOR_OFFSET + textWidth + 2;
         if (len > trimLen) {
           drawSegments.push({
             x1: pLeft.x + trimLen * ux,
@@ -383,7 +385,7 @@ export function computeLineSegmentsWithTextGap(
           });
         }
       } else if (textHalign === 'right') {
-        const trimLen = textWidth + 4;
+        const trimLen = TRENDLINE_TEXT_ANCHOR_OFFSET + textWidth + 2;
         if (len > trimLen) {
           drawSegments.push({
             x1: pLeft.x,
