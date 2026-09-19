@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DrawingChartAdapter } from '@/engine/charting';
 import { checkOverlayVisible } from '@/framework/tools/toolUtils';
+import {
+  SHARED_TEXT_FONT_FAMILY,
+  getSharedTextLineHeight,
+  measureSingleLineText,
+  calculateAlignedTextPosition
+} from '@/framework/tools';
 
 interface FloatingRectangleTextProps {
   chart: any;
@@ -8,7 +14,7 @@ interface FloatingRectangleTextProps {
   onTextChange: (newText: string) => void;
   isSelected: boolean;
   isHovered?: boolean;
-  syncAllDrawings: () => void;
+  syncAllDrawings?: () => void;
 }
 
 export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
@@ -17,7 +23,6 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
   onTextChange,
   isSelected,
   isHovered = false,
-  syncAllDrawings
 }) => {
   const elRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -124,28 +129,19 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
                   }
                 }
               } else {
-                // Inside placement
-                if (textHalign === 'left') {
-                  tx = x + 8;
-                  translateX = '0%';
-                } else if (textHalign === 'right') {
-                  tx = x + w - 8;
-                  translateX = '-100%';
-                } else {
-                  tx = x + w / 2;
-                  translateX = '-50%';
-                }
-
-                if (textValign === 'top') {
-                  ty = y + 8;
-                  translateY = '0%';
-                } else if (textValign === 'bottom') {
-                  ty = y + h - 8;
-                  translateY = '-100%';
-                } else {
-                  ty = y + h / 2;
-                  translateY = '-50%';
-                }
+                // Inside placement with standard 8px padding
+                const pos = calculateAlignedTextPosition({
+                  x: x + 8,
+                  y: y + 8,
+                  width: Math.max(0, w - 16),
+                  height: Math.max(0, h - 16),
+                  halign: textHalign,
+                  valign: textValign,
+                });
+                tx = pos.x;
+                ty = pos.y;
+                translateX = pos.translateX;
+                translateY = pos.translateY;
               }
 
               if (Number.isFinite(tx) && Number.isFinite(ty)) {
@@ -164,23 +160,6 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
       active = false;
     };
   }, [overlay, chart, textHalign, textValign, textPlacement]);
-
-  // Measure DOM width and update overlay extendData in real-time
-  useEffect(() => {
-    if (elRef.current) {
-      const width = elRef.current.offsetWidth;
-      if (width && width !== overlay.extendData?.textWidth) {
-        chart.overrideOverlay({
-          id: overlay.id,
-          extendData: {
-            ...(overlay.extendData || {}),
-            textWidth: width
-          }
-        });
-        setTimeout(() => syncAllDrawings(), 50);
-      }
-    }
-  }, [text, inputText, isEditing, fontSize, isBold, isItalic]);
 
   // Guaranteed transient cleanup on unmount or removal
   useEffect(() => {
@@ -287,13 +266,14 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
       }}
       onMouseEnter={() => setIsDomHovered(true)}
       onMouseLeave={() => setIsDomHovered(false)}
-      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-nowrap bg-transparent p-0 m-0 border-none outline-none"
+      className="absolute top-0 left-0 z-30 select-none pointer-events-auto origin-center whitespace-pre-wrap bg-transparent p-0 m-0 border-none outline-none"
       style={{
+        fontFamily: SHARED_TEXT_FONT_FAMILY,
         fontSize: `${fontSize}px`,
         color: textColor,
         fontWeight: isBold ? 'bold' : 'normal',
         fontStyle: isItalic ? 'italic' : 'normal',
-        lineHeight: '1.2',
+        lineHeight: `${getSharedTextLineHeight(fontSize)}px`,
         textAlign: textHalign,
       }}
     >
@@ -315,30 +295,32 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="+ add text"
-          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text font-inherit select-text whitespace-nowrap"
+          className="bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 p-0 m-0 cursor-text select-text whitespace-nowrap"
           style={{
+            fontFamily: SHARED_TEXT_FONT_FAMILY,
             fontSize: `${fontSize}px`,
             color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
-            lineHeight: '1.2',
+            lineHeight: `${getSharedTextLineHeight(fontSize)}px`,
             textAlign: textHalign,
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            width: `${Math.max(30, (inputText || '+ add text').length * (fontSize * 0.55) + 12)}px`
+            width: `${Math.max(30, Math.ceil(measureSingleLineText(inputText || '+ add text', fontSize, isBold, isItalic).width + 8))}px`
           }}
         />
       ) : (
         <div
           onClick={handleStartEdit}
-          className="bg-transparent border-0 border-none outline-none p-0 m-0 cursor-text select-none whitespace-nowrap"
+          className="bg-transparent border-0 border-none outline-none p-0 m-0 cursor-text select-none whitespace-pre-wrap transition-opacity hover:opacity-80"
           style={{
+            fontFamily: SHARED_TEXT_FONT_FAMILY,
             fontSize: `${fontSize}px`,
             color: textColor,
             fontWeight: isBold ? 'bold' : 'normal',
             fontStyle: isItalic ? 'italic' : 'normal',
-            lineHeight: '1.2',
+            lineHeight: `${getSharedTextLineHeight(fontSize)}px`,
             textAlign: textHalign,
             margin: 0,
             padding: 0,

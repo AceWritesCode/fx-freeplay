@@ -52,6 +52,7 @@ export const DEFAULT_NOTE_SETTINGS: NoteCustomSettings = {
 import {
   SHARED_TEXT_FONT_FAMILY,
   getSharedTextLineHeight,
+  measureSharedText,
 } from '../sharedTextLayout.ts';
 
 export const NOTE_FONT_FAMILY = SHARED_TEXT_FONT_FAMILY;
@@ -105,36 +106,7 @@ export function measureNoteText(
   isBold: boolean = false,
   isItalic: boolean = false
 ): NoteTextMetrics {
-  const content = text && text.trim().length > 0 ? text : 'Add text';
-  const lines = content.split('\n');
-  const lineHeight = getNoteLineHeight(fontSize);
-
-  let lineWidths: number[] = [];
-
-  if (typeof document !== 'undefined') {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.font = `${isItalic ? 'italic ' : ''}${isBold ? 'bold ' : ''}${fontSize}px ${NOTE_FONT_FAMILY}`;
-      lineWidths = lines.map((l) => Math.ceil(ctx.measureText(l.length === 0 ? ' ' : l).width));
-    }
-  }
-
-  if (lineWidths.length === 0) {
-    const charW = fontSize * (isBold ? 0.65 : 0.58);
-    lineWidths = lines.map((l) => Math.ceil(Math.max(1, l.length) * charW));
-  }
-
-  const width = Math.max(10, ...lineWidths);
-  const height = lines.length * lineHeight;
-
-  return {
-    width,
-    height,
-    lines,
-    lineWidths,
-    lineHeight,
-  };
+  return measureSharedText(text, fontSize, isBold, isItalic, NOTE_FONT_FAMILY);
 }
 
 export interface NoteCompositeLayout {

@@ -5,6 +5,7 @@ import { Checkbox } from '../common';
 
 export interface DrawingTextTabProps {
   isTextOverlay: boolean;
+  showPlacement?: boolean;
   text: string;
   textColor: string;
   fontSize: number;
@@ -33,6 +34,7 @@ export interface DrawingTextTabProps {
 
 export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
   isTextOverlay,
+  showPlacement = false,
   text,
   textColor,
   fontSize,
@@ -238,37 +240,39 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
             </div>
           </div>
 
-          {/* Text Placement Row */}
-          <div className="flex items-center justify-between min-h-[36px]">
-            <span className="text-txt-muted font-medium">Text placement</span>
-            <div className="relative">
-              <button
-                onClick={() => { setActiveSelect(activeSelect === 'textPlacement' ? null : 'textPlacement'); setActiveColorPicker(null); }}
-                className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
-              >
-                <span>{textPlacement}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
-              </button>
-              {activeSelect === 'textPlacement' && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
-                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-28 overflow-hidden">
-                    <div className="flex flex-col gap-0.5">
-                      {['inside', 'outside'].map(p => (
-                        <button
-                          key={p}
-                          onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
-                          className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${textPlacement === p ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'}`}
-                        >
-                          {p}
-                        </button>
-                      ))}
+          {/* Text Placement Row (Rectangle only) */}
+          {showPlacement && (
+            <div className="flex items-center justify-between min-h-[36px]">
+              <span className="text-txt-muted font-medium">Text placement</span>
+              <div className="relative">
+                <button
+                  onClick={() => { setActiveSelect(activeSelect === 'textPlacement' ? null : 'textPlacement'); setActiveColorPicker(null); }}
+                  className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-28 h-8 capitalize cursor-pointer transition-all active:scale-95 text-txt-primary"
+                >
+                  <span>{textPlacement}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
+                </button>
+                {activeSelect === 'textPlacement' && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                    <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-28 overflow-hidden">
+                      <div className="flex flex-col gap-0.5">
+                        {['inside', 'outside'].map(p => (
+                          <button
+                            key={p}
+                            onClick={() => { setTextPlacement(p as 'inside' | 'outside'); setActiveSelect(null); }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${textPlacement === p ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'}`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

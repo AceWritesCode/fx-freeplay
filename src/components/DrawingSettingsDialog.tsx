@@ -952,6 +952,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         {(activeTab === 'text' || (isTextOverlay && activeTab === 'style')) && (
           <DrawingTextTab
             isTextOverlay={isTextOverlay}
+            showPlacement={overlay?.name === 'rectangle'}
             text={text}
             textColor={textColor}
             fontSize={fontSize}
