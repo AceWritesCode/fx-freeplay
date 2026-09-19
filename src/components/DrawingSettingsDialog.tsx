@@ -84,6 +84,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [extendType, setExtendType] = useState('none');
   const [fillColor, setFillColor] = useState('rgba(33, 150, 243, 0.1)');
   const [fillBackground, setFillBackground] = useState(true);
+  const [borderColor, setBorderColor] = useState('#2196F3');
   const [profitColor, setProfitColor] = useState('rgba(76, 175, 80, 0.12)');
   const [lossColor, setLossColor] = useState('rgba(244, 67, 54, 0.12)');
   const [alwaysShowStats, setAlwaysShowStats] = useState(false);
@@ -184,8 +185,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setStartArrow(customSettings.startArrow || 'normal');
     setEndArrow(customSettings.endArrow || (overlay.name === 'arrow' ? 'arrow' : 'normal'));
     setExtendType(customSettings.extendType || 'none');
-    setFillColor(customSettings.fillColor || 'rgba(33, 150, 243, 0.1)');
+    setFillColor(customSettings.backgroundColor || customSettings.fillColor || (overlay.name === 'note' ? (customSettings.lineColor || '#2196F3') : 'rgba(33, 150, 243, 0.1)'));
     setFillBackground(customSettings.fillBackground !== false);
+    setBorderColor(customSettings.borderColor || customSettings.lineColor || '#2196F3');
     setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
     setLossColor(customSettings.lossColor || 'rgba(244, 67, 54, 0.12)');
     setAlwaysShowStats(customSettings.alwaysShowStats === true);
@@ -201,12 +203,12 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     // Text settings
     setText(customSettings.text || '');
-    setTextColor(customSettings.textColor || (overlay.name === 'longPosition' || overlay.name === 'shortPosition' ? '#ffffff' : '#2196F3'));
+    setTextColor(customSettings.textColor || (overlay.name === 'longPosition' || overlay.name === 'shortPosition' || overlay.name === 'note' ? '#ffffff' : '#2196F3'));
     setFontSize(customSettings.fontSize || 14);
     setTextAlign(customSettings.textAlign || 'left');
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
-    setShowBorder(customSettings.showBorder !== false);
+    setShowBorder(customSettings.showBorder !== undefined ? !!customSettings.showBorder : (overlay.name === 'note' ? false : true));
     setIsAnchored(!!customSettings.isAnchored);
     setTextValign(customSettings.textPosition?.vertical || 'middle');
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
@@ -779,7 +781,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           endArrow,
           extendType,
           fillColor,
+          backgroundColor: fillColor,
           fillBackground,
+          borderColor: borderColor || lineColor,
           profitColor,
           lossColor,
           alwaysShowStats,
@@ -841,7 +845,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         className="flex justify-between items-center px-5 py-4 border-b border-border-def cursor-move active:cursor-grabbing hover:bg-surface-hover transition-colors rounded-t-xl"
       >
         <span className="font-semibold text-[13.5px] tracking-wide text-txt-primary capitalize">
-          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : overlay.name === 'fibonacciRetracement' ? 'Fib Retracement' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
+          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : overlay.name === 'fibonacciRetracement' ? 'Fib Retracement' : overlay.name === 'note' ? 'Note' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
         </span>
         <button onClick={handleCancel} className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer">
           <X className="w-4 h-4" />
@@ -932,6 +936,10 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             setShowActivationHighlight={setShowActivationHighlight}
             setActivationHighlightOpacity={setActivationHighlightOpacity}
             setShowMarkers={setShowMarkers}
+            borderColor={borderColor}
+            showBorder={showBorder}
+            setShowBorder={setShowBorder}
+            setBorderColor={setBorderColor}
             activeColorPicker={activeColorPicker}
             setActiveColorPicker={setActiveColorPicker}
             activeSelect={activeSelect}

@@ -95,7 +95,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isBrush = firstOverlay?.name === 'brush';
   const isHighlighter = firstOverlay?.name === 'highlighter';
   const isFib = firstOverlay?.name === 'fibonacciRetracement';
-  const isLineTool = ['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
+  const isLineTool = ['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine', 'note'].includes(firstOverlay?.name || '');
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const textAlign = customSettings.textAlign || 'left';

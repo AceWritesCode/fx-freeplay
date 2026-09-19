@@ -24,6 +24,10 @@ export interface DrawingStyleTabProps {
   showActivationHighlight: boolean;
   activationHighlightOpacity: number;
   showMarkers: boolean;
+  borderColor?: string;
+  showBorder?: boolean;
+  setShowBorder?: (val: boolean) => void;
+  setBorderColor?: (val: string) => void;
   setLineColor: (color: string) => void;
   setLineWidth: (width: number) => void;
   setLineStyle: (style: string) => void;
@@ -70,6 +74,10 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
   showActivationHighlight,
   activationHighlightOpacity,
   showMarkers,
+  borderColor,
+  showBorder,
+  setShowBorder,
+  setBorderColor,
   setLineColor,
   setLineWidth,
   setLineStyle,
@@ -414,6 +422,71 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Note Label Background & Border */}
+      {overlay.name === 'note' && (
+        <>
+          <div className="flex items-center justify-between min-h-[36px]">
+            <Checkbox
+              id="noteFillBackground"
+              checked={fillBackground}
+              onChange={(e) => setFillBackground(e.target.checked)}
+              label="Label background"
+              labelClassName="text-txt-muted font-medium"
+            />
+            {fillBackground && (
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setActiveColorPicker(activeColorPicker === 'fill' ? null : 'fill');
+                    setActiveSelect(null);
+                  }}
+                  className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                  style={{ backgroundColor: fillColor }}
+                />
+                {activeColorPicker === 'fill' && (
+                  <div className="absolute right-0 top-full mt-2 z-50">
+                    <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                    <div className="relative">
+                      <ColorPicker color={fillColor} onChange={(c) => setFillColor(c)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between min-h-[36px]">
+            <Checkbox
+              id="noteShowBorder"
+              checked={showBorder ?? false}
+              onChange={(e) => setShowBorder?.(e.target.checked)}
+              label="Label border"
+              labelClassName="text-txt-muted font-medium"
+            />
+            {(showBorder ?? false) && (
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setActiveColorPicker(activeColorPicker === 'borderColor' ? null : 'borderColor');
+                    setActiveSelect(null);
+                  }}
+                  className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                  style={{ backgroundColor: borderColor || lineColor }}
+                />
+                {activeColorPicker === 'borderColor' && (
+                  <div className="absolute right-0 top-full mt-2 z-50">
+                    <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                    <div className="relative">
+                      <ColorPicker color={borderColor || lineColor} onChange={(c) => setBorderColor?.(c)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Profit/Loss Colors (Long/Short Positions) */}

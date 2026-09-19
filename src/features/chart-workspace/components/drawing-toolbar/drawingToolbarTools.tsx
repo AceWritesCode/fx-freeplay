@@ -1,10 +1,15 @@
-import { TextIcon } from './DrawingToolbarIcons';
+import { TextIcon, NoteIcon } from './DrawingToolbarIcons';
 
 export const TEXT_TOOLS = [
   {
     id: 'text',
     name: 'Text',
     icon: TextIcon,
+  },
+  {
+    id: 'note',
+    name: 'Note',
+    icon: NoteIcon,
   },
 ];
 

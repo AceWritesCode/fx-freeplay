@@ -1,10 +1,11 @@
 import React from 'react';
 import { useDrawingStore } from '@/store';
-import { getOriginalDrawingId, mirrorLiveOverlayUpdate } from '@/engine/charting';
+import { getOriginalDrawingId, mirrorLiveOverlayUpdate, runWorkspaceReconciliation } from '@/engine/charting';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { FloatingTextToolEditor } from '@/components/FloatingTextToolEditor';
 import { FloatingFibonacciText } from '@/components/FloatingFibonacciText';
+import { FloatingNoteText } from '@/components/FloatingNoteText';
 
 interface SlotFloatingTextOverlaysProps {
   chart: any;
@@ -26,7 +27,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
   if (!chart) return null;
 
   const allTextOverlays = chart.getOverlays().filter((o: any) =>
-    ['trendLine', 'rectangle', 'fxText', 'text', 'fibonacciRetracement'].includes(o.name)
+    ['trendLine', 'rectangle', 'fxText', 'text', 'fibonacciRetracement', 'note'].includes(o.name)
   );
 
   return (
@@ -57,6 +58,27 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
             mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
           }
 
+          setDrawingTrigger((prev) => prev + 1);
+        };
+
+        const handleDeleteDrawing = (overlayId: string) => {
+          const originalId = getOriginalDrawingId(overlayId);
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          if (resolved) {
+            useDrawingStore.getState().removeSymbolDrawing(resolved.symbol, originalId);
+          }
+          useDrawingStore.getState().removeSymbolDrawingById(originalId);
+          if (chart) {
+            chart.removeOverlay(overlayId);
+            chart.removeOverlay(originalId);
+          }
+          const currentSelected = useDrawingStore.getState().selectedOverlayIds || [];
+          if (currentSelected.includes(originalId) || currentSelected.includes(overlayId)) {
+            useDrawingStore.getState().setSelectedOverlayIds(
+              currentSelected.filter((id) => id !== originalId && id !== overlayId)
+            );
+          }
+          runWorkspaceReconciliation(chartInstancesRef);
           setDrawingTrigger((prev) => prev + 1);
         };
 
@@ -145,6 +167,20 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               isSelected={selectedOverlayIds.includes(ov.id)}
               isHovered={hoveredOverlayId === ov.id}
               onTextChange={handleTextChange}
+              syncAllDrawings={syncAllDrawings}
+            />
+          );
+        }
+        if (ov.name === 'note') {
+          return (
+            <FloatingNoteText
+              key={ov.id}
+              chart={chart}
+              overlay={ov}
+              isSelected={selectedOverlayIds.includes(ov.id)}
+              isHovered={hoveredOverlayId === ov.id}
+              onTextChange={handleTextChange}
+              onDelete={handleDeleteDrawing}
               syncAllDrawings={syncAllDrawings}
             />
           );
