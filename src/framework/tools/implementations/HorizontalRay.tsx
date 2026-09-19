@@ -101,7 +101,7 @@ export const HorizontalRayTool: ToolDefinition = {
         const isHovered = (overlay?.extendData as any)?.isHovered;
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         if (isSelected || isHovered || isDrawing) {
-          drawGrabHandles(figures, coordinates, overlay?.lock || false);
+          drawGrabHandles(figures, coordinates, overlay?.lock || false, isSelected || isDrawing);
         }
       }
       return figures;

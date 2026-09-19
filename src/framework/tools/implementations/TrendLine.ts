@@ -1,15 +1,19 @@
-import type { ToolDefinition } from '../ToolRegistry';
-import { drawGrabHandles, drawArrowHeads, isOverlayVisible } from '../toolUtils';
+import React from 'react';
+import type { ToolDefinition } from '../ToolRegistry.ts';
+import { drawGrabHandles, drawArrowHeads, isOverlayVisible, computeLineSegmentsWithTextGap } from '../toolUtils.ts';
 
 // SVG icon for TrendLine matching TradingView
-const TrendLineIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className}>
-    <g fill="currentColor" fillRule="nonzero">
-      <path d="M7.354 21.354l14-14-.707-.707-14 14z"></path>
-      <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z"></path>
-    </g>
-  </svg>
-);
+const TrendLineIcon = ({ className = "w-5 h-5", style }: { className?: string; style?: React.CSSProperties }) =>
+  React.createElement(
+    'svg',
+    { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 28 28', className, style },
+    React.createElement(
+      'g',
+      { fill: 'currentColor', fillRule: 'nonzero' },
+      React.createElement('path', { d: 'M7.354 21.354l14-14-.707-.707-14 14z' }),
+      React.createElement('path', { d: 'M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z' })
+    )
+  );
 
 // Robust extrapolation calculation
 const extrapolateLine = (
@@ -157,78 +161,16 @@ export const TrendLineTool: ToolDefinition = {
         } else if (isLineDrawn && isSelected && (isHovered || isEditingText)) {
           textToShow = '+ Add text';
         }
-        
-        // The line adjusts and makes a gap whenever text (or + Add text placeholder) is active and centered on the line
-        const hasTextGap = isLineDrawn && Boolean(textToShow) && textValign === 'middle';
 
-        const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
-
-        // Always define pLeft and pRight
-        const pLeft = p1.x < p2.x ? p1 : p2;
-        const pRight = p1.x < p2.x ? p2 : p1;
-
-        if (hasTextGap) {
-          const dx = pRight.x - pLeft.x;
-          const dy = pRight.y - pLeft.y;
-          const len = Math.sqrt(dx * dx + dy * dy);
-          const calculatedWidth = textToShow.length * (fontSize * 0.5) + 6;
-          const textWidth = measuredTextWidth
-            ? Math.min(measuredTextWidth, calculatedWidth + 6)
-            : calculatedWidth;
-
-          if (len > 0.0001) {
-            const ux = dx / len;
-            const uy = dy / len;
-
-            if (textHalign === 'center') {
-              const midX = (pLeft.x + pRight.x) / 2;
-              const midY = (pLeft.y + pRight.y) / 2;
-              const gapHalf = (textWidth / 2) + 2;
-
-              if (len > textWidth) {
-                drawSegments.push({
-                  x1: pLeft.x,
-                  y1: pLeft.y,
-                  x2: midX - gapHalf * ux,
-                  y2: midY - gapHalf * uy
-                });
-                drawSegments.push({
-                  x1: midX + gapHalf * ux,
-                  y1: midY + gapHalf * uy,
-                  x2: pRight.x,
-                  y2: pRight.y
-                });
-              }
-            } else if (textHalign === 'left') {
-              const trimLen = textWidth + 4;
-              if (len > trimLen) {
-                drawSegments.push({
-                  x1: pLeft.x + trimLen * ux,
-                  y1: pLeft.y + trimLen * uy,
-                  x2: pRight.x,
-                  y2: pRight.y
-                });
-              }
-            } else if (textHalign === 'right') {
-              const trimLen = textWidth + 4;
-              if (len > trimLen) {
-                drawSegments.push({
-                  x1: pLeft.x,
-                  y1: pLeft.y,
-                  x2: pRight.x - trimLen * ux,
-                  y2: pRight.y - trimLen * uy
-                });
-              }
-            }
-          }
-        } else {
-          drawSegments.push({
-            x1: p1.x,
-            y1: p1.y,
-            x2: p2.x,
-            y2: p2.y
-          });
-        }
+        const drawSegments = computeLineSegmentsWithTextGap(
+          p1,
+          p2,
+          textToShow,
+          textHalign,
+          textValign,
+          fontSize,
+          measuredTextWidth
+        );
 
         // 1. Transparent full-length line figure for reliable event hit-testing across text gaps
         figures.push({
@@ -265,7 +207,7 @@ export const TrendLineTool: ToolDefinition = {
         // Selection / In-progress creation / Hover grab handles
         const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         if (isSelected || isHovered || isDrawing) {
-          drawGrabHandles(figures, coordinates, overlay?.lock || false);
+          drawGrabHandles(figures, coordinates, overlay?.lock || false, isSelected || isDrawing);
         }
       }
       return figures;

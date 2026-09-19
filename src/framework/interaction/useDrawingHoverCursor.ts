@@ -190,46 +190,50 @@ export function useDrawingHoverCursor({
               }
             }
           }
-
-          // Clear selection & reset active tool to Crosshair on empty space click (unless dialog is open or clicking on UI)
-          const container = chartContainersRef.current[index];
-          if (container) {
-            const rect = container.getBoundingClientRect();
-            const clickInside =
-              e.clientX >= rect.left &&
-              e.clientX <= rect.right &&
-              e.clientY >= rect.top &&
-              e.clientY <= rect.bottom;
-
-            const isUIInteraction =
-              isDrawingSettingsOpen ||
-              (e.target instanceof Element &&
-                (!!e.target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect], [role="dialog"]') ||
-                  !!e.target.closest('button, input, select, textarea, [role="button"], [role="dialog"], [role="menu"]')));
-
-            if (clickInside && !isUIInteraction) {
-              setTimeout(() => {
-                if (!chart._clickedOnOverlay && !chart._activeDrawingId) {
-                  handleSelectOverlayIds([]);
-                  if (
-                    drawingCoord.activeTool &&
-                    drawingCoord.activeTool !== 'eraser' &&
-                    drawingCoord.activeTool !== 'measure' &&
-                    drawingCoord.activeTool !== 'zoomIn' &&
-                    drawingCoord.activeTool !== 'brush' &&
-                    drawingCoord.activeTool !== 'highlighter'
-                  ) {
-                    drawingCoord.setActiveTool(null);
-                    chart.setScrollEnabled(true);
-                    chart.setZoomEnabled(true);
-                  }
-                }
-                chart._clickedOnOverlay = false;
-              }, 50);
-            }
-          }
         }
       });
+
+      // Clear selection & reset active tool on empty viewport click (unless clicking on selected item, tree item, or interactive UI)
+      const isTreeItemClick =
+        e.target instanceof Element &&
+        !!e.target.closest('[data-object-tree-item], [data-object-tree-folder], [data-object-tree-candles]');
+
+      const isUIInteraction =
+        isDrawingSettingsOpen ||
+        (e.target instanceof Element &&
+          (!!e.target.closest('[data-floating-ui], .drawing-floating-toolbar, [data-no-deselect], [role="dialog"], [role="menu"], [role="listbox"]') ||
+            !!e.target.closest('button, input, select, textarea, [role="button"], [role="menuitem"]')));
+
+      if (!isTreeItemClick && !isUIInteraction) {
+        setTimeout(() => {
+          const clickedOnAnyOverlay = chartInstancesRef.current.some((c: any) => c?._clickedOnOverlay);
+          const activeDrawingInProgress = chartInstancesRef.current.some((c: any) => !!c?._activeDrawingId);
+
+          if (!clickedOnAnyOverlay && !activeDrawingInProgress) {
+            handleSelectOverlayIds([]);
+            if (
+              drawingCoord.activeTool &&
+              drawingCoord.activeTool !== 'eraser' &&
+              drawingCoord.activeTool !== 'measure' &&
+              drawingCoord.activeTool !== 'zoomIn' &&
+              drawingCoord.activeTool !== 'brush' &&
+              drawingCoord.activeTool !== 'highlighter'
+            ) {
+              drawingCoord.setActiveTool(null);
+              chartInstancesRef.current.forEach((c: any) => {
+                if (c) {
+                  c.setScrollEnabled?.(true);
+                  c.setZoomEnabled?.(true);
+                }
+              });
+            }
+          }
+
+          chartInstancesRef.current.forEach((c: any) => {
+            if (c) c._clickedOnOverlay = false;
+          });
+        }, 50);
+      }
     };
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
@@ -414,7 +418,7 @@ export function useDrawingHoverCursor({
         const currentHoveredZ = hoveredInteractiveOverlay ? getNaturalZLevel(chart, hoveredInteractiveOverlay) : -Infinity;
         const thisZ = getNaturalZLevel(chart, ov);
 
-        if (ov.points && ['rectangle', 'fxText', 'longPosition', 'shortPosition'].includes(ov.name)) {
+        if (ov.points && ['rectangle', 'fxText', 'longPosition', 'shortPosition', 'fibonacciRetracement'].includes(ov.name)) {
           const pts = chart.convertToPixel(ov.points, { paneId: 'candle_pane' });
           if (pts && pts.length >= 2) {
             const xCoords = pts
@@ -424,10 +428,23 @@ export function useDrawingHoverCursor({
               .map((p: any) => p?.y)
               .filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
             if (xCoords.length >= 2 && yCoords.length >= 2) {
-              const minX = Math.min(...xCoords);
-              const maxX = Math.max(...xCoords);
+              let minX = Math.min(...xCoords);
+              let maxX = Math.max(...xCoords);
               const minY = Math.min(...yCoords);
               const maxY = Math.max(...yCoords);
+
+              if (ov.name === 'fibonacciRetracement') {
+                const cs = ov.extendData?.customSettings || {};
+                const chartWidth = chart.getWidth ? chart.getWidth() : 2000;
+                if (cs.extend === 'left') {
+                  minX = 0;
+                } else if (cs.extend === 'right') {
+                  maxX = chartWidth;
+                } else if (cs.extend === 'both') {
+                  minX = 0;
+                  maxX = chartWidth;
+                }
+              }
 
               if (xVal >= minX && xVal <= maxX && yVal >= minY && yVal <= maxY) {
                 if (thisZ >= currentHoveredZ) {
@@ -579,6 +596,7 @@ export function useDrawingHoverCursor({
             'curve',
             'path',
             'circle',
+            'fibonacciRetracement',
           ].includes(ov.name)
         ) {
           const isCurrentlyHovered = ov.id === nextHoveredId;

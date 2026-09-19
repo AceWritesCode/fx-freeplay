@@ -1,5 +1,4 @@
 import { isEditableElement } from './ModifierKeyTracker.ts';
-import { isExclusiveMarqueeMode } from './MarqueeSelectionHandler.ts';
 import { snapPointToCandle, calculateAngleSnapPoint, isAngleSnapSupportedTool } from '../../engine/charting/snapping.ts';
 
 
@@ -170,21 +169,22 @@ export class DrawingDragReleaseHandler {
     const chart = this._options.chartInstancesRef.current[slotIndex];
     if (!chart) return;
 
-    // Must not be in marquee selection mode
-    if (isExclusiveMarqueeMode(chart, e)) return;
-
     const chartStore = (chart as any).getChartStore?.() || (chart as any)._chartStore;
     if (!chartStore) return;
-
-    // Must NOT intercept if user pressed on an existing completed overlay figure (move/edit gesture)
-    const pressedInfo = chartStore.getPressedOverlayInfo?.();
-    if (pressedInfo?.overlay) return;
 
     // Must have an in-progress overlay
     const progressInfo = chartStore.getProgressOverlayInfo?.();
     if (!progressInfo || !progressInfo.overlay) return;
 
     const overlay = progressInfo.overlay;
+
+    // Safe pressed-overlay cleanup: Ensure no existing overlay retains accidental pressed state
+    if (typeof chartStore.setPressedOverlayInfo === 'function') {
+      const pressedInfo = chartStore.getPressedOverlayInfo?.();
+      if (pressedInfo?.overlay && pressedInfo.overlay.id !== overlay.id) {
+        chartStore.setPressedOverlayInfo(null);
+      }
+    }
 
     // Constraint: MUST be a two-anchor tool (totalStep === 3)
     if (overlay.totalStep !== 3) return;

@@ -74,7 +74,12 @@ export const checkOverlayVisible = isOverlayVisible;
  * Shared grab handle renderer for overlays.
  * Used uniformly by TrendLine, Rectangle, PriceChannel, Forecast, Ray, HorizontalLine, VerticalLine, etc.
  */
-export const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: boolean) => {
+export const drawGrabHandles = (
+  figures: any[],
+  coordinates: any[],
+  isLocked: boolean,
+  isSelected: boolean = true
+) => {
   coordinates.forEach((coord: any) => {
     if (!coord || typeof coord.x !== 'number' || typeof coord.y !== 'number') return;
     if (isLocked) {
@@ -92,12 +97,12 @@ export const drawGrabHandles = (figures: any[], coordinates: any[], isLocked: bo
     } else {
       figures.push({
         type: 'circle',
-        attrs: { x: coord.x, y: coord.y, r: 5 },
+        attrs: { x: coord.x, y: coord.y, r: isSelected ? 4 : 4.5 },
         styles: {
           style: 'stroke_fill',
           color: '#ffffff',
           borderColor: '#2196F3',
-          borderSize: 1.5
+          borderSize: isSelected ? 2 : 1
         },
         ignoreEvent: false
       });
@@ -240,3 +245,167 @@ export function boostColorOpacity(colorStr: string, defaultOpacity: number = 0.2
 
   return colorStr;
 }
+
+/**
+ * Computes line segments for any 2D line segment between p1 and p2 with arbitrary 1D gap intervals subtracted.
+ * Gaps are specified as distances along the line from pLeft [0, len].
+ */
+export function computeLineSegmentsWithGaps(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  gaps: { start: number; end: number }[]
+): { x1: number; y1: number; x2: number; y2: number }[] {
+  const pLeft = p1.x < p2.x || (p1.x === p2.x && p1.y <= p2.y) ? p1 : p2;
+  const pRight = p1.x < p2.x || (p1.x === p2.x && p1.y <= p2.y) ? p2 : p1;
+  const dx = pRight.x - pLeft.x;
+  const dy = pRight.y - pLeft.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  if (len < 0.0001 || !gaps || gaps.length === 0) {
+    return [{ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }];
+  }
+
+  // Normalize, clamp and filter valid gaps
+  const validGaps = gaps
+    .map((g) => ({
+      start: Math.max(0, Math.min(len, g.start)),
+      end: Math.max(0, Math.min(len, g.end)),
+    }))
+    .filter((g) => g.end > g.start)
+    .sort((a, b) => a.start - b.start);
+
+  if (validGaps.length === 0) {
+    return [{ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }];
+  }
+
+  // Merge overlapping and adjacent gap intervals
+  const mergedGaps: { start: number; end: number }[] = [];
+  let current = { ...validGaps[0] };
+  for (let i = 1; i < validGaps.length; i++) {
+    const next = validGaps[i];
+    if (next.start <= current.end) {
+      current.end = Math.max(current.end, next.end);
+    } else {
+      mergedGaps.push(current);
+      current = { ...next };
+    }
+  }
+  mergedGaps.push(current);
+
+  const ux = dx / len;
+  const uy = dy / len;
+  const segments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  let currentDist = 0;
+
+  for (const gap of mergedGaps) {
+    if (gap.start > currentDist) {
+      segments.push({
+        x1: pLeft.x + currentDist * ux,
+        y1: pLeft.y + currentDist * uy,
+        x2: pLeft.x + gap.start * ux,
+        y2: pLeft.y + gap.start * uy,
+      });
+    }
+    currentDist = Math.max(currentDist, gap.end);
+  }
+
+  if (currentDist < len) {
+    segments.push({
+      x1: pLeft.x + currentDist * ux,
+      y1: pLeft.y + currentDist * uy,
+      x2: pRight.x,
+      y2: pRight.y,
+    });
+  }
+
+  return segments.length > 0 ? segments : [{ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }];
+}
+
+/**
+ * Computes line segments for drawing lines (TrendLine, Fib level lines, etc.)
+ * with an automatic gap when text is active and vertically centered (valign === 'middle').
+ */
+export function computeLineSegmentsWithTextGap(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  textToShow: string,
+  textHalign: string = 'right',
+  textValign: string = 'middle',
+  fontSize: number = 14,
+  measuredTextWidth?: number
+): { x1: number; y1: number; x2: number; y2: number }[] {
+  const drawSegments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const pLeft = p1.x < p2.x ? p1 : p2;
+  const pRight = p1.x < p2.x ? p2 : p1;
+
+  const hasTextGap = Boolean(textToShow && textToShow.trim() !== '') && textValign === 'middle';
+
+  if (hasTextGap) {
+    const dx = pRight.x - pLeft.x;
+    const dy = pRight.y - pLeft.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const calculatedWidth = textToShow.length * (fontSize * 0.5) + 6;
+    const textWidth = measuredTextWidth
+      ? Math.min(measuredTextWidth, calculatedWidth + 6)
+      : calculatedWidth;
+
+    if (len > 0.0001) {
+      const ux = dx / len;
+      const uy = dy / len;
+
+      if (textHalign === 'center') {
+        const midX = (pLeft.x + pRight.x) / 2;
+        const midY = (pLeft.y + pRight.y) / 2;
+        const gapHalf = textWidth / 2 + 2;
+
+        if (len > textWidth) {
+          drawSegments.push({
+            x1: pLeft.x,
+            y1: pLeft.y,
+            x2: midX - gapHalf * ux,
+            y2: midY - gapHalf * uy,
+          });
+          drawSegments.push({
+            x1: midX + gapHalf * ux,
+            y1: midY + gapHalf * uy,
+            x2: pRight.x,
+            y2: pRight.y,
+          });
+        }
+      } else if (textHalign === 'left') {
+        const trimLen = textWidth + 4;
+        if (len > trimLen) {
+          drawSegments.push({
+            x1: pLeft.x + trimLen * ux,
+            y1: pLeft.y + trimLen * uy,
+            x2: pRight.x,
+            y2: pRight.y,
+          });
+        }
+      } else if (textHalign === 'right') {
+        const trimLen = textWidth + 4;
+        if (len > trimLen) {
+          drawSegments.push({
+            x1: pLeft.x,
+            y1: pLeft.y,
+            x2: pRight.x - trimLen * ux,
+            y2: pRight.y - trimLen * uy,
+          });
+        }
+      }
+    }
+  }
+
+  // Fallback to full segment if gap couldn't be drawn or wasn't needed
+  if (drawSegments.length === 0) {
+    drawSegments.push({
+      x1: p1.x,
+      y1: p1.y,
+      x2: p2.x,
+      y2: p2.y,
+    });
+  }
+
+  return drawSegments;
+}
+

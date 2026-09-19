@@ -31,6 +31,7 @@ export const CandlesTreeItem: React.FC<CandlesTreeItemProps> = ({
   return (
     <div
       key="candles"
+      data-object-tree-candles="true"
       draggable={true}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}

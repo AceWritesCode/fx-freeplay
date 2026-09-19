@@ -4,6 +4,7 @@ import { getOriginalDrawingId, mirrorLiveOverlayUpdate } from '@/engine/charting
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { FloatingTextToolEditor } from '@/components/FloatingTextToolEditor';
+import { FloatingFibonacciText } from '@/components/FloatingFibonacciText';
 
 interface SlotFloatingTextOverlaysProps {
   chart: any;
@@ -25,7 +26,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
   if (!chart) return null;
 
   const allTextOverlays = chart.getOverlays().filter((o: any) =>
-    ['trendLine', 'rectangle', 'fxText', 'text'].includes(o.name)
+    ['trendLine', 'rectangle', 'fxText', 'text', 'fibonacciRetracement'].includes(o.name)
   );
 
   return (
@@ -59,6 +60,56 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
           setDrawingTrigger((prev) => prev + 1);
         };
 
+        const handleFibLevelTextChange = (levelVal: number, newText: string) => {
+          const originalId = getOriginalDrawingId(ov.id);
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          if (resolved) {
+            const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+            const currentCustom = currentDrawing.extendData?.customSettings || {};
+            const currentLevelTexts = currentCustom.levelTexts || {};
+            const updatedLevelTexts = {
+              ...currentLevelTexts,
+              [String(levelVal)]: newText,
+            };
+            const updatedLevels = (currentCustom.levels || []).map((l: any) =>
+              l.level === levelVal ? { ...l, text: newText } : l
+            );
+            const mergedExtendData = {
+              ...(currentDrawing.extendData || {}),
+              customSettings: {
+                ...currentCustom,
+                levelTexts: updatedLevelTexts,
+                levels: updatedLevels,
+              },
+            };
+            useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {
+              extendData: mergedExtendData,
+            });
+            if (chart && originalId) {
+              chart.overrideOverlay({
+                id: originalId,
+                extendData: mergedExtendData,
+              });
+            }
+            mirrorLiveOverlayUpdate(chart, originalId, { extendData: mergedExtendData }, chartInstancesRef);
+          }
+
+          setDrawingTrigger((prev) => prev + 1);
+        };
+
+        if (ov.name === 'fibonacciRetracement') {
+          return (
+            <FloatingFibonacciText
+              key={ov.id}
+              chart={chart}
+              overlay={ov}
+              isSelected={selectedOverlayIds.includes(ov.id)}
+              isHovered={hoveredOverlayId === ov.id}
+              onLevelTextChange={handleFibLevelTextChange}
+              syncAllDrawings={syncAllDrawings}
+            />
+          );
+        }
         if (ov.name === 'trendLine') {
           return (
             <FloatingTrendLineText

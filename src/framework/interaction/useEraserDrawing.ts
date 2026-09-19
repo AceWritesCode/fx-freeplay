@@ -97,8 +97,8 @@ export function useEraserDrawing({
       }
       if (!Array.isArray(pts) || pts.length === 0) return false;
 
-      // Handle bounding box overlays (rectangle, fxText, text, longPosition, shortPosition)
-      if (['rectangle', 'fxText', 'text', 'longPosition', 'shortPosition'].includes(overlay.name) && pts.length >= 2) {
+      // Handle bounding box overlays (rectangle, fxText, text, longPosition, shortPosition, fibonacciRetracement)
+      if (['rectangle', 'fxText', 'text', 'longPosition', 'shortPosition', 'fibonacciRetracement'].includes(overlay.name) && pts.length >= 2) {
         const xCoords = pts.map((p: any) => p?.x).filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
         const yCoords = pts.map((p: any) => p?.y).filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
         if (xCoords.length >= 2 && yCoords.length >= 2) {

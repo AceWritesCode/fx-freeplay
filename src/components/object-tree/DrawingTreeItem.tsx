@@ -72,6 +72,7 @@ export const DrawingTreeItem: React.FC<DrawingTreeItemProps> = ({
 
   return (
     <div
+      data-object-tree-item={id}
       draggable={true}
       onDragStart={(e) => onDragStart(e, id, 'drawing')}
       onDragEnd={onDragEnd}

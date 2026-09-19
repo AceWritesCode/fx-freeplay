@@ -94,14 +94,19 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const isText = firstOverlay?.name === 'text' || firstOverlay?.name === 'fxText';
   const isBrush = firstOverlay?.name === 'brush';
   const isHighlighter = firstOverlay?.name === 'highlighter';
+  const isFib = firstOverlay?.name === 'fibonacciRetracement';
   const isLineTool = ['brush', 'trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(firstOverlay?.name || '');
   const isAnchored = !!customSettings.isAnchored;
   const fontSize = customSettings.fontSize || 14;
   const textAlign = customSettings.textAlign || 'left';
   const fillBackground = customSettings.fillBackground !== false && customSettings.fillBackground !== undefined;
   const fillColor = customSettings.fillColor || 'rgba(33, 150, 243, 0.1)';
-  const lineColor = customSettings.lineColor || '#2196F3';
-  const textColor = customSettings.textColor || '#2196F3';
+  const lineColor = isFib
+    ? (customSettings.useOneColor ? (customSettings.oneColor || '#808080') : (customSettings.oneColor || customSettings.trendLine?.color || '#808080'))
+    : (customSettings.lineColor || '#2196F3');
+  const textColor = isFib
+    ? (customSettings.useOneColor ? (customSettings.oneTextColor || '#808080') : (customSettings.oneTextColor || '#808080'))
+    : (customSettings.textColor || '#2196F3');
   const startArrow = customSettings.startArrow || 'normal';
   const endArrow = customSettings.endArrow || (firstOverlay?.name === 'arrow' ? 'arrow' : 'normal');
   const profitColor = customSettings.profitColor || 'rgba(76, 175, 80, 0.12)';
@@ -438,7 +443,21 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               <div className="absolute top-full mt-2 left-0 z-50">
                 <ColorPicker 
                   color={lineColor} 
-                  onChange={(c) => handleUpdate({ lineColor: c }, false)} 
+                  onChange={(c) => {
+                    if (isFib) {
+                      handleUpdate({
+                        useOneColor: true,
+                        oneColor: c,
+                        lineColor: c,
+                        trendLine: {
+                          ...(customSettings.trendLine || {}),
+                          color: c,
+                        },
+                      }, false);
+                    } else {
+                      handleUpdate({ lineColor: c }, false);
+                    }
+                  }} 
                 />
               </div>
             )}
@@ -461,7 +480,17 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               <div className="absolute top-full mt-2 left-0 z-50">
                 <ColorPicker 
                   color={textColor} 
-                  onChange={(c) => handleUpdate({ textColor: c }, false)} 
+                  onChange={(c) => {
+                    if (isFib) {
+                      handleUpdate({
+                        useOneColor: true,
+                        oneTextColor: c,
+                        textColor: c,
+                      }, false);
+                    } else {
+                      handleUpdate({ textColor: c }, false);
+                    }
+                  }} 
                 />
               </div>
             )}

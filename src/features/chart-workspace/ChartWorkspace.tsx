@@ -2221,11 +2221,30 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
             if (resolved) {
               const { symbol: drawingSymbol, drawing: currentDrawing } = resolved;
+              
+              let finalUpdate = { ...settingsUpdate };
+              if (currentDrawing.name === 'fibonacciRetracement') {
+                if (settingsUpdate.lineColor && settingsUpdate.useOneColor === undefined && settingsUpdate.oneColor === undefined) {
+                  finalUpdate = {
+                    ...finalUpdate,
+                    useOneColor: true,
+                    oneColor: settingsUpdate.lineColor,
+                  };
+                }
+                if (settingsUpdate.textColor && settingsUpdate.useOneColor === undefined && settingsUpdate.oneTextColor === undefined) {
+                  finalUpdate = {
+                    ...finalUpdate,
+                    useOneColor: true,
+                    oneTextColor: settingsUpdate.textColor,
+                  };
+                }
+              }
+
               const mergedExtendData = {
                 ...(currentDrawing.extendData || {}),
                 customSettings: {
                   ...(currentDrawing.extendData?.customSettings || {}),
-                  ...settingsUpdate,
+                  ...finalUpdate,
                 },
               };
               useDrawingStore.getState().updateSymbolDrawing(drawingSymbol, originalId, {

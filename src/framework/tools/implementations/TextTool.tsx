@@ -276,12 +276,12 @@ export const TextTool: ToolDefinition = {
         if (!isLocked) {
           figures.push({
             type: 'circle',
-            attrs: { x: targetHandleX, y: targetHandleY, r: 5 },
+            attrs: { x: targetHandleX, y: targetHandleY, r: isSelected ? 4 : 4.5 },
             styles: {
               style: 'stroke_fill',
               color: '#ffffff',
               borderColor: textColor,
-              borderSize: 1.5
+              borderSize: isSelected ? 2 : 1
             },
             ignoreEvent: false
           });

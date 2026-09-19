@@ -138,7 +138,7 @@ export const RayTool: ToolDefinition = {
         const isSelected = (overlay?.extendData as any)?.isSelected;
         const isHovered = (overlay?.extendData as any)?.isHovered;
         if (isSelected || isHovered || isDrawing) {
-          drawGrabHandles(figures, coordinates, overlay?.lock || false);
+          drawGrabHandles(figures, coordinates, overlay?.lock || false, isSelected || isDrawing);
         }
       }
       return figures;

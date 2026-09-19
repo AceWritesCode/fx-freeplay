@@ -13,6 +13,10 @@ import { DrawingTreeItem } from './object-tree/DrawingTreeItem';
 import { FolderTreeItem } from './object-tree/FolderTreeItem';
 import { CandlesTreeItem } from './object-tree/CandlesTreeItem';
 import { useObjectTreeDragDrop } from './object-tree/useObjectTreeDragDrop';
+import {
+  getVisibleDrawingIds,
+  resolveObjectTreeClickSelection,
+} from './object-tree/objectTreeSelection';
 
 /**
  * Pure predicate to filter out non-user drawings (sync copies, price lines, session breaks).
@@ -239,10 +243,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                 activeBorderSize: 0
               } : {
                 radius: 4.5,
-                activeRadius: 5.5,
+                activeRadius: 4,
                 color: '#ffffff',
                 borderColor: '#2196F3',
-                borderSize: 1.5,
+                borderSize: 1,
                 activeColor: '#ffffff',
                 activeBorderColor: '#2196F3',
                 activeBorderSize: 2
@@ -343,10 +347,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             activeBorderSize: 0
           } : {
             radius: 4.5,
-            activeRadius: 5.5,
+            activeRadius: 4,
             color: '#ffffff',
             borderColor: '#2196F3',
-            borderSize: 1.5,
+            borderSize: 1,
             activeColor: '#ffffff',
             activeBorderColor: '#2196F3',
             activeBorderSize: 2
@@ -452,10 +456,10 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
               activeBorderSize: 0
             } : {
               radius: 4.5,
-              activeRadius: 5.5,
+              activeRadius: 4,
               color: '#ffffff',
               borderColor: '#2196F3',
-              borderSize: 1.5,
+              borderSize: 1,
               activeColor: '#ffffff',
               activeBorderColor: '#2196F3',
               activeBorderSize: 2
@@ -566,15 +570,28 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
     });
   }, [canonicalSequence, currentSymbolDrawings, folders, activeChart, drawingTrigger]);
 
-  // Handle single selection
+  // Track the most recent Shift-selection anchor
+  const selectionAnchorRef = useRef<string | null>(null);
+
+  // Derive visible drawing IDs in current tree order (respecting collapsed folders)
+  const visibleDrawingIds = React.useMemo(() => {
+    return getVisibleDrawingIds(rootItems, groupedDrawings);
+  }, [rootItems, groupedDrawings]);
+
+  // Handle item selection with Shift-range, Ctrl-toggle, and Normal single-select
   const handleItemSelect = (e: React.MouseEvent, id: string) => {
-    if (e.ctrlKey || e.metaKey) {
-      setSelectedOverlayIds(prev =>
-        prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-      );
-    } else {
-      setSelectedOverlayIds([id]);
-    }
+    const result = resolveObjectTreeClickSelection({
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      targetId: id,
+      currentSelectedIds: selectedOverlayIds,
+      currentAnchorId: selectionAnchorRef.current,
+      visibleDrawingIds,
+    });
+
+    selectionAnchorRef.current = result.nextAnchorId;
+    setSelectedOverlayIds(result.nextSelectedIds);
   };
 
   return (
@@ -628,6 +645,12 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
             className="flex-1 overflow-y-auto px-1 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-border-def"
             onDragOver={handleDragOver}
             onDrop={handleDropOnRoot}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                selectionAnchorRef.current = null;
+                setSelectedOverlayIds([]);
+              }
+            }}
           >
             {/* Intermixed Folders, Drawings & Candles */}
             {rootItems.map(item => {
@@ -676,6 +699,7 @@ export const ObjectTreePanel: React.FC<ObjectTreePanelProps> = ({
                       if (hasAllSelected) {
                         setSelectedOverlayIds(prev => prev.filter(id => !childIds.includes(id)));
                       } else {
+                        selectionAnchorRef.current = childIds[0];
                         setSelectedOverlayIds(prev => Array.from(new Set([...prev, ...childIds])));
                       }
                     }}

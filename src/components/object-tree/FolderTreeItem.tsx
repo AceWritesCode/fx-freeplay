@@ -71,6 +71,7 @@ export const FolderTreeItem: React.FC<FolderTreeItemProps> = ({
     <div className="flex flex-col border border-transparent rounded-lg">
       {/* Folder Item Header */}
       <div
+        data-object-tree-folder={id}
         draggable={true}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}

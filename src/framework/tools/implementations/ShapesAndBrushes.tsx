@@ -360,7 +360,7 @@ export const RectangleTool: ToolDefinition = {
       const isSelected = (overlay.extendData as any)?.isSelected;
       const isHovered = (overlay.extendData as any)?.isHovered;
       if ((isSelected || isHovered) && coordinates.length >= 8) {
-        drawGrabHandles(figures, coordinates, overlay.lock || false);
+        drawGrabHandles(figures, coordinates, overlay.lock || false, isSelected);
       }
 
       return figures;

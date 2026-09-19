@@ -266,12 +266,15 @@ describe('DrawingDragReleaseHandler', () => {
       assert.equal(nextStepCallCount, 0);
     });
 
-    it('does NOT activate when user is pressing on an existing completed overlay (move/edit gesture)', () => {
-      // getPressedOverlayInfo returns an existing overlay figure being pressed
+    it('clears accidental pressed overlay state and activates creation when activeTool is active over an existing completed overlay', () => {
+      let clearedPressed = false;
       mockChartStore.getPressedOverlayInfo = () => ({
         overlay: { id: 'completed_rect_1' },
         figure: { type: 'rect' },
       });
+      mockChartStore.setPressedOverlayInfo = (val: any) => {
+        if (val === null) clearedPressed = true;
+      };
 
       const downEvent: any = {
         button: 0,
@@ -282,6 +285,8 @@ describe('DrawingDragReleaseHandler', () => {
       };
       (handler as any)._handleMouseDown(downEvent);
 
+      assert.equal(clearedPressed, true, 'Must clear accidental pressed overlay info for existing overlay');
+
       const dragEvent: any = {
         clientX: 250,
         clientY: 250,
@@ -289,7 +294,7 @@ describe('DrawingDragReleaseHandler', () => {
       };
       (handler as any)._handleMouseMove(dragEvent);
 
-      assert.equal(nextStepCallCount, 0, 'Never intercepts when pressing on an existing overlay');
+      assert.equal(nextStepCallCount, 1, 'Drawing creation advances to step 2 on drag');
     });
 
     it('does NOT activate when the overlay is not in its initial step (currentStep !== 1)', () => {

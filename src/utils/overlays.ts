@@ -16,6 +16,8 @@ export function registerCustomOverlays() {
     name: 'customPriceLine',
     totalStep: 0,
     needDefaultPointFigure: false,
+    performEventPressedMove: () => false,
+    performEventMoveForDrawing: () => false,
     createPointFigures: ({ chart, yAxis, bounding }: any) => {
       if (!chart._showPriceLine) return [];
 
@@ -115,7 +117,8 @@ export function registerCustomOverlays() {
           styles: {
             style: 'fill',
             color: color
-          }
+          },
+          ignoreEvent: true
         },
         {
           type: 'text',
@@ -131,7 +134,8 @@ export function registerCustomOverlays() {
             size: 11,
             family: 'Noto Sans, sans-serif',
             backgroundColor: 'transparent'
-          }
+          },
+          ignoreEvent: true
         }
       ];
     }
@@ -144,6 +148,8 @@ export function registerCustomOverlays() {
     needDefaultPointFigure: false,
     needDefaultXAxisFigure: false,
     needDefaultYAxisFigure: false,
+    performEventPressedMove: () => false,
+    performEventMoveForDrawing: () => false,
     createPointFigures: ({ chart, bounding }: any) => {
       if (!chart._showSessionBreaks) {
         return [];
@@ -215,8 +221,8 @@ export function registerCustomOverlays() {
   });
 }
 
-import { isExclusiveMarqueeMode } from '../framework/interaction/MarqueeSelectionHandler';
-export { isExclusiveMarqueeMode };
+import { isOverlayDragAllowed, isExclusiveMarqueeMode } from '../framework/interaction/gestureAuthority';
+export { isOverlayDragAllowed, isExclusiveMarqueeMode };
 
 export function getInteractiveOverlayOptions(
   toolName: string,
@@ -451,7 +457,12 @@ export function getInteractiveOverlayOptions(
     },
     onPressedMoveStart: (event: any) => {
       const actualChart = event.chart || chartInstanceRef.current;
-      if (isExclusiveMarqueeMode(actualChart, event)) {
+      if (!isOverlayDragAllowed(actualChart, event, event.overlay)) {
+        const store = actualChart?.getChartStore?.() || actualChart?._chartStore ||
+          event?.chart?.getChartStore?.() || event?.chart?._chartStore;
+        if (store && typeof store.setPressedOverlayInfo === 'function') {
+          store.setPressedOverlayInfo(null);
+        }
         return;
       }
 
@@ -708,7 +719,12 @@ export function getInteractiveOverlayOptions(
     },
     onPressedMoving: (event: any) => {
       const actualChart = event.chart || chartInstanceRef.current;
-      if (isExclusiveMarqueeMode(actualChart, event)) {
+      if (!isOverlayDragAllowed(actualChart, event, event.overlay)) {
+        const store = actualChart?.getChartStore?.() || actualChart?._chartStore ||
+          event?.chart?.getChartStore?.() || event?.chart?._chartStore;
+        if (store && typeof store.setPressedOverlayInfo === 'function') {
+          store.setPressedOverlayInfo(null);
+        }
         return;
       }
 
@@ -841,7 +857,7 @@ export function getInteractiveOverlayOptions(
     },
     onPressedMoveEnd: (event: any) => {
       const actualChart = event.chart || chartInstanceRef.current;
-      const wasExclusive = isExclusiveMarqueeMode(actualChart, event);
+      const wasDragAllowed = isOverlayDragAllowed(actualChart, event, event.overlay);
 
       if (chartInstanceRef.current) {
         chartInstanceRef.current._activeDraggingIndex = null;
@@ -856,7 +872,12 @@ export function getInteractiveOverlayOptions(
       }
 
       const startPoints = event.overlay?.extendData?.startPoints;
-      if (wasExclusive || !startPoints) {
+      if (!wasDragAllowed || !startPoints) {
+        const store = actualChart?.getChartStore?.() || actualChart?._chartStore ||
+          event?.chart?.getChartStore?.() || event?.chart?._chartStore;
+        if (store && typeof store.setPressedOverlayInfo === 'function') {
+          store.setPressedOverlayInfo(null);
+        }
         return;
       }
 

@@ -7,6 +7,9 @@ import { DrawingVisibilityTab } from './drawing-settings/DrawingVisibilityTab';
 import { DrawingInputsTab } from './drawing-settings/DrawingInputsTab';
 import { DrawingTextTab } from './drawing-settings/DrawingTextTab';
 import { DrawingStyleTab } from './drawing-settings/DrawingStyleTab';
+import { DrawingFibonacciStyleTab } from './drawing-settings/DrawingFibonacciStyleTab';
+import type { FibCustomSettings } from '@/framework/tools/implementations/FibonacciRetracement';
+import { DEFAULT_FIB_SETTINGS } from '@/framework/tools/implementations/FibonacciRetracement';
 export { SearchableDropdown };
 
 interface DrawingSettingsDialogProps {
@@ -94,6 +97,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [showMarkers, setShowMarkers] = useState(true);
   const [initialSizePercent, setInitialSizePercent] = useState(18);
 
+  // Fib Retracement Settings State
+  const [fibSettings, setFibSettings] = useState<FibCustomSettings>(DEFAULT_FIB_SETTINGS);
+
   // Text Tab States
   const [text, setText] = useState('');
   const [textColor, setTextColor] = useState('#2196F3');
@@ -141,11 +147,19 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     isFirstLoadRef.current = true;
 
+    const dialogWidth = containerRef.current?.offsetWidth || 420;
+    const dialogHeight = containerRef.current?.offsetHeight || (overlay.name === 'fibonacciRetracement' ? 700 : 400);
+    const maxX = Math.max(0, window.innerWidth - dialogWidth);
+    const maxY = Math.max(0, window.innerHeight - dialogHeight);
+
     if (savedDialogPosition) {
-      setPosition(savedDialogPosition);
+      setPosition({
+        x: Math.max(0, Math.min(maxX, savedDialogPosition.x)),
+        y: Math.max(0, Math.min(maxY, savedDialogPosition.y)),
+      });
     } else {
-      const x = Math.max(50, window.innerWidth / 2 - 210); // width is 420px
-      const y = Math.max(50, window.innerHeight / 2 - 200);
+      const x = Math.max(0, Math.min(maxX, (window.innerWidth - dialogWidth) / 2));
+      const y = Math.max(0, Math.min(maxY, (window.innerHeight - dialogHeight) / 2));
       setPosition({ x, y });
     }
 
@@ -198,8 +212,29 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
     setTextPlacement(customSettings.textPlacement || 'inside');
 
-    if (overlay.name === 'text' || overlay.name === 'fxText') {
-      setActiveTab('text');
+    // Fibonacci settings
+    if (overlay.name === 'fibonacciRetracement') {
+      setFibSettings({
+        ...DEFAULT_FIB_SETTINGS,
+        ...(customSettings || {}),
+        trendLine: {
+          ...DEFAULT_FIB_SETTINGS.trendLine,
+          ...(customSettings.trendLine || {}),
+        },
+        levelsLine: {
+          ...DEFAULT_FIB_SETTINGS.levelsLine,
+          ...(customSettings.levelsLine || {}),
+        },
+        levels: customSettings.levels && customSettings.levels.length === 24
+          ? customSettings.levels
+          : DEFAULT_FIB_SETTINGS.levels,
+        background: {
+          ...DEFAULT_FIB_SETTINGS.background,
+          ...(customSettings.background || {}),
+        },
+        oneColor: customSettings.oneColor || DEFAULT_FIB_SETTINGS.oneColor,
+        oneTextColor: customSettings.oneTextColor,
+      });
     }
 
     // Visibility settings
@@ -268,8 +303,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       
-      const newX = Math.max(10, Math.min(window.innerWidth - 430, dragStartRef.current.initialX + dx));
-      const newY = Math.max(10, Math.min(window.innerHeight - 300, dragStartRef.current.initialY + dy));
+      const dialogWidth = containerRef.current?.offsetWidth || 420;
+      const dialogHeight = containerRef.current?.offsetHeight || 400;
+      const maxX = Math.max(0, window.innerWidth - dialogWidth);
+      const maxY = Math.max(0, window.innerHeight - dialogHeight);
+
+      const newX = Math.max(0, Math.min(maxX, dragStartRef.current.initialX + dx));
+      const newY = Math.max(0, Math.min(maxY, dragStartRef.current.initialY + dy));
       
       if (containerRef.current) {
         containerRef.current.style.left = `${newX}px`;
@@ -299,6 +339,30 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     };
   }, [isDragging, position]);
 
+  // Window resize handler to ensure dialog is always clamped within visible viewport
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (!isOpen) return;
+      const dialogWidth = containerRef.current?.offsetWidth || 420;
+      const dialogHeight = containerRef.current?.offsetHeight || 400;
+      const maxX = Math.max(0, window.innerWidth - dialogWidth);
+      const maxY = Math.max(0, window.innerHeight - dialogHeight);
+
+      setPosition((prev) => {
+        const clampedX = Math.max(0, Math.min(maxX, prev.x));
+        const clampedY = Math.max(0, Math.min(maxY, prev.y));
+        if (clampedX !== prev.x || clampedY !== prev.y) {
+          savedDialogPosition = { x: clampedX, y: clampedY };
+          return { x: clampedX, y: clampedY };
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [isOpen]);
+
   // Real-Time Sync hook
   useEffect(() => {
     if (!isOpen || !overlay) return;
@@ -308,42 +372,59 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       return;
     }
 
-    const updatedSettings = {
-      lineColor,
-      lineWidth,
-      lineStyle,
-      startArrow,
-      endArrow,
-      extendType,
-      fillColor,
-      fillBackground,
-      profitColor,
-      lossColor,
-      text,
-      textColor,
-      fontSize,
-      textAlign,
-      bold: isBold,
-      italic: isItalic,
-      showBorder,
-      isAnchored,
-      textPosition: {
-        vertical: textValign,
-        horizontal: textHalign
-      },
-      textPlacement,
-      visibility,
-      alwaysShowStats,
-      showLines,
-      showActivationLine,
-      activationLineColor,
-      activationLineWidth,
-      activationLineStyle,
-      showActivationHighlight,
-      activationHighlightOpacity,
-      showMarkers,
-      initialSizePercent
-    };
+    const updatedSettings = overlay.name === 'fibonacciRetracement'
+      ? {
+          ...fibSettings,
+          text,
+          textColor: fibSettings.useOneColor ? (fibSettings.oneTextColor || fibSettings.oneColor || '#808080') : (fibSettings.textColor || textColor),
+          fontSize: fibSettings.fontSize ?? fontSize,
+          textAlign,
+          bold: isBold,
+          italic: isItalic,
+          showBorder,
+          textPosition: fibSettings.textPosition || {
+            vertical: textValign,
+            horizontal: textHalign,
+          },
+          textPlacement,
+          visibility,
+        }
+      : {
+          lineColor,
+          lineWidth,
+          lineStyle,
+          startArrow,
+          endArrow,
+          extendType,
+          fillColor,
+          fillBackground,
+          profitColor,
+          lossColor,
+          text,
+          textColor,
+          fontSize,
+          textAlign,
+          bold: isBold,
+          italic: isItalic,
+          showBorder,
+          isAnchored,
+          textPosition: {
+            vertical: textValign,
+            horizontal: textHalign
+          },
+          textPlacement,
+          visibility,
+          alwaysShowStats,
+          showLines,
+          showActivationLine,
+          activationLineColor,
+          activationLineWidth,
+          activationLineStyle,
+          showActivationHighlight,
+          activationHighlightOpacity,
+          showMarkers,
+          initialSizePercent
+        };
 
     const updatedPoints = points.map(pt => {
       let finalTimestamp = pt.timestamp;
@@ -404,7 +485,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const pointsToSave = activeTab === 'coordinates' ? updatedPoints : (overlay.points || backupPointsRef.current || updatedPoints);
     onSave(updatedSettings, pointsToSave);
-  }, [lineColor, lineWidth, lineStyle, startArrow, endArrow, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent]);
+  }, [lineColor, lineWidth, lineStyle, startArrow, endArrow, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent, fibSettings]);
 
   if (!isOpen || !overlay) return null;
 
@@ -455,8 +536,36 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     }
   };
 
+  const handleFibUpdate = (updates: Partial<FibCustomSettings>) => {
+    setFibSettings(prev => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
   const applyTemplate = (settings: any) => {
     if (!settings) return;
+    if (overlay?.name === 'fibonacciRetracement' || settings.levels) {
+      setFibSettings({
+        ...DEFAULT_FIB_SETTINGS,
+        ...settings,
+        trendLine: {
+          ...DEFAULT_FIB_SETTINGS.trendLine,
+          ...(settings.trendLine || {}),
+        },
+        levelsLine: {
+          ...DEFAULT_FIB_SETTINGS.levelsLine,
+          ...(settings.levelsLine || {}),
+        },
+        levels: settings.levels && settings.levels.length === 24
+          ? settings.levels
+          : DEFAULT_FIB_SETTINGS.levels,
+        background: {
+          ...DEFAULT_FIB_SETTINGS.background,
+          ...(settings.background || {}),
+        },
+      });
+    }
     setLineColor(settings.lineColor || '#2196F3');
     setLineWidth(settings.lineWidth || 1);
     setLineStyle(settings.lineStyle || 'solid');
@@ -486,41 +595,59 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setIsTemplateDropdownOpen(false);
 
     // Sync template settings and coordinates immediately to prevent state sync race conditions
-    const updatedSettings = {
-      lineColor: settings.lineColor || '#2196F3',
-      lineWidth: settings.lineWidth || 1,
-      lineStyle: settings.lineStyle || 'solid',
-      extendType: settings.extendType || 'none',
-      fillColor: settings.fillColor || 'rgba(33, 150, 243, 0.1)',
-      fillBackground: settings.fillBackground !== false,
-      profitColor: settings.profitColor || 'rgba(76, 175, 80, 0.12)',
-      lossColor: settings.lossColor || 'rgba(244, 67, 54, 0.12)',
-      alwaysShowStats: settings.alwaysShowStats === true,
-      showLines: settings.showLines === true,
-      showActivationLine: settings.showActivationLine !== false,
-      activationLineColor: settings.activationLineColor || '#808285',
-      activationLineWidth: settings.activationLineWidth || 1,
-      activationLineStyle: settings.activationLineStyle || 'dashed',
-      showActivationHighlight: settings.showActivationHighlight !== false,
-      activationHighlightOpacity: typeof settings.activationHighlightOpacity === 'number' ? settings.activationHighlightOpacity : 0.28,
-      showMarkers: settings.showMarkers !== false,
-      initialSizePercent: typeof settings.initialSizePercent === 'number' ? settings.initialSizePercent : initialSizePercent,
-      text: settings.text || '',
-      textColor: settings.textColor || '#2196F3',
-      fontSize: settings.fontSize || 14,
-      textAlign: settings.textAlign || 'left',
-      bold: !!settings.bold,
-      italic: !!settings.italic,
-      showBorder: settings.showBorder !== false,
-      isAnchored: !!settings.isAnchored,
-      boxWidth: settings.boxWidth ?? (overlay.extendData?.customSettings?.boxWidth),
-      textPosition: {
-        vertical: settings.textPosition?.vertical || 'middle',
-        horizontal: settings.textPosition?.horizontal || 'right'
-      },
-      textPlacement: settings.textPlacement || 'inside',
-      visibility: settings.visibility || visibility
-    };
+    const updatedSettings = overlay?.name === 'fibonacciRetracement'
+      ? {
+          ...DEFAULT_FIB_SETTINGS,
+          ...settings,
+          text: settings.text || text,
+          textColor: settings.textColor || textColor,
+          fontSize: settings.fontSize || fontSize,
+          textAlign: settings.textAlign || textAlign,
+          bold: settings.bold !== undefined ? !!settings.bold : isBold,
+          italic: settings.italic !== undefined ? !!settings.italic : isItalic,
+          showBorder: settings.showBorder !== undefined ? settings.showBorder !== false : showBorder,
+          textPosition: {
+            vertical: settings.textPosition?.vertical || textValign,
+            horizontal: settings.textPosition?.horizontal || textHalign,
+          },
+          textPlacement: settings.textPlacement || textPlacement,
+          visibility: settings.visibility || visibility,
+        }
+      : {
+          lineColor: settings.lineColor || '#2196F3',
+          lineWidth: settings.lineWidth || 1,
+          lineStyle: settings.lineStyle || 'solid',
+          extendType: settings.extendType || 'none',
+          fillColor: settings.fillColor || 'rgba(33, 150, 243, 0.1)',
+          fillBackground: settings.fillBackground !== false,
+          profitColor: settings.profitColor || 'rgba(76, 175, 80, 0.12)',
+          lossColor: settings.lossColor || 'rgba(244, 67, 54, 0.12)',
+          alwaysShowStats: settings.alwaysShowStats === true,
+          showLines: settings.showLines === true,
+          showActivationLine: settings.showActivationLine !== false,
+          activationLineColor: settings.activationLineColor || '#808285',
+          activationLineWidth: settings.activationLineWidth || 1,
+          activationLineStyle: settings.activationLineStyle || 'dashed',
+          showActivationHighlight: settings.showActivationHighlight !== false,
+          activationHighlightOpacity: typeof settings.activationHighlightOpacity === 'number' ? settings.activationHighlightOpacity : 0.28,
+          showMarkers: settings.showMarkers !== false,
+          initialSizePercent: typeof settings.initialSizePercent === 'number' ? settings.initialSizePercent : initialSizePercent,
+          text: settings.text || '',
+          textColor: settings.textColor || '#2196F3',
+          fontSize: settings.fontSize || 14,
+          textAlign: settings.textAlign || 'left',
+          bold: !!settings.bold,
+          italic: !!settings.italic,
+          showBorder: settings.showBorder !== false,
+          isAnchored: !!settings.isAnchored,
+          boxWidth: settings.boxWidth ?? (overlay.extendData?.customSettings?.boxWidth),
+          textPosition: {
+            vertical: settings.textPosition?.vertical || 'middle',
+            horizontal: settings.textPosition?.horizontal || 'right'
+          },
+          textPlacement: settings.textPlacement || 'inside',
+          visibility: settings.visibility || visibility
+        };
 
     const updatedPoints = points.map(pt => {
       let finalTimestamp = pt.timestamp;
@@ -585,6 +712,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   };
 
   const resetToDefault = () => {
+    if (overlay?.name === 'fibonacciRetracement') {
+      setFibSettings(DEFAULT_FIB_SETTINGS);
+    }
     setLineColor('#2196F3');
     setLineWidth(1);
     setLineStyle('solid');
@@ -624,43 +754,60 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
   const handleConfirm = () => {
     const customSettings = overlay.extendData?.customSettings || {};
-    const updatedSettings = {
-      lineColor,
-      lineWidth,
-      lineStyle,
-      startArrow,
-      endArrow,
-      extendType,
-      fillColor,
-      fillBackground,
-      profitColor,
-      lossColor,
-      alwaysShowStats,
-      showLines,
-      showActivationLine,
-      activationLineColor,
-      activationLineWidth,
-      activationLineStyle,
-      showActivationHighlight,
-      activationHighlightOpacity,
-      showMarkers,
-      initialSizePercent,
-      text,
-      textColor,
-      fontSize,
-      textAlign,
-      bold: isBold,
-      italic: isItalic,
-      showBorder,
-      isAnchored,
-      boxWidth: customSettings.boxWidth,
-      textPosition: {
-        vertical: textValign,
-        horizontal: textHalign
-      },
-      textPlacement,
-      visibility
-    };
+    const updatedSettings = overlay.name === 'fibonacciRetracement'
+      ? {
+          ...fibSettings,
+          text,
+          textColor: fibSettings.useOneColor ? (fibSettings.oneTextColor || fibSettings.oneColor || '#808080') : (fibSettings.textColor || textColor),
+          fontSize: fibSettings.fontSize ?? fontSize,
+          textAlign,
+          bold: isBold,
+          italic: isItalic,
+          showBorder,
+          textPosition: fibSettings.textPosition || {
+            vertical: textValign,
+            horizontal: textHalign,
+          },
+          textPlacement,
+          visibility,
+        }
+      : {
+          lineColor,
+          lineWidth,
+          lineStyle,
+          startArrow,
+          endArrow,
+          extendType,
+          fillColor,
+          fillBackground,
+          profitColor,
+          lossColor,
+          alwaysShowStats,
+          showLines,
+          showActivationLine,
+          activationLineColor,
+          activationLineWidth,
+          activationLineStyle,
+          showActivationHighlight,
+          activationHighlightOpacity,
+          showMarkers,
+          initialSizePercent,
+          text,
+          textColor,
+          fontSize,
+          textAlign,
+          bold: isBold,
+          italic: isItalic,
+          showBorder,
+          isAnchored,
+          boxWidth: customSettings.boxWidth,
+          textPosition: {
+            vertical: textValign,
+            horizontal: textHalign
+          },
+          textPlacement,
+          visibility
+        };
     const pointsToSave = overlay.points || backupPointsRef.current || [];
     onSave(updatedSettings, pointsToSave);
     onClose();
@@ -694,7 +841,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
         className="flex justify-between items-center px-5 py-4 border-b border-border-def cursor-move active:cursor-grabbing hover:bg-surface-hover transition-colors rounded-t-xl"
       >
         <span className="font-semibold text-[13.5px] tracking-wide text-txt-primary capitalize">
-          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
+          {overlay.name === 'highlighter' ? 'Highlighter' : overlay.name === 'brush' ? 'Brush' : overlay.name === 'trendLine' ? 'Trendline' : overlay.name === 'fibonacciRetracement' ? 'Fib Retracement' : (overlay.name === 'fxText' || overlay.name === 'text') ? 'Text' : overlay.name} Settings
         </span>
         <button onClick={handleCancel} className="text-txt-muted hover:text-txt-primary transition-colors cursor-pointer">
           <X className="w-4 h-4" />
@@ -710,7 +857,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
               ? ['style', 'inputs', 'visibility'] as const
               : (overlay.name === 'fxText' || overlay.name === 'text')
                 ? ['text', 'coordinates', 'visibility'] as const
-                : ['style', 'text', 'coordinates', 'visibility'] as const
+                : overlay.name === 'fibonacciRetracement'
+                  ? ['style', 'coordinates', 'visibility'] as const
+                  : ['style', 'text', 'coordinates', 'visibility'] as const
         ).map(tab => (
           <button
             key={tab}
@@ -729,8 +878,20 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
       {/* Content Area - dynamic height adjust */}
       <div className="p-5 text-[12.5px] space-y-4 overflow-visible">
         
+        {/* FIBONACCI STYLE TAB */}
+        {overlay.name === 'fibonacciRetracement' && activeTab === 'style' && (
+          <DrawingFibonacciStyleTab
+            customSettings={fibSettings}
+            onUpdate={handleFibUpdate}
+            activeColorPicker={activeColorPicker}
+            setActiveColorPicker={setActiveColorPicker}
+            activeSelect={activeSelect}
+            setActiveSelect={setActiveSelect}
+          />
+        )}
+
         {/* STYLE TAB */}
-        {!isTextOverlay && activeTab === 'style' && (
+        {!isTextOverlay && overlay.name !== 'fibonacciRetracement' && activeTab === 'style' && (
           <DrawingStyleTab
             overlay={overlay}
             lineColor={lineColor}
@@ -1081,32 +1242,38 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
                 type="button"
                 disabled={!saveName.trim()}
                 onClick={() => {
+                  const customSettingsToSave = overlay.name === 'fibonacciRetracement'
+                    ? {
+                        ...fibSettings,
+                        visibility
+                      }
+                    : {
+                        lineColor,
+                        lineWidth,
+                        lineStyle,
+                        extendType,
+                        fillColor,
+                        fillBackground,
+                        profitColor,
+                        lossColor,
+                        alwaysShowStats,
+                        showLines,
+                        text,
+                        textColor,
+                        fontSize,
+                        bold: isBold,
+                        italic: isItalic,
+                        textPosition: {
+                          vertical: textValign,
+                          horizontal: textHalign
+                        },
+                        visibility
+                      };
                   saveTemplate({
                     name: saveName,
                     group: saveGroup,
                     mode: saveMode,
-                    settings: {
-                      lineColor,
-                      lineWidth,
-                      lineStyle,
-                      extendType,
-                      fillColor,
-                      fillBackground,
-                      profitColor,
-                      lossColor,
-                      alwaysShowStats,
-                      showLines,
-                      text,
-                      textColor,
-                      fontSize,
-                      bold: isBold,
-                      italic: isItalic,
-                      textPosition: {
-                        vertical: textValign,
-                        horizontal: textHalign
-                      },
-                      visibility
-                    }
+                    settings: customSettingsToSave
                   });
                   setActiveTemplateMode(saveMode);
                   setIsSaveModalOpen(false);

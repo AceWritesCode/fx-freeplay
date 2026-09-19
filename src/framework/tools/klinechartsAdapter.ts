@@ -40,7 +40,14 @@ export function initializeToolFramework() {
                              selectedIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
-        return originalCreateYAxisFigures(params);
+        const figures = originalCreateYAxisFigures(params);
+        if (!figures) return [];
+        const figureList = Array.isArray(figures) ? figures : [figures];
+        // Price-axis labels represent price levels, not drawing bodies, and must never intercept pointer gestures
+        figureList.forEach((fig: any) => {
+          if (fig) fig.ignoreEvent = true;
+        });
+        return figures;
       };
     }
 
@@ -58,7 +65,14 @@ export function initializeToolFramework() {
                              selectedIds?.includes(overlay.id);
           overlay.extendData.isSelected = !!isSelected;
         }
-        return originalCreateXAxisFigures(params);
+        const figures = originalCreateXAxisFigures(params);
+        if (!figures) return [];
+        const figureList = Array.isArray(figures) ? figures : [figures];
+        // Time-axis labels represent time levels, not drawing bodies, and must never intercept pointer gestures
+        figureList.forEach((fig: any) => {
+          if (fig) fig.ignoreEvent = true;
+        });
+        return figures;
       };
     }
 

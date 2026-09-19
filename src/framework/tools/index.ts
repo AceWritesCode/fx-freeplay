@@ -15,6 +15,7 @@ import {
 } from './implementations/ShapesAndBrushes';
 import { LongPositionTool, ShortPositionTool } from './implementations/ForecastingTools';
 import { TextTool } from './implementations/TextTool';
+import { FibonacciRetracementTool } from './implementations/FibonacciRetracement';
 import { initializeToolFramework } from './klinechartsAdapter';
 
 // Register all tools
@@ -23,6 +24,7 @@ ToolRegistry.register(RayTool);
 ToolRegistry.register(HorizontalLineTool);
 ToolRegistry.register(HorizontalRayTool);
 ToolRegistry.register(VerticalLineTool);
+ToolRegistry.register(FibonacciRetracementTool);
 ToolRegistry.register(BrushTool);
 ToolRegistry.register(HighlighterTool);
 ToolRegistry.register(ArrowTool);
@@ -38,3 +40,4 @@ ToolRegistry.register(TextTool);
 export { ToolRegistry, initializeToolFramework };
 export * from './ToolRegistry';
 export * from './toolUtils';
+export * from './implementations/FibonacciRetracement';

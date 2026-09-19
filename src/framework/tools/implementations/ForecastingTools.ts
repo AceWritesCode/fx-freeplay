@@ -43,7 +43,8 @@ const drawGrabHandles = (
   coordinates: any[],
   isLocked: boolean,
   draggedIndex?: number | null,
-  hoveredAnchorIndex?: number | null
+  _hoveredAnchorIndex?: number | null,
+  isSelected: boolean = true
 ) => {
   coordinates.forEach((coord: any, idx: number) => {
     if (!coord) return;
@@ -60,15 +61,15 @@ const drawGrabHandles = (
         ignoreEvent: true
       });
     } else {
-      const isActive = draggedIndex === idx || hoveredAnchorIndex === idx;
+      const isAnchorActive = isSelected || draggedIndex === idx;
       figures.push({
         type: 'circle',
-        attrs: { x: coord.x, y: coord.y, r: 4.5 },
+        attrs: { x: coord.x, y: coord.y, r: isAnchorActive ? 4 : 4.5 },
         styles: {
           style: 'stroke_fill',
           color: '#ffffff',
-          borderColor: isActive ? '#EF5350' : '#2196F3',
-          borderSize: isActive ? 2 : 1.5
+          borderColor: '#2196F3',
+          borderSize: isAnchorActive ? 2 : 1
         },
         ignoreEvent: true
       });
@@ -386,6 +387,18 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
           hitSL = c.high >= stopPrice;
         }
 
+        // On activation candle only: if both Entry and SL are touched, determine candle direction.
+        // If RR direction == candle direction, the SL touch occurred before activation, so ignore SL on activation candle.
+        if (i === activationIndex && hitSL) {
+          const isCandleBullish = typeof c.close === 'number' && typeof c.open === 'number' && c.close >= c.open;
+          const isCandleBearish = typeof c.close === 'number' && typeof c.open === 'number' && c.close <= c.open;
+          const isSameDirection = isLong ? isCandleBullish : isCandleBearish;
+
+          if (isSameDirection) {
+            hitSL = false;
+          }
+        }
+
         if (hitTP || hitSL) {
           if (hitTP && hitSL) {
             const distTP = Math.abs(c.open - targetPrice);
@@ -688,7 +701,7 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
     if (isSelected || isHovered) {
       const draggedIndex = overlay.extendData?.draggedIndex;
       const hoveredAnchorIndex = overlay.extendData?.hoveredAnchorIndex;
-      drawGrabHandles(figures, pts6, overlay.lock || false, draggedIndex, hoveredAnchorIndex);
+      drawGrabHandles(figures, pts6, overlay.lock || false, draggedIndex, hoveredAnchorIndex, isSelected);
     }
 
     return figures;
@@ -726,36 +739,42 @@ const createRiskRewardOverlayDef = (id: string, isLong: boolean) => ({
     figures.push({
       type: 'rect',
       attrs: { x: 0, y: yTP - 9, width: bounding.width, height: 18 },
-      styles: { style: 'fill', color: tpLabelColor }
+      styles: { style: 'fill', color: tpLabelColor },
+      ignoreEvent: true,
     });
     figures.push({
       type: 'text',
       attrs: { x: textX, y: yTP, text: formatPrice(targetPrice), align: textAlign, baseline: 'middle' },
-      styles: { color: '#ffffff', size: 10, backgroundColor: 'transparent' }
+      styles: { color: '#ffffff', size: 10, backgroundColor: 'transparent' },
+      ignoreEvent: true,
     });
 
     // SL price tag
     figures.push({
       type: 'rect',
       attrs: { x: 0, y: ySL - 9, width: bounding.width, height: 18 },
-      styles: { style: 'fill', color: slLabelColor }
+      styles: { style: 'fill', color: slLabelColor },
+      ignoreEvent: true,
     });
     figures.push({
       type: 'text',
       attrs: { x: textX, y: ySL, text: formatPrice(stopPrice), align: textAlign, baseline: 'middle' },
-      styles: { color: '#ffffff', size: 10, backgroundColor: 'transparent' }
+      styles: { color: '#ffffff', size: 10, backgroundColor: 'transparent' },
+      ignoreEvent: true,
     });
 
     // Entry price tag
     figures.push({
       type: 'rect',
       attrs: { x: 0, y: yEntry - 9, width: bounding.width, height: 18 },
-      styles: { style: 'fill', color: entryColor }
+      styles: { style: 'fill', color: entryColor },
+      ignoreEvent: true,
     });
     figures.push({
       type: 'text',
       attrs: { x: textX, y: yEntry, text: formatPrice(entryPrice), align: textAlign, baseline: 'middle' },
-      styles: { color: '#ffffff', size: 10, backgroundColor: 'transparent' }
+      styles: { color: '#ffffff', size: 10, backgroundColor: 'transparent' },
+      ignoreEvent: true,
     });
 
     return figures;
@@ -892,10 +911,11 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number | null, isLo
     if (yEntry > max) yEntry = max;
   }
 
-  // 2. Horizontal adjustment: Left-side anchors adjust diMin/xMin, right-side anchors adjust diMax/xMax
-  const isLeftSide = [0, 3, 4].includes(draggedIndex);
-
-  if (isLeftSide) {
+  // 2. Horizontal adjustment:
+  // - Left-side: ONLY Anchor 3 (index 4: Entry Left) moves horizontally (free movement).
+  //   Anchors 1 (index 0: TP Left) and 5 (index 3: SL Left) are VERTICAL ONLY and do NOT adjust horizontal boundaries.
+  // - Right-side: Anchors 2 (index 1: TP Right), 6 (index 2: SL Right), and 4 (index 5: Entry Right) adjust diMax/xMax.
+  if (draggedIndex === 4) {
     diMin = targetPt.dataIndex;
     xMin = targetPt.timestamp;
 
@@ -926,7 +946,7 @@ const onPressedMovingRiskReward = (event: any, draggedIndex: number | null, isLo
         }
       }
     }
-  } else {
+  } else if (draggedIndex === 1 || draggedIndex === 2 || draggedIndex === 5) {
     // Right-side anchors
     diMax = targetPt.dataIndex;
     xMax = targetPt.timestamp;
