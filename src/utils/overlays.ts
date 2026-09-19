@@ -1,9 +1,13 @@
 import { registerOverlay } from 'klinecharts';
-import { snapPointToCandle, isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate, DrawingChartAdapter, getOriginalDrawingId, calculateAngleSnapPoint, isAngleSnapSupportedTool } from '@/engine/charting';
-import { replayVisibilityBoundary } from '@/engine/replay/ReplayVisibilityBoundary';
-import { useDrawingStore, useLayoutStore } from '@/store';
-
-import { initializeToolFramework, ToolRegistry } from '../framework/tools';
+import { snapPointToCandle, calculateAngleSnapPoint, isAngleSnapSupportedTool } from '../engine/charting/snapping.ts';
+import { isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpdate } from '../engine/charting/drawingReconciler.ts';
+import { getOriginalDrawingId } from '../engine/charting/drawingSyncEngine.ts';
+import { DrawingChartAdapter } from '../engine/charting/drawingChartAdapter.ts';
+import { replayVisibilityBoundary } from '../engine/replay/ReplayVisibilityBoundary.ts';
+import { useDrawingStore } from '../store/useDrawingStore.ts';
+import { useLayoutStore } from '../store/useLayoutStore.ts';
+import { initializeToolFramework } from '../framework/tools/klinechartsAdapter.ts';
+import { ToolRegistry } from '../framework/tools/ToolRegistry.ts';
 export function registerCustomOverlays() {
   // Initialize new tool framework
   initializeToolFramework();
@@ -221,8 +225,8 @@ export function registerCustomOverlays() {
   });
 }
 
-import { isOverlayDragAllowed, isExclusiveMarqueeMode } from '../framework/interaction/gestureAuthority';
-export { isOverlayDragAllowed, isExclusiveMarqueeMode };
+import { isOverlayDragAllowed, isExclusiveMarqueeMode, isDrawingDoubleClickEligible, resolveSingleClickSelection } from '../framework/interaction/gestureAuthority.ts';
+export { isOverlayDragAllowed, isExclusiveMarqueeMode, isDrawingDoubleClickEligible, resolveSingleClickSelection };
 
 export function getInteractiveOverlayOptions(
   toolName: string,
@@ -936,12 +940,14 @@ export function getInteractiveOverlayOptions(
         runWorkspaceReconciliation(chartInstancesRef);
         return true;
       }
+
       if (actualChart) {
         actualChart._clickedOnOverlay = true;
       }
       chartInstancesRef.current.forEach((c: any) => {
         if (c) c._clickedOnOverlay = true;
       });
+
       if (actualChart && actualChart._setSelectedOverlayIds && !id.startsWith('sync_')) {
         const isCtrl =
           actualChart?._isCtrlPressedRef?.current ||
@@ -951,16 +957,56 @@ export function getInteractiveOverlayOptions(
           (event as any)?.event?.metaKey ||
           false;
         const currentSelected = useDrawingStore.getState().selectedOverlayIds || actualChart._selectedOverlayIds || [];
-        if (isCtrl) {
-          if (currentSelected.includes(id)) {
-            actualChart._setSelectedOverlayIds(currentSelected.filter((x: string) => x !== id));
-          } else {
-            actualChart._setSelectedOverlayIds([...currentSelected, id]);
-          }
-        } else {
-          actualChart._setSelectedOverlayIds([id]);
-        }
+        const nextSelected = resolveSingleClickSelection(id, currentSelected, isCtrl);
+        actualChart._setSelectedOverlayIds(nextSelected);
       }
+      return true;
+    },
+    onDoubleClick: (event: any) => {
+      const actualChart = event.chart || chartInstanceRef.current;
+      if (!actualChart || actualChart._justFinishedMarquee) {
+        return true;
+      }
+
+      const isEraser = actualChart._activeTool === 'eraser' || actualChart._activeCursorTool === 'eraser';
+      const isCtrl =
+        actualChart?._isCtrlPressedRef?.current ||
+        (event as any)?.originalEvent?.ctrlKey ||
+        (event as any)?.originalEvent?.metaKey ||
+        (event as any)?.event?.ctrlKey ||
+        (event as any)?.event?.metaKey ||
+        false;
+      const isShift =
+        isShiftPressedRef?.current ||
+        actualChart?._isShiftPressedRef?.current ||
+        (event as any)?.originalEvent?.shiftKey ||
+        (event as any)?.event?.shiftKey ||
+        false;
+
+      if (!isDrawingDoubleClickEligible({ isCtrl, isShift, isEraser, justFinishedMarquee: !!actualChart._justFinishedMarquee })) {
+        return true;
+      }
+
+      const rawId = event.overlay.id;
+      const id = getOriginalDrawingId(rawId);
+
+      if (actualChart) {
+        actualChart._clickedOnOverlay = true;
+      }
+      chartInstancesRef.current.forEach((c: any) => {
+        if (c) c._clickedOnOverlay = true;
+      });
+
+      // Ensure the double-clicked drawing is selected
+      const currentSelected = useDrawingStore.getState().selectedOverlayIds || actualChart._selectedOverlayIds || [];
+      if (actualChart._setSelectedOverlayIds && !currentSelected.includes(id) && !id.startsWith('sync_')) {
+        actualChart._setSelectedOverlayIds([id]);
+      }
+
+      if (actualChart._openDrawingSettings) {
+        actualChart._openDrawingSettings(id);
+      }
+
       return true;
     }
   };

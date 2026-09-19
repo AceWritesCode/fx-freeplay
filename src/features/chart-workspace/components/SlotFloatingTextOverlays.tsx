@@ -119,13 +119,16 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
           setDrawingTrigger((prev) => prev + 1);
         };
 
+        const originalId = getOriginalDrawingId(ov.id);
+        const isSelected = selectedOverlayIds.includes(ov.id) || (!!originalId && selectedOverlayIds.includes(originalId));
+
         if (ov.name === 'fibonacciRetracement') {
           return (
             <FloatingFibonacciText
               key={ov.id}
               chart={chart}
               overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
+              isSelected={isSelected}
               isHovered={hoveredOverlayId === ov.id}
               onLevelTextChange={handleFibLevelTextChange}
               syncAllDrawings={syncAllDrawings}
@@ -138,7 +141,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               key={ov.id}
               chart={chart}
               overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
+              isSelected={isSelected}
               isHovered={hoveredOverlayId === ov.id}
               onTextChange={handleTextChange}
               syncAllDrawings={syncAllDrawings}
@@ -151,7 +154,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               key={ov.id}
               chart={chart}
               overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
+              isSelected={isSelected}
               isHovered={hoveredOverlayId === ov.id}
               onTextChange={handleTextChange}
               syncAllDrawings={syncAllDrawings}
@@ -164,7 +167,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               key={ov.id}
               chart={chart}
               overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
+              isSelected={isSelected}
               isHovered={hoveredOverlayId === ov.id}
               onTextChange={handleTextChange}
               syncAllDrawings={syncAllDrawings}
@@ -177,7 +180,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               key={ov.id}
               chart={chart}
               overlay={ov}
-              isSelected={selectedOverlayIds.includes(ov.id)}
+              isSelected={isSelected}
               isHovered={hoveredOverlayId === ov.id}
               onTextChange={handleTextChange}
               onDelete={handleDeleteDrawing}

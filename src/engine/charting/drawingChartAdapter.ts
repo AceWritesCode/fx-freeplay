@@ -29,7 +29,7 @@ export interface ChartOverlayOptions {
   [key: string]: any;
 }
 
-import { getInteractiveOverlayOptions } from '@/utils/overlays';
+import { getInteractiveOverlayOptions } from '../../utils/overlays.ts';
 
 export class DrawingChartAdapter {
   /**

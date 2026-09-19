@@ -1,13 +1,15 @@
-import { useDrawingStore, useLayoutStore } from '@/store';
-import { isSyncEngineActive } from './syncEngine';
+import { useDrawingStore } from '../../store/useDrawingStore.ts';
+import { useLayoutStore } from '../../store/useLayoutStore.ts';
+import { isSyncEngineActive } from './syncEngine.ts';
 import {
   calculateWorkspaceSyncPlan,
+  getOriginalDrawingId,
   parseOverlaySyncId,
   type SyncEngineInput,
   type WorkspaceSyncPlan,
-} from './drawingSyncEngine';
-import { DrawingChartAdapter } from './drawingChartAdapter';
-import { calculateZLevelsFromSequence } from './orderEngine';
+} from './drawingSyncEngine.ts';
+import { DrawingChartAdapter } from './drawingChartAdapter.ts';
+import { calculateZLevelsFromSequence } from './orderEngine.ts';
 
 /**
  * drawingReconciler.ts
@@ -133,7 +135,8 @@ export function reconcileWorkspace(
         }
 
         const selectedIds = useDrawingStore.getState().selectedOverlayIds || [];
-        const isSelected = selectedIds.includes(overlayId);
+        const originalId = getOriginalDrawingId(overlayId);
+        const isSelected = selectedIds.includes(overlayId) || (!!originalId && selectedIds.includes(originalId));
 
         // Normalize extendData without transient runtime state for change comparison
         const existingCleanExtendData = { ...(existingOv.extendData || {}) };
@@ -198,7 +201,8 @@ export function reconcileWorkspace(
       } else {
         // Create missing overlay instance on target chart slot with canonical zLevel
         const selectedIds = useDrawingStore.getState().selectedOverlayIds || [];
-        const isSelected = selectedIds.includes(overlayId);
+        const originalId = getOriginalDrawingId(overlayId);
+        const isSelected = selectedIds.includes(overlayId) || (!!originalId && selectedIds.includes(originalId));
         DrawingChartAdapter.createOverlay(chart, {
           name: d.name,
           id: overlayId,

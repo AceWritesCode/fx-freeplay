@@ -48,7 +48,7 @@ const getNaturalZLevel = (chart: any, ov: any): number => {
 const isPromotedOverlaySelected = (chart: any, selectedIds?: string[]): boolean => {
   if (!chart?._promotedOverlayInfo) return false;
   const promotedId = chart._promotedOverlayInfo.id;
-  const canonicalId = promotedId.startsWith('sync_') ? promotedId.replace('sync_', '') : promotedId;
+  const canonicalId = getOriginalDrawingId(promotedId);
   const ids = (selectedIds && selectedIds.length > 0) ? selectedIds : chart._selectedOverlayIds;
   return Array.isArray(ids) && (ids.includes(promotedId) || ids.includes(canonicalId));
 };
@@ -322,7 +322,8 @@ export function useDrawingHoverCursor({
       const selectedOverlays = interactiveOverlays.filter(
         (ov: any) =>
           selectedOverlayIds.includes(ov.id) ||
-          selectedOverlayIds.includes(`sync_${ov.id}_from_${activeIndex}`)
+          selectedOverlayIds.includes(`sync_${ov.id}_from_${activeIndex}`) ||
+          selectedOverlayIds.includes(getOriginalDrawingId(ov.id))
       );
 
       const isMouseDown = chart._isMouseDown || false;

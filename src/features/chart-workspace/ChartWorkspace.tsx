@@ -437,7 +437,9 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
               ov.name === 'sessionBreaks'
             )
               return;
-            const isSelected = nextIds.includes(ov.id);
+
+            const originalId = getOriginalDrawingId(ov.id);
+            const isSelected = nextIds.includes(ov.id) || (!!originalId && nextIds.includes(originalId));
 
             // If entering edit mode on an anchored overlay with a pinned screen position,
             // immediately convert the pinned screen coordinates to current candle points under the box
@@ -500,6 +502,16 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     [setSelectedOverlayIds]
   );
 
+  const handleOpenDrawingSettings = useCallback((overlayId?: string) => {
+    const current = useDrawingStore.getState().selectedOverlayIds;
+    const targetId = overlayId || (current.length > 0 ? current[0] : null);
+    if (targetId) {
+      const originalId = getOriginalDrawingId(targetId);
+      setDrawingSettingsOverlayId(originalId);
+      setIsDrawingSettingsOpen(true);
+    }
+  }, []);
+
   // Initialize Drawing Interaction Layer (modifier keys, marquee selection, keyboard shortcuts)
   const drawingInteraction = useDrawingInteraction({
     chartContainersRef,
@@ -535,6 +547,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       if (chart) {
         chart._selectedOverlayIds = selectedOverlayIds;
         chart._setSelectedOverlayIds = handleSelectOverlayIds;
+        chart._openDrawingSettings = handleOpenDrawingSettings;
         chart._activeTool = drawingCoord.activeTool;
         chart._activeCursorTool = selectedCursorId;
         chart._isCtrlPressedRef = isCtrlPressedRef;
@@ -962,6 +975,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             (chart as any)._chartIndex = i;
             (chart as any)._selectedOverlayIds = selectedOverlayIds;
             (chart as any)._setSelectedOverlayIds = handleSelectOverlayIds;
+            (chart as any)._openDrawingSettings = handleOpenDrawingSettings;
             (chart as any)._isCtrlPressedRef = isCtrlPressedRef;
             (chart as any)._isShiftPressedRef = isShiftPressedRef;
             (chart as any)._chartInstancesRef = chartInstancesRef;
@@ -2276,10 +2290,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
         }}
         onSettingsClick={() => {
-          if (selectedOverlayIds.length > 0) {
-            setDrawingSettingsOverlayId(selectedOverlayIds[0]);
-            setIsDrawingSettingsOpen(true);
-          }
+          handleOpenDrawingSettings();
         }}
         onDelete={() => {
           selectedOverlayIds.forEach((id) => {

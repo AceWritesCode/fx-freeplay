@@ -70,3 +70,41 @@ export function isOverlayDragAllowed(chart: any, event?: any, overlay?: any): bo
 }
 
 export { isExclusiveMarqueeMode };
+
+export interface DrawingDoubleClickEligibility {
+  isCtrl?: boolean;
+  isShift?: boolean;
+  isEraser?: boolean;
+  justFinishedMarquee?: boolean;
+}
+
+/**
+ * Pure predicate to determine if a double-click on an overlay is eligible to open Settings.
+ * Double-click with Ctrl, Shift, in Eraser mode, or immediately after Marquee selection
+ * must NOT trigger Settings.
+ */
+export function isDrawingDoubleClickEligible(eligibility: DrawingDoubleClickEligibility): boolean {
+  if (eligibility.justFinishedMarquee) return false;
+  if (eligibility.isEraser) return false;
+  if (eligibility.isCtrl) return false;
+  if (eligibility.isShift) return false;
+  return true;
+}
+
+/**
+ * Pure helper to resolve single-click selection array with Ctrl multi-select support.
+ */
+export function resolveSingleClickSelection(
+  targetId: string,
+  currentSelectedIds: string[],
+  isCtrl: boolean
+): string[] {
+  if (isCtrl) {
+    if (currentSelectedIds.includes(targetId)) {
+      return currentSelectedIds.filter((id) => id !== targetId);
+    }
+    return [...currentSelectedIds, targetId];
+  }
+  return [targetId];
+}
+
