@@ -157,7 +157,7 @@ export const DrawingTextTab: React.FC<DrawingTextTabProps> = ({
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Add text..."
+          placeholder="Add text"
           className="bg-app-bg border border-border-def hover:border-border-focus rounded-lg p-3 h-24 outline-none text-txt-primary focus:border-border-focus resize-none font-sans text-[12.5px] w-full transition-colors"
         />
       </div>

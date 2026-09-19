@@ -15,6 +15,7 @@ import {
 } from './implementations/ShapesAndBrushes';
 import { LongPositionTool, ShortPositionTool } from './implementations/ForecastingTools';
 import { TextTool } from './implementations/TextTool';
+import { NoteTool } from './implementations/NoteTool';
 import { FibonacciRetracementTool } from './implementations/FibonacciRetracement';
 import { initializeToolFramework } from './klinechartsAdapter';
 
@@ -35,9 +36,13 @@ ToolRegistry.register(CurveTool);
 ToolRegistry.register(LongPositionTool);
 ToolRegistry.register(ShortPositionTool);
 ToolRegistry.register(TextTool);
+ToolRegistry.register(NoteTool);
 
 // Export registry, initialization function, and shared tool utilities
 export { ToolRegistry, initializeToolFramework };
 export * from './ToolRegistry';
 export * from './toolUtils';
 export * from './implementations/FibonacciRetracement';
+export * from './implementations/NoteTool';
+export * from './implementations/TextTool';
+export * from './sharedTextLayout';

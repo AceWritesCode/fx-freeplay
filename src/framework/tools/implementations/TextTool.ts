@@ -1,86 +1,44 @@
-import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry';
-import { isOverlayVisible } from '../toolUtils';
+import React from 'react';
+import type { ToolDefinition, ToolMutationResult } from '../ToolRegistry.ts';
+import { isOverlayVisible } from '../toolUtils.ts';
+import {
+  SHARED_TEXT_FONT_FAMILY,
+  getSharedTextLineHeight,
+  getSingleCharWidth,
+  getWrappedTextLines,
+  measureSharedText,
+  computeCompositeTextLayout,
+  type SharedTextMetrics,
+  type CompositeTextLayoutOptions,
+  type CompositeTextLayoutResult,
+} from '../sharedTextLayout.ts';
 
-// Fixed font stack constant shared exactly between canvas drawing and HTML textarea
-export const TEXT_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-
-// Fixed internal horizontal padding constant for equal left and right breathing room (10px left, 10px right)
+// Shared typography constants
+export const TEXT_FONT_FAMILY = SHARED_TEXT_FONT_FAMILY;
 export const PADDING_HORIZONTAL = 10;
 export const TOP_PADDING = 8;
 export const BOTTOM_PADDING = 8;
 
-/**
- * Helper to measure single character width at a given font size.
- */
-const getSingleCharWidth = (fontSize: number, isBold: boolean = false): number => {
-  if (typeof document !== 'undefined') {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px ${TEXT_FONT_FAMILY}`;
-      return ctx.measureText('W').width * 1.05;
-    }
-  }
-  return fontSize * (isBold ? 0.72 : 0.65);
+export {
+  getSharedTextLineHeight,
+  getSingleCharWidth,
+  getWrappedTextLines,
+  measureSharedText,
+  computeCompositeTextLayout,
+  type SharedTextMetrics,
+  type CompositeTextLayoutOptions,
+  type CompositeTextLayoutResult,
 };
 
-/**
- * Character-level wrapping algorithm.
- * Breaks text EXACTLY when available width ends at character boundaries,
- * without waiting for spaces or word boundaries.
- */
-const getWrappedLines = (text: string, maxPixelWidth: number, fontSize: number, isBold: boolean = false): string[] => {
-  if (!text) return [''];
-
-  const getWidth = (str: string) => {
-    if (typeof document !== 'undefined') {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px ${TEXT_FONT_FAMILY}`;
-        return ctx.measureText(str).width * 1.05;
-      }
-    }
-    return str.length * (fontSize * (isBold ? 0.72 : 0.65));
-  };
-
-  const lines: string[] = [];
-  const rawLines = text.split('\n');
-
-  for (const rawLine of rawLines) {
-    if (rawLine === '') {
-      lines.push('');
-      continue;
-    }
-
-    let currentLine = '';
-
-    for (let i = 0; i < rawLine.length; i++) {
-      const char = rawLine[i];
-      const testLine = currentLine + char;
-      const testWidth = getWidth(testLine);
-
-      if (testWidth > maxPixelWidth && currentLine.length > 0) {
-        lines.push(currentLine);
-        currentLine = char;
-      } else {
-        currentLine = testLine;
-      }
-    }
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-  }
-
-  return lines.length > 0 ? lines : [''];
-};
-
-const TextIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" className={className} style={style}>
-    <path fill="currentColor" d="M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z" />
-  </svg>
-);
+export const TextIcon = ({ className = 'w-5 h-5', style }: { className?: string; style?: React.CSSProperties } = {}) =>
+  React.createElement(
+    'svg',
+    { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 28 28', className, style },
+    React.createElement('path', {
+      fill: 'currentColor',
+      d: 'M8 6.5c0-.28.22-.5.5-.5H14v16h-2v1h5v-1h-2V6h5.5c.28 0 .5.22.5.5V9h1V6.5c0-.83-.67-1.5-1.5-1.5h-12C7.67 5 7 5.67 7 6.5V9h1V6.5Z'
+    })
+  );
 
 export const TextTool: ToolDefinition = {
   id: 'text',
@@ -131,26 +89,23 @@ export const TextTool: ToolDefinition = {
       const hasBg = fillBackground && bg && bg !== 'transparent';
 
       const p1 = coordinates[0]; // Top-left position (Point 0)
+      const placeholderMetrics = measureSharedText('Add text', fontSize, isBold, isItalic);
+      const initialBoxWidth = Math.ceil(placeholderMetrics.width + PADDING_HORIZONTAL * 2);
+      const configuredWidth = customSettings.boxWidth !== undefined ? customSettings.boxWidth : initialBoxWidth;
 
-      // Minimum box width = width of 1 character at current font size + horizontal padding (left + right)
-      const singleCharW = getSingleCharWidth(fontSize, isBold);
-      const minBoxWidth = Math.ceil(singleCharW + PADDING_HORIZONTAL * 2);
-
-      // Width is fixed in screen pixels (boxWidth) so chart zooming/squeezing NEVER distorts the text box!
-      const configuredWidth = customSettings.boxWidth !== undefined ? customSettings.boxWidth : 180;
-      let w = Math.max(minBoxWidth, configuredWidth);
       let x = p1.x;
       let y = p1.y;
+      let boxWidth = configuredWidth;
 
       // Anchor mode effect: effective ONLY outside edit mode (when not selected/dragging)
       if (isAnchored) {
         if (!isSelected && !isDragging) {
           if (!customSettings.pinnedPixelPosition) {
-            customSettings.pinnedPixelPosition = { x: p1.x, y: p1.y, width: w };
+            customSettings.pinnedPixelPosition = { x: p1.x, y: p1.y, width: boxWidth };
           }
           x = customSettings.pinnedPixelPosition.x;
           y = customSettings.pinnedPixelPosition.y;
-          w = Math.max(minBoxWidth, customSettings.pinnedPixelPosition.width || w);
+          boxWidth = customSettings.pinnedPixelPosition.width || boxWidth;
         } else {
           // Inside edit mode: edit freely, clear pinned position so it always updates fresh
           if (customSettings.pinnedPixelPosition) {
@@ -163,24 +118,23 @@ export const TextTool: ToolDefinition = {
         }
       }
 
-      // Available width for character-level wrapping = boxWidth - leftPadding - rightPadding
-      const availWidth = Math.max(singleCharW, w - PADDING_HORIZONTAL * 2);
-
-      // Display text: if actual user text is present, use it; otherwise in edit mode show placeholder 'Add text'
       const isEditMode = isSelected || isHovered || isDragging;
       const displayText = hasText ? actualText : (isEditMode ? 'Add text' : '');
-      const isPlaceholder = !hasText && isEditMode;
 
-      // Character-level text wrapping
-      const lines = getWrappedLines(displayText || ' ', availWidth, fontSize, isBold);
+      const layout = computeCompositeTextLayout({
+        origin: { x, y },
+        text: displayText,
+        fontSize,
+        isBold,
+        isItalic,
+        textAlign,
+        boxWidth,
+        paddingX: PADDING_HORIZONTAL,
+        paddingY: TOP_PADDING,
+      });
 
-      // Calculate dynamic line height and total box height automatically
-      const lineHeight = Math.max(16, Math.round(fontSize * 1.35));
-      const h = Math.max(32, lines.length * lineHeight + TOP_PADDING + BOTTOM_PADDING);
-
-      // Center-right resize handle coordinate
-      const targetHandleX = x + w;
-      const targetHandleY = y + h / 2;
+      const targetHandleX = layout.resizeHandle.x;
+      const targetHandleY = layout.resizeHandle.y;
 
       const overlayPoints = (overlay?.points as any[]);
 
@@ -211,66 +165,29 @@ export const TextTool: ToolDefinition = {
       }
 
       const figures: any[] = [];
-
-      // If showBorder is false, border disappears after exiting edit mode if the box has text
       const shouldShowBorder = showBorder || isSelected || isHovered || isDragging || !hasText;
 
-      // Main text box outline rect (stroke + background fill)
+      // 1. Main text box outline rect (stroke + background fill)
       figures.push({
         type: 'rect',
-        attrs: { x, y, width: w, height: h },
+        attrs: {
+          x: layout.box.x,
+          y: layout.box.y,
+          width: layout.box.width,
+          height: layout.box.height,
+        },
         styles: {
           style: hasBg ? 'stroke_fill' : 'stroke',
           color: hasBg ? bg : 'transparent',
           borderColor: shouldShowBorder ? textColor : 'transparent',
           borderSize: shouldShowBorder ? 1 : 0,
-          borderStyle: 'solid'
+          borderStyle: 'solid',
+          borderRadius: 2,
         },
         ignoreEvent: false
       });
 
-      // Calculate text X position and alignment based on textAlign setting
-      let textX = x + PADDING_HORIZONTAL;
-      let textAlignStyle = 'left';
-
-      if (textAlign === 'center') {
-        textX = x + w / 2;
-        textAlignStyle = 'center';
-      } else if (textAlign === 'right') {
-        textX = x + w - PADDING_HORIZONTAL;
-        textAlignStyle = 'right';
-      }
-
-      const isEditingText = (overlay.extendData as any)?.isEditingText;
-
-      // Render each wrapped line of text inside the box with fixed consistent horizontal padding
-      // (When isEditingText is true, FloatingTextToolEditor renders the HTML textarea directly. When isEditingText is false, canvas draws the text figures!)
-      if (displayText && !isEditingText) {
-        lines.forEach((lineStr, index) => {
-          const lineY = y + TOP_PADDING + index * lineHeight;
-          figures.push({
-            type: 'text',
-            attrs: {
-              x: textX,
-              y: lineY,
-              text: lineStr,
-              baseline: 'top',
-              align: textAlignStyle
-            },
-            styles: {
-              color: isPlaceholder ? 'rgba(128, 130, 133, 0.65)' : textColor,
-              size: fontSize,
-              family: TEXT_FONT_FAMILY,
-              weight: isBold ? 'bold' : 'normal',
-              style: isItalic ? 'italic' : 'normal',
-              backgroundColor: 'transparent'
-            },
-            ignoreEvent: false
-          });
-        });
-      }
-
-      // Center-Right Resize Handle (Point 1) visible in edit mode / selection
+      // 2. Center-Right Resize Handle (Point 1) visible in edit mode / selection
       if (isSelected || isHovered) {
         const isLocked = overlay.lock || false;
         if (!isLocked) {
@@ -297,13 +214,19 @@ export const TextTool: ToolDefinition = {
     if (points.length === 0) return;
 
     const p1 = points[0];
-    const defaultBoxWidth = 180;
+    const customSettings = (event.overlay?.extendData as any)?.customSettings || {};
+    const fontSize = customSettings.fontSize || 14;
+    const isBold = !!customSettings.bold;
+    const isItalic = !!customSettings.italic;
+
+    const placeholderMetrics = measureSharedText('Add text', fontSize, isBold, isItalic);
+    const initialBoxWidth = Math.ceil(placeholderMetrics.width + PADDING_HORIZONTAL * 2);
 
     const p1Pixel = event.chart.convertToPixel([p1], { paneId: 'candle_pane' })?.[0];
     let p2Target: any = null;
     if (p1Pixel) {
       p2Target = event.chart.convertFromPixel(
-        [{ x: p1Pixel.x + defaultBoxWidth, y: p1Pixel.y + 16 }],
+        [{ x: p1Pixel.x + initialBoxWidth, y: p1Pixel.y + 16 }],
         { paneId: 'candle_pane' }
       )?.[0];
     }
@@ -320,7 +243,7 @@ export const TextTool: ToolDefinition = {
       ...(event.overlay.extendData || {}),
       customSettings: {
         ...(event.overlay.extendData?.customSettings || {}),
-        boxWidth: defaultBoxWidth,
+        boxWidth: initialBoxWidth,
         showBorder: true,
         text: ''
       }
