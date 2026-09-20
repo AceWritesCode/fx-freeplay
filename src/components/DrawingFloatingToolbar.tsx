@@ -116,6 +116,10 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
   const lossColor = customSettings.lossColor || 'rgba(244, 67, 54, 0.12)';
   const lineWidth = customSettings.lineWidth || 1;
   const lineStyle = customSettings.lineStyle || 'solid';
+  const borderWidth = customSettings.borderWidth !== undefined ? customSettings.borderWidth : (customSettings.lineWidth !== undefined ? customSettings.lineWidth : 1);
+  const borderStyle = customSettings.borderStyle || customSettings.lineStyle || 'solid';
+  const borderColor = customSettings.borderColor || customSettings.lineColor || '#2196F3';
+  const showBorder = customSettings.showBorder !== undefined ? customSettings.showBorder : true;
   const isLocked = firstOverlay?.lock || false;
 
   const handleUpdate = (update: any, closeDropdown = true) => {
@@ -430,22 +434,22 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
 
         <div className="w-px h-4 bg-border-def mx-0.5" />
 
-        {/* Line Color */}
+        {/* Line / Border Color */}
         {!isText && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'color'}
               onClick={() => setActiveDropdown(activeDropdown === 'color' ? null : 'color')}
-              title="Line color"
+              title={isCallout ? "Border color" : "Line color"}
             >
               <Palette className="w-4 h-4" />
-              <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: lineColor }} />
+              <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full" style={{ backgroundColor: isCallout ? borderColor : lineColor }} />
             </ToolbarButton>
             
             {activeDropdown === 'color' && (
               <div className="absolute top-full mt-2 left-0 z-50">
                 <ColorPicker 
-                  color={lineColor} 
+                  color={isCallout ? borderColor : lineColor} 
                   onChange={(c) => {
                     if (isFib) {
                       handleUpdate({
@@ -457,6 +461,8 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                           color: c,
                         },
                       }, false);
+                    } else if (isCallout) {
+                      handleUpdate({ borderColor: c, lineColor: c }, false);
                     } else {
                       handleUpdate({ lineColor: c }, false);
                     }
@@ -676,13 +682,13 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Line Width */}
-        {!isText && !isCallout && !isNote && (
+        {/* Line / Border Width */}
+        {!isText && !isNote && (
           <div className="relative">
             <button 
               onClick={() => setActiveDropdown(activeDropdown === 'width' ? null : 'width')}
               className={`flex items-center gap-1.5 h-8 px-2 rounded transition-colors group cursor-pointer text-txt-secondary hover:text-accent ${activeDropdown === 'width' ? 'bg-surface-hover text-accent' : 'hover:bg-surface-hover'}`} 
-              title={isHighlighter ? "Highlighter stroke width" : "Line width"}
+              title={isCallout ? "Border width" : (isHighlighter ? "Highlighter stroke width" : "Line width")}
             >
               {isHighlighter ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -691,7 +697,7 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
               ) : (
                 <Minus className="w-4 h-4 stroke-[3px]" />
               )}
-              <span className="text-[11px] font-semibold">{lineWidth}px</span>
+              <span className="text-[11px] font-semibold">{isCallout ? borderWidth : lineWidth}px</span>
             </button>
             
             {activeDropdown === 'width' && (
@@ -699,8 +705,14 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 {(isHighlighter ? [8, 12, 20, 32, 48, 64, 80, 96] : [1, 2, 3, 4]).map(w => (
                   <button
                     key={w}
-                    onClick={() => handleUpdate({ lineWidth: w })}
-                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === lineWidth ? 'text-accent font-bold bg-accent-muted' : ''}`}
+                    onClick={() => {
+                      if (isCallout) {
+                        handleUpdate({ borderWidth: w, lineWidth: w });
+                      } else {
+                        handleUpdate({ lineWidth: w });
+                      }
+                    }}
+                    className={`px-3 py-2 text-[11px] font-medium text-left hover:bg-surface-hover flex items-center justify-between ${w === (isCallout ? borderWidth : lineWidth) ? 'text-accent font-bold bg-accent-muted' : ''}`}
                   >
                     <span>{w}px</span>
                     {!isHighlighter && <div className="flex-1 ml-3 h-px bg-current" style={{ height: w }} />}
@@ -711,30 +723,30 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
           </div>
         )}
 
-        {/* Line Style */}
-        {!isText && !isBrush && !isHighlighter && !isCallout && !isNote && (
+        {/* Line / Border Style */}
+        {!isText && !isBrush && !isHighlighter && !isNote && (
           <div className="relative">
             <ToolbarButton 
               active={activeDropdown === 'style'}
               onClick={() => setActiveDropdown(activeDropdown === 'style' ? null : 'style')}
-              title="Line style"
+              title={isCallout ? "Border style" : "Line style"}
             >
-              {lineStyle === 'solid' && (
+              {(isCallout ? borderStyle : lineStyle) === 'solid' && (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="0" y1="8" x2="16" y2="8" />
                 </svg>
               )}
-              {lineStyle === 'dashed' && (
+              {(isCallout ? borderStyle : lineStyle) === 'dashed' && (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2">
                   <line x1="0" y1="8" x2="16" y2="8" />
                 </svg>
               )}
-              {lineStyle === 'dotted' && (
+              {(isCallout ? borderStyle : lineStyle) === 'dotted' && (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2">
                   <line x1="0" y1="8" x2="16" y2="8" />
                 </svg>
               )}
-              {lineStyle === 'none' && (
+              {(isCallout ? borderStyle : lineStyle) === 'none' && (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="8" cy="8" r="5.5" />
                   <line x1="4" y1="12" x2="12" y2="4" />
@@ -747,8 +759,14 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                 {(firstOverlay?.name === 'rectangle' ? ['solid', 'dashed', 'dotted', 'none'] : ['solid', 'dashed', 'dotted']).map(s => (
                   <button
                     key={s}
-                    onClick={() => handleUpdate({ lineStyle: s })}
-                    className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-surface-hover flex items-center justify-between ${s === lineStyle ? 'text-accent font-bold' : ''}`}
+                    onClick={() => {
+                      if (isCallout) {
+                        handleUpdate({ borderStyle: s, lineStyle: s });
+                      } else {
+                        handleUpdate({ lineStyle: s });
+                      }
+                    }}
+                    className={`px-3 py-2 text-[11px] font-medium text-left capitalize hover:bg-surface-hover flex items-center justify-between ${s === (isCallout ? borderStyle : lineStyle) ? 'text-accent font-bold' : ''}`}
                   >
                     {s}
                   </button>
@@ -997,6 +1015,13 @@ export const DrawingFloatingToolbar: React.FC<DrawingFloatingToolbarProps> = (pr
                       lineColor,
                       lineWidth,
                       lineStyle,
+                      borderColor,
+                      borderWidth,
+                      borderStyle,
+                      showBorder,
+                      fillBackground,
+                      backgroundColor: fillColor,
+                      fillColor,
                       extendType: customSettings.extendType || 'none',
                       textColor,
                       profitColor,

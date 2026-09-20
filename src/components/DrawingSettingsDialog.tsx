@@ -85,6 +85,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
   const [fillColor, setFillColor] = useState('rgba(33, 150, 243, 0.1)');
   const [fillBackground, setFillBackground] = useState(true);
   const [borderColor, setBorderColor] = useState('#2196F3');
+  const [borderWidth, setBorderWidth] = useState(1);
+  const [borderStyle, setBorderStyle] = useState('solid');
   const [profitColor, setProfitColor] = useState('rgba(76, 175, 80, 0.12)');
   const [lossColor, setLossColor] = useState('rgba(244, 67, 54, 0.12)');
   const [alwaysShowStats, setAlwaysShowStats] = useState(false);
@@ -188,6 +190,8 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setFillColor(customSettings.backgroundColor || customSettings.fillColor || (overlay.name === 'note' || overlay.name === 'callout' ? (customSettings.lineColor || '#2196F3') : 'rgba(33, 150, 243, 0.1)'));
     setFillBackground(customSettings.fillBackground !== false);
     setBorderColor(customSettings.borderColor || customSettings.lineColor || '#2196F3');
+    setBorderWidth(customSettings.borderWidth !== undefined ? customSettings.borderWidth : (customSettings.lineWidth !== undefined ? customSettings.lineWidth : 1));
+    setBorderStyle(customSettings.borderStyle || customSettings.lineStyle || 'solid');
     setProfitColor(customSettings.profitColor || 'rgba(76, 175, 80, 0.12)');
     setLossColor(customSettings.lossColor || 'rgba(244, 67, 54, 0.12)');
     setAlwaysShowStats(customSettings.alwaysShowStats === true);
@@ -208,7 +212,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
     setTextAlign(customSettings.textAlign || 'left');
     setIsBold(!!customSettings.bold);
     setIsItalic(!!customSettings.italic);
-    setShowBorder(customSettings.showBorder !== undefined ? !!customSettings.showBorder : (overlay.name === 'note' || overlay.name === 'callout' ? false : true));
+    setShowBorder(customSettings.showBorder !== undefined ? !!customSettings.showBorder : (overlay.name === 'note' ? false : true));
     setIsAnchored(!!customSettings.isAnchored);
     setTextValign(customSettings.textPosition?.vertical || 'middle');
     setTextHalign(customSettings.textPosition?.horizontal || 'right');
@@ -391,6 +395,33 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           textPlacement,
           visibility,
         }
+      : overlay.name === 'callout'
+      ? {
+          borderColor,
+          borderWidth,
+          borderStyle,
+          showBorder,
+          fillBackground,
+          backgroundColor: fillColor,
+          fillColor,
+          // Retro compatibility fallbacks
+          lineColor: borderColor,
+          lineWidth: borderWidth,
+          lineStyle: borderStyle,
+          text,
+          textColor,
+          fontSize,
+          textAlign,
+          bold: isBold,
+          italic: isItalic,
+          isAnchored,
+          textPosition: {
+            vertical: textValign,
+            horizontal: textHalign
+          },
+          textPlacement,
+          visibility,
+        }
       : {
           lineColor,
           lineWidth,
@@ -409,6 +440,9 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
           bold: isBold,
           italic: isItalic,
           showBorder,
+          borderColor,
+          borderWidth,
+          borderStyle,
           isAnchored,
           textPosition: {
             vertical: textValign,
@@ -487,7 +521,7 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
 
     const pointsToSave = activeTab === 'coordinates' ? updatedPoints : (overlay.points || backupPointsRef.current || updatedPoints);
     onSave(updatedSettings, pointsToSave);
-  }, [lineColor, lineWidth, lineStyle, startArrow, endArrow, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent, fibSettings]);
+  }, [lineColor, lineWidth, lineStyle, startArrow, endArrow, extendType, fillColor, fillBackground, profitColor, lossColor, text, textColor, fontSize, textAlign, isBold, isItalic, showBorder, borderColor, borderWidth, borderStyle, isAnchored, textValign, textHalign, textPlacement, points, visibility, alwaysShowStats, showLines, showActivationLine, activationLineColor, activationLineWidth, activationLineStyle, showActivationHighlight, activationHighlightOpacity, showMarkers, initialSizePercent, fibSettings]);
 
   if (!isOpen || !overlay) return null;
 
@@ -937,9 +971,13 @@ export const DrawingSettingsDialog: React.FC<DrawingSettingsDialogProps> = ({
             setActivationHighlightOpacity={setActivationHighlightOpacity}
             setShowMarkers={setShowMarkers}
             borderColor={borderColor}
+            borderWidth={borderWidth}
+            borderStyle={borderStyle}
             showBorder={showBorder}
             setShowBorder={setShowBorder}
             setBorderColor={setBorderColor}
+            setBorderWidth={setBorderWidth}
+            setBorderStyle={setBorderStyle}
             activeColorPicker={activeColorPicker}
             setActiveColorPicker={setActiveColorPicker}
             activeSelect={activeSelect}

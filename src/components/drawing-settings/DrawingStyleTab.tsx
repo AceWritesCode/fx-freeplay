@@ -25,9 +25,13 @@ export interface DrawingStyleTabProps {
   activationHighlightOpacity: number;
   showMarkers: boolean;
   borderColor?: string;
+  borderWidth?: number;
+  borderStyle?: string;
   showBorder?: boolean;
   setShowBorder?: (val: boolean) => void;
   setBorderColor?: (val: string) => void;
+  setBorderWidth?: (val: number) => void;
+  setBorderStyle?: (val: string) => void;
   setLineColor: (color: string) => void;
   setLineWidth: (width: number) => void;
   setLineStyle: (style: string) => void;
@@ -75,9 +79,13 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
   activationHighlightOpacity,
   showMarkers,
   borderColor,
+  borderWidth,
+  borderStyle,
   showBorder,
   setShowBorder,
   setBorderColor,
+  setBorderWidth,
+  setBorderStyle,
   setLineColor,
   setLineWidth,
   setLineStyle,
@@ -104,10 +112,160 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      {/* Line Color/Width/Style Row */}
-      <div className="flex items-center justify-between min-h-[36px]">
-        <span className="text-txt-muted font-medium">Line</span>
-        <div className="flex gap-2 items-center relative">
+      {/* Callout Border Row */}
+      {overlay.name === 'callout' && (
+        <div className="flex items-center justify-between min-h-[36px]">
+          <Checkbox
+            id="calloutBorder"
+            checked={showBorder ?? true}
+            onChange={(e) => setShowBorder?.(e.target.checked)}
+            label="Border"
+            labelClassName="text-txt-muted font-medium"
+          />
+          <div className="flex gap-2 items-center relative">
+            {/* Border Color Swatch */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setActiveColorPicker(activeColorPicker === 'borderColor' ? null : 'borderColor');
+                  setActiveSelect(null);
+                }}
+                className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                style={{ backgroundColor: borderColor || lineColor }}
+                title="Border color"
+              />
+              {activeColorPicker === 'borderColor' && (
+                <div className="absolute right-0 top-full mt-2 z-50">
+                  <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                  <div className="relative">
+                    <ColorPicker color={borderColor || lineColor} onChange={(c) => {
+                      setBorderColor?.(c);
+                      setLineColor(c);
+                    }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Border Width Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setActiveSelect(activeSelect === 'borderWidth' ? null : 'borderWidth');
+                  setActiveColorPicker(null);
+                }}
+                className="flex items-center justify-center border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-2.5 py-1.5 text-[12px] font-mono font-bold w-14 h-8 justify-between cursor-pointer transition-all active:scale-95 text-txt-primary"
+                title="Border width"
+              >
+                <span>{borderWidth ?? lineWidth}px</span>
+              </button>
+              {activeSelect === 'borderWidth' && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-16 overflow-hidden">
+                    <div className="flex flex-col gap-0.5">
+                      {[1, 2, 3, 4].map((w) => (
+                        <button
+                          key={w}
+                          onClick={() => {
+                            if (setBorderWidth) setBorderWidth(w);
+                            setLineWidth(w);
+                            setActiveSelect(null);
+                          }}
+                          className={`w-full text-center px-2.5 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] font-mono font-semibold cursor-pointer ${
+                            (borderWidth ?? lineWidth) === w ? 'bg-accent text-txt-inverse shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                          }`}
+                        >
+                          {w}px
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Border Style Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setActiveSelect(activeSelect === 'borderStyle' ? null : 'borderStyle');
+                  setActiveColorPicker(null);
+                }}
+                className="flex items-center justify-between border border-border-def hover:border-border-focus bg-app-bg hover:bg-surface-hover rounded-lg px-3 py-1.5 text-[12px] font-semibold w-24 h-8 cursor-pointer transition-all active:scale-95 text-txt-primary"
+                title="Border style"
+              >
+                <span className="capitalize">{borderStyle ?? lineStyle}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-txt-muted" />
+              </button>
+              {activeSelect === 'borderStyle' && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setActiveSelect(null)} />
+                  <div className="absolute right-0 top-full mt-1 bg-modal-bg border border-border-def rounded-xl shadow-2xl z-50 p-1 w-24 overflow-hidden">
+                    <div className="flex flex-col gap-0.5">
+                      {['solid', 'dashed', 'dotted'].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            if (setBorderStyle) setBorderStyle(s);
+                            setLineStyle(s);
+                            setActiveSelect(null);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors text-[12px] capitalize cursor-pointer ${
+                            (borderStyle ?? lineStyle) === s ? 'bg-accent text-txt-inverse font-semibold shadow-xs' : 'text-txt-secondary hover:text-txt-primary'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Callout Background Fill */}
+      {overlay.name === 'callout' && (
+        <div className="flex items-center justify-between min-h-[36px]">
+          <Checkbox
+            id="calloutFillBackground"
+            checked={fillBackground}
+            onChange={(e) => setFillBackground(e.target.checked)}
+            label="Background"
+            labelClassName="text-txt-muted font-medium"
+          />
+          {fillBackground && (
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setActiveColorPicker(activeColorPicker === 'fill' ? null : 'fill');
+                  setActiveSelect(null);
+                }}
+                className="w-8 h-8 rounded-lg border border-border-def hover:border-border-focus transition-all flex items-center justify-center cursor-pointer shadow-inner active:scale-95"
+                style={{ backgroundColor: fillColor }}
+                title="Background color"
+              />
+              {activeColorPicker === 'fill' && (
+                <div className="absolute right-0 top-full mt-2 z-50">
+                  <div className="fixed inset-0" onClick={() => setActiveColorPicker(null)} />
+                  <div className="relative">
+                    <ColorPicker color={fillColor} onChange={(c) => setFillColor(c)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Line Color/Width/Style Row for Line Tools */}
+      {overlay.name !== 'callout' && (
+        <div className="flex items-center justify-between min-h-[36px]">
+          <span className="text-txt-muted font-medium">Line</span>
+          <div className="flex gap-2 items-center relative">
           {/* Color Swatch */}
           <div className="relative">
             <button
@@ -343,6 +501,7 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* Extend Row */}
       {overlay.name === 'trendLine' && (
@@ -424,8 +583,8 @@ export const DrawingStyleTab: React.FC<DrawingStyleTabProps> = ({
         </div>
       )}
 
-      {/* Note & Callout Label Background & Border */}
-      {(overlay.name === 'note' || overlay.name === 'callout') && (
+      {/* Note Label Background & Border */}
+      {overlay.name === 'note' && (
         <>
           <div className="flex items-center justify-between min-h-[36px]">
             <Checkbox

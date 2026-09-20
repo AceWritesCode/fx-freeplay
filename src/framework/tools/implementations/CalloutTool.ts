@@ -20,13 +20,16 @@ export const CalloutIcon = ({ className = "w-5 h-5", style }: { className?: stri
   );
 
 export interface CalloutCustomSettings {
+  borderColor?: string;
+  borderWidth?: number;
+  borderStyle?: 'solid' | 'dashed' | 'dotted';
+  showBorder?: boolean;
+  fillBackground?: boolean;
+  backgroundColor?: string;
+  fillColor?: string;
   lineColor?: string;
   lineWidth?: number;
   lineStyle?: 'solid' | 'dashed' | 'dotted';
-  fillBackground?: boolean;
-  backgroundColor?: string;
-  showBorder?: boolean;
-  borderColor?: string;
   text?: string;
   textColor?: string;
   fontSize?: number;
@@ -38,13 +41,12 @@ export interface CalloutCustomSettings {
 }
 
 export const DEFAULT_CALLOUT_SETTINGS: CalloutCustomSettings = {
-  lineColor: '#2196F3',
-  lineWidth: 1,
-  lineStyle: 'solid',
+  borderColor: '#2196F3',
+  borderWidth: 1,
+  borderStyle: 'solid',
+  showBorder: true,
   fillBackground: true,
   backgroundColor: '#2196F3',
-  showBorder: false,
-  borderColor: '#2196F3',
   text: '',
   textColor: '#ffffff',
   fontSize: 14,
@@ -182,6 +184,7 @@ export interface CalloutCompositeLayout {
     x: number;
     y: number;
   };
+  polygon: Array<{ x: number; y: number }>;
   text: {
     lines: string[];
     lineWidths: number[];
@@ -197,8 +200,135 @@ export interface CalloutCompositeLayout {
 }
 
 /**
+ * Computes a unified composite polygon for the Callout speech bubble:
+ * a rounded rectangle with an integrated triangular tail pointing directly to the anchor.
+ * The entire shape shares a single closed perimeter, fill, and outline.
+ */
+export function computeCompositeCalloutPolygon(
+  anchor: { x: number; y: number },
+  box: { x: number; y: number; width: number; height: number },
+  cornerRadius: number = 4,
+  tailBaseWidth: number = 16
+): Array<{ x: number; y: number }> {
+  const x0 = box.x;
+  const x1 = box.x + box.width;
+  const y0 = box.y;
+  const y1 = box.y + box.height;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  const r = Math.max(0, Math.min(cornerRadius, box.width / 2, box.height / 2));
+  const maxBase = Math.min(box.width - 2 * r - 2, box.height - 2 * r - 2);
+  const halfBase = Math.max(3, Math.min(tailBaseWidth / 2, maxBase > 0 ? maxBase / 2 : 6));
+
+  const dx = cx - anchor.x;
+  const dy = cy - anchor.y;
+
+  // Determine which side the tail attaches to based on ray from center to anchor
+  let side: 'top' | 'right' | 'bottom' | 'left' = 'bottom';
+  const scaleX = Math.abs(dx) > 0 ? (box.width / 2) / Math.abs(dx) : Infinity;
+  const scaleY = Math.abs(dy) > 0 ? (box.height / 2) / Math.abs(dy) : Infinity;
+
+  let attachX = cx;
+  let attachY = cy;
+
+  if (scaleY <= scaleX) {
+    if (dy > 0) {
+      side = 'top';
+      attachY = y0;
+      attachX = cx - (dy !== 0 ? ((box.height / 2) / dy) * dx : 0);
+    } else {
+      side = 'bottom';
+      attachY = y1;
+      attachX = cx - (dy !== 0 ? ((-box.height / 2) / dy) * dx : 0);
+    }
+  } else {
+    if (dx > 0) {
+      side = 'left';
+      attachX = x0;
+      attachY = cy - (dx !== 0 ? ((box.width / 2) / dx) * dy : 0);
+    } else {
+      side = 'right';
+      attachX = x1;
+      attachY = cy - (dx !== 0 ? ((-box.width / 2) / dx) * dy : 0);
+    }
+  }
+
+  // Corner arc generator (3 sample points per corner for smooth rendering)
+  const addCorner = (
+    centerX: number,
+    centerY: number,
+    startAngle: number,
+    endAngle: number,
+    points: Array<{ x: number; y: number }>
+  ) => {
+    if (r <= 0) {
+      points.push({ x: Math.round(centerX), y: Math.round(centerY) });
+      return;
+    }
+    const steps = 3;
+    for (let i = 0; i <= steps; i++) {
+      const angle = startAngle + (endAngle - startAngle) * (i / steps);
+      points.push({
+        x: Math.round(centerX + r * Math.cos(angle)),
+        y: Math.round(centerY + r * Math.sin(angle)),
+      });
+    }
+  };
+
+  const poly: Array<{ x: number; y: number }> = [];
+
+  // Clockwise traversal starting from top-left:
+  // 1. Top-left corner
+  addCorner(x0 + r, y0 + r, Math.PI, 1.5 * Math.PI, poly);
+
+  // 2. Top edge (with tail if side === 'top')
+  if (side === 'top') {
+    const tx = Math.max(x0 + r + halfBase, Math.min(x1 - r - halfBase, attachX));
+    poly.push({ x: Math.round(tx - halfBase), y: Math.round(y0) });
+    poly.push({ x: Math.round(anchor.x), y: Math.round(anchor.y) });
+    poly.push({ x: Math.round(tx + halfBase), y: Math.round(y0) });
+  }
+
+  // 3. Top-right corner
+  addCorner(x1 - r, y0 + r, 1.5 * Math.PI, 2 * Math.PI, poly);
+
+  // 4. Right edge (with tail if side === 'right')
+  if (side === 'right') {
+    const ty = Math.max(y0 + r + halfBase, Math.min(y1 - r - halfBase, attachY));
+    poly.push({ x: Math.round(x1), y: Math.round(ty - halfBase) });
+    poly.push({ x: Math.round(anchor.x), y: Math.round(anchor.y) });
+    poly.push({ x: Math.round(x1), y: Math.round(ty + halfBase) });
+  }
+
+  // 5. Bottom-right corner
+  addCorner(x1 - r, y1 - r, 0, 0.5 * Math.PI, poly);
+
+  // 6. Bottom edge (with tail if side === 'bottom')
+  if (side === 'bottom') {
+    const tx = Math.max(x0 + r + halfBase, Math.min(x1 - r - halfBase, attachX));
+    poly.push({ x: Math.round(tx + halfBase), y: Math.round(y1) });
+    poly.push({ x: Math.round(anchor.x), y: Math.round(anchor.y) });
+    poly.push({ x: Math.round(tx - halfBase), y: Math.round(y1) });
+  }
+
+  // 7. Bottom-left corner
+  addCorner(x0 + r, y1 - r, 0.5 * Math.PI, Math.PI, poly);
+
+  // 8. Left edge (with tail if side === 'left')
+  if (side === 'left') {
+    const ty = Math.max(y0 + r + halfBase, Math.min(y1 - r - halfBase, attachY));
+    poly.push({ x: Math.round(x0), y: Math.round(ty + halfBase) });
+    poly.push({ x: Math.round(anchor.x), y: Math.round(anchor.y) });
+    poly.push({ x: Math.round(x0), y: Math.round(ty - halfBase) });
+  }
+
+  return poly;
+}
+
+/**
  * Computes composite layout for Callout: box rectangle centered at boxCenter,
- * 8-way placement classification, clean boundary attachment point, and per-line text positions.
+ * 8-way placement classification, integrated tail polygon, and per-line text positions.
  */
 export function computeCompositeCalloutLayout(
   anchor: { x: number; y: number },
@@ -228,6 +358,18 @@ export function computeCompositeCalloutLayout(
   const boxX = Math.round(boxCenter.x - boxWidth / 2);
   const boxY = Math.round(boxCenter.y - boxHeight / 2);
 
+  const box = {
+    x: boxX,
+    y: boxY,
+    width: boxWidth,
+    height: boxHeight,
+    centerX: boxCenter.x,
+    centerY: boxCenter.y,
+    placement,
+  };
+
+  const polygon = computeCompositeCalloutPolygon(anchor, box, 4, 16);
+
   // Calculate startY based on textValign
   let contentStartY = boxY + paddingY;
   if (textValign === 'middle') {
@@ -254,16 +396,9 @@ export function computeCompositeCalloutLayout(
   });
 
   return {
-    box: {
-      x: boxX,
-      y: boxY,
-      width: boxWidth,
-      height: boxHeight,
-      centerX: boxCenter.x,
-      centerY: boxCenter.y,
-      placement,
-    },
+    box,
     attachment,
+    polygon,
     text: {
       lines: metrics.lines,
       lineWidths: metrics.lineWidths,
@@ -288,33 +423,34 @@ export const CalloutTool: ToolDefinition = {
 
   settingsSchema: [
     {
-      id: 'lineColor',
-      label: 'Line Color',
+      id: 'borderColor',
+      label: 'Border Color',
       type: 'color',
       defaultValue: '#2196F3',
     },
     {
-      id: 'lineWidth',
-      label: 'Line Width',
+      id: 'borderWidth',
+      label: 'Border Width',
       type: 'number',
       defaultValue: 1,
       min: 1,
-      max: 5,
+      max: 4,
       step: 1,
     },
     {
-      id: 'lineStyle',
-      label: 'Line Style',
+      id: 'borderStyle',
+      label: 'Border Style',
       type: 'select',
       defaultValue: 'solid',
       options: [
         { label: 'Solid', value: 'solid' },
         { label: 'Dashed', value: 'dashed' },
+        { label: 'Dotted', value: 'dotted' },
       ],
     },
     {
       id: 'fillBackground',
-      label: 'Label Background',
+      label: 'Background',
       type: 'boolean',
       defaultValue: true,
     },
@@ -326,15 +462,9 @@ export const CalloutTool: ToolDefinition = {
     },
     {
       id: 'showBorder',
-      label: 'Label Border',
+      label: 'Border',
       type: 'boolean',
-      defaultValue: false,
-    },
-    {
-      id: 'borderColor',
-      label: 'Border Color',
-      type: 'color',
-      defaultValue: '#2196F3',
+      defaultValue: true,
     },
     {
       id: 'text',
@@ -364,13 +494,12 @@ export const CalloutTool: ToolDefinition = {
       id: 'default',
       name: 'Default',
       commonSettings: {
-        lineColor: '#2196F3',
-        lineWidth: 1,
-        lineStyle: 'solid',
+        borderColor: '#2196F3',
+        borderWidth: 1,
+        borderStyle: 'solid',
+        showBorder: true,
         fillBackground: true,
         backgroundColor: '#2196F3',
-        showBorder: false,
-        borderColor: '#2196F3',
         text: '',
         textColor: '#ffffff',
         fontSize: 14,
@@ -408,13 +537,12 @@ export const CalloutTool: ToolDefinition = {
         const anchor = { ...coordinates[0] };
         const boxCenter = { ...coordinates[1] };
 
-        const lineColor = customSettings.lineColor || '#2196F3';
-        const lineWidth = customSettings.lineWidth || 1;
-        const lineStyle = customSettings.lineStyle || 'solid';
+        const borderColor = customSettings.borderColor ?? customSettings.lineColor ?? '#2196F3';
+        const borderWidth = customSettings.borderWidth !== undefined ? customSettings.borderWidth : (customSettings.lineWidth !== undefined ? customSettings.lineWidth : 1);
+        const borderStyle = customSettings.borderStyle ?? customSettings.lineStyle ?? 'solid';
+        const showBorder = customSettings.showBorder !== undefined ? customSettings.showBorder : true;
         const fillBackground = customSettings.fillBackground !== false;
-        const backgroundColor = customSettings.backgroundColor || lineColor;
-        const showBorder = customSettings.showBorder === true;
-        const borderColor = customSettings.borderColor || lineColor;
+        const backgroundColor = customSettings.backgroundColor ?? customSettings.fillColor ?? customSettings.lineColor ?? '#2196F3';
 
         const text = typeof customSettings.text === 'string' ? customSettings.text : '';
         const fontSize = customSettings.fontSize || 14;
@@ -439,53 +567,28 @@ export const CalloutTool: ToolDefinition = {
           textValign
         );
 
-        // 1. Transparent hit-testing line covering the tail connector
+        // 1. Transparent hit-testing line covering the tail connector for responsive hover/drag near tail
         figures.push({
           type: 'line',
           attrs: { coordinates: [{ x: anchor.x, y: anchor.y }, { x: layout.attachment.x, y: layout.attachment.y }] },
           styles: {
             style: 'solid',
             color: 'transparent',
-            size: Math.max(lineWidth, 8),
+            size: Math.max(borderWidth, 12),
           },
           ignoreEvent: false,
         });
 
-        // 2. Visible tail connector line connecting fixed anchor (coordinates[0]) to box boundary attachment
-        let style = 'solid';
-        let dashedValue = [4, 4];
-        if (lineStyle === 'dashed') {
-          style = 'dashed';
-        } else if (lineStyle === 'dotted') {
-          style = 'dashed';
-          dashedValue = [2, 2];
-        }
-
-        figures.push({
-          type: 'line',
-          attrs: { coordinates: [{ x: anchor.x, y: anchor.y }, { x: layout.attachment.x, y: layout.attachment.y }] },
-          styles: {
-            style,
-            color: lineColor,
-            size: lineWidth,
-            dashedValue,
-          },
-          ignoreEvent: false,
-        });
-
-        // 3. Callout Box (Rectangle centered at boxCenter / coordinates[1])
+        // 2. Composite Callout Bubble Polygon (Rounded Box + Integrated Tail sharing ONE outline & fill)
         const hasBg = fillBackground && backgroundColor && backgroundColor !== 'transparent';
         const shouldRenderBorder = showBorder || (!hasBg && (isSelected || isHovered));
 
-        // Invisible fill rectangle guaranteeing the entire interior is an interactive hit target
+        // Invisible fill polygon guaranteeing the entire interior is an interactive hit target
         if (!hasBg) {
           figures.push({
-            type: 'rect',
+            type: 'polygon',
             attrs: {
-              x: layout.box.x,
-              y: layout.box.y,
-              width: layout.box.width,
-              height: layout.box.height,
+              coordinates: layout.polygon,
             },
             styles: {
               style: 'fill',
@@ -495,21 +598,28 @@ export const CalloutTool: ToolDefinition = {
           });
         }
 
+        let figureBorderStyle: 'solid' | 'dashed' = 'solid';
+        let borderDashedValue: number[] = [4, 4];
+        if (borderStyle === 'dashed') {
+          figureBorderStyle = 'dashed';
+          borderDashedValue = [4, 4];
+        } else if (borderStyle === 'dotted') {
+          figureBorderStyle = 'dashed';
+          borderDashedValue = [2, 2];
+        }
+
         figures.push({
-          type: 'rect',
+          type: 'polygon',
           attrs: {
-            x: layout.box.x,
-            y: layout.box.y,
-            width: layout.box.width,
-            height: layout.box.height,
+            coordinates: layout.polygon,
           },
           styles: {
             style: hasBg ? (shouldRenderBorder ? 'stroke_fill' : 'fill') : 'stroke',
             color: hasBg ? backgroundColor : 'transparent',
             borderColor: shouldRenderBorder ? borderColor : 'transparent',
-            borderSize: shouldRenderBorder ? 1 : 0,
-            borderStyle: 'solid',
-            borderRadius: 4,
+            borderSize: shouldRenderBorder ? borderWidth : 0,
+            borderStyle: figureBorderStyle,
+            borderDashedValue: borderDashedValue,
           },
           ignoreEvent: false,
         });

@@ -5,6 +5,7 @@ import {
   computeCalloutPlacement,
   computeCalloutAttachmentPoint,
   computeCompositeCalloutLayout,
+  computeCompositeCalloutPolygon,
   measureCalloutText,
   DEFAULT_CALLOUT_SETTINGS,
 } from '../../tools/implementations/CalloutTool.ts';
@@ -38,7 +39,7 @@ describe('Callout Tool — Geometry, Drag Modes & 8-Way Placement Invariant Test
       assert.equal(figures[0].attrs.y, 200);
     });
 
-    it('two points establish fixed anchor at points[0] and box center at points[1], with grab handle ONLY on points[0]', () => {
+    it('two points establish fixed anchor at points[0] and box center at points[1], rendering ONE composite polygon with grab handle ONLY on points[0]', () => {
       const overlayDef = CalloutTool.createOverlayDef();
       const overlay = {
         id: 'callout_2',
@@ -64,13 +65,18 @@ describe('Callout Tool — Geometry, Drag Modes & 8-Way Placement Invariant Test
         chart: mockChart,
       });
 
-      // Box should be centered around coordinates[1] (300, 150)
-      const rectFigure = figures.find((f: any) => f.type === 'rect' && f.styles.color !== 'transparent');
-      assert.ok(rectFigure, 'Box rect figure must be present');
-      const boxCenterX = rectFigure.attrs.x + rectFigure.attrs.width / 2;
-      const boxCenterY = rectFigure.attrs.y + rectFigure.attrs.height / 2;
-      assert.equal(boxCenterX, 300, 'Box center X matches coordinates[1].x');
-      assert.equal(boxCenterY, 150, 'Box center Y matches coordinates[1].y');
+      // Composite polygon figure representing the speech bubble (box + integrated tail)
+      const polyFigure = figures.find((f: any) => f.type === 'polygon' && f.styles.color !== 'transparent');
+      assert.ok(polyFigure, 'Composite polygon figure must be present');
+      assert.ok(Array.isArray(polyFigure.attrs.coordinates), 'Polygon has coordinate vertices');
+
+      // The polygon coordinates must include the anchor point (100, 200) as an integrated tail tip
+      const hasAnchorVertex = polyFigure.attrs.coordinates.some((pt: any) => pt.x === 100 && pt.y === 200);
+      assert.ok(hasAnchorVertex, 'Composite polygon perimeter integrates the anchor point (100, 200)');
+
+      // No separate visible line figure is rendered (only transparent hit-testing helper line if any)
+      const visibleLines = figures.filter((f: any) => f.type === 'line' && f.styles.color !== 'transparent');
+      assert.equal(visibleLines.length, 0, 'NO separate visible line is rendered; tail is part of polygon');
 
       // Grab handle ONLY on fixed anchor (100, 200) — box center (300, 150) is NEVER rendered as an anchor
       const circleFigures = figures.filter((f: any) => f.type === 'circle');
@@ -321,7 +327,7 @@ describe('Callout Tool — Geometry, Drag Modes & 8-Way Placement Invariant Test
       assert.ok(multiLine.height > singleLine.height * 2, '3-line text height must be significantly taller than single-line');
     });
 
-    it('computeCompositeCalloutLayout generates stable geometry matching Note text foundation', () => {
+    it('computeCompositeCalloutLayout generates stable geometry with unified polygon matching Note text foundation', () => {
       const layout = computeCompositeCalloutLayout(
         { x: 100, y: 300 },
         { x: 300, y: 150 },
@@ -338,6 +344,33 @@ describe('Callout Tool — Geometry, Drag Modes & 8-Way Placement Invariant Test
       assert.equal(layout.text.align, 'center');
       assert.ok(layout.box.width > 0);
       assert.ok(layout.box.height > 0);
+      assert.ok(Array.isArray(layout.polygon), 'Layout contains composite polygon');
+      assert.ok(layout.polygon.length >= 10, 'Polygon contains smooth corner & tail vertices');
+
+      // Polygon contains anchor point (100, 300)
+      const hasAnchor = layout.polygon.some((p) => p.x === 100 && p.y === 300);
+      assert.ok(hasAnchor, 'Composite polygon integrates anchor tip (100, 300)');
+    });
+
+    it('computeCompositeCalloutPolygon integrates tail across all 8 placement directions', () => {
+      const box = { x: 200, y: 200, width: 100, height: 60 };
+      const directions = [
+        { name: 'bottom', anchor: { x: 250, y: 100 } }, // anchor is above
+        { name: 'top', anchor: { x: 250, y: 350 } }, // anchor is below
+        { name: 'left', anchor: { x: 400, y: 230 } }, // anchor is to right
+        { name: 'right', anchor: { x: 100, y: 230 } }, // anchor is to left
+        { name: 'top-right', anchor: { x: 100, y: 350 } }, // anchor is down-left
+        { name: 'top-left', anchor: { x: 400, y: 350 } }, // anchor is down-right
+        { name: 'bottom-right', anchor: { x: 100, y: 100 } }, // anchor is up-left
+        { name: 'bottom-left', anchor: { x: 400, y: 100 } }, // anchor is up-right
+      ];
+
+      directions.forEach(({ name, anchor }) => {
+        const poly = computeCompositeCalloutPolygon(anchor, box, 4, 16);
+        assert.ok(Array.isArray(poly) && poly.length >= 10, `${name} produces valid polygon array`);
+        const containsAnchor = poly.some((p) => p.x === anchor.x && p.y === anchor.y);
+        assert.ok(containsAnchor, `${name} polygon must contain the anchor tip (${anchor.x}, ${anchor.y})`);
+      });
     });
 
     it('empty text uses "+ Add text" placeholder for preview/layout during edit mode', () => {
@@ -349,6 +382,7 @@ describe('Callout Tool — Geometry, Drag Modes & 8-Way Placement Invariant Test
       );
       assert.ok(emptyLayout.box.width > 0);
       assert.ok(emptyLayout.box.height > 0);
+      assert.ok(emptyLayout.polygon.length > 0);
     });
   });
 
@@ -432,27 +466,102 @@ describe('Callout Tool — Geometry, Drag Modes & 8-Way Placement Invariant Test
       assert.equal(currentDrawings[1].id, 'callout_populated_D');
     });
 
-    it('Toolbar controls: Callout excludes line arrows, line width, and line style while retaining text settings', () => {
+    it('Settings Schema: defines border properties and replaces line terminology', () => {
+      const schemaIds = CalloutTool.settingsSchema.map((s: any) => s.id);
+      assert.ok(schemaIds.includes('borderColor'), 'Schema includes borderColor');
+      assert.ok(schemaIds.includes('borderWidth'), 'Schema includes borderWidth');
+      assert.ok(schemaIds.includes('borderStyle'), 'Schema includes borderStyle');
+      assert.ok(schemaIds.includes('showBorder'), 'Schema includes showBorder');
+      assert.ok(schemaIds.includes('fillBackground'), 'Schema includes fillBackground');
+      assert.ok(schemaIds.includes('backgroundColor'), 'Schema includes backgroundColor');
+      assert.ok(!schemaIds.includes('lineColor'), 'Schema no longer defines old lineColor');
+      assert.ok(!schemaIds.includes('lineWidth'), 'Schema no longer defines old lineWidth');
+      assert.ok(!schemaIds.includes('lineStyle'), 'Schema no longer defines old lineStyle');
+    });
+
+    it('createPointFigures: applies borderWidth, borderStyle, and borderColor to composite polygon', () => {
+      const overlayDef = CalloutTool.createOverlayDef();
+      const figures = overlayDef.createPointFigures({
+        overlay: {
+          id: 'callout_border_test',
+          name: 'callout',
+          extendData: {
+            isSelected: true,
+            customSettings: {
+              borderColor: '#ff0000',
+              borderWidth: 3,
+              borderStyle: 'dashed',
+              showBorder: true,
+              fillBackground: true,
+              backgroundColor: '#00ff00',
+              text: 'Custom Border',
+            },
+          },
+        },
+        coordinates: [{ x: 100, y: 100 }, { x: 200, y: 200 }],
+        chart: null,
+      });
+
+      const polyFigure = figures.find((f: any) => f.type === 'polygon' && f.styles?.borderColor);
+      assert.ok(polyFigure, 'Polygon figure exists');
+      assert.equal(polyFigure.styles.borderColor, '#ff0000', 'borderColor correctly applied');
+      assert.equal(polyFigure.styles.borderSize, 3, 'borderWidth (borderSize) correctly applied');
+      assert.equal(polyFigure.styles.borderStyle, 'dashed', 'borderStyle correctly applied');
+      assert.deepEqual(polyFigure.styles.borderDashedValue, [4, 4], 'borderDashedValue correctly set for dashed');
+      assert.equal(polyFigure.styles.color, '#00ff00', 'backgroundColor correctly applied');
+    });
+
+    it('Retro-compatibility: falls back gracefully from old lineWidth, lineStyle, and lineColor', () => {
+      const overlayDef = CalloutTool.createOverlayDef();
+      const figures = overlayDef.createPointFigures({
+        overlay: {
+          id: 'callout_retro_test',
+          name: 'callout',
+          extendData: {
+            isSelected: true,
+            customSettings: {
+              // Legacy properties only:
+              lineColor: '#9c27b0',
+              lineWidth: 2,
+              lineStyle: 'dotted',
+              fillBackground: true,
+              text: 'Legacy Drawing',
+            },
+          },
+        },
+        coordinates: [{ x: 100, y: 100 }, { x: 200, y: 200 }],
+        chart: null,
+      });
+
+      const polyFigure = figures.find((f: any) => f.type === 'polygon' && f.styles?.borderColor);
+      assert.ok(polyFigure, 'Polygon figure exists');
+      assert.equal(polyFigure.styles.borderColor, '#9c27b0', 'Fell back to legacy lineColor');
+      assert.equal(polyFigure.styles.borderSize, 2, 'Fell back to legacy lineWidth');
+      assert.equal(polyFigure.styles.borderStyle, 'dashed', 'Fell back to legacy dotted -> dashed canvas style');
+      assert.deepEqual(polyFigure.styles.borderDashedValue, [2, 2], 'Fell back to dotted dashedValue [2, 2]');
+    });
+
+    it('Toolbar controls: Callout exposes border width/style, text settings, and excludes arrows', () => {
       const isLineTool = (name: string) =>
         ['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].includes(name);
       const hasTextSettings = (name: string) =>
         ['text', 'fxText', 'callout', 'note'].includes(name);
-      const hasLineWidth = (name: string) =>
-        !['text', 'fxText', 'callout', 'note'].includes(name);
-      const hasLineStyle = (name: string) =>
-        !['text', 'fxText', 'brush', 'highlighter', 'callout', 'note'].includes(name);
+      const hasWidthControl = (name: string) =>
+        !['text', 'fxText', 'note'].includes(name);
+      const hasStyleControl = (name: string) =>
+        !['text', 'fxText', 'brush', 'highlighter', 'note'].includes(name);
 
       // Callout assertions
       assert.equal(isLineTool('callout'), false, 'Callout is NOT classified as a line tool (no arrowheads)');
-      assert.equal(hasLineWidth('callout'), false, 'Callout does NOT have line width dropdown');
-      assert.equal(hasLineStyle('callout'), false, 'Callout does NOT have line style dropdown');
+      assert.equal(hasWidthControl('callout'), true, 'Callout DOES have width control (Border Width)');
+      assert.equal(hasStyleControl('callout'), true, 'Callout DOES have style control (Border Style)');
       assert.equal(hasTextSettings('callout'), true, 'Callout DOES have text settings (font size, alignment, background)');
 
       // Line tools assertions
       ['trendLine', 'ray', 'arrow', 'horizontalRay', 'horizontalLine', 'verticalLine'].forEach((lineTool) => {
         assert.equal(isLineTool(lineTool), true, `${lineTool} retains line tool arrow controls`);
-        assert.equal(hasLineWidth(lineTool), true, `${lineTool} retains line width control`);
-        assert.equal(hasLineStyle(lineTool), true, `${lineTool} retains line style control`);
+        assert.equal(hasWidthControl(lineTool), true, `${lineTool} retains line width control`);
+        assert.equal(hasStyleControl(lineTool), true, `${lineTool} retains line style control`);
       });
     });
   });
