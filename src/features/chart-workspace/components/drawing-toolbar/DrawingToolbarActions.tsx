@@ -33,7 +33,7 @@ export const DrawingToolbarUtilityControls: React.FC<DrawingToolbarUtilityContro
   return (
     <>
       {/* Divider 1: End of Drawing Tools */}
-      <div className="w-[34px] border-t border-border-def/60 my-0.5" />
+      <div className="w-[33px] border-t border-border-def/60 my-0.5" />
 
       {/* --- UTILITIES GROUP (Measure & Zoom) --- */}
       {/* Measure / Scale Tool */}
@@ -51,12 +51,12 @@ export const DrawingToolbarUtilityControls: React.FC<DrawingToolbarUtilityContro
             onSelectTool('measure');
           }
         }}
-        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           activeTool === 'measure'
             ? 'bg-accent-muted text-accent'
             : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}
-        style={{ width: '34px', height: '34px' }}
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           <MeasureIcon className="w-full h-full text-current" />
@@ -78,12 +78,12 @@ export const DrawingToolbarUtilityControls: React.FC<DrawingToolbarUtilityContro
             onSelectTool('zoomIn');
           }
         }}
-        className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           activeTool === 'zoomIn'
             ? 'bg-accent-muted text-accent'
             : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}
-        style={{ width: '34px', height: '34px' }}
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           <ZoomInIcon className="w-full h-full text-current" />
@@ -102,8 +102,8 @@ export const DrawingToolbarUtilityControls: React.FC<DrawingToolbarUtilityContro
             closeAllMenus();
             onZoomOut?.();
           }}
-          className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
-          style={{ width: '34px', height: '34px' }}
+          className="rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+          style={{ width: '33px', height: '33px' }}
         >
           <ToolIconWrapper>
             <ZoomOutIcon className="w-full h-full text-current" />
@@ -112,7 +112,7 @@ export const DrawingToolbarUtilityControls: React.FC<DrawingToolbarUtilityContro
       )}
 
       {/* Divider 2: End of Utilities */}
-      <div className="w-[34px] border-t border-border-def/60 my-0.5" />
+      <div className="w-[33px] border-t border-border-def/60 my-0.5" />
     </>
   );
 };
@@ -157,12 +157,12 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
           closeAllMenus();
           onToggleStayInDrawingMode();
         }}
-        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isStayInDrawingMode
             ? 'border-transparent bg-accent-muted text-accent'
             : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}
-        style={{ width: '34px', height: '34px' }}
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           <StayInDrawingModeIcon className="w-full h-full text-current" />
@@ -180,12 +180,12 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
           closeAllMenus();
           onToggleLockAllDrawings();
         }}
-        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isAllDrawingsLocked
             ? 'border-transparent bg-accent-muted text-accent'
             : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}
-        style={{ width: '34px', height: '34px' }}
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           <LockAllDrawingsIcon className="w-full h-full text-current" locked={isAllDrawingsLocked} />
@@ -203,12 +203,12 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
           closeAllMenus();
           onToggleHideAllDrawings();
         }}
-        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isAllDrawingsHidden
             ? 'border-transparent bg-accent-muted text-accent'
             : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}
-        style={{ width: '34px', height: '34px' }}
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           <HideAllDrawingsIcon className="w-full h-full text-current" />
@@ -216,7 +216,7 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
       </button>
 
       {/* Divider 3: End of Action Tools */}
-      <div className="w-[34px] border-t border-border-def/60 my-0.5" />
+      <div className="w-[33px] border-t border-border-def/60 my-0.5" />
 
       {/* --- DELETE ALL DRAWINGS --- */}
       <button
@@ -229,8 +229,8 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
           closeAllMenus();
           onClearDrawings();
         }}
-        className="p-1.5 rounded-md border border-transparent text-txt-muted hover:text-status-error hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
-        style={{ width: '34px', height: '34px' }}
+        className="rounded-md border border-transparent text-txt-muted hover:text-status-error hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           <DeleteIcon className="w-full h-full text-current" />
@@ -238,7 +238,7 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
       </button>
 
       {/* Bottom Sidebar: Favorite Drawing Tools Toolbar Toggle */}
-      <div className="mt-auto w-[44px] flex items-center justify-center pt-2 pb-0.5">
+      <div className="mt-auto w-[33px] flex items-center justify-center pt-1 pb-0.5">
         <button
           title="Favorite Drawing Tools Toolbar"
           aria-label="Favorite Drawing Tools Toolbar"
@@ -248,12 +248,12 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
             closeAllMenus();
             onToggleFavoriteToolbar();
           }}
-          className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          className={`rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
             isFavoriteToolbarOpen
               ? 'bg-surface-elevated text-txt-primary border-border-def shadow-sm'
               : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
           }`}
-          style={{ width: '34px', height: '34px' }}
+          style={{ width: '33px', height: '33px' }}
         >
           <ToolIconWrapper>
             <Star className={`w-full h-full ${isFavoriteToolbarOpen ? 'fill-current text-txt-primary' : 'text-current'}`} />

@@ -1,5 +1,4 @@
-import React from 'react';
-import { ToolIconWrapper } from './DrawingToolbarIcons';
+import { ToolIconWrapper, HomeHubIcon } from './DrawingToolbarIcons';
 import { DrawingToolbarHubMenu } from './DrawingToolbarHubMenu';
 
 export interface DrawingToolbarHeaderProps {
@@ -22,7 +21,7 @@ export const DrawingToolbarHeader: React.FC<DrawingToolbarHeaderProps> = ({
   return (
     <>
       {/* 0. Hub & Module Selector Button */}
-      <div className="relative flex items-center bg-transparent rounded-lg">
+      <div className="group relative flex items-center bg-transparent rounded-md">
         <button
           type="button"
           title="Home Hub"
@@ -33,14 +32,11 @@ export const DrawingToolbarHeader: React.FC<DrawingToolbarHeaderProps> = ({
             onCloseAllMenus();
             if (onNavigateHome) onNavigateHome();
           }}
-          className="p-1.5 rounded-md border border-transparent text-accent hover:text-accent-hover hover:bg-accent-muted/40 transition-all flex items-center justify-center outline-none focus:outline-none select-none shadow-xs"
-          style={{ width: '34px', height: '34px' }}
+          className="rounded-md border border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none"
+          style={{ width: '33px', height: '33px' }}
         >
           <ToolIconWrapper>
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-current" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 11.5 12 4l8 7.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <HomeHubIcon />
           </ToolIconWrapper>
         </button>
 
@@ -55,12 +51,12 @@ export const DrawingToolbarHeader: React.FC<DrawingToolbarHeaderProps> = ({
             const rect = e.currentTarget.getBoundingClientRect();
             onOpenHubMenu(rect);
           }}
-          className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+          className={`rounded-r-sm transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
             isHubMenuOpen
-              ? 'border-transparent bg-accent-muted text-accent z-10'
-              : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
+              ? 'bg-accent-muted text-accent opacity-100 z-10'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover opacity-0 group-hover:opacity-100'
           }`}
-          style={{ width: '12px', height: '34px' }}
+          style={{ width: '9px', height: '33px' }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
             <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -77,7 +73,7 @@ export const DrawingToolbarHeader: React.FC<DrawingToolbarHeaderProps> = ({
         />
       </div>
 
-      <div className="w-[36px] h-px bg-border-sub/80 -my-1 ml-0.5" />
+      <div className="w-[33px] border-t border-border-def/60 my-0.5 ml-0" />
     </>
   );
 };

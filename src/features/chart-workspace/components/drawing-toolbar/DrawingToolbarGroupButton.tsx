@@ -25,18 +25,18 @@ export const DrawingToolbarGroupButton: React.FC<DrawingToolbarGroupButtonProps>
   children,
 }) => {
   return (
-    <div className="relative flex items-center bg-transparent rounded-lg">
+    <div className="group relative flex items-center bg-transparent rounded-md">
       <button
         title={title}
         disabled={disabled}
         onMouseDown={(e) => e.preventDefault()}
         onClick={onMainClick}
-        className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isGroupActive
             ? 'border-transparent bg-accent-muted text-accent z-10'
             : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
         }`}
-        style={{ width: '34px', height: '34px' }}
+        style={{ width: '33px', height: '33px' }}
       >
         <ToolIconWrapper>
           {icon}
@@ -51,12 +51,12 @@ export const DrawingToolbarGroupButton: React.FC<DrawingToolbarGroupButtonProps>
           const rect = e.currentTarget.getBoundingClientRect();
           onChevronClick(rect);
         }}
-        className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+        className={`rounded-r-sm transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
           isMenuOpen
-            ? 'border-transparent bg-accent-muted text-accent z-10'
-            : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
+            ? 'bg-accent-muted text-accent opacity-100 z-10'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover opacity-0 group-hover:opacity-100 disabled:opacity-0'
         }`}
-        style={{ width: '12px', height: '34px' }}
+        style={{ width: '9px', height: '33px' }}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
           <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

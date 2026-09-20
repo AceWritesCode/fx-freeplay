@@ -1,9 +1,27 @@
 import React from 'react';
 
 export const ToolIconWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="w-[22px] h-[22px] flex items-center justify-center flex-shrink-0 text-current pointer-events-none select-none">
+  <span className="w-[28px] h-[28px] flex items-center justify-center flex-shrink-0 text-current pointer-events-none select-none">
     {children}
   </span>
+);
+
+export const HomeHubIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 28 28"
+    className={className}
+    style={style}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="0.875"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4.5 13.5L14 5.5l9.5 8" />
+    <path d="M7 11.5V22a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V11.5" />
+    <path d="M11.5 23v-6a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6" />
+  </svg>
 );
 
 export const TextIcon = ({ className = "w-full h-full text-current", style }: { className?: string; style?: React.CSSProperties } = {}) => (

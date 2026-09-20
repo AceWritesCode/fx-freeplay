@@ -243,7 +243,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
   ]);
 
   return (
-    <aside className="w-[52px] bg-surface border-r border-border-def flex flex-col items-start pl-[4px] py-3 gap-3.5 z-40">
+    <aside className="w-[52px] bg-surface border-r border-border-def flex flex-col items-start pl-[8px] py-2 gap-1 z-40 overflow-y-auto overflow-x-hidden select-none">
       
       <DrawingToolbarHeader
         isHubMenuOpen={isHubMenuOpen}
@@ -265,61 +265,33 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
         const Icon = activeCursorTool.icon;
         const isGroupActive = activeCursorTool.id === 'eraser' ? activeTool === 'eraser' : !activeTool;
         return (
-          <div className="relative flex items-center bg-transparent rounded-lg">
-            <button
-              title={activeCursorTool.name}
-              aria-label={activeCursorTool.name}
-              data-tooltip={activeCursorTool.name}
-              disabled={!hasData}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                closeAllMenus();
-                if (activeCursorTool.id === 'eraser') {
-                  if (activeTool === 'eraser') {
-                    setActiveTool(null);
-                  } else {
-                    setActiveTool('eraser');
-                  }
+          <DrawingToolbarGroupButton
+            title={activeCursorTool.name}
+            chevronTitle="More cursor tools"
+            disabled={!hasData}
+            isGroupActive={isGroupActive}
+            isMenuOpen={isCursorMenuOpen}
+            icon={<Icon className="w-full h-full text-current" />}
+            onMainClick={() => {
+              closeAllMenus();
+              if (activeCursorTool.id === 'eraser') {
+                if (activeTool === 'eraser') {
+                  setActiveTool(null);
                 } else {
-                  cancelDrawingSession();
-                  setStayInDrawingMode(false);
+                  setActiveTool('eraser');
                 }
-              }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-                isGroupActive
-                  ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-              }`}
-              style={{ width: '34px', height: '34px' }}
-            >
-              <ToolIconWrapper>
-                <Icon className="w-full h-full text-current" />
-              </ToolIconWrapper>
-            </button>
-            <button
-              title="More cursor tools"
-              disabled={!hasData}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setCursorMenuPos({ x: rect.right, y: rect.top });
-                const nextState = !isCursorMenuOpen;
-                closeAllMenus('cursor');
-                setIsCursorMenuOpen(nextState);
-              }}
-              className={`border rounded-md transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
-                isCursorMenuOpen
-                  ? 'border-transparent bg-accent-muted text-accent z-10'
-                  : 'border-transparent text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
-              }`}
-              style={{ width: '12px', height: '34px' }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="w-2 h-2 text-current">
-                <path d="M5.5 3L10.5 8L5.5 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-
+              } else {
+                cancelDrawingSession();
+                setStayInDrawingMode(false);
+              }
+            }}
+            onChevronClick={(rect) => {
+              setCursorMenuPos({ x: rect.right, y: rect.top });
+              const nextState = !isCursorMenuOpen;
+              closeAllMenus('cursor');
+              setIsCursorMenuOpen(nextState);
+            }}
+          >
             <CursorMenuFlyout
               isOpen={isCursorMenuOpen}
               position={cursorMenuPos}
@@ -338,7 +310,7 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
               }}
               renderFavoriteButton={renderFavoriteButton}
             />
-          </div>
+          </DrawingToolbarGroupButton>
         );
       })()}
 
@@ -525,12 +497,12 @@ export const DrawingToolbar: React.FC<DrawingToolbarProps> = (props) => {
                 closeAllMenus();
                 handleSelectTool(tool.id);
               }}
-              className={`p-1.5 rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
+              className={`rounded-md border border-transparent transition-all flex items-center justify-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${
                 isActive
                   ? 'bg-accent-muted text-accent'
                   : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover disabled:opacity-30 disabled:hover:bg-transparent'
               }`}
-              style={{ width: '34px', height: '34px' }}
+              style={{ width: '33px', height: '33px' }}
             >
               <ToolIconWrapper>
                 <Icon className="w-full h-full text-current" />
