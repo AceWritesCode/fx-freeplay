@@ -91,7 +91,6 @@ export function useWorkspaceCoordinator(
     resetReplay,
     isReplayActive,
     replayCurrentTimestamp,
-    setReplayCurrentTimestamp,
   } = useReplayStore();
 
   // Local Coordinator states
@@ -440,7 +439,6 @@ export function useWorkspaceCoordinator(
         }
         if (alignedBar) {
           alignedTimestamp = alignedBar.timestamp;
-          setReplayCurrentTimestamp(alignedTimestamp);
         }
       }
 

@@ -135,13 +135,10 @@ export function useReplayCoordinator(
       const c = chartInstancesRef.current[idx];
       if (c) {
         if (typeof c.setLeftMinVisibleBarCount === 'function') {
-          c.setLeftMinVisibleBarCount(2);
+          c.setLeftMinVisibleBarCount(1);
         }
-        if (typeof c.setMaxOffsetLeftDistance === 'function') {
-          c.setMaxOffsetLeftDistance(10000);
-        }
-        if (typeof c.setMaxOffsetRightDistance === 'function') {
-          c.setMaxOffsetRightDistance(10000);
+        if (typeof c.setRightMinVisibleBarCount === 'function') {
+          c.setRightMinVisibleBarCount(1);
         }
         if (typeof c.overrideIndicator === 'function') {
           c.overrideIndicator({ name: REPLAY_MASK_INDICATOR_NAME });
@@ -453,13 +450,10 @@ export function useReplayCoordinator(
           const chart = chartInstancesRef.current[index];
           if (chart) {
             if (typeof chart.setLeftMinVisibleBarCount === 'function') {
-              chart.setLeftMinVisibleBarCount(2);
+              chart.setLeftMinVisibleBarCount(1);
             }
-            if (typeof chart.setMaxOffsetLeftDistance === 'function') {
-              chart.setMaxOffsetLeftDistance(10000);
-            }
-            if (typeof chart.setMaxOffsetRightDistance === 'function') {
-              chart.setMaxOffsetRightDistance(10000);
+            if (typeof chart.setRightMinVisibleBarCount === 'function') {
+              chart.setRightMinVisibleBarCount(1);
             }
           }
         });
@@ -670,7 +664,13 @@ export function useReplayCoordinator(
         sessionRef.current = session;
         session.setStatus('PAUSED');
 
+        let isInitialSubscription = true;
         const unsub = session.subscribe((state) => {
+          if (isInitialSubscription) {
+            isInitialSubscription = false;
+            setBookmarks(state.bookmarks);
+            return;
+          }
           setReplayCurrentTimestamp(state.currentTimestamp);
           setBookmarks(state.bookmarks);
           if (state.status === 'COMPLETED') {

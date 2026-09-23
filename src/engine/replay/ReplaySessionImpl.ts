@@ -1,5 +1,5 @@
 import type { ReplaySession, ReplaySessionConfig, ReplaySessionState, ReplayStatus, ReplayTimeline } from './types';
-import { ReplayTimelineImpl } from './ReplayTimelineImpl';
+import { ReplayTimelineImpl } from './ReplayTimelineImpl.ts';
 
 export class ReplaySessionImpl implements ReplaySession {
   private readonly config: ReplaySessionConfig;

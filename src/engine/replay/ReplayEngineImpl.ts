@@ -1,5 +1,5 @@
 import type { ReplayEngine, ReplaySession, ReplaySessionConfig } from './types';
-import { ReplaySessionImpl } from './ReplaySessionImpl';
+import { ReplaySessionImpl } from './ReplaySessionImpl.ts';
 
 export class ReplayEngineImpl implements ReplayEngine {
   private activeSession: ReplaySession | null = null;

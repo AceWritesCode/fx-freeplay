@@ -1,8 +1,8 @@
-export * from './types';
-export { replayEngine } from './ReplayEngineImpl';
-export { findCandleIndexByTimestamp } from './replayNavigation';
-export { ReplaySessionImpl } from './ReplaySessionImpl';
-export { ReplayTimelineImpl } from './ReplayTimelineImpl';
-export { ReplayViewportImpl } from './ReplayViewportImpl';
-export { ReplayVisibilityBoundaryManager, replayVisibilityBoundary } from './ReplayVisibilityBoundary';
+export * from './types.ts';
+export { replayEngine } from './ReplayEngineImpl.ts';
+export { findCandleIndexByTimestamp } from './replayNavigation.ts';
+export { ReplaySessionImpl } from './ReplaySessionImpl.ts';
+export { ReplayTimelineImpl } from './ReplayTimelineImpl.ts';
+export { ReplayViewportImpl } from './ReplayViewportImpl.ts';
+export { ReplayVisibilityBoundaryManager, replayVisibilityBoundary } from './ReplayVisibilityBoundary.ts';
 

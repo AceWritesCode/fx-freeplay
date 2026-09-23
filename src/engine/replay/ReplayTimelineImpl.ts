@@ -1,5 +1,5 @@
 import type { ReplayBookmark, ReplayTimeline, ReplayTimelineState, ReplayViewport } from './types';
-import { ReplayViewportImpl } from './ReplayViewportImpl';
+import { ReplayViewportImpl } from './ReplayViewportImpl.ts';
 
 export class ReplayTimelineImpl implements ReplayTimeline {
   private currentIndex: number;
