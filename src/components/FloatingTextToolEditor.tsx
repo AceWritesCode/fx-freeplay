@@ -102,11 +102,11 @@ export const FloatingTextToolEditor: React.FC<FloatingTextToolEditorProps> = ({
         }, 50);
         return () => clearTimeout(timer);
       }
-    } else if (wasEditingRef.current) {
+    } else if (wasEditingRef.current || isEditing) {
       // User clicked away / deselected while actively editing
       handleExit(inputText);
     }
-  }, [isSelected]);
+  }, [isSelected, isEditing, inputText]);
 
   // Cleanup on unmount
   useEffect(() => {

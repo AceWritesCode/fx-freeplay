@@ -176,11 +176,11 @@ const FloatingCalloutTextInner: React.FC<FloatingCalloutTextProps> = ({
           textareaRef.current?.select();
         }, 30);
       }
-    } else if (wasEditingRef.current) {
+    } else if (wasEditingRef.current || isEditing) {
       // User clicked away while actively editing
       handleExit(inputText);
     }
-  }, [isSelected, overlay?.extendData?.isEditingText]);
+  }, [isSelected, isEditing, inputText, overlay?.extendData?.isEditingText]);
 
   // Handle position tracking via requestAnimationFrame
   useEffect(() => {

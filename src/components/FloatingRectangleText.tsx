@@ -221,6 +221,12 @@ export const FloatingRectangleText: React.FC<FloatingRectangleTextProps> = ({
     } catch (_) {}
   };
 
+  useEffect(() => {
+    if (!isSelected && isEditing) {
+      handleSave();
+    }
+  }, [isSelected, isEditing]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       setIsEditing(false);

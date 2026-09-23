@@ -75,6 +75,22 @@ export function useDrawingHoverCursor({
         if (chart) chart._isMouseDown = true;
       });
 
+      if (
+        typeof document !== 'undefined' &&
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')
+      ) {
+        const activeEl = document.activeElement as HTMLElement;
+        const isClickInsideActiveEditor =
+          e.target instanceof Node && activeEl.contains(e.target);
+        const isClickInsideToolbar =
+          e.target instanceof Element &&
+          (!!e.target.closest('.drawing-floating-toolbar') || !!e.target.closest('[data-floating-ui="true"]'));
+        if (!isClickInsideActiveEditor && !isClickInsideToolbar) {
+          activeEl.blur();
+        }
+      }
+
       if (drawingCoord.activeTool === 'eraser') {
         for (let i = 0; i < chartContainersRef.current.length; i++) {
           const container = chartContainersRef.current[i];
@@ -580,6 +596,7 @@ export function useDrawingHoverCursor({
       chart._isBodyHovered = isBodyHovered;
       chart._isAnchorHovered = isAnchorHovered;
       chart._hoveredOverlay = winningOverlay || null;
+      chart._hoveredBodyOverlayId = isBodyHovered ? hoveredInteractiveOverlay?.id || null : null;
 
       // ── Ctrl+Hover Duplicate Preparation (Armed in memory) ────────────────
       const isCtrl = chart._isCtrlPressedRef?.current || e.ctrlKey || e.metaKey || false;
@@ -638,7 +655,7 @@ export function useDrawingHoverCursor({
         setHoveredOverlayId(nextHoveredId);
       }
 
-      // Maintain isHovered state cleanly without layout resets
+      // Maintain isHovered, isBodyHovered, and isAnchorHovered state cleanly without layout resets
       interactiveOverlays.forEach((ov: any) => {
         if (
           [
@@ -664,12 +681,21 @@ export function useDrawingHoverCursor({
           ].includes(ov.name)
         ) {
           const isCurrentlyHovered = ov.id === nextHoveredId;
-          if (ov.extendData?.isHovered !== isCurrentlyHovered) {
+          const isCurrentlyBodyHovered = isBodyHovered && ov.id === hoveredInteractiveOverlay?.id;
+          const isCurrentlyAnchorHovered = isAnchorHovered && ov.id === targetOverlayForAnchor?.id;
+
+          if (
+            ov.extendData?.isHovered !== isCurrentlyHovered ||
+            ov.extendData?.isBodyHovered !== isCurrentlyBodyHovered ||
+            ov.extendData?.isAnchorHovered !== isCurrentlyAnchorHovered
+          ) {
             chart.overrideOverlay({
               id: ov.id,
               extendData: {
                 ...(ov.extendData || {}),
                 isHovered: isCurrentlyHovered,
+                isBodyHovered: isCurrentlyBodyHovered,
+                isAnchorHovered: isCurrentlyAnchorHovered,
               },
             });
             DrawingChartAdapter.invalidatePane(chart);

@@ -310,7 +310,7 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
     assert.equal(getSharedTextLineHeight(16), 22);
   });
 
-  it('11. Empty TrendLine splits line around "+ Add text" placeholder when selected or hovered', () => {
+  it('11. Empty TrendLine splits line around "+ Add text" placeholder ONLY when selected AND hovered', () => {
     const overlayDef = TrendLineTool.createOverlayDef();
     const overlay = {
       id: 'trend_placeholder',
@@ -328,6 +328,7 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
           lineWidth: 2,
         },
         isSelected: true,
+        isHovered: true,
       },
     };
 
@@ -346,7 +347,7 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
     const visibleLines = figures.filter(
       (f: any) => f.type === 'line' && f.styles?.color === '#2196F3' && f.styles?.size === 2
     );
-    assert.equal(visibleLines.length, 2, 'Line must split into 2 segments around "+ Add text" placeholder');
+    assert.equal(visibleLines.length, 2, 'Line must split into 2 segments around "+ Add text" placeholder when selected AND hovered');
 
     const gap = visibleLines[1].attrs.coordinates[0].x - visibleLines[0].attrs.coordinates[1].x;
     const placeholderWidth = measureSingleLineText('+ Add text', 14, false, false).width;
@@ -360,7 +361,7 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
       { x: 400, y: 100 },
     ];
 
-    // Case A: Placeholder
+    // Case A: Placeholder (selected AND hovered)
     const placeholderOverlay = {
       id: 'trend_dynamic',
       name: 'trendLine',
@@ -368,6 +369,7 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
       extendData: {
         customSettings: { text: '', fontSize: 14, textPosition: { horizontal: 'center', vertical: 'middle' }, lineColor: '#2196F3', lineWidth: 1 },
         isSelected: true,
+        isHovered: true,
       },
     };
     const placeholderFigures = overlayDef.createPointFigures({
@@ -398,7 +400,7 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
 
     assert.ok(typedGap < placeholderGap, `Typed gap (${typedGap}) for "Hi" should be smaller than placeholder gap (${placeholderGap})`);
 
-    // Case C: Clearing text returns back to placeholder gap
+    // Case C: Clearing text returns back to placeholder gap (when selected and hovered)
     const clearedOverlay = {
       ...placeholderOverlay,
       extendData: {
@@ -460,5 +462,174 @@ describe('TrendLine Tool — Shared Text Foundation Migration Tests', () => {
       { x: 100, y: 200 },
       { x: 300, y: 200 },
     ]);
+  });
+
+  it('14. Unselected TrendLine with empty text on hover produces a continuous unbroken line (NO "+ Add text")', () => {
+    const overlayDef = TrendLineTool.createOverlayDef();
+    const overlay = {
+      id: 'trend_unselected_hover',
+      name: 'trendLine',
+      points: [
+        { timestamp: 1000, value: 200 },
+        { timestamp: 2000, value: 200 },
+      ],
+      extendData: {
+        customSettings: {
+          text: '',
+          fontSize: 14,
+          textPosition: { horizontal: 'center', vertical: 'middle' },
+          lineColor: '#2196F3',
+          lineWidth: 2,
+        },
+        isSelected: false,
+        isHovered: true, // Hovered but NOT selected!
+        isEditingText: false,
+      },
+    };
+
+    const coordinates = [
+      { x: 100, y: 200 },
+      { x: 300, y: 200 },
+    ];
+
+    const figures = overlayDef.createPointFigures({
+      overlay,
+      coordinates,
+      chart: mockChart,
+      bounding: { width: 800, height: 600 },
+    });
+
+    const visibleLines = figures.filter(
+      (f: any) => f.type === 'line' && f.styles?.color === '#2196F3' && f.styles?.size === 2
+    );
+    assert.equal(visibleLines.length, 1, 'Unselected hovered trendline must be 1 continuous segment (no text gap)');
+  });
+
+  it('15. Selected TrendLine with empty text when NOT hovered produces a continuous unbroken line (NO "+ Add text")', () => {
+    const overlayDef = TrendLineTool.createOverlayDef();
+    const overlay = {
+      id: 'trend_selected_no_hover',
+      name: 'trendLine',
+      points: [
+        { timestamp: 1000, value: 200 },
+        { timestamp: 2000, value: 200 },
+      ],
+      extendData: {
+        customSettings: {
+          text: '',
+          fontSize: 14,
+          textPosition: { horizontal: 'center', vertical: 'middle' },
+          lineColor: '#2196F3',
+          lineWidth: 2,
+        },
+        isSelected: true,
+        isHovered: false, // Selected but NOT hovered!
+        isEditingText: false,
+      },
+    };
+
+    const coordinates = [
+      { x: 100, y: 200 },
+      { x: 300, y: 200 },
+    ];
+
+    const figures = overlayDef.createPointFigures({
+      overlay,
+      coordinates,
+      chart: mockChart,
+      bounding: { width: 800, height: 600 },
+    });
+
+    const visibleLines = figures.filter(
+      (f: any) => f.type === 'line' && f.styles?.color === '#2196F3' && f.styles?.size === 2
+    );
+    assert.equal(visibleLines.length, 1, 'Selected unhovered trendline must be 1 continuous segment (no text gap)');
+  });
+
+  it('16. In-progress creation preview produces a continuous unbroken line preview without "+ Add text"', () => {
+    const overlayDef = TrendLineTool.createOverlayDef();
+    const overlay = {
+      id: 'trend_creating',
+      name: 'trendLine',
+      points: [
+        { timestamp: 1000, value: 200 }, // Only 1 point committed during in-progress creation
+      ],
+      extendData: {
+        customSettings: {
+          text: '',
+          fontSize: 14,
+          textPosition: { horizontal: 'center', vertical: 'middle' },
+          lineColor: '#2196F3',
+          lineWidth: 2,
+        },
+        isSelected: true,
+        isHovered: true,
+      },
+    };
+
+    const coordinates = [
+      { x: 100, y: 200 },
+      { x: 300, y: 200 },
+    ];
+
+    const chartWithActiveDrawing = {
+      ...mockChart,
+      _activeDrawingId: 'trend_creating', // Active drawing in progress
+    };
+
+    const figures = overlayDef.createPointFigures({
+      overlay,
+      coordinates,
+      chart: chartWithActiveDrawing,
+      bounding: { width: 800, height: 600 },
+    });
+
+    const visibleLines = figures.filter(
+      (f: any) => f.type === 'line' && f.styles?.color === '#2196F3' && f.styles?.size === 2
+    );
+    assert.equal(visibleLines.length, 1, 'In-progress creation must render 1 continuous segment preview');
+  });
+
+  it('17. Selected TrendLine with empty text when hovering anchor handle (isAnchorHovered: true, isBodyHovered: false) produces a continuous unbroken line (NO "+ Add text")', () => {
+    const overlayDef = TrendLineTool.createOverlayDef();
+    const overlay = {
+      id: 'trend_anchor_hover',
+      name: 'trendLine',
+      points: [
+        { timestamp: 1000, value: 200 },
+        { timestamp: 2000, value: 200 },
+      ],
+      extendData: {
+        customSettings: {
+          text: '',
+          fontSize: 14,
+          textPosition: { horizontal: 'center', vertical: 'middle' },
+          lineColor: '#2196F3',
+          lineWidth: 2,
+        },
+        isSelected: true,
+        isHovered: true, // Hovered overall, but specifically over an anchor handle
+        isAnchorHovered: true,
+        isBodyHovered: false,
+        isEditingText: false,
+      },
+    };
+
+    const coordinates = [
+      { x: 100, y: 200 },
+      { x: 300, y: 200 },
+    ];
+
+    const figures = overlayDef.createPointFigures({
+      overlay,
+      coordinates,
+      chart: mockChart,
+      bounding: { width: 800, height: 600 },
+    });
+
+    const visibleLines = figures.filter(
+      (f: any) => f.type === 'line' && f.styles?.color === '#2196F3' && f.styles?.size === 2
+    );
+    assert.equal(visibleLines.length, 1, 'Hovering anchor point must keep line unbroken and not trigger "+ Add text" placeholder');
   });
 });

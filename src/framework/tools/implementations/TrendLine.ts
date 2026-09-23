@@ -151,15 +151,19 @@ export const TrendLineTool: ToolDefinition = {
         }
 
         const hasActualText = typeof text === 'string' && text.trim() !== '';
+        const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         const isLineDrawn = overlay?.points && overlay.points.length >= 2;
+        const isExistingDrawing = !!isLineDrawn && !isDrawing;
         const isSelected = (overlay?.extendData as any)?.isSelected || false;
         const isHovered = (overlay?.extendData as any)?.isHovered || false;
+        const isAnchorHovered = (overlay?.extendData as any)?.isAnchorHovered || false;
+        const isBodyHovered = (overlay?.extendData as any)?.isBodyHovered ?? (isHovered && !isAnchorHovered);
         const isEditingText = (overlay?.extendData as any)?.isEditingText || false;
 
         let textToShow = '';
         if (hasActualText) {
           textToShow = text;
-        } else if (isLineDrawn && (isSelected || isHovered || isEditingText)) {
+        } else if (isExistingDrawing && ((isSelected && isBodyHovered) || isEditingText)) {
           textToShow = '+ Add text';
         }
 
@@ -207,7 +211,6 @@ export const TrendLineTool: ToolDefinition = {
         drawArrowHeads(figures, coordinates[0], coordinates[1], startArrow, endArrow, lineColor, lineWidth);
 
         // Selection / In-progress creation / Hover grab handles
-        const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
         if (isSelected || isHovered || isDrawing) {
           drawGrabHandles(figures, coordinates, overlay?.lock || false, isSelected || isDrawing);
         }

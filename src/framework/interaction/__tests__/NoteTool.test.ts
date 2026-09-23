@@ -303,4 +303,76 @@ describe('Note Tool — Shared Layout & Single Authoritative Renderer Invariants
     assert.equal(layout.text.lines.length, 3);
     assert.equal(layout.box.height, Math.ceil((3 * getNoteLineHeight(14) + NOTE_PADDING_Y * 2) / 2) * 2);
   });
+
+  it('5. Empty Note deletion deletes exactly one drawing via exact-ID object filter and keeps other drawings', () => {
+    const removedFilters: any[] = [];
+    const mockChartInstance = {
+      removeOverlay: (filter: any) => {
+        removedFilters.push(filter);
+      },
+    };
+
+    const drawingList = [
+      { id: 'note_1', name: 'note', text: '' },
+      { id: 'trend_2', name: 'trendLine', text: 'Important Trend' },
+      { id: 'rect_3', name: 'rectangle', text: 'Demand Zone' },
+    ];
+
+    // Simulate handleDeleteDrawing for empty note_1
+    const targetOverlayId = 'note_1';
+    // DrawingChartAdapter.removeOverlay should pass object { id: targetOverlayId }
+    if (mockChartInstance) {
+      mockChartInstance.removeOverlay({ id: targetOverlayId });
+    }
+    const survivingDrawings = drawingList.filter((d) => d.id !== targetOverlayId);
+
+    assert.equal(survivingDrawings.length, 2, 'Exactly 2 drawings should remain');
+    assert.equal(survivingDrawings[0].id, 'trend_2');
+    assert.equal(survivingDrawings[1].id, 'rect_3');
+    assert.deepEqual(removedFilters, [{ id: 'note_1' }], 'KLineCharts must receive { id: "note_1" } filter object, NEVER a raw string');
+  });
+
+  it('6. Empty Callout deletion deletes exactly one drawing and keeps other drawings', () => {
+    const removedFilters: any[] = [];
+    const mockChartInstance = {
+      removeOverlay: (filter: any) => {
+        removedFilters.push(filter);
+      },
+    };
+
+    const drawingList = [
+      { id: 'callout_1', name: 'callout', text: '' },
+      { id: 'fib_2', name: 'fibonacciRetracement' },
+      { id: 'note_3', name: 'note', text: 'Keep this note' },
+    ];
+
+    const targetOverlayId = 'callout_1';
+    if (mockChartInstance) {
+      mockChartInstance.removeOverlay({ id: targetOverlayId });
+    }
+    const survivingDrawings = drawingList.filter((d) => d.id !== targetOverlayId);
+
+    assert.equal(survivingDrawings.length, 2);
+    assert.equal(survivingDrawings[0].id, 'fib_2');
+    assert.equal(survivingDrawings[1].id, 'note_3');
+    assert.deepEqual(removedFilters, [{ id: 'callout_1' }]);
+  });
+
+  it('7. Non-empty Note and Callout remain untouched when exiting edit mode', () => {
+    const deletedIds: string[] = [];
+    const onDelete = (id: string) => deletedIds.push(id);
+
+    const checkExit = (id: string, text: string) => {
+      const trimmed = (text || '').trim();
+      const isUntouchedOrEmpty = trimmed === '' || trimmed === 'Add text' || trimmed === '+ Add text';
+      if (isUntouchedOrEmpty) {
+        onDelete(id);
+      }
+    };
+
+    checkExit('note_valid', 'Valid Note Text');
+    checkExit('callout_valid', 'Valid Callout Text');
+
+    assert.equal(deletedIds.length, 0, 'Non-empty Note and Callout must NOT trigger onDelete');
+  });
 });

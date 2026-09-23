@@ -689,11 +689,14 @@ export const FibonacciRetracementTool: ToolDefinition = {
         const hasActualText = typeof lvlText === 'string' && lvlText.trim() !== '';
         const isLineDrawn = coordinates.length >= 2;
         const isSelected = (overlay?.extendData as any)?.isSelected || false;
+        const isHovered = (overlay?.extendData as any)?.isHovered || false;
+        const isAnchorHovered = (overlay?.extendData as any)?.isAnchorHovered || false;
+        const isBodyHovered = (overlay?.extendData as any)?.isBodyHovered ?? (isHovered && !isAnchorHovered);
         const isEditingText = (overlay?.extendData as any)?.isEditingText || false;
         const activeLevel = (overlay?.extendData as any)?.activeLevel;
         const hoveredLevel = (overlay?.extendData as any)?.hoveredLevel;
 
-        const isThisLevelHovered = hoveredLevel === lvl.level;
+        const isThisLevelHovered = hoveredLevel === lvl.level && isBodyHovered;
         const isThisLevelEditing = isEditingText && activeLevel === lvl.level;
 
         const showCustomText = customSettings.showCustomText !== false;

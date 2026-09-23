@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDrawingStore } from '@/store';
-import { getOriginalDrawingId, mirrorLiveOverlayUpdate, runWorkspaceReconciliation } from '@/engine/charting';
+import { getOriginalDrawingId, mirrorLiveOverlayUpdate, runWorkspaceReconciliation, DrawingChartAdapter } from '@/engine/charting';
 import { FloatingTrendLineText } from '@/components/FloatingTrendLineText';
 import { FloatingRectangleText } from '@/components/FloatingRectangleText';
 import { FloatingTextToolEditor } from '@/components/FloatingTextToolEditor';
@@ -63,20 +63,24 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
         };
 
         const handleDeleteDrawing = (overlayId: string) => {
+          if (!overlayId) return;
           const originalId = getOriginalDrawingId(overlayId);
-          const resolved = useDrawingStore.getState().findSymbolByDrawingId(originalId);
+          const targetId = originalId || overlayId;
+          const resolved = useDrawingStore.getState().findSymbolByDrawingId(targetId);
           if (resolved) {
-            useDrawingStore.getState().removeSymbolDrawing(resolved.symbol, originalId);
+            useDrawingStore.getState().removeSymbolDrawing(resolved.symbol, targetId);
           }
-          useDrawingStore.getState().removeSymbolDrawingById(originalId);
+          useDrawingStore.getState().removeSymbolDrawingById(targetId);
           if (chart) {
-            chart.removeOverlay(overlayId);
-            chart.removeOverlay(originalId);
+            DrawingChartAdapter.removeOverlay(chart, overlayId);
+            if (targetId && targetId !== overlayId) {
+              DrawingChartAdapter.removeOverlay(chart, targetId);
+            }
           }
           const currentSelected = useDrawingStore.getState().selectedOverlayIds || [];
-          if (currentSelected.includes(originalId) || currentSelected.includes(overlayId)) {
+          if (currentSelected.includes(targetId) || currentSelected.includes(overlayId)) {
             useDrawingStore.getState().setSelectedOverlayIds(
-              currentSelected.filter((id) => id !== originalId && id !== overlayId)
+              currentSelected.filter((id) => id !== targetId && id !== overlayId)
             );
           }
           runWorkspaceReconciliation(chartInstancesRef);
@@ -122,6 +126,8 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
 
         const originalId = getOriginalDrawingId(ov.id);
         const isSelected = selectedOverlayIds.includes(ov.id) || (!!originalId && selectedOverlayIds.includes(originalId));
+        const isOverlayHovered = hoveredOverlayId === ov.id || (!!originalId && hoveredOverlayId === originalId);
+        const isBodyHovered = (isOverlayHovered && !chart?._isAnchorHovered) || (ov.extendData?.isBodyHovered ?? false);
 
         if (ov.name === 'fibonacciRetracement') {
           return (
@@ -130,7 +136,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               chart={chart}
               overlay={ov}
               isSelected={isSelected}
-              isHovered={hoveredOverlayId === ov.id}
+              isHovered={isBodyHovered}
               onLevelTextChange={handleFibLevelTextChange}
               syncAllDrawings={syncAllDrawings}
             />
@@ -143,7 +149,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               chart={chart}
               overlay={ov}
               isSelected={isSelected}
-              isHovered={hoveredOverlayId === ov.id}
+              isHovered={isBodyHovered}
               onTextChange={handleTextChange}
               syncAllDrawings={syncAllDrawings}
             />
@@ -156,7 +162,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               chart={chart}
               overlay={ov}
               isSelected={isSelected}
-              isHovered={hoveredOverlayId === ov.id}
+              isHovered={isBodyHovered}
               onTextChange={handleTextChange}
               syncAllDrawings={syncAllDrawings}
             />
@@ -169,7 +175,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               chart={chart}
               overlay={ov}
               isSelected={isSelected}
-              isHovered={hoveredOverlayId === ov.id}
+              isHovered={isBodyHovered}
               onTextChange={handleTextChange}
               syncAllDrawings={syncAllDrawings}
             />
@@ -182,7 +188,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               chart={chart}
               overlay={ov}
               isSelected={isSelected}
-              isHovered={hoveredOverlayId === ov.id}
+              isHovered={isBodyHovered}
               onTextChange={handleTextChange}
               onDelete={handleDeleteDrawing}
               syncAllDrawings={syncAllDrawings}
@@ -196,7 +202,7 @@ export const SlotFloatingTextOverlays: React.FC<SlotFloatingTextOverlaysProps> =
               chart={chart}
               overlay={ov}
               isSelected={isSelected}
-              isHovered={hoveredOverlayId === ov.id}
+              isHovered={isBodyHovered}
               onTextChange={handleTextChange}
               onDelete={handleDeleteDrawing}
               syncAllDrawings={syncAllDrawings}

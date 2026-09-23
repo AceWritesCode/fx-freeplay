@@ -41,7 +41,30 @@ export function useDrawingCoordinator(
 
   const handleSetActiveTool = (tool: string | null) => {
     setActiveTool(tool);
-    if (tool === null) {
+    if (tool !== null) {
+      useDrawingStore.getState().setSelectedOverlayIds([]);
+      if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      chartInstancesRef.current.forEach((c: any) => {
+        if (c) {
+          c._selectedOverlayIds = [];
+          c.getOverlays().forEach((ov: any) => {
+            if (ov.extendData?.isSelected || ov.extendData?.isEditingText) {
+              c.overrideOverlay({
+                id: ov.id,
+                extendData: {
+                  ...(ov.extendData || {}),
+                  isSelected: false,
+                  isEditingText: false,
+                },
+              });
+            }
+          });
+        }
+      });
+      runWorkspaceReconciliation(chartInstancesRef);
+    } else {
       if (drawingTargetChartIndex !== null) {
         const targetChart = chartInstancesRef.current[drawingTargetChartIndex];
         if (targetChart) {

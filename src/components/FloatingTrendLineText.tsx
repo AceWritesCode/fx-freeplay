@@ -41,8 +41,10 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   const textHalign = customSettings.textPosition?.horizontal || 'right';
   const textValign = customSettings.textPosition?.vertical || 'middle';
 
-  // Check if line points are fully registered (line completed drawing)
+  // Check if line points are fully registered (line completed drawing and not currently in creation mode)
+  const isDrawing = chart && (chart as any)._activeDrawingId === overlay?.id;
   const isLineDrawn = overlay?.points && overlay.points.length >= 2;
+  const isExistingDrawing = !!isLineDrawn && !isDrawing;
 
   // Respect the timeframe visibility setting — hide text when line is hidden
   const isLineVisible = checkOverlayVisible(overlay, chart);
@@ -50,12 +52,11 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
   const isHoveredActive = isHovered || isDomHovered;
   const hasActualText = typeof text === 'string' && text.trim() !== '';
 
-  // 1) When actual text exists: show whenever the line is drawn and visible on this timeframe
-  // 2) When no text exists (placeholder "+ Add text"): show when line is drawn + (selected or hovered or actively editing)
-  const shouldShow = isLineDrawn && isLineVisible && (
+  // 1) When actual text exists: show whenever the line exists and is visible on this timeframe
+  // 2) When no text exists (placeholder "+ Add text"): show ONLY when line exists + is selected + is hovered (or actively editing)
+  const shouldShow = isExistingDrawing && isLineVisible && (
     hasActualText || 
-    isSelected || 
-    isHoveredActive || 
+    (isSelected && isHoveredActive) || 
     isEditing
   );
 
@@ -192,6 +193,12 @@ export const FloatingTrendLineText: React.FC<FloatingTrendLineTextProps> = ({
       DrawingChartAdapter.invalidatePane(chart);
     } catch (_) {}
   };
+
+  useEffect(() => {
+    if (!isSelected && isEditing) {
+      handleSave();
+    }
+  }, [isSelected, isEditing]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

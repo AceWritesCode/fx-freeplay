@@ -142,11 +142,11 @@ const FloatingNoteTextInner: React.FC<FloatingNoteTextProps> = ({
           textareaRef.current?.select();
         }, 30);
       }
-    } else if (wasEditingRef.current) {
+    } else if (wasEditingRef.current || isEditing) {
       // User clicked away while actively editing
       handleExit(inputText);
     }
-  }, [isSelected]);
+  }, [isSelected, isEditing, inputText]);
 
   // Position DOM element exactly over the note box using the composite layout
   useEffect(() => {
