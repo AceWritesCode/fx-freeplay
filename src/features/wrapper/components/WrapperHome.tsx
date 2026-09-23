@@ -408,23 +408,47 @@ export const WrapperHome: React.FC<WrapperHomeProps> = ({ onNavigate }) => {
 
           {/* bottom row */}
           <section className="fx-bottom-row">
-            {/* System Status / Engine Specifications */}
-            <div className="fx-card fx-panel fx-system-panel">
-              <div className="fx-panel-title">v1.0.0 • PLATFORM ARCHITECT</div>
-              <ul className="fx-specs-list">
-                <li>
-                  <span className="spec-name">Replay Engine</span>
-                  <span className="spec-val">Tick-Accurate V2</span>
-                </li>
-                <li>
-                  <span className="spec-name">Chart Sync</span>
-                  <span className="spec-val">Sub-Millisecond Crosshair</span>
-                </li>
-                <li>
-                  <span className="spec-name">Data Storage</span>
-                  <span className="spec-val">Local-First Sandbox</span>
-                </li>
-              </ul>
+            {/* Live Mode (Upcoming Capability) */}
+            <div
+              className="fx-card fx-panel fx-live-mode-panel"
+              onClick={() => handleComingSoonClick('Live Mode')}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="fx-eyebrow text-[10px] tracking-[0.16em]">REAL-TIME ENVIRONMENT</div>
+                  <span className="fx-badge fx-badge-soon text-[10px] py-0.5 px-2">COMING SOON</span>
+                </div>
+                <div className="fx-live-title-row">
+                  <div className="fx-live-title">Live Mode</div>
+                  <div className="fx-live-subtitle">Real-time trading environment</div>
+                </div>
+                <p className="fx-live-desc">
+                  Connect a real-time market data feed, watch live candles form, and execute trades directly from the chart.
+                </p>
+              </div>
+
+              <div className="fx-live-features">
+                <div className="fx-live-feature-item">
+                  <span className="fx-live-dot" />
+                  <span>Real-time market data</span>
+                </div>
+                <div className="fx-live-feature-item">
+                  <span className="fx-live-dot" />
+                  <span>Live candles forming tick by tick</span>
+                </div>
+                <div className="fx-live-feature-item">
+                  <span className="fx-live-dot" />
+                  <span>Live price movement</span>
+                </div>
+                <div className="fx-live-feature-item">
+                  <span className="fx-live-dot" />
+                  <span>Direct order placement from chart</span>
+                </div>
+                <div className="fx-live-feature-item">
+                  <span className="fx-live-dot" />
+                  <span>Real-time position & order tracking</span>
+                </div>
+              </div>
             </div>
 
             {/* Quote Panel */}
