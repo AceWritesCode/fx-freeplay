@@ -7,4 +7,7 @@ export * from './drawingSyncEngine';
 export * from './chartRegistry';
 export * from './orderEngine';
 export * from './indicators/ReplayMaskIndicator';
+export * from './pixelRatio';
+export * from './candlePhysicalRenderer';
+export * from './figurePhysicalRenderer';
 

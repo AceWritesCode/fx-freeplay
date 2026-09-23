@@ -3,7 +3,7 @@ import {
   FileSpreadsheet,
   X,
 } from 'lucide-react';
-import { init, dispose } from 'klinecharts';
+import { init, dispose, registerFigure, utils } from 'klinecharts';
 import { registerCustomOverlays } from '@/utils/overlays';
 import { DrawingChartAdapter, getOriginalDrawingId } from '@/engine/charting';
 import { drawingRepository } from '@/repository';
@@ -27,6 +27,8 @@ import {
 import {
   registerReplayMaskIndicator,
   REPLAY_MASK_INDICATOR_NAME,
+  initializeCandlePhysicalRendering,
+  registerPhysicalFigures,
 } from '@/engine/charting';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
 
@@ -805,7 +807,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           registerCustomOverlays();
           registerSessionBackgroundIndicator();
           registerReplayMaskIndicator();
-
+          registerPhysicalFigures({ registerFigure, utils });
+          initializeCandlePhysicalRendering();
 
           const chart = init(container, {
             formatter: {
@@ -827,6 +830,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             }
           });
           if (chart) {
+            initializeCandlePhysicalRendering(chart);
             chartInstancesRef.current[i] = chart;
             registerChartInstance(i, chart);
             (chart as any)._magnetMode = drawingCoord.magnetMode;

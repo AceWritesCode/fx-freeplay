@@ -1,7 +1,7 @@
-import { registerOverlay } from 'klinecharts';
+import { registerOverlay, registerFigure, utils } from 'klinecharts';
 import { ToolRegistry } from './ToolRegistry';
 import { useDrawingStore } from '@/store';
-import { getOriginalDrawingId } from '@/engine/charting';
+import { getOriginalDrawingId, registerPhysicalFigures } from '@/engine/charting';
 
 export function registerToolWithKLineCharts(tool: any) {
   const overlayDef = tool.createOverlayDef();
@@ -86,6 +86,7 @@ export function registerToolWithKLineCharts(tool: any) {
 }
 
 export function initializeToolFramework() {
+  registerPhysicalFigures({ registerFigure, utils });
   const tools = ToolRegistry.getAll();
   tools.forEach((tool) => {
     registerToolWithKLineCharts(tool);

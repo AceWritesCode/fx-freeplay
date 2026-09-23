@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDrawingStore } from '@/store';
-import { DrawingChartAdapter, getOriginalDrawingId, runWorkspaceReconciliation } from '@/engine/charting';
+import { DrawingChartAdapter, getOriginalDrawingId, runWorkspaceReconciliation, toPhysicalStrokeWidth } from '@/engine/charting';
 
 export interface EraserDrawingConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -180,7 +180,7 @@ export function useEraserDrawing({
           ctx.moveTo(p1.x, p1.y);
           ctx.lineTo(p2.x, p2.y);
           ctx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
-          ctx.lineWidth = width;
+          ctx.lineWidth = toPhysicalStrokeWidth(width);
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.stroke();

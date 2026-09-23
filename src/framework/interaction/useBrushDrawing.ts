@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDrawingStore } from '@/store';
-import { DrawingChartAdapter, runWorkspaceReconciliation } from '@/engine/charting';
+import { DrawingChartAdapter, runWorkspaceReconciliation, toPhysicalStrokeWidth } from '@/engine/charting';
 
 export interface BrushDrawingConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -179,7 +179,7 @@ export function useBrushDrawing({
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, rect.width, rect.height);
         ctx.strokeStyle = brushSettingsRef.current.lineColor;
-        ctx.lineWidth = brushSettingsRef.current.lineWidth;
+        ctx.lineWidth = toPhysicalStrokeWidth(brushSettingsRef.current.lineWidth);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.beginPath();

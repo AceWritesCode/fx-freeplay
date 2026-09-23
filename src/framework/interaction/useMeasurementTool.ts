@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { toPhysicalStrokeWidth } from '@/engine/charting';
 
 export interface MeasurementToolConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -151,7 +152,7 @@ export function useMeasurementTool({
 
       // 2. Coordinate lines with arrows
       ctx.strokeStyle = themeColor;
-      ctx.lineWidth = 1.25;
+      ctx.lineWidth = toPhysicalStrokeWidth(1);
 
       const centerX = left + width / 2;
       const centerY = top + height / 2;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { getChartBarSpace, getTrueOffsetRightDistance } from '@/engine/charting';
+import { getChartBarSpace, getTrueOffsetRightDistance, toPhysicalStrokeWidth } from '@/engine/charting';
 
 export interface ZoomToolConfig {
   chartContainersRef: React.MutableRefObject<(HTMLDivElement | null)[]>;
@@ -161,7 +161,7 @@ export function useZoomTool({
         ctx.fillRect(left, top, width, height);
 
         ctx.strokeStyle = 'rgba(41, 98, 255, 0.8)';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = toPhysicalStrokeWidth(1);
         ctx.strokeRect(left, top, width, height);
       }
 
