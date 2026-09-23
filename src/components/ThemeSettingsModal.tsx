@@ -4,7 +4,8 @@ import { ColorPicker } from './ColorPicker';
 import { useSettingsStore } from '@/store';
 import type { ChartSettings, CustomThemePalette, ThemeMode, SavedCustomTheme } from '@/config';
 import { PRESET_SETTINGS, TIMEZONE_OPTIONS, DEFAULT_CUSTOM_THEME, getThemeChartBackground, getThemeTokens, formatToHex } from '@/config';
-import { getStoredSyncChartBackground, storeSyncChartBackground, getStoredSavedThemes, storeSavedThemes } from '@/utils/themeApplier';
+import { getStoredSyncChartBackground, storeSyncChartBackground, getStoredSavedThemes, storeSavedThemes, storeThemeMode, storeCustomTheme } from '@/utils/themeApplier';
+import { resolveVisibleScaleTextColor, resolveVisibleScaleLineColor, resolveVisibleCrosshairTextColor } from '@/utils/chartFormatters';
 import { CaptureSettingsTab } from '@/features/capture-recording';
 import { Checkbox, Select } from './common';
 
@@ -39,6 +40,7 @@ interface ThemeSettingsModalProps {
   onClose: () => void;
   settings: ChartSettings;
   onSettingsSave: (newSettings: ChartSettings) => void;
+  onLiveSettingsChange?: (newSettings: ChartSettings) => void;
   hasData: boolean;
   onClearDatabase?: () => void;
   assetName?: string;
@@ -92,6 +94,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   onClose,
   settings,
   onSettingsSave,
+  onLiveSettingsChange,
   hasData: _hasData,
   onClearDatabase: _onClearDatabase,
   assetName: _assetName = 'No Asset Loaded',
@@ -108,39 +111,94 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   }));
   const [activeColorField, setActiveColorField] = useState<{ fieldKey: string; title: string } | null>(null);
 
-  const handleCloseModal = React.useCallback(() => {
-    setActiveColorField(null);
-    onClose();
-  }, [onClose]);
+  const sessionSnapshotRef = React.useRef<{
+    settings: ChartSettings;
+    themeMode: ThemeMode;
+    customTheme: CustomThemePalette;
+    savedThemes: SavedCustomTheme[];
+  } | null>(null);
+  const nestedColorSnapshotRef = React.useRef<{ fieldKey: string; initialColor: string } | null>(null);
+  const prevIsOpenRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
+      const currentThemeMode = useSettingsStore.getState().themeMode;
+      const currentCustomTheme = { ...useSettingsStore.getState().customTheme };
+      sessionSnapshotRef.current = {
+        settings: JSON.parse(JSON.stringify(settings)),
+        themeMode: currentThemeMode,
+        customTheme: currentCustomTheme,
+        savedThemes: getStoredSavedThemes(),
+      };
       setFormState({
         chartType: 'candlestick',
         lineColor: '#2962FF',
         ...settings,
         syncChartBackgroundWithTheme: settings.syncChartBackgroundWithTheme ?? getStoredSyncChartBackground(),
       });
-    } else {
+    } else if (!isOpen && prevIsOpenRef.current) {
+      sessionSnapshotRef.current = null;
       setActiveColorField(null);
+      nestedColorSnapshotRef.current = null;
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, settings]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        if (activeColorField !== null) {
-          setActiveColorField(null);
-        } else {
-          onClose();
-        }
+  const handleFieldChange = React.useCallback((key: keyof ChartSettings, value: any) => {
+    setFormState(prev => {
+      const next = {
+        ...prev,
+        [key]: value,
+      };
+      if (key === 'background' || key === 'backgroundType') {
+        const bg = next.backgroundType === 'None'
+          ? getThemeChartBackground(themeMode, customTheme)
+          : (next.background || '#131722');
+        next.scalesTextColor = resolveVisibleScaleTextColor(next.scalesTextColor, bg);
+        next.scalesLinesColor = resolveVisibleScaleLineColor(next.scalesLinesColor, bg);
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeColorField, onClose]);
+      if (key === 'crosshairColor') {
+        if (!prev.crosshairLabelBgColor || prev.crosshairLabelBgColor === prev.crosshairColor) {
+          next.crosshairLabelBgColor = value;
+        }
+        const effectiveBg = next.crosshairLabelBgColor || value;
+        next.crosshairTextColor = resolveVisibleCrosshairTextColor(next.crosshairTextColor || '#ffffff', effectiveBg);
+      }
+      if (key === 'crosshairLabelBgColor') {
+        next.crosshairTextColor = resolveVisibleCrosshairTextColor(next.crosshairTextColor || '#ffffff', value);
+      }
+      onLiveSettingsChange?.(next);
+      return next;
+    });
+  }, [customTheme, onLiveSettingsChange, themeMode]);
+
+  const handleToggleColorField = React.useCallback((info: { fieldKey: string; title: string } | null) => {
+    if (!info) {
+      nestedColorSnapshotRef.current = null;
+      setActiveColorField(null);
+      return;
+    }
+    const chartKey = info.fieldKey as keyof ChartSettings;
+    const currentVal = (formState[chartKey] as string | undefined) ||
+      (info.fieldKey.startsWith('custom_') ? customTheme[info.fieldKey.replace('custom_', '') as keyof CustomThemePalette] : '') ||
+      '#ffffff';
+    nestedColorSnapshotRef.current = { fieldKey: info.fieldKey, initialColor: currentVal };
+    setActiveColorField(info);
+  }, [customTheme, formState]);
+
+  const handleCancelColorPicker = React.useCallback(() => {
+    if (nestedColorSnapshotRef.current) {
+      const { fieldKey, initialColor } = nestedColorSnapshotRef.current;
+      if (fieldKey.startsWith('custom_')) {
+        const customKey = fieldKey.replace('custom_', '') as keyof CustomThemePalette;
+        setCustomTheme({ [customKey]: initialColor });
+      } else {
+        handleFieldChange(fieldKey as keyof ChartSettings, initialColor);
+      }
+      nestedColorSnapshotRef.current = null;
+    }
+    setActiveColorField(null);
+  }, [handleFieldChange, setCustomTheme]);
 
   // Custom chart presets: stored in localStorage, keyed by user-chosen name
   const [customPresets, setCustomPresets] = useState<{ [name: string]: ChartSettings }>(() => {
@@ -169,6 +227,110 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   const [themeOverwriteTarget, setThemeOverwriteTarget] = useState<SavedCustomTheme | null>(null);
   const [activeSavedThemeId, setActiveSavedThemeId] = useState<string | null>(null);
   const themeNameInputRef = React.useRef<HTMLDivElement>(null);
+
+  const handleApplyPreset = (presetKey: string) => {
+    setSelectedPreset(presetKey);
+    setIsPresetDropdownOpen(false);
+    if (!presetKey) return;
+    const builtIn = PRESET_SETTINGS[presetKey];
+    if (builtIn) {
+      setFormState(prev => {
+        const next = { ...prev, ...builtIn };
+        onLiveSettingsChange?.(next);
+        return next;
+      });
+      return;
+    }
+    const custom = customPresets[presetKey];
+    if (custom) {
+      setFormState(prev => {
+        const next = { ...prev, ...custom };
+        onLiveSettingsChange?.(next);
+        return next;
+      });
+    }
+  };
+
+  const persistCustomPresets = (updated: { [name: string]: ChartSettings }) => {
+    setCustomPresets(updated);
+    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(updated));
+  };
+
+  const handleSavePreset = () => {
+    const name = savePresetName.trim();
+    if (!name) { setSaveNameError('Enter a name.'); return; }
+    if (PRESET_SETTINGS[name.toLowerCase()]) { setSaveNameError('Cannot overwrite a built-in preset.'); return; }
+    persistCustomPresets({ ...customPresets, [name]: { ...formState } });
+    setSavePresetName('');
+    setSaveNameError('');
+    setIsSavingPreset(false);
+  };
+
+  const handleDeleteCustomPreset = (name: string) => {
+    const updated = { ...customPresets };
+    delete updated[name];
+    persistCustomPresets(updated);
+  };
+
+  const customPresetNames = Object.keys(customPresets);
+  const builtInEntries = [
+    { key: 'classic',  label: 'TradingView Classic' },
+    { key: 'obsidian', label: 'Midnight Obsidian' },
+    { key: 'matrix',   label: 'Matrix High-Contrast' },
+  ];
+
+  const matchingSavedThemeNames = savedThemes.filter(t =>
+    !newThemeName.trim() || t.name.toLowerCase().includes(newThemeName.trim().toLowerCase())
+  );
+
+  const handleApplyModal = React.useCallback(() => {
+    const currentThemeMode = useSettingsStore.getState().themeMode;
+    const currentCustomTheme = useSettingsStore.getState().customTheme;
+    storeThemeMode(currentThemeMode);
+    storeCustomTheme(currentCustomTheme);
+    storeSavedThemes(savedThemes);
+    if (formState.syncChartBackgroundWithTheme !== undefined) {
+      storeSyncChartBackground(formState.syncChartBackgroundWithTheme);
+    }
+    onSettingsSave(formState);
+    sessionSnapshotRef.current = null;
+    setActiveColorField(null);
+    nestedColorSnapshotRef.current = null;
+    onClose();
+  }, [formState, onClose, onSettingsSave, savedThemes]);
+
+  const handleCancelModal = React.useCallback(() => {
+    if (sessionSnapshotRef.current) {
+      const snap = sessionSnapshotRef.current;
+      setThemeMode(snap.themeMode);
+      setCustomTheme(snap.customTheme);
+      setSavedThemes(snap.savedThemes);
+      storeSavedThemes(snap.savedThemes);
+      onLiveSettingsChange?.(snap.settings);
+      onSettingsSave(snap.settings);
+      setFormState(snap.settings);
+      sessionSnapshotRef.current = null;
+    }
+    setActiveColorField(null);
+    nestedColorSnapshotRef.current = null;
+    onClose();
+  }, [onClose, onLiveSettingsChange, onSettingsSave, setCustomTheme, setThemeMode]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (activeColorField !== null) {
+          handleCancelColorPicker();
+        } else {
+          handleCancelModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, activeColorField, handleCancelColorPicker, handleCancelModal]);
 
   const isPaletteEqual = (p1: CustomThemePalette, p2: CustomThemePalette): boolean => {
     const keys: (keyof CustomThemePalette)[] = [
@@ -397,56 +559,6 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFieldChange = (key: keyof ChartSettings, value: any) => {
-    setFormState(prev => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const handleApplyPreset = (presetKey: string) => {
-    const builtIn = PRESET_SETTINGS[presetKey];
-    if (builtIn) { setFormState({ ...builtIn }); return; }
-    const custom = customPresets[presetKey];
-    if (custom) { setFormState({ ...custom }); }
-  };
-
-  const persistCustomPresets = (updated: { [name: string]: ChartSettings }) => {
-    setCustomPresets(updated);
-    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(updated));
-  };
-
-  const handleSavePreset = () => {
-    const name = savePresetName.trim();
-    if (!name) { setSaveNameError('Enter a name.'); return; }
-    if (PRESET_SETTINGS[name.toLowerCase()]) { setSaveNameError('Cannot overwrite a built-in preset.'); return; }
-    persistCustomPresets({ ...customPresets, [name]: { ...formState } });
-    setSavePresetName('');
-    setSaveNameError('');
-    setIsSavingPreset(false);
-  };
-
-  const handleDeleteCustomPreset = (name: string) => {
-    const updated = { ...customPresets };
-    delete updated[name];
-    persistCustomPresets(updated);
-  };
-
-  const customPresetNames = Object.keys(customPresets);
-  const builtInEntries = [
-    { key: 'classic',  label: 'TradingView Classic' },
-    { key: 'obsidian', label: 'Midnight Obsidian' },
-    { key: 'matrix',   label: 'Matrix High-Contrast' },
-  ];
-
-  const matchingSavedThemeNames = savedThemes.filter(t =>
-    !newThemeName.trim() || t.name.toLowerCase().includes(newThemeName.trim().toLowerCase())
-  );
-
-  const handleSave = () => {
-    onSettingsSave(formState);
-    onClose();
-  };
 
   const handleEditTheme = (targetMode?: ThemeMode) => {
     // If a saved custom theme card is active:
@@ -508,8 +620,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     }
 
     const chartKey = fieldKey as keyof ChartSettings;
-    const currentColor = (formState[chartKey] as string | undefined) || 
-      (chartKey === 'lineColor' ? (formState.bullColor || '#2962FF') : '#ffffff');
+    let currentColor = (formState[chartKey] as string | undefined);
+    if (!currentColor) {
+      if (chartKey === 'lineColor') currentColor = formState.bullColor || '#2962FF';
+      else if (chartKey === 'crosshairLabelBgColor') currentColor = formState.crosshairColor || '#363c4e';
+      else if (chartKey === 'crosshairTextColor') currentColor = '#ffffff';
+      else if (chartKey === 'crosshairColor') currentColor = '#888888';
+      else currentColor = '#ffffff';
+    }
 
     return {
       title,
@@ -525,7 +643,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg backdrop-blur-xs font-sans p-4 overflow-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          handleCloseModal();
+          handleApplyModal();
         }
       }}
     >
@@ -536,8 +654,9 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-sub">
           <h2 className="text-sm font-semibold text-txt-primary tracking-wide uppercase">Settings</h2>
           <button
-            onClick={handleCloseModal}
+            onClick={handleCancelModal}
             className="text-txt-muted hover:text-txt-primary transition-colors duration-150 p-1 hover:bg-surface-hover rounded-lg cursor-pointer"
+            title="Cancel"
           >
             <X className="w-4 h-4" />
           </button>
@@ -549,7 +668,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           {/* Left Sidebar (Tabs) */}
           <div className="w-44 bg-surface border-r border-border-sub py-3 flex flex-col gap-1 select-none">
             <button
-              onClick={() => { setActiveTab('Theme'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Theme'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Theme'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -561,7 +680,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => { setActiveTab('Symbol'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Symbol'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Symbol'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -577,7 +696,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => { setActiveTab('Canvas'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Canvas'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Canvas'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -589,7 +708,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => { setActiveTab('Scales'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Scales'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Scales'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -601,7 +720,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => { setActiveTab('Timezone'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Timezone'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Timezone'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -613,7 +732,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => { setActiveTab('Replay'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Replay'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Replay'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -625,7 +744,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             </button>
 
             <button
-              onClick={() => { setActiveTab('Capture'); setActiveColorField(null); }}
+              onClick={() => { setActiveTab('Capture'); handleToggleColorField(null); }}
               className={`flex items-center px-4 py-2.5 text-xs font-semibold text-left transition-all cursor-pointer ${
                 activeTab === 'Capture'
                   ? 'bg-modal-bg text-txt-primary border-l-2 border-accent'
@@ -769,18 +888,44 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                               if (formState.backgroundType === 'None') {
                                 handleFieldChange('backgroundType', 'Solid');
                               }
+                            } else {
+                              const effectiveBg = formState.backgroundType === 'None'
+                                ? getThemeChartBackground('custom', st.palette)
+                                : (formState.background || '#131722');
+                              setFormState(prev => {
+                                const next = {
+                                  ...prev,
+                                  scalesTextColor: resolveVisibleScaleTextColor(prev.scalesTextColor, effectiveBg),
+                                  scalesLinesColor: resolveVisibleScaleLineColor(prev.scalesLinesColor, effectiveBg),
+                                };
+                                onLiveSettingsChange?.(next);
+                                return next;
+                              });
                             }
                           } else {
                             const newMode = theme.id as ThemeMode;
                             setThemeMode(newMode);
                             setActiveSavedThemeId(null);
-                            setActiveColorField(null);
+                            handleToggleColorField(null);
                             if (formState.syncChartBackgroundWithTheme) {
                               const bg = getThemeChartBackground(newMode, customTheme);
                               handleFieldChange('background', bg);
                               if (formState.backgroundType === 'None') {
                                 handleFieldChange('backgroundType', 'Solid');
                               }
+                            } else {
+                              const effectiveBg = formState.backgroundType === 'None'
+                                ? getThemeChartBackground(newMode, customTheme)
+                                : (formState.background || '#131722');
+                              setFormState(prev => {
+                                const next = {
+                                  ...prev,
+                                  scalesTextColor: resolveVisibleScaleTextColor(prev.scalesTextColor, effectiveBg),
+                                  scalesLinesColor: resolveVisibleScaleLineColor(prev.scalesLinesColor, effectiveBg),
+                                };
+                                onLiveSettingsChange?.(next);
+                                return next;
+                              });
                             }
                           }
                         }}
@@ -1050,7 +1195,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                               <span className="text-[10px] font-mono text-txt-muted uppercase">{formatToHex(currentColor)}</span>
                               <button
                                 type="button"
-                                onClick={() => setActiveColorField(isActive ? null : { fieldKey, title: label })}
+                                onClick={() => handleToggleColorField(isActive ? null : { fieldKey, title: label })}
                                 className={`w-6 h-6 rounded border shadow-xs cursor-pointer transition-all active:scale-95 ${
                                   isActive ? 'ring-2 ring-accent border-accent scale-105' : 'border-white/20 hover:border-white/50'
                                 }`}
@@ -1104,7 +1249,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Line Chart Color"
                       fieldKey="lineColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 )}
@@ -1133,7 +1278,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Bullish Body Color"
                       fieldKey="bullColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                     <ColorPickerButton
                       color={formState.bearColor}
@@ -1141,7 +1286,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Bearish Body Color"
                       fieldKey="bearColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 </div>
@@ -1162,7 +1307,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Bullish Border Color"
                       fieldKey="bullBorderColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                     <ColorPickerButton
                       color={formState.bearBorderColor}
@@ -1170,7 +1315,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Bearish Border Color"
                       fieldKey="bearBorderColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 </div>
@@ -1191,7 +1336,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Bullish Wick Color"
                       fieldKey="bullWickColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                     <ColorPickerButton
                       color={formState.bearWickColor}
@@ -1199,7 +1344,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Bearish Wick Color"
                       fieldKey="bearWickColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 </div>
@@ -1221,8 +1366,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       value={formState.priceLineStyle}
                       onChange={(val) => handleFieldChange('priceLineStyle', val)}
                       options={[
-                        { value: 'dashed', label: 'Dashed' },
                         { value: 'solid', label: 'Solid' },
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'dotted', label: 'Dotted' },
+                        { value: 'none', label: 'None' },
                       ]}
                       className="w-24"
                     />
@@ -1269,7 +1416,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Price Line Color"
                       fieldKey="priceLineColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 </div>
@@ -1299,14 +1446,14 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             {/* Tab: Canvas */}
             {activeTab === 'Canvas' && (
               <div className="flex flex-col gap-5">
-                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Basic Styles</div>
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Canvas Background</div>
 
                 {/* Canvas Background */}
                 <div className="flex items-center justify-between">
-                  <span>Canvas Background</span>
+                  <span>Background</span>
                   <div className="flex items-center gap-2.5">
                     <Select
-                      value={formState.backgroundType}
+                      value={formState.backgroundType || 'Solid'}
                       onChange={(val) => handleFieldChange('backgroundType', val)}
                       options={['Solid', 'Gradient', 'None']}
                       className="w-28"
@@ -1314,12 +1461,12 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     
                     <div className="flex items-center gap-1.5">
                       <ColorPickerButton
-                        color={formState.background}
+                        color={formState.background || '#131722'}
                         disabled={formState.backgroundType === 'None'}
-                        title="Canvas Background Color"
+                        title={formState.backgroundType === 'Gradient' ? 'Top Gradient Color' : 'Canvas Background Color'}
                         fieldKey="background"
                         activeKey={activeColorField?.fieldKey ?? null}
-                        onToggle={setActiveColorField}
+                        onToggle={handleToggleColorField}
                       />
                       {formState.backgroundType === 'Gradient' && (
                         <ColorPickerButton
@@ -1328,46 +1475,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                           title="Bottom Gradient Color"
                           fieldKey="backgroundGradientStop"
                           activeKey={activeColorField?.fieldKey ?? null}
-                          onToggle={setActiveColorField}
+                          onToggle={handleToggleColorField}
                         />
                       )}
                     </div>
-                  </div>
-                </div>
-
-                {/* Grid Lines */}
-                <div className="flex items-center justify-between">
-                  <span>Grid Lines</span>
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={formState.gridType}
-                      onChange={(val) => handleFieldChange('gridType', val)}
-                      options={[
-                        { value: 'Vert and Horiz', label: 'Vert & Horiz' },
-                        { value: 'Horizontal Only', label: 'Horizontal Only' },
-                        { value: 'Vertical Only', label: 'Vertical Only' },
-                        { value: 'None', label: 'None' },
-                      ]}
-                      className="w-32"
-                    />
-                    <Select
-                      value={formState.gridStyle}
-                      disabled={formState.gridType === 'None'}
-                      onChange={(val) => handleFieldChange('gridStyle', val)}
-                      options={[
-                        { value: 'dashed', label: 'Dashed' },
-                        { value: 'solid', label: 'Solid' },
-                      ]}
-                      className="w-24"
-                    />
-                    <ColorPickerButton
-                      color={formState.gridColor}
-                      disabled={formState.gridType === 'None'}
-                      title="Grid Line Color"
-                      fieldKey="gridColor"
-                      activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
-                    />
                   </div>
                 </div>
 
@@ -1376,9 +1487,141 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   <Checkbox
                     checked={formState.showWatermark}
                     onChange={(e) => handleFieldChange('showWatermark', e.target.checked)}
-                    label="Asset Watermark"
+                    label="Watermark (Symbol & Timeframe)"
                   />
+                  <div className="flex items-center gap-2">
+                    <ColorPickerButton
+                      color={formState.watermarkColor || 'rgba(255, 255, 255, 0.05)'}
+                      disabled={!formState.showWatermark}
+                      title="Watermark Color & Opacity"
+                      fieldKey="watermarkColor"
+                      activeKey={activeColorField?.fieldKey ?? null}
+                      onToggle={handleToggleColorField}
+                    />
+                  </div>
                 </div>
+
+                <div className="border-t border-border-sub my-1" />
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Crosshair</div>
+
+                {/* Crosshair Line */}
+                <div className="flex items-center justify-between">
+                  <span>Crosshair Line</span>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={formState.crosshairStyle || 'dashed'}
+                      onChange={(val) => handleFieldChange('crosshairStyle', val)}
+                      options={[
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'dotted', label: 'Dotted' },
+                      ]}
+                      className="w-24"
+                    />
+                    <Select
+                      value={formState.crosshairSize || 1}
+                      onChange={(val) => handleFieldChange('crosshairSize', Number(val))}
+                      options={[
+                        { value: 1, label: '1 px' },
+                        { value: 2, label: '2 px' },
+                        { value: 3, label: '3 px' },
+                      ]}
+                      className="w-20"
+                    />
+                    <ColorPickerButton
+                      color={formState.crosshairColor || '#888888'}
+                      title="Crosshair Line Color & Opacity"
+                      fieldKey="crosshairColor"
+                      activeKey={activeColorField?.fieldKey ?? null}
+                      onToggle={handleToggleColorField}
+                    />
+                  </div>
+                </div>
+
+                {/* Crosshair Label */}
+                <div className="flex items-center justify-between">
+                  <span>Crosshair Label</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-txt-muted">Text</span>
+                      <ColorPickerButton
+                        color={formState.crosshairTextColor || '#ffffff'}
+                        title="Crosshair Label Text Color"
+                        fieldKey="crosshairTextColor"
+                        activeKey={activeColorField?.fieldKey ?? null}
+                        onToggle={handleToggleColorField}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-txt-muted">Bg</span>
+                      <ColorPickerButton
+                        color={formState.crosshairLabelBgColor || formState.crosshairColor || '#363c4e'}
+                        title="Crosshair Label Background Color & Opacity"
+                        fieldKey="crosshairLabelBgColor"
+                        activeKey={activeColorField?.fieldKey ?? null}
+                        onToggle={handleToggleColorField}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-border-sub my-1" />
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Grid Lines</div>
+
+                {/* Vertical Grid */}
+                <div className="flex items-center justify-between">
+                  <span>Vertical Grid Lines</span>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={formState.vertGridStyle || (formState.gridType === 'Horizontal Only' || formState.gridType === 'None' ? 'none' : (formState.gridStyle || 'none'))}
+                      onChange={(val) => handleFieldChange('vertGridStyle', val)}
+                      options={[
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'dotted', label: 'Dotted' },
+                        { value: 'none', label: 'None' },
+                      ]}
+                      className="w-24"
+                    />
+                    <ColorPickerButton
+                      color={formState.vertGridColor || formState.gridColor || '#242832'}
+                      disabled={formState.vertGridStyle === 'none'}
+                      title="Vertical Grid Line Color & Opacity"
+                      fieldKey="vertGridColor"
+                      activeKey={activeColorField?.fieldKey ?? null}
+                      onToggle={handleToggleColorField}
+                    />
+                  </div>
+                </div>
+
+                {/* Horizontal Grid */}
+                <div className="flex items-center justify-between">
+                  <span>Horizontal Grid Lines</span>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={formState.horizGridStyle || (formState.gridType === 'Vertical Only' || formState.gridType === 'None' ? 'none' : (formState.gridStyle || 'none'))}
+                      onChange={(val) => handleFieldChange('horizGridStyle', val)}
+                      options={[
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'dotted', label: 'Dotted' },
+                        { value: 'none', label: 'None' },
+                      ]}
+                      className="w-24"
+                    />
+                    <ColorPickerButton
+                      color={formState.horizGridColor || formState.gridColor || '#242832'}
+                      disabled={formState.horizGridStyle === 'none'}
+                      title="Horizontal Grid Line Color & Opacity"
+                      fieldKey="horizGridColor"
+                      activeKey={activeColorField?.fieldKey ?? null}
+                      onToggle={handleToggleColorField}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-border-sub my-1" />
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Session Breaks</div>
 
                 {/* Session Breaks */}
                 <div className="flex items-center justify-between">
@@ -1394,8 +1637,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       disabled={!formState.showSessionBreaks}
                       onChange={(val) => handleFieldChange('sessionBreaksStyle', val)}
                       options={[
-                        { value: 'dashed', label: 'Dashed' },
                         { value: 'solid', label: 'Solid' },
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'dotted', label: 'Dotted' },
+                        { value: 'none', label: 'None' },
                       ]}
                       className="w-24"
                     />
@@ -1418,7 +1663,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       title="Session Breaks Color"
                       fieldKey="sessionBreaksColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 </div>
@@ -1465,15 +1710,136 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
             {/* Tab: Scales */}
             {activeTab === 'Scales' && (
               <div className="flex flex-col gap-5">
-                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Scale Display</div>
+                {/* Price Scale Section */}
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Price Scale</div>
+
+                {/* Price Scale Position */}
+                <div className="flex items-center justify-between">
+                  <span>Price Scale Placement</span>
+                  <Select
+                    value={formState.priceScalePosition || 'right'}
+                    onChange={(val) => handleFieldChange('priceScalePosition', val as 'left' | 'right')}
+                    options={[
+                      { value: 'right', label: 'Right' },
+                      { value: 'left', label: 'Left' },
+                    ]}
+                    className="w-32"
+                  />
+                </div>
+
+                {/* Show Price Labels Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={formState.showPriceScalePriceLabels !== false}
+                    onChange={(e) => handleFieldChange('showPriceScalePriceLabels', e.target.checked)}
+                    label="Price Scale Price Labels"
+                  />
+                </div>
+
+                {/* Show Last Price Label Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={(formState.showPriceScaleLastPriceLabel ?? formState.showPriceLineLabel) !== false}
+                    onChange={(e) => {
+                      handleFieldChange('showPriceScaleLastPriceLabel', e.target.checked);
+                      handleFieldChange('showPriceLineLabel', e.target.checked);
+                    }}
+                    label="Last Price Label"
+                  />
+                </div>
+
+                {/* Show Price Scale Crosshair Label Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={formState.showPriceScaleCrosshairLabel !== false}
+                    onChange={(e) => handleFieldChange('showPriceScaleCrosshairLabel', e.target.checked)}
+                    label="Price Scale Crosshair Label"
+                  />
+                </div>
+
+                <div className="border-t border-border-sub my-1" />
+                {/* Time Scale Section */}
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Time Scale</div>
+
+                {/* Show Time Scale Labels Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={formState.showTimeScaleLabels !== false}
+                    onChange={(e) => handleFieldChange('showTimeScaleLabels', e.target.checked)}
+                    label="Time Scale Labels"
+                  />
+                </div>
+
+                {/* Show Day of Week Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={Boolean(formState.showTimeScaleDayOfWeek)}
+                    onChange={(e) => handleFieldChange('showTimeScaleDayOfWeek', e.target.checked)}
+                    label="Day of Week in Date Label"
+                  />
+                </div>
+
+                {/* Show Time Scale Crosshair Label Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={formState.showTimeScaleCrosshairLabel !== false}
+                    onChange={(e) => handleFieldChange('showTimeScaleCrosshairLabel', e.target.checked)}
+                    label="Time Scale Crosshair Label"
+                  />
+                </div>
+
+                {/* Date Format Select */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span>Date Format</span>
+                    <div className="text-[10px] text-txt-muted">Date format pattern on time scale and crosshair</div>
+                  </div>
+                  <Select
+                    value={formState.dateFormat || 'dd MMM yyyy'}
+                    onChange={(val) => handleFieldChange('dateFormat', String(val))}
+                    options={[
+                      { value: 'dd MMM yyyy', label: '23 Sep 2026' },
+                      { value: 'yyyy-MM-dd', label: '2026-09-23 (ISO)' },
+                      { value: 'dd/MM/yyyy', label: '23/09/2026 (EU)' },
+                      { value: 'MM/dd/yyyy', label: '09/23/2026 (US)' },
+                      { value: 'dd-MM-yyyy', label: '23-09-2026' },
+                      { value: 'yyyy/MM/dd', label: '2026/09/23' },
+                    ]}
+                    className="w-48"
+                  />
+                </div>
+
+                {/* Time Format Select */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span>Time Format</span>
+                    <div className="text-[10px] text-txt-muted">12-hour or 24-hour clock display</div>
+                  </div>
+                  <Select
+                    value={formState.timeFormat || '24h'}
+                    onChange={(val) => handleFieldChange('timeFormat', val as '12h' | '24h')}
+                    options={[
+                      { value: '24h', label: '24 Hours (18:00)' },
+                      { value: '12h', label: '12 Hours (06:00 PM)' },
+                    ]}
+                    className="w-48"
+                  />
+                </div>
+
+                <div className="border-t border-border-sub my-1" />
+                {/* General Scales Appearance */}
+                <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">General Scale Appearance</div>
 
                 {/* Scales Text */}
                 <div className="flex items-center justify-between">
                   <span>Axis Labels (Text)</span>
                   <div className="flex items-center gap-2">
                     <Select
-                      value={formState.scalesTextSize}
-                      onChange={(val) => handleFieldChange('scalesTextSize', Number(val))}
+                      value={formState.scalesTextSize || 11}
+                      onChange={(val) => {
+                        handleFieldChange('scalesTextSize', Number(val));
+                        handleFieldChange('scaleTextSize', Number(val));
+                      }}
                       options={[
                         { value: 10, label: '10 px' },
                         { value: 11, label: '11 px' },
@@ -1484,11 +1850,11 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       className="w-24"
                     />
                     <ColorPickerButton
-                      color={formState.scalesTextColor}
+                      color={formState.scalesTextColor || '#b2b5be'}
                       title="Scales Text Color"
                       fieldKey="scalesTextColor"
                       activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={setActiveColorField}
+                      onToggle={handleToggleColorField}
                     />
                   </div>
                 </div>
@@ -1496,17 +1862,20 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 {/* Scale Axis Lines */}
                 <div className="flex items-center justify-between">
                   <Checkbox
-                    checked={formState.showScalesLines}
-                    onChange={(e) => handleFieldChange('showScalesLines', e.target.checked)}
+                    checked={formState.showScalesLines !== false}
+                    onChange={(e) => {
+                      handleFieldChange('showScalesLines', e.target.checked);
+                      handleFieldChange('scaleAxisLinesVisible', e.target.checked);
+                    }}
                     label="Scale Axis Lines"
                   />
                   <ColorPickerButton
-                    color={formState.scalesLinesColor}
-                    disabled={!formState.showScalesLines}
+                    color={formState.scalesLinesColor || '#242832'}
+                    disabled={formState.showScalesLines === false}
                     title="Scale Axis Lines Color"
                     fieldKey="scalesLinesColor"
                     activeKey={activeColorField?.fieldKey ?? null}
-                    onToggle={setActiveColorField}
+                    onToggle={handleToggleColorField}
                   />
                 </div>
               </div>
@@ -1850,13 +2219,13 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={handleCloseModal}
+                onClick={handleCancelModal}
                 className="px-4 py-1.5 border border-border-def hover:bg-surface-hover hover:text-txt-primary rounded-lg text-xs font-semibold text-txt-muted transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                onClick={handleSave}
+                onClick={handleApplyModal}
                 className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg transition-all cursor-pointer"
               >
                 Ok
@@ -1895,10 +2264,10 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setActiveColorField(null);
+                handleCancelColorPicker();
               }}
               className="text-txt-muted hover:text-txt-primary p-1 rounded-lg hover:bg-surface-hover cursor-pointer transition-colors flex-shrink-0"
-              title="Close Color Picker"
+              title="Cancel Color Selection"
             >
               <X className="w-3.5 h-3.5" />
             </button>

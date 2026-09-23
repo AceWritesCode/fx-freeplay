@@ -15,6 +15,7 @@ import {
   getStoredSyncChartBackground,
   storeSyncChartBackground,
 } from '@/utils/themeApplier';
+import { resolveVisibleScaleTextColor, resolveVisibleScaleLineColor, resolveVisibleCrosshairTextColor } from '@/utils/chartFormatters';
 
 interface SettingsState {
   settings: ChartSettings;
@@ -59,6 +60,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         mergedSettings.backgroundType = 'Solid';
       }
     }
+    const effectiveBg = mergedSettings.backgroundType === 'None'
+      ? getThemeChartBackground(mode, custom)
+      : mergedSettings.background;
+    mergedSettings.scalesTextColor = resolveVisibleScaleTextColor(mergedSettings.scalesTextColor, effectiveBg);
+    mergedSettings.scalesLinesColor = resolveVisibleScaleLineColor(mergedSettings.scalesLinesColor, effectiveBg);
+    const crosshairLabelBg = mergedSettings.crosshairLabelBgColor || mergedSettings.crosshairColor || '#363c4e';
+    mergedSettings.crosshairTextColor = resolveVisibleCrosshairTextColor(mergedSettings.crosshairTextColor || '#ffffff', crosshairLabelBg);
+
     set(() => ({ settings: mergedSettings, customTimeframes, themeMode: mode, customTheme: custom }));
   },
 
@@ -98,11 +107,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         settings: {
           ...state.settings,
           background: bg,
+          scalesTextColor: resolveVisibleScaleTextColor(state.settings.scalesTextColor, bg),
+          scalesLinesColor: resolveVisibleScaleLineColor(state.settings.scalesLinesColor, bg),
           ...(state.settings.backgroundType === 'None' ? { backgroundType: 'Solid' as const } : {}),
         },
       }));
     } else {
-      set(() => ({ themeMode: mode }));
+      set((state) => {
+        const effectiveBg = state.settings.backgroundType === 'None'
+          ? getThemeChartBackground(mode, custom)
+          : state.settings.background;
+        return {
+          themeMode: mode,
+          settings: {
+            ...state.settings,
+            scalesTextColor: resolveVisibleScaleTextColor(state.settings.scalesTextColor, effectiveBg),
+            scalesLinesColor: resolveVisibleScaleLineColor(state.settings.scalesLinesColor, effectiveBg),
+          },
+        };
+      });
     }
   },
 
@@ -117,6 +140,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           settings: {
             ...state.settings,
             background: updatedCustom.bgApp,
+            scalesTextColor: resolveVisibleScaleTextColor(state.settings.scalesTextColor, updatedCustom.bgApp),
+            scalesLinesColor: resolveVisibleScaleLineColor(state.settings.scalesLinesColor, updatedCustom.bgApp),
             ...(state.settings.backgroundType === 'None' ? { backgroundType: 'Solid' as const } : {}),
           },
         }));

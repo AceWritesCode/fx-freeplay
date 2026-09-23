@@ -13,30 +13,71 @@ export interface ChartSettings {
   bearWickColor: string;
   pricePrecision: number;
   showPriceLine: boolean;
-  priceLineStyle: 'dashed' | 'solid';
+  priceLineStyle: 'dashed' | 'solid' | 'dotted' | 'none';
   priceLineSize: number;
   priceLineColor: string;
   priceLineUseCandleColor: boolean;
   showPriceLineLabel: boolean;
 
-  // Canvas Settings
+  // Canvas Settings — Crosshair
+  crosshairColor?: string;
+  crosshairOpacity?: number; // 0 to 1 or 0 to 100
+  crosshairSize?: number; // 1, 2, 3
+  crosshairStyle?: 'solid' | 'dashed' | 'dotted';
+  crosshairLabelBgColor?: string;
+  crosshairLabelBgOpacity?: number;
+  crosshairTextColor?: string;
+
+  // Canvas Settings — Grid Lines
+  vertGridColor?: string;
+  vertGridOpacity?: number;
+  vertGridStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
+  horizGridColor?: string;
+  horizGridOpacity?: number;
+  horizGridStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
+
+  // Legacy Grid Settings (kept for preset/storage backward compatibility)
+  gridType: 'Vert and Horiz' | 'Horizontal Only' | 'Vertical Only' | 'None';
+  gridColor: string;
+  gridStyle: 'dashed' | 'solid' | 'dotted' | 'none';
+
+  // Canvas Settings — Watermark
+  showWatermark: boolean;
+  watermarkColor?: string;
+  watermarkOpacity?: number;
+
+  // Canvas Settings — Background
   background: string;
   backgroundGradientStop: string;
   backgroundType: 'Solid' | 'Gradient' | 'None';
-  gridType: 'Vert and Horiz' | 'Horizontal Only' | 'Vertical Only' | 'None';
-  gridColor: string;
-  gridStyle: 'dashed' | 'solid';
-  showWatermark: boolean;
+
+  // Canvas Settings — Session Breaks
   showSessionBreaks: boolean;
   sessionBreaksColor: string;
-  sessionBreaksStyle: 'dashed' | 'solid';
+  sessionBreaksStyle: 'dashed' | 'solid' | 'dotted' | 'none';
   sessionBreaksSize: number;
 
-  // Scales Settings
+  // Scales Settings — General Appearance
   scalesTextSize: number;
   scalesTextColor: string;
   showScalesLines: boolean;
   scalesLinesColor: string;
+  scaleTextColor?: string;
+  scaleTextSize?: number;
+  scaleAxisLinesVisible?: boolean;
+  scaleAxisLineColor?: string;
+
+  // Scales Settings — Price Scale
+  priceScalePosition?: 'left' | 'right';
+  showPriceScalePriceLabels?: boolean;
+  showPriceScaleLastPriceLabel?: boolean;
+  showPriceScaleCrosshairLabel?: boolean;
+
+  // Scales Settings — Time Scale
+  showTimeScaleLabels?: boolean;
+  showTimeScaleCrosshairLabel?: boolean;
+  showTimeScaleDayOfWeek?: boolean;
+  dateFormat?: string;
 
   // Timezone Settings
   timezoneAdjustmentEnabled: boolean;
@@ -84,6 +125,19 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     priceLineColor: '#2962FF',
     priceLineUseCandleColor: true,
     showPriceLineLabel: true,
+    crosshairColor: '#888888',
+    crosshairOpacity: 1,
+    crosshairSize: 1,
+    crosshairStyle: 'dashed',
+    crosshairLabelBgColor: '#363c4e',
+    crosshairLabelBgOpacity: 1,
+    crosshairTextColor: '#ffffff',
+    vertGridColor: '#242832',
+    vertGridOpacity: 1,
+    vertGridStyle: 'none',
+    horizGridColor: '#242832',
+    horizGridOpacity: 1,
+    horizGridStyle: 'none',
     background: '#131722',
     backgroundGradientStop: '#1e222d',
     backgroundType: 'Solid',
@@ -91,6 +145,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     gridColor: '#242832',
     gridStyle: 'dashed',
     showWatermark: true,
+    watermarkColor: 'rgba(255, 255, 255, 0.05)',
+    watermarkOpacity: 0.05,
     showSessionBreaks: false,
     sessionBreaksColor: 'rgba(139, 147, 166, 0.4)',
     sessionBreaksStyle: 'dashed',
@@ -99,6 +155,14 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     scalesTextColor: '#b2b5be',
     showScalesLines: true,
     scalesLinesColor: '#242832',
+    priceScalePosition: 'right',
+    showPriceScalePriceLabels: true,
+    showPriceScaleLastPriceLabel: true,
+    showPriceScaleCrosshairLabel: true,
+    showTimeScaleLabels: true,
+    showTimeScaleCrosshairLabel: true,
+    showTimeScaleDayOfWeek: false,
+    dateFormat: 'dd MMM yyyy',
     timezoneAdjustmentEnabled: false,
     brokerTimezoneOffset: 180,
     brokerTimezoneLabel: '(UTC+3) Moscow',
@@ -132,6 +196,19 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     priceLineColor: '#00E676',
     priceLineUseCandleColor: true,
     showPriceLineLabel: true,
+    crosshairColor: '#666666',
+    crosshairOpacity: 1,
+    crosshairSize: 1,
+    crosshairStyle: 'dashed',
+    crosshairLabelBgColor: '#2a2e39',
+    crosshairLabelBgOpacity: 1,
+    crosshairTextColor: '#ffffff',
+    vertGridColor: '#1a1a1a',
+    vertGridOpacity: 1,
+    vertGridStyle: 'none',
+    horizGridColor: '#1a1a1a',
+    horizGridOpacity: 1,
+    horizGridStyle: 'none',
     background: '#000000',
     backgroundGradientStop: '#171717',
     backgroundType: 'Solid',
@@ -139,6 +216,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     gridColor: '#1a1a1a',
     gridStyle: 'dashed',
     showWatermark: true,
+    watermarkColor: 'rgba(255, 255, 255, 0.05)',
+    watermarkOpacity: 0.05,
     showSessionBreaks: false,
     sessionBreaksColor: 'rgba(136, 136, 136, 0.4)',
     sessionBreaksStyle: 'dashed',
@@ -147,6 +226,14 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     scalesTextColor: '#888888',
     showScalesLines: true,
     scalesLinesColor: '#1a1a1a',
+    priceScalePosition: 'right',
+    showPriceScalePriceLabels: true,
+    showPriceScaleLastPriceLabel: true,
+    showPriceScaleCrosshairLabel: true,
+    showTimeScaleLabels: true,
+    showTimeScaleCrosshairLabel: true,
+    showTimeScaleDayOfWeek: false,
+    dateFormat: 'dd MMM yyyy',
     timezoneAdjustmentEnabled: false,
     brokerTimezoneOffset: 180,
     brokerTimezoneLabel: '(UTC+3) Moscow',
@@ -180,13 +267,28 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     priceLineColor: '#00FF66',
     priceLineUseCandleColor: false,
     showPriceLineLabel: true,
+    crosshairColor: '#00FF66',
+    crosshairOpacity: 0.8,
+    crosshairSize: 1,
+    crosshairStyle: 'solid',
+    crosshairLabelBgColor: '#00FF66',
+    crosshairLabelBgOpacity: 1,
+    crosshairTextColor: '#0D1B2A',
+    vertGridColor: '#1b263b',
+    vertGridOpacity: 1,
+    vertGridStyle: 'solid',
+    horizGridColor: '#1b263b',
+    horizGridOpacity: 1,
+    horizGridStyle: 'solid',
     background: '#0D1B2A',
     backgroundGradientStop: '#1b263b',
     backgroundType: 'Solid',
-    gridType: 'None',
+    gridType: 'Vert and Horiz',
     gridColor: '#1b263b',
     gridStyle: 'solid',
     showWatermark: true,
+    watermarkColor: 'rgba(0, 255, 102, 0.06)',
+    watermarkOpacity: 0.06,
     showSessionBreaks: false,
     sessionBreaksColor: 'rgba(0, 255, 102, 0.25)',
     sessionBreaksStyle: 'dashed',
@@ -195,6 +297,14 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     scalesTextColor: '#00FF66',
     showScalesLines: true,
     scalesLinesColor: '#1b263b',
+    priceScalePosition: 'right',
+    showPriceScalePriceLabels: true,
+    showPriceScaleLastPriceLabel: true,
+    showPriceScaleCrosshairLabel: true,
+    showTimeScaleLabels: true,
+    showTimeScaleCrosshairLabel: true,
+    showTimeScaleDayOfWeek: false,
+    dateFormat: 'dd MMM yyyy',
     timezoneAdjustmentEnabled: false,
     brokerTimezoneOffset: 180,
     brokerTimezoneLabel: '(UTC+3) Moscow',
