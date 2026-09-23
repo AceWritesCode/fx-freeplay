@@ -211,6 +211,36 @@ describe('Physical-Pixel Standard Figure Rendering (figurePhysicalRenderer.ts)',
       assert.equal(drawnCoords.length, 2);
       assert.ok(Math.abs(drawnCoords[0].y - expectedSnappedY) < 1e-9);
       assert.ok(Math.abs(drawnCoords[1].y - expectedSnappedY) < 1e-9);
+
+      // Dotted horizontal line (e.g. price line set to dotted)
+      lineDashSet = [];
+      drawPhysicalLine(
+        mockCtx,
+        { coordinates: [{ x: 0, y: 100 }, { x: 1000, y: 100 }] },
+        { size: 1, style: 'dotted' },
+        1.0
+      );
+      assert.deepEqual(lineDashSet, [2, 2], 'style: dotted should default to [2, 2] dash');
+
+      // Dotted line with custom dashedValue
+      lineDashSet = [];
+      drawPhysicalLine(
+        mockCtx,
+        { coordinates: [{ x: 0, y: 100 }, { x: 1000, y: 100 }] },
+        { size: 1, style: 'dotted', dashedValue: [1, 3] },
+        1.0
+      );
+      assert.deepEqual(lineDashSet, [1, 3], 'style: dotted should respect explicit dashedValue');
+
+      // Solid line resets line dash to []
+      lineDashSet = [2, 2];
+      drawPhysicalLine(
+        mockCtx,
+        { coordinates: [{ x: 0, y: 100 }, { x: 1000, y: 100 }] },
+        { size: 1, style: 'solid' },
+        1.0
+      );
+      assert.deepEqual(lineDashSet, [], 'style: solid should clear line dash');
     });
   });
 

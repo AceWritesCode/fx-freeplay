@@ -97,7 +97,8 @@ export function drawPhysicalLine(
   const smooth = styles.smooth || false;
   const logicalSize = styles.size !== undefined ? styles.size : (styles.lineWidth !== undefined ? styles.lineWidth : 1);
   const color = styles.color || 'currentColor';
-  const dashedValue = styles.dashedValue || [2, 2];
+  const isDashedOrDotted = style === 'dashed' || style === 'dotted';
+  const dashedValue = styles.dashedValue || (style === 'dotted' ? [2, 2] : [4, 4]);
   const lineCap = styles.lineCap;
   const lineJoin = styles.lineJoin;
 
@@ -124,7 +125,7 @@ export function drawPhysicalLine(
     ctx.lineJoin = 'miter';
   }
 
-  if (style === 'dashed') {
+  if (isDashedOrDotted) {
     ctx.setLineDash(dashedValue);
   } else {
     ctx.setLineDash([]);
@@ -185,7 +186,6 @@ export function drawPhysicalRect(
   const borderColor = styles.borderColor || 'transparent';
   const borderStyle = styles.borderStyle || 'solid';
   const r = styles.borderRadius || 0;
-  const borderDashedValue = styles.borderDashedValue || [2, 2];
 
   const dpr = customDpr !== undefined ? customDpr : getDevicePixelRatio();
   const logicalBorderSize = styles.borderSize !== undefined ? styles.borderSize : 1;
@@ -219,7 +219,10 @@ export function drawPhysicalRect(
     ctx.fillStyle = borderColor;
     ctx.lineWidth = borderSize;
 
-    if (borderStyle === 'dashed') {
+    const isBorderDashedOrDotted = borderStyle === 'dashed' || borderStyle === 'dotted';
+    const borderDashedValue = styles.borderDashedValue || (borderStyle === 'dotted' ? [2, 2] : [4, 4]);
+
+    if (isBorderDashedOrDotted) {
       ctx.setLineDash(borderDashedValue);
     } else {
       ctx.setLineDash([]);
@@ -264,7 +267,8 @@ export function drawPhysicalCircle(
   const color = styles.color || 'currentColor';
   const borderColor = styles.borderColor || 'currentColor';
   const borderStyle = styles.borderStyle || 'solid';
-  const borderDashedValue = styles.borderDashedValue || [2, 2];
+  const isBorderDashedOrDotted = borderStyle === 'dashed' || borderStyle === 'dotted';
+  const borderDashedValue = styles.borderDashedValue || (borderStyle === 'dotted' ? [2, 2] : [4, 4]);
 
   const dpr = customDpr !== undefined ? customDpr : getDevicePixelRatio();
   const logicalBorderSize = styles.borderSize !== undefined ? styles.borderSize : 1;
@@ -290,7 +294,7 @@ export function drawPhysicalCircle(
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderSize;
 
-    if (borderStyle === 'dashed') {
+    if (isBorderDashedOrDotted) {
       ctx.setLineDash(borderDashedValue);
     } else {
       ctx.setLineDash([]);
@@ -322,7 +326,8 @@ export function drawPhysicalPolygon(
   const color = styles.color || 'currentColor';
   const borderColor = styles.borderColor || 'currentColor';
   const borderStyle = styles.borderStyle || 'solid';
-  const borderDashedValue = styles.borderDashedValue || [2, 2];
+  const isBorderDashedOrDotted = borderStyle === 'dashed' || borderStyle === 'dotted';
+  const borderDashedValue = styles.borderDashedValue || (borderStyle === 'dotted' ? [2, 2] : [4, 4]);
 
   const dpr = customDpr !== undefined ? customDpr : getDevicePixelRatio();
   const logicalBorderSize = styles.borderSize !== undefined ? styles.borderSize : 1;
@@ -353,7 +358,7 @@ export function drawPhysicalPolygon(
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderSize;
 
-    if (borderStyle === 'dashed') {
+    if (isBorderDashedOrDotted) {
       ctx.setLineDash(borderDashedValue);
     } else {
       ctx.setLineDash([]);
@@ -387,7 +392,8 @@ export function drawPhysicalArc(
   const style = styles.style || 'solid';
   const logicalSize = styles.size !== undefined ? styles.size : 1;
   const color = styles.color || 'currentColor';
-  const dashedValue = styles.dashedValue || [2, 2];
+  const isDashedOrDotted = style === 'dashed' || style === 'dotted';
+  const dashedValue = styles.dashedValue || (style === 'dotted' ? [2, 2] : [4, 4]);
 
   const dpr = customDpr !== undefined ? customDpr : getDevicePixelRatio();
   const size = logicalSize < 1 && logicalSize > 0 ? logicalSize : toPhysicalStrokeWidth(logicalSize, dpr);
@@ -395,7 +401,7 @@ export function drawPhysicalArc(
   ctx.lineWidth = size;
   ctx.strokeStyle = color;
 
-  if (style === 'dashed') {
+  if (isDashedOrDotted) {
     ctx.setLineDash(dashedValue);
   } else {
     ctx.setLineDash([]);

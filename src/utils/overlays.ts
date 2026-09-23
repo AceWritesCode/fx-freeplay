@@ -52,6 +52,8 @@ export function registerCustomOverlays() {
       }
 
       const width = bounding?.width ?? 1000;
+      const priceLineStyle = chart._priceLineStyle || 'dashed';
+      const dashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
 
       return [
         {
@@ -63,10 +65,10 @@ export function registerCustomOverlays() {
             ]
           },
           styles: {
-            style: chart._priceLineStyle || 'dashed',
+            style: priceLineStyle,
             color: color,
             size: chart._priceLineSize || 1,
-            dashedValue: [4, 4]
+            dashedValue: dashedValue
           }
         }
       ];
@@ -192,6 +194,8 @@ export function registerCustomOverlays() {
         }
       }
 
+      const dashedValue = style === 'dotted' ? [2, 2] : [4, 4];
+
       // Convert only those day transitions to lines
       dayTransitionIndices.forEach(idx => {
         const candle = dataList[idx];
@@ -213,7 +217,7 @@ export function registerCustomOverlays() {
               style: style,
               color: color,
               size: size,
-              dashedValue: [4, 4]
+              dashedValue: dashedValue
             }
           });
         }
