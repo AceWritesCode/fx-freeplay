@@ -44,8 +44,9 @@ import { ResetViewOverlay } from './components/ResetViewOverlay';
 import { WorkspaceImportOverlay } from './components/WorkspaceImportOverlay';
 import { HEADER_TIMEFRAMES, WORKSPACE_LAYOUT_OPTIONS } from './config/workspaceLayouts';
 
-import { PRESET_TIMEFRAMES, TIMEZONE_OPTIONS } from '@/config';
+import { PRESET_TIMEFRAMES, TIMEZONE_OPTIONS, getThemeChartBackground } from '@/config';
 import type { ChartSettings } from '@/config';
+import { formatChartDate, applyColorWithOpacity, resolveVisibleScaleTextColor, resolveVisibleScaleLineColor, resolveVisibleCrosshairTextColor } from '@/utils/chartFormatters';
 
 import {
   getLayoutChartCount,
@@ -120,6 +121,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
   // Zustand Store Hooks
   const { settings, setSettings, customTimeframes } = useSettingsStore();
+  const settingsRef = useRef<ChartSettings>(settings);
+  settingsRef.current = settings;
 
   const {
     layoutType,
@@ -262,18 +265,137 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     chart._appTimezone = s.userTimezoneLabel;
     chart._chartType = s.chartType || 'candlestick';
 
+    // Crosshair configuration
+    const effectiveCrosshairColor = applyColorWithOpacity(
+      s.crosshairColor || '#888888',
+      s.crosshairOpacity ?? 1
+    );
+    const rawCrosshairLabelBg = s.crosshairLabelBgColor || s.crosshairColor || '#363c4e';
+    const effectiveCrosshairLabelBg = applyColorWithOpacity(
+      rawCrosshairLabelBg,
+      s.crosshairLabelBgOpacity ?? s.crosshairOpacity ?? 1
+    );
+    const rawCrosshairTextColor = s.crosshairTextColor || '#ffffff';
+    const effectiveCrosshairTextColor = resolveVisibleCrosshairTextColor(
+      rawCrosshairTextColor,
+      effectiveCrosshairLabelBg
+    );
+
+    const crosshairSize = s.crosshairSize || 1;
+    const crosshairStyle = s.crosshairStyle || 'dashed';
+    const crosshairDashedValue = crosshairStyle === 'dotted' ? [2, 2] : [4, 4];
+    const isCrosshairSolid = crosshairStyle === 'solid';
+
+    // Grid configuration with independent vert/horiz support & legacy fallback
+    const legacyShowHoriz = s.gridType === 'Vert and Horiz' || s.gridType === 'Horizontal Only';
+    const legacyShowVert = s.gridType === 'Vert and Horiz' || s.gridType === 'Vertical Only';
+
+    const showHorizGrid = s.horizGridStyle
+      ? s.horizGridStyle !== 'none'
+      : (s.gridType ? legacyShowHoriz : false);
+    const horizGridStyle = s.horizGridStyle && s.horizGridStyle !== 'none'
+      ? s.horizGridStyle
+      : (s.gridStyle || 'dashed');
+    const horizGridColor = applyColorWithOpacity(
+      s.horizGridColor || s.gridColor || '#242832',
+      s.horizGridOpacity ?? 1
+    );
+
+    const showVertGrid = s.vertGridStyle
+      ? s.vertGridStyle !== 'none'
+      : (s.gridType ? legacyShowVert : false);
+    const vertGridStyle = s.vertGridStyle && s.vertGridStyle !== 'none'
+      ? s.vertGridStyle
+      : (s.gridStyle || 'dashed');
+    const vertGridColor = applyColorWithOpacity(
+      s.vertGridColor || s.gridColor || '#242832',
+      s.vertGridOpacity ?? 1
+    );
+
+    // Scales labels and appearance configuration
+    const showPriceLabels = s.showPriceScalePriceLabels !== false;
+    const showLastPriceLabel = (s.showPriceScaleLastPriceLabel ?? s.showPriceLineLabel) !== false;
+    const showPriceCrosshairLabel = s.showPriceScaleCrosshairLabel !== false;
+
+    const showTimeLabels = s.showTimeScaleLabels !== false;
+    const showTimeCrosshairLabel = s.showTimeScaleCrosshairLabel !== false;
+
+    const effectiveBg = s.backgroundType === 'None'
+      ? getThemeChartBackground(useSettingsStore.getState().themeMode, useSettingsStore.getState().customTheme)
+      : (s.background || '#131722');
+
+    const rawScalesTextColor = s.scaleTextColor || s.scalesTextColor || '#b2b5be';
+    const scalesTextColor = resolveVisibleScaleTextColor(rawScalesTextColor, effectiveBg);
+    const scalesTextSize = s.scaleTextSize || s.scalesTextSize || 11;
+
+    const rawScalesLinesColor = s.scaleAxisLineColor || s.scalesLinesColor || '#242832';
+    const scalesLinesColor = resolveVisibleScaleLineColor(rawScalesLinesColor, effectiveBg);
+    const showScalesLines = (s.scaleAxisLinesVisible ?? s.showScalesLines) !== false;
+
+    // Price line styling
+    const priceLineStyle = s.priceLineStyle || 'dashed';
+    const showPriceLineStroke = s.showPriceLine && priceLineStyle !== 'none';
+    const priceLineDashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
+    const isPriceLineSolid = priceLineStyle === 'solid';
+
+    // Dynamic price scale positioning (left/right)
+    if (typeof chart.overrideYAxis === 'function') {
+      chart.overrideYAxis({ position: s.priceScalePosition || 'right' });
+    }
+
     chart.setStyles({
       grid: {
-        show: s.gridType !== 'None',
+        show: showHorizGrid || showVertGrid,
         horizontal: {
-          show: s.gridType === 'Vert and Horiz' || s.gridType === 'Horizontal Only',
-          color: s.gridColor,
-          style: s.gridStyle,
+          show: showHorizGrid,
+          color: horizGridColor,
+          size: 1,
+          style: horizGridStyle === 'solid' ? 'solid' : 'dashed',
+          dashedValue: horizGridStyle === 'dotted' ? [2, 2] : [4, 4],
         },
         vertical: {
-          show: s.gridType === 'Vert and Horiz' || s.gridType === 'Vertical Only',
-          color: s.gridColor,
-          style: s.gridStyle,
+          show: showVertGrid,
+          color: vertGridColor,
+          size: 1,
+          style: vertGridStyle === 'solid' ? 'solid' : 'dashed',
+          dashedValue: vertGridStyle === 'dotted' ? [2, 2] : [4, 4],
+        },
+      },
+      crosshair: {
+        show: true,
+        horizontal: {
+          show: true,
+          line: {
+            show: true,
+            style: isCrosshairSolid ? 'solid' : 'dashed',
+            dashedValue: crosshairDashedValue,
+            size: crosshairSize,
+            color: effectiveCrosshairColor,
+          },
+          text: {
+            show: showPriceCrosshairLabel,
+            color: effectiveCrosshairTextColor,
+            size: scalesTextSize,
+            family: 'Noto Sans, sans-serif',
+            backgroundColor: effectiveCrosshairLabelBg,
+          },
+        },
+        vertical: {
+          show: true,
+          line: {
+            show: true,
+            style: isCrosshairSolid ? 'solid' : 'dashed',
+            dashedValue: crosshairDashedValue,
+            size: crosshairSize,
+            color: effectiveCrosshairColor,
+          },
+          text: {
+            show: showTimeCrosshairLabel,
+            color: effectiveCrosshairTextColor,
+            size: scalesTextSize,
+            family: 'Noto Sans, sans-serif',
+            backgroundColor: effectiveCrosshairLabelBg,
+          },
         },
       },
       candle: {
@@ -314,13 +436,14 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             downColor: s.bearColor,
             noChangeColor: '#888888',
             line: {
-              show: isReplayActive ? false : s.showPriceLine,
-              style: s.priceLineStyle,
+              show: isReplayActive ? false : showPriceLineStroke,
+              style: isPriceLineSolid ? 'solid' : 'dashed',
+              dashedValue: priceLineDashedValue,
               size: s.priceLineSize,
               color: s.priceLineColor,
             },
             text: {
-              show: isReplayActive ? false : s.showPriceLineLabel,
+              show: isReplayActive ? false : showLastPriceLabel,
               size: 11,
               family: 'Noto Sans, sans-serif',
               color: '#ffffff',
@@ -329,20 +452,20 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         },
       },
       xAxis: {
-        axisLine: { show: s.showScalesLines, color: s.scalesLinesColor, size: 1 },
+        axisLine: { show: showScalesLines, color: scalesLinesColor, size: 1 },
         tickText: {
-          show: true,
-          color: s.scalesTextColor,
-          size: s.scalesTextSize,
+          show: showTimeLabels,
+          color: scalesTextColor,
+          size: scalesTextSize,
           family: 'Noto Sans, sans-serif',
         },
       },
       yAxis: {
-        axisLine: { show: s.showScalesLines, color: s.scalesLinesColor, size: 1 },
+        axisLine: { show: showScalesLines, color: scalesLinesColor, size: 1 },
         tickText: {
-          show: true,
-          color: s.scalesTextColor,
-          size: s.scalesTextSize,
+          show: showPriceLabels,
+          color: scalesTextColor,
+          size: scalesTextSize,
           family: 'Noto Sans, sans-serif',
         },
       },
@@ -811,21 +934,20 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           initializeCandlePhysicalRendering();
 
           const chart = init(container, {
+            layout: {
+              basicParams: {
+                barSpaceLimitMin: 0.1,
+                barSpaceLimitMax: 1000,
+              },
+            },
             formatter: {
               formatDate: ({ timestamp }) => {
-                const date = new Date(timestamp);
-                if (isNaN(date.getTime())) return '-';
-                const day = String(date.getDate()).padStart(2, '0');
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const month = months[date.getMonth()];
-                const year = date.getFullYear();
-                let hours = date.getHours();
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                const ampm = hours >= 12 ? 'PM' : 'AM';
-                hours = hours % 12;
-                hours = hours ? hours : 12;
-                const hoursStr = String(hours).padStart(2, '0');
-                return `${day} ${month} ${year} ${hoursStr}:${minutes} ${ampm}`;
+                const cur = settingsRef.current;
+                return formatChartDate(timestamp, {
+                  dateFormat: cur?.dateFormat,
+                  timeFormat: cur?.timeFormat,
+                  showDayOfWeek: cur?.showTimeScaleDayOfWeek,
+                });
               }
             }
           });
@@ -837,6 +959,16 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             (chart as any)._appTimezone = settings.userTimezoneLabel;
             applySettingsToChart(chart, settings);
             
+            // Ensure bar space limits on store layout params
+            const chartStore = (chart as any)._chartStore;
+            if (chartStore?.getLayoutBasicParams) {
+              const layoutParams = chartStore.getLayoutBasicParams();
+              if (layoutParams) {
+                layoutParams.barSpaceLimitMin = 0.1;
+                layoutParams.barSpaceLimitMax = 1000;
+              }
+            }
+
             const markUserInteraction = (e: Event) => {
               if (drawingTargetChartIndexRef.current !== null && drawingTargetChartIndexRef.current !== i) {
                 e.preventDefault();
@@ -852,8 +984,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             container.addEventListener('mouseup', markUserInteraction, { capture: true });
             container.addEventListener('wheel', markUserInteraction, { capture: true });
 
-            chart.setMaxOffsetLeftDistance(10000);
-            chart.setMaxOffsetRightDistance(10000);
+            if (typeof chart.setLeftMinVisibleBarCount === 'function') {
+              chart.setLeftMinVisibleBarCount(1);
+            }
+            if (typeof chart.setRightMinVisibleBarCount === 'function') {
+              chart.setRightMinVisibleBarCount(1);
+            }
             
             const slotTf = slots[i]?.timeframe || '1m';
             chart.setPeriod(parseTimeframeToPeriod(slotTf));
@@ -1294,16 +1430,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     return newOffsetMs - prevOffsetMs;
   };
 
-  const handleSettingsSave = (newSettings: ChartSettings) => {
-    const deltaMs = calculateTimezoneDeltaMs(settings, newSettings);
-    if (deltaMs !== 0) {
-      useDrawingStore.getState().shiftDrawingTimestamps(deltaMs);
-    }
-
-    const timezoneChanged = deltaMs !== 0;
-
+  const handleLiveSettingsChange = (newSettings: ChartSettings) => {
     setSettings(newSettings);
-    settingsRepository.saveSettings(newSettings);
 
     const visibleCount = getLayoutChartCount(layoutType);
     for (let i = 0; i < visibleCount; i++) {
@@ -1324,20 +1452,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     }
 
     const chartTypeChanged = newSettings.chartType !== settings.chartType;
-
-    if (timezoneChanged) {
-      const visibleSlots: Array<{ symbol: string; timeframe: string; slotIndex: number }> = [];
-      for (let i = 0; i < visibleCount; i++) {
-        const slot = slots[i];
-        if (slot && slot.symbol) {
-          visibleSlots.push({ symbol: slot.symbol, timeframe: slot.timeframe, slotIndex: i });
-        }
-      }
-      dataVersionRef.current += 1;
-      workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
-      runWorkspaceReconciliation(chartInstancesRef);
-    } else if (chartTypeChanged) {
-      // Re-feed presentation data to chart slots without regenerating underlying timeframe caches
+    if (chartTypeChanged) {
       for (let i = 0; i < visibleCount; i++) {
         const c = chartInstancesRef.current[i];
         const slot = slots[i];
@@ -1358,6 +1473,32 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           }
         }
       }
+    }
+  };
+
+  const handleSettingsSave = (newSettings: ChartSettings) => {
+    const deltaMs = calculateTimezoneDeltaMs(settings, newSettings);
+    if (deltaMs !== 0) {
+      useDrawingStore.getState().shiftDrawingTimestamps(deltaMs);
+    }
+
+    const timezoneChanged = deltaMs !== 0;
+
+    handleLiveSettingsChange(newSettings);
+    settingsRepository.saveSettings(newSettings);
+
+    const visibleCount = getLayoutChartCount(layoutType);
+    if (timezoneChanged) {
+      const visibleSlots: Array<{ symbol: string; timeframe: string; slotIndex: number }> = [];
+      for (let i = 0; i < visibleCount; i++) {
+        const slot = slots[i];
+        if (slot && slot.symbol) {
+          visibleSlots.push({ symbol: slot.symbol, timeframe: slot.timeframe, slotIndex: i });
+        }
+      }
+      dataVersionRef.current += 1;
+      workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
+      runWorkspaceReconciliation(chartInstancesRef);
     }
   };
 
@@ -2087,6 +2228,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
+        onLiveSettingsChange={handleLiveSettingsChange}
         onSettingsSave={handleSettingsSave}
         hasData={hasData}
         onClearDatabase={workspaceCoord.handleClearDatabase}

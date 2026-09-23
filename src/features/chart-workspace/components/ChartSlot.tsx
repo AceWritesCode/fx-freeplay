@@ -2,6 +2,7 @@ import React from 'react';
 import { SlotFloatingTextOverlays } from './SlotFloatingTextOverlays';
 import { ActiveSessionBanners } from '@/features/session-display';
 import { InsufficientReplayDataOverlay } from './InsufficientReplayDataOverlay';
+import { applyColorWithOpacity } from '@/utils/chartFormatters';
 
 interface ChartSlotProps {
   slotIndex: number;
@@ -65,6 +66,10 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
     firstAvailableTimestamp !== null &&
     replayCurrentTimestamp < firstAvailableTimestamp
   );
+  const effectiveWatermarkColor = applyColorWithOpacity(
+    settings.watermarkColor || 'rgba(255, 255, 255, 0.05)',
+    settings.watermarkOpacity
+  );
 
   return (
     <div
@@ -104,6 +109,21 @@ export const ChartSlot: React.FC<ChartSlotProps> = ({
               : settings.background,
         }}
       />
+
+      {/* Chart Watermark (Symbol & Timeframe) */}
+      {settings.showWatermark && slotInfo?.symbol && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-0 overflow-hidden leading-none"
+          style={{ color: effectiveWatermarkColor }}
+        >
+          <span className="text-6xl md:text-8xl font-black tracking-wider uppercase opacity-90">
+            {slotInfo.symbol}
+          </span>
+          <span className="text-xl md:text-2xl font-bold tracking-widest uppercase opacity-75 mt-2">
+            {slotInfo.timeframe}
+          </span>
+        </div>
+      )}
 
       {/* Blocked interaction overlay for inactive slots during an active drawing session */}
       {isDrawingBlocked && (
