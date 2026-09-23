@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { GripVertical } from 'lucide-react';
 import { ToolRegistry } from '@/framework/tools';
 import { useDrawingStore } from '@/store';
-import { CURSOR_TOOLS, MeasureIcon, ZoomInIcon } from '@/features/chart-workspace/components/DrawingToolbar';
+import { CURSOR_TOOLS, MeasureIcon, ZoomInIcon, ToolIconWrapper } from '@/features/chart-workspace/components/DrawingToolbar';
 
 interface FavoriteDrawingToolbarProps {
   activeTool: string | null;
@@ -51,43 +51,60 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const draggedToolIndexRef = useRef<number | null>(null);
+  const posRef = useRef<{ x: number; y: number }>(position);
 
-  // Free Dragging handler
-  const handleDragStart = (e: React.MouseEvent) => {
+  // Keep posRef in sync with committed React state
+  posRef.current = position;
+
+  // Free Dragging handler (Direct imperative DOM updates during drag to eliminate lag)
+  const handleDragStart = (e: React.PointerEvent | React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
     isDraggingRef.current = true;
+
+    const el = toolbarRef.current;
+    const cachedWidth = el?.offsetWidth || 200;
+    const cachedHeight = el?.offsetHeight || 38;
+
     dragOffsetRef.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
+      x: e.clientX - posRef.current.x,
+      y: e.clientY - posRef.current.y,
     };
 
-    const handleMouseMove = (ev: MouseEvent) => {
+    const handlePointerMove = (ev: PointerEvent | MouseEvent) => {
       if (!isDraggingRef.current) return;
-      const el = toolbarRef.current;
-      const width = el?.offsetWidth || 200;
-      const height = el?.offsetHeight || 38;
 
-      const newX = Math.max(10, Math.min(window.innerWidth - width - 10, ev.clientX - dragOffsetRef.current.x));
-      const newY = Math.max(10, Math.min(window.innerHeight - height - 10, ev.clientY - dragOffsetRef.current.y));
+      const newX = Math.max(10, Math.min(window.innerWidth - cachedWidth - 10, ev.clientX - dragOffsetRef.current.x));
+      const newY = Math.max(10, Math.min(window.innerHeight - cachedHeight - 10, ev.clientY - dragOffsetRef.current.y));
 
-      setPosition({ x: newX, y: newY });
+      posRef.current = { x: newX, y: newY };
+      if (toolbarRef.current) {
+        toolbarRef.current.style.left = `${newX}px`;
+        toolbarRef.current.style.top = `${newY}px`;
+      }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
+      if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      setPosition((curr) => {
-        try {
-          localStorage.setItem('fx_favorite_toolbar_pos', JSON.stringify(curr));
-        } catch (_) {}
-        return curr;
-      });
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+
+      const finalPos = posRef.current;
+      setPosition(finalPos);
+      try {
+        localStorage.setItem('fx_favorite_toolbar_pos', JSON.stringify(finalPos));
+      } catch (_) {}
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
   };
 
   // Reorder Item Handlers
@@ -210,15 +227,17 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
         top: `${position.y}px`,
       }}
       data-floating-ui="true"
-      className="fixed z-50 flex items-center bg-modal-bg/95 backdrop-blur-sm border border-border-def rounded-lg shadow-2xl p-1 gap-0.5 select-none transition-shadow"
+      className="fixed z-50 flex items-center bg-modal-bg/95 backdrop-blur-sm border border-border-def rounded-lg shadow-2xl p-0 gap-0.5 select-none"
     >
       {/* Drag Grip Handle */}
       <div
+        onPointerDown={handleDragStart}
         onMouseDown={handleDragStart}
-        className="w-5 h-7 flex items-center justify-center text-txt-muted hover:text-txt-primary cursor-grab active:cursor-grabbing rounded hover:bg-surface-hover/50 transition-colors"
+        className="flex items-center justify-center text-txt-muted hover:text-txt-primary cursor-grab active:cursor-grabbing rounded hover:bg-surface-hover/50 transition-colors flex-shrink-0 select-none box-border"
+        style={{ width: '24px', height: '38px', minWidth: '24px', maxWidth: '24px', minHeight: '38px', maxHeight: '38px' }}
         title="Drag toolbar"
       >
-        <GripVertical className="w-3.5 h-3.5" />
+        <GripVertical className="w-3.5 h-3.5 pointer-events-none" />
       </div>
 
       {/* Tool Items */}
@@ -236,21 +255,22 @@ export const FavoriteDrawingToolbar: React.FC<FavoriteDrawingToolbarProps> = ({
             onDragEnd={handleItemDragEnd}
             onClick={tool.onClick}
             title={tool.name}
-            className={`w-7 h-7 flex items-center justify-center rounded transition-all outline-none focus:outline-none cursor-pointer ${
+            className={`flex items-center justify-center rounded transition-all outline-none focus:outline-none cursor-pointer flex-shrink-0 select-none box-border ${
               tool.isActive
                 ? 'bg-accent-muted text-accent font-semibold shadow-xs'
                 : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
             }`}
+            style={{ width: '38px', height: '38px', minWidth: '38px', maxWidth: '38px', minHeight: '38px', maxHeight: '38px' }}
           >
-            <span className="w-4 h-4 flex items-center justify-center text-current pointer-events-none">
+            <ToolIconWrapper>
               <ToolIcon className="w-full h-full text-current" />
-            </span>
+            </ToolIconWrapper>
           </button>
         );
       })}
 
       {favoriteTools.length === 0 && (
-        <span className="text-[11px] text-txt-muted px-2 py-0.5 whitespace-nowrap italic pointer-events-none">
+        <span className="text-[11px] text-txt-muted px-2 py-0.5 whitespace-nowrap italic pointer-events-none flex items-center h-[38px] select-none">
           Star tools to add
         </span>
       )}

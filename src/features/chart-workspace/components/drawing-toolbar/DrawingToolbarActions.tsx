@@ -1,5 +1,4 @@
 import React from 'react';
-import { Star } from 'lucide-react';
 import {
   ToolIconWrapper,
   MeasureIcon,
@@ -9,6 +8,7 @@ import {
   LockAllDrawingsIcon,
   HideAllDrawingsIcon,
   DeleteIcon,
+  FavoritesToolbarIcon,
 } from './DrawingToolbarIcons';
 
 export interface DrawingToolbarUtilityControlsProps {
@@ -256,7 +256,7 @@ export const DrawingToolbarActionControls: React.FC<DrawingToolbarActionControls
           style={{ width: '33px', height: '33px' }}
         >
           <ToolIconWrapper>
-            <Star className={`w-full h-full ${isFavoriteToolbarOpen ? 'fill-current text-txt-primary' : 'text-current'}`} />
+            <FavoritesToolbarIcon />
           </ToolIconWrapper>
         </button>
       </div>
