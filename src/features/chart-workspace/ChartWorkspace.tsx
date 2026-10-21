@@ -943,12 +943,18 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             formatter: {
               formatDate: ({ timestamp }) => {
                 const cur = settingsRef.current;
-                const isExchange = !cur?.timezoneAdjustmentEnabled || cur?.userTimezoneLabel === 'Exchange';
+                const offsetDiff = cur?.timezoneAdjustmentEnabled
+                  ? (cur?.userTimezoneOffset ?? 0) - (cur?.brokerTimezoneOffset ?? 0)
+                  : 0;
+                const isExchangeOrEquivalent = !cur?.timezoneAdjustmentEnabled
+                  || cur?.userTimezoneLabel === 'Exchange'
+                  || offsetDiff === 0;
+
                 return formatChartDate(timestamp, {
                   dateFormat: cur?.dateFormat,
                   timeFormat: cur?.timeFormat,
                   showDayOfWeek: cur?.showTimeScaleDayOfWeek,
-                  useUTC: isExchange,
+                  useUTC: isExchangeOrEquivalent,
                 });
               }
             }

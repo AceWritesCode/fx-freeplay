@@ -395,7 +395,7 @@ export function useWorkspaceCoordinator(
               }
             },
           });
-          chart.applyNewData(visibleData, false);
+          chart.resetData();
         }
       }
     }
@@ -423,7 +423,7 @@ export function useWorkspaceCoordinator(
           }
         },
       });
-      chart.applyNewData(visibleData, false);
+      chart.resetData();
     }
   };
 
@@ -1077,12 +1077,21 @@ export function useWorkspaceCoordinator(
         name: profile?.description || symbol,
         pricePrecision: profile?.digits ?? 5,
         brokerTimezoneLabel: 'UTC+2 (broker)',
-        brokerTimezoneOffset: 2,
+        brokerTimezoneOffset: 120,
         timeframeKeys: Object.keys(timeframes_data || {}),
         source: 'MT5_AUTO_BRIDGE',
       };
       await watchlistRepository.saveSymbolProfile(symbol, symbolProfile);
       setSymbolProfileCache(symbol, symbolProfile);
+
+      // Sync settings broker timezone so adjustments align seamlessly
+      const updatedSettings = {
+        ...settings,
+        brokerTimezoneOffset: 120,
+        brokerTimezoneLabel: 'UTC+2 (broker)',
+      };
+      setSettings(updatedSettings);
+      settingsRepository.saveSettings(updatedSettings).catch(console.error);
 
       // 2. Save bars into market data repository and populate in-memory caches
       const tfs = Object.keys(timeframes_data || {});
@@ -1191,11 +1200,20 @@ export function useWorkspaceCoordinator(
         setTimezoneAdjustedBars(symbol, tf, adjusted);
         setAllTimeframesData((prev) => ({ ...prev, [tf]: adjusted }));
 
-        // Update chart directly
+        // Update chart directly with freshly merged data
         const chart = chartInstancesRef.current[activeChartIndex];
         if (chart) {
           const visibleData = toPresentationData(adjusted, settings.chartType);
-          chart.applyNewData(visibleData, false);
+          chart.setDataLoader({
+            getBars: ({ type: loadType, callback }: any) => {
+              if (loadType === 'init') {
+                callback(visibleData);
+              } else {
+                callback([]);
+              }
+            },
+          });
+          chart.resetData();
         }
         setWatchlistToast({ msg: `Updated with ${res.new_bars_count} new closed bar(s)!`, type: 'success' });
       } else {
