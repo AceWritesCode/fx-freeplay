@@ -191,6 +191,10 @@ ipcMain.handle('mt5-sync-chart', async (_event, params) => {
   return executePythonBridge({ cmd: 'sync_chart', params: params || {} });
 });
 
+ipcMain.handle('mt5-fetch-timeframe', async (_event, params) => {
+  return executePythonBridge({ cmd: 'fetch_timeframe', params: params || {} });
+});
+
 app.whenReady().then(() => {
   createWindow();
 

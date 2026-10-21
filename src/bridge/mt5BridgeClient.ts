@@ -48,6 +48,7 @@ interface ElectronBridgeAPI {
   listTerminals: () => Promise<{ status: string; data?: TerminalInfo[]; error?: string }>;
   getActiveChart: (params?: { terminal_path?: string }) => Promise<{ status: string; data?: ActiveChartInfo; error?: string }>;
   syncChart: (params?: { terminal_path?: string; bar_count?: number; db_path?: string }) => Promise<{ status: string; data?: SyncChartResult; error?: string }>;
+  fetchTimeframe: (params: { symbol: string; timeframe: string; bar_count?: number; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
 }
 
 declare global {
@@ -119,5 +120,23 @@ export const mt5BridgeClient = {
       return res.data;
     }
     throw new Error(res.error || 'Failed to synchronize chart data from MetaTrader 5.');
+  },
+
+  async fetchTimeframe(symbol: string, timeframe: string, barCount: number = 50000, terminalPath?: string): Promise<any[]> {
+    if (!this.isAvailable()) return [];
+    try {
+      const res = await window.electronAPI!.mt5!.fetchTimeframe({
+        symbol,
+        timeframe,
+        bar_count: barCount,
+        terminal_path: terminalPath,
+      });
+      if (res.status === 'ok' && res.data?.bars) {
+        return res.data.bars;
+      }
+    } catch (e) {
+      console.warn(`[mt5BridgeClient] Failed to fetch timeframe ${timeframe} for ${symbol}:`, e);
+    }
+    return [];
   },
 };

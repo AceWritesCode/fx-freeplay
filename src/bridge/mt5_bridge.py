@@ -278,12 +278,14 @@ def check_system() -> Dict[str, Any]:
 # Timeframe specs for complete symbol dataset extraction
 STANDARD_TIMEFRAME_SPECS = [
     ('1m', 1, 50000),
-    ('5m', 5, 30000),
-    ('15m', 15, 20000),
-    ('30m', 30, 15000),
-    ('1h', 16385, 10000),
-    ('4h', 16388, 5000),
-    ('D', 16408, 3000),
+    ('5m', 5, 50000),
+    ('15m', 15, 50000),
+    ('30m', 30, 50000),
+    ('1h', 16385, 50000),
+    ('4h', 16388, 50000),
+    ('D', 16408, 50000),
+    ('W', 32769, 50000),
+    ('M', 49153, 50000),
 ]
 
 
@@ -351,10 +353,13 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
         timeframes_data = {}
         total_bars_count = 0
 
-        # Extract rates for all standard timeframes
-        for tf_name, tf_const, max_bars in STANDARD_TIMEFRAME_SPECS:
-            limit = bar_count if tf_name == active_tf else min(bar_count, max_bars)
-            rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, limit)
+        # Extract rates for all standard timeframes up to bar_count (50,000 bars per timeframe)
+        for tf_name, tf_const, _ in STANDARD_TIMEFRAME_SPECS:
+            try:
+                rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, bar_count)
+            except Exception:
+                rates = None
+
             if rates is not None and len(rates) > 0:
                 bars_list = []
                 db_rows = []
@@ -417,6 +422,77 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
         mt5.shutdown()
 
 
+def fetch_symbol_timeframe(symbol: str, tf_name: str, bar_count: int = 50000, terminal_path: Optional[str] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
+    """Fetch candles for an individual timeframe on demand and save to SQLite."""
+    # Find MT5 timeframe constant
+    tf_const = TIMEFRAME_MAP.get(tf_name.upper()) or TIMEFRAME_MAP.get(tf_name.lower())
+    if not tf_const:
+        return {'success': False, 'error': f'Unknown timeframe {tf_name}'}
+
+    if not MT5_AVAILABLE:
+        return {'success': False, 'error': 'MetaTrader5 python package is not installed.'}
+
+    init_args = {}
+    if terminal_path and os.path.exists(terminal_path):
+        init_args['path'] = terminal_path
+
+    if not mt5.initialize(**init_args):
+        return {'success': False, 'error': f'MT5 initialization failed: {mt5.last_error()}'}
+
+    try:
+        mt5.symbol_select(symbol, True)
+        rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, bar_count)
+        if rates is None or len(rates) == 0:
+            return {'success': False, 'error': f'No rates returned for {symbol} {tf_name}: {mt5.last_error()}'}
+
+        target_db = get_sqlite_path(db_path)
+        init_sqlite_tables(target_db)
+
+        conn = sqlite3.connect(target_db)
+        cur = conn.cursor()
+
+        bars_list = []
+        db_rows = []
+        for r in rates:
+            timestamp_ms = int(r[0]) * 1000
+            bars_list.append({
+                'timestamp': timestamp_ms,
+                'open': float(r[1]),
+                'high': float(r[2]),
+                'low': float(r[3]),
+                'close': float(r[4]),
+                'volume': float(r[5]),
+            })
+            db_rows.append((
+                symbol,
+                tf_name,
+                timestamp_ms,
+                float(r[1]),
+                float(r[2]),
+                float(r[3]),
+                float(r[4]),
+                float(r[5]),
+            ))
+
+        cur.executemany('''
+            INSERT OR REPLACE INTO imported_series (symbol, timeframe, timestamp, open, high, low, close, volume)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', db_rows)
+
+        conn.commit()
+        conn.close()
+
+        return {
+            'success': True,
+            'symbol': symbol,
+            'timeframe': tf_name,
+            'bars_count': len(bars_list),
+            'bars': bars_list,
+        }
+    finally:
+        mt5.shutdown()
+
+
 def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
     cmd = req.get('cmd')
     params = req.get('params', {})
@@ -432,6 +508,18 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
         res = sync_active_chart(
             terminal_path=params.get('terminal_path'),
             bar_count=params.get('bar_count', 50000),
+            db_path=params.get('db_path'),
+        )
+        if res.get('success'):
+            return {'status': 'ok', 'data': res}
+        else:
+            return {'status': 'error', 'error': res.get('error')}
+    elif cmd == 'fetch_timeframe':
+        res = fetch_symbol_timeframe(
+            symbol=params.get('symbol'),
+            tf_name=params.get('timeframe'),
+            bar_count=params.get('bar_count', 50000),
+            terminal_path=params.get('terminal_path'),
             db_path=params.get('db_path'),
         )
         if res.get('success'):

@@ -48,6 +48,7 @@ import {
   executeImportPipeline,
   type ImportProgressState,
 } from './workspaceImportPipeline';
+import { mt5BridgeClient } from '@/bridge/mt5BridgeClient';
 
 export { parseTimezoneToLabelAndOffset, clearWorkspaceCaches };
 export type { ImportProgressState };
@@ -258,7 +259,23 @@ export function useWorkspaceCoordinator(
       return adjusted;
     }
 
-    // 3. If not in DB, check files map (Folder import mode)
+    // 3. If symbol came from MT5 Bridge, fetch real MT5 bars for this timeframe on-demand
+    const profile = getSymbolProfileCache(symbol) || await watchlistRepository.getSymbolProfile(symbol);
+    if (profile?.source === 'MT5_AUTO_BRIDGE' && mt5BridgeClient.isAvailable()) {
+      try {
+        const mt5Bars = await mt5BridgeClient.fetchTimeframe(symbol, tf, 50000);
+        if (mt5Bars && mt5Bars.length > 0) {
+          await marketDataRepository.saveBars(symbol, tf, mt5Bars);
+          const adjusted = adjustTimezone(mt5Bars);
+          setTimezoneAdjustedBars(symbol, tf, adjusted);
+          return adjusted;
+        }
+      } catch (e) {
+        console.warn(`[DEBUG] Failed to fetch MT5 timeframe ${tf} on demand:`, e);
+      }
+    }
+
+    // 4. If not in DB, check files map (Folder import mode)
     const filesMap = useWatchlistStore.getState().symbolFilesMap;
     const files = filesMap[symbol];
     if (files) {
