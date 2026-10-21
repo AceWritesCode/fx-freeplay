@@ -77,6 +77,7 @@ interface HeaderProps {
   onSyncSettingChange: (key: 'syncSymbol' | 'syncInterval' | 'syncCrosshair' | 'syncTime' | 'syncDateRange' | 'syncDrawings', val: boolean) => void;
   onRefreshData?: () => void;
   isRefreshingData?: boolean;
+  liveTick?: { bid: number; ask: number; last: number; spread: number } | null;
 }
 
 interface CustomIntervalStepperProps {
@@ -265,6 +266,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
     onSyncSettingChange,
     onRefreshData,
     isRefreshingData,
+    liveTick,
   } = props;
 
   return (
@@ -292,6 +294,21 @@ export const Header: React.FC<HeaderProps> = (props) => {
         </div>
         <div className="h-4 w-px bg-border-sub" />
         <span className="text-sm font-semibold text-txt-primary truncate max-w-[120px] sm:max-w-xs">{assetName}</span>
+
+        {hasData && liveTick && (
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-app-bg border border-border-sub text-[11px] font-mono tracking-tight">
+            <span className="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse" />
+            <span className="text-txt-muted text-[10px] uppercase font-bold tracking-wider">Bid</span>
+            <span className="text-txt-primary font-semibold">{liveTick.bid}</span>
+            <span className="text-txt-muted text-[10px] uppercase font-bold tracking-wider ml-1">Ask</span>
+            <span className="text-txt-primary font-semibold">{liveTick.ask}</span>
+            {liveTick.spread !== undefined && (
+              <span className="ml-1 px-1 py-0.2 rounded bg-surface-elevated text-accent font-bold text-[10px]">
+                {liveTick.spread}
+              </span>
+            )}
+          </div>
+        )}
 
         {hasData && parseFeedback && (
           <button

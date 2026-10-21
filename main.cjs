@@ -123,6 +123,22 @@ ipcMain.on('set-startup', (event, { login, hidden }) => {
 });
 
 // --- MT5 Python Bridge IPC ---
+let activeStreamPyProcess = null;
+let streamStdoutBuffer = '';
+
+function stopActiveStreamProcess() {
+  if (activeStreamPyProcess) {
+    try {
+      activeStreamPyProcess.stdin.write(JSON.stringify({ cmd: 'stop_stream' }) + '\n');
+    } catch (_) {}
+    try {
+      activeStreamPyProcess.kill();
+    } catch (_) {}
+    activeStreamPyProcess = null;
+    streamStdoutBuffer = '';
+  }
+}
+
 function executePythonBridge(req) {
   return new Promise((resolve) => {
     const scriptPath = path.join(__dirname, 'src', 'bridge', 'mt5_bridge.py');
@@ -197,6 +213,69 @@ ipcMain.handle('mt5-fetch-timeframe', async (_event, params) => {
 
 ipcMain.handle('mt5-refresh-incremental', async (_event, params) => {
   return executePythonBridge({ cmd: 'refresh_incremental', params: params || {} });
+});
+
+ipcMain.handle('mt5-subscribe-stream', async (event, params) => {
+  stopActiveStreamProcess();
+
+  const scriptPath = path.join(__dirname, 'src', 'bridge', 'mt5_bridge.py');
+  const py = spawn('python', [scriptPath], {
+    windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  activeStreamPyProcess = py;
+  streamStdoutBuffer = '';
+
+  const sender = event.sender;
+
+  py.stdout.on('data', (chunk) => {
+    streamStdoutBuffer += chunk.toString('utf-8');
+    const lines = streamStdoutBuffer.split('\n');
+    streamStdoutBuffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.type === 'stream_update' || parsed.type === 'stream_error') {
+          if (!sender.isDestroyed()) {
+            sender.send('mt5:live-feed', parsed);
+          }
+        }
+      } catch (_) {}
+    }
+  });
+
+  py.stderr.on('data', (chunk) => {
+    console.error(`[MT5 Stream Py stderr]: ${chunk.toString('utf-8')}`);
+  });
+
+  py.on('error', (err) => {
+    console.error('[MT5 Stream Py Error]:', err);
+    if (!sender.isDestroyed()) {
+      sender.send('mt5:live-feed', { type: 'stream_error', error: err.message });
+    }
+  });
+
+  py.on('close', (code) => {
+    console.log(`[MT5 Stream Py Closed]: code ${code}`);
+    if (activeStreamPyProcess === py) {
+      activeStreamPyProcess = null;
+    }
+  });
+
+  try {
+    py.stdin.write(JSON.stringify({ cmd: 'start_stream', params: params || {} }) + '\n');
+    return { status: 'ok', streaming: true };
+  } catch (e) {
+    return { status: 'error', error: e.message };
+  }
+});
+
+ipcMain.handle('mt5-unsubscribe-stream', async () => {
+  stopActiveStreamProcess();
+  return { status: 'ok', streaming: false };
 });
 
 app.whenReady().then(() => {

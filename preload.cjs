@@ -23,5 +23,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     syncChart: (params) => ipcRenderer.invoke('mt5-sync-chart', params),
     fetchTimeframe: (params) => ipcRenderer.invoke('mt5-fetch-timeframe', params),
     refreshIncremental: (params) => ipcRenderer.invoke('mt5-refresh-incremental', params),
+    subscribeStream: (params) => ipcRenderer.invoke('mt5-subscribe-stream', params),
+    unsubscribeStream: () => ipcRenderer.invoke('mt5-unsubscribe-stream'),
+    onLiveFeed: (callback) => {
+      const listener = (_event, data) => callback(data);
+      ipcRenderer.on('mt5:live-feed', listener);
+      return () => {
+        ipcRenderer.removeListener('mt5:live-feed', listener);
+      };
+    },
   },
 });

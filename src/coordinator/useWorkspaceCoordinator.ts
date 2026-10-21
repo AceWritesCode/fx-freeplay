@@ -48,7 +48,7 @@ import {
   executeImportPipeline,
   type ImportProgressState,
 } from './workspaceImportPipeline';
-import { mt5BridgeClient } from '@/bridge/mt5BridgeClient';
+import { mt5BridgeClient, type LiveStreamUpdate, type LiveTickData } from '@/bridge/mt5BridgeClient';
 
 export { parseTimezoneToLabelAndOffset, clearWorkspaceCaches };
 export type { ImportProgressState };
@@ -105,6 +105,10 @@ export function useWorkspaceCoordinator(
   const [showStats, setShowStats] = useState<boolean>(false);
   const [customAlert, setCustomAlert] = useState<{ title: string; message: string } | null>(null);
   const [watchlistToast, setWatchlistToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
+  const [liveTick, setLiveTick] = useState<LiveTickData | null>(null);
+
+  // Active chart stream subscribers map: slotIndex -> callback
+  const liveSubscribersRef = useRef<Map<number, { symbol: string; timeframe: string; callback: (bar: KLineData) => void }>>(new Map());
 
   // Bootstrap repositories and restore stored workspace state into Stores
   useEffect(() => {
@@ -243,6 +247,110 @@ export function useWorkspaceCoordinator(
       settings.userTimezoneOffset
     );
   }, [settings.timezoneAdjustmentEnabled, settings.brokerTimezoneOffset, settings.userTimezoneOffset]);
+
+  // Keep references to active chart and settings for the live feed listener
+  const activeChartIndexRef = useRef(activeChartIndex);
+  activeChartIndexRef.current = activeChartIndex;
+  const slotsRef = useRef(slots);
+  slotsRef.current = slots;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const isReplayActiveRef = useRef(isReplayActive);
+  isReplayActiveRef.current = isReplayActive;
+
+  // Global Electron IPC Live Feed Listener
+  useEffect(() => {
+    if (!mt5BridgeClient.isAvailable()) return;
+
+    const cleanup = mt5BridgeClient.onLiveFeed((update: LiveStreamUpdate) => {
+      if (update.type !== 'stream_update' || !update.bars || update.bars.length === 0) {
+        return;
+      }
+
+      // Safeguard: Check if replay simulation is currently active (do not advance live bars during backtesting replay)
+      if (isReplayActiveRef.current) {
+        return;
+      }
+
+      const activeIdx = activeChartIndexRef.current;
+      const currentSlot = slotsRef.current[activeIdx];
+      if (!currentSlot || !currentSlot.symbol) return;
+
+      // Safeguard 3: Stale event filtering - ensure incoming payload matches active symbol and timeframe
+      if (update.symbol !== currentSlot.symbol || update.timeframe !== currentSlot.timeframe) {
+        return;
+      }
+
+      // Update live tick state for UI header & spread
+      if (update.tick) {
+        setLiveTick(update.tick);
+      }
+
+      // Convert bars according to user/broker timezone settings
+      const rawBars = update.bars;
+      const s = settingsRef.current;
+      const adjustedBars = shiftCandlesTimezone(
+        rawBars,
+        s.timezoneAdjustmentEnabled,
+        s.brokerTimezoneOffset,
+        s.userTimezoneOffset
+      );
+      if (adjustedBars.length === 0) return;
+
+      // Extract forming bar [-1] and finalized bar [-2] (if count >= 2)
+      const formingBar = adjustedBars[adjustedBars.length - 1];
+      const prevBar = adjustedBars.length >= 2 ? adjustedBars[adjustedBars.length - 2] : null;
+
+      // Dispatch to active subscribers (KLineCharts dataLoader.subscribeBar callbacks)
+      liveSubscribersRef.current.forEach((sub, slotIdx) => {
+        if (sub.symbol === update.symbol && sub.timeframe === update.timeframe) {
+          const chart = chartInstancesRef.current[slotIdx];
+          if (!chart) return;
+
+          // When previous candle just finalized, pass it first to update its final close
+          if (prevBar) {
+            sub.callback(prevBar);
+          }
+          // Pass current forming bar to render real-time tick in-place
+          sub.callback(formingBar);
+        }
+      });
+
+      // Update in-memory timeframes data and SQLite on bar rollover
+      setAllTimeframesData((prev) => {
+        const existing = prev[update.timeframe] || [];
+        if (existing.length === 0) return prev;
+
+        const lastBar = existing[existing.length - 1];
+        if (formingBar.timestamp > lastBar.timestamp) {
+          // A NEW candle has started! The previous bar is now closed and finalized.
+          const updatedSeries = [...existing];
+          if (prevBar) {
+            updatedSeries[updatedSeries.length - 1] = prevBar;
+            // Commit finalized previous bar to SQLite asynchronously
+            const rawPrevBar = rawBars.length >= 2 ? rawBars[rawBars.length - 2] : null;
+            if (rawPrevBar) {
+              marketDataRepository.saveBars(update.symbol, update.timeframe, [rawPrevBar]).catch(console.error);
+            }
+          }
+          updatedSeries.push(formingBar);
+          setTimezoneAdjustedBars(update.symbol, update.timeframe, updatedSeries);
+          return { ...prev, [update.timeframe]: updatedSeries };
+        } else if (formingBar.timestamp === lastBar.timestamp) {
+          // Update in-progress candle in memory
+          const updatedSeries = [...existing];
+          updatedSeries[updatedSeries.length - 1] = formingBar;
+          setTimezoneAdjustedBars(update.symbol, update.timeframe, updatedSeries);
+          return { ...prev, [update.timeframe]: updatedSeries };
+        }
+        return prev;
+      });
+    });
+
+    return () => {
+      cleanup();
+    };
+  }, [chartInstancesRef]);
 
   // Throttle map to prevent spamming incremental check for same symbol/tf within 30 seconds
   const lastIncrementalCheckRef = useRef<Map<string, number>>(new Map());
@@ -404,6 +512,22 @@ export function useWorkspaceCoordinator(
                   callback(visibleData);
                 } else {
                   callback([]);
+                }
+              },
+              subscribeBar: ({ callback }: any) => {
+                liveSubscribersRef.current.set(entry.slotIndex, {
+                  symbol,
+                  timeframe: entry.timeframe,
+                  callback,
+                });
+                if (entry.slotIndex === activeChartIndexRef.current && isMT5Symbol) {
+                  mt5BridgeClient.subscribeStream(symbol, entry.timeframe).catch(console.error);
+                }
+              },
+              unsubscribeBar: () => {
+                liveSubscribersRef.current.delete(entry.slotIndex);
+                if (entry.slotIndex === activeChartIndexRef.current && isMT5Symbol) {
+                  mt5BridgeClient.unsubscribeStream().catch(console.error);
                 }
               },
             });
@@ -612,12 +736,31 @@ export function useWorkspaceCoordinator(
 
         const visibleData = toPresentationData(slotData, settings.chartType);
 
+        const slotProfile = await watchlistRepository.getSymbolProfile(slotSym);
+        const isMT5 = slotProfile?.source === 'MT5_AUTO_BRIDGE';
+
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {
             if (loadType === 'init') {
               callback(visibleData);
             } else {
               callback([]);
+            }
+          },
+          subscribeBar: ({ callback }: any) => {
+            liveSubscribersRef.current.set(idx, {
+              symbol: slotSym,
+              timeframe: slotTf,
+              callback,
+            });
+            if (idx === activeChartIndexRef.current && isMT5) {
+              mt5BridgeClient.subscribeStream(slotSym, slotTf).catch(console.error);
+            }
+          },
+          unsubscribeBar: () => {
+            liveSubscribersRef.current.delete(idx);
+            if (idx === activeChartIndexRef.current && isMT5) {
+              mt5BridgeClient.unsubscribeStream().catch(console.error);
             }
           },
         });
@@ -1050,12 +1193,31 @@ export function useWorkspaceCoordinator(
 
         const visibleData = toPresentationData(tfData, settings.chartType);
 
+        const slotProfile = profile || await watchlistRepository.getSymbolProfile(slot.symbol);
+        const isMT5 = slotProfile?.source === 'MT5_AUTO_BRIDGE';
+
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {
             if (loadType === 'init') {
               callback(visibleData);
             } else {
               callback([]);
+            }
+          },
+          subscribeBar: ({ callback }: any) => {
+            liveSubscribersRef.current.set(index, {
+              symbol: slot.symbol!,
+              timeframe: tf,
+              callback,
+            });
+            if (index === activeChartIndexRef.current && isMT5) {
+              mt5BridgeClient.subscribeStream(slot.symbol!, tf).catch(console.error);
+            }
+          },
+          unsubscribeBar: () => {
+            liveSubscribersRef.current.delete(index);
+            if (index === activeChartIndexRef.current && isMT5) {
+              mt5BridgeClient.unsubscribeStream().catch(console.error);
             }
           },
         });
@@ -1381,5 +1543,6 @@ export function useWorkspaceCoordinator(
     isSwitchingTimeframe,
     isSwitchingTimeframeRef,
     getOrImportTimeframeData,
+    liveTick,
   };
 }

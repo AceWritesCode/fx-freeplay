@@ -1954,6 +1954,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         onSyncSettingChange={handleSyncSettingChange}
         onRefreshData={() => workspaceCoord.handleRefreshActiveData()}
         isRefreshingData={workspaceCoord.isRefreshingData}
+        liveTick={workspaceCoord.liveTick}
       />
 
       {/* Floating CSV Import Stats Card */}

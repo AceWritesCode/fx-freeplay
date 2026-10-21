@@ -17,6 +17,7 @@ import subprocess
 import winreg
 import time
 import datetime
+import threading
 from typing import Any, Dict, List, Optional
 
 # UTF-8 stdout setup for Windows
@@ -32,6 +33,26 @@ try:
     MT5_AVAILABLE = True
 except ImportError:
     mt5 = None
+
+# Global thread-safe lock for stdout writes and MT5 operations
+BRIDGE_LOCK = threading.Lock()
+
+# Live streaming state
+STREAM_STATE = {
+    'thread': None,
+    'stop_event': threading.Event(),
+    'symbol': None,
+    'timeframe': None,
+    'terminal_path': None,
+    'db_path': None,
+}
+
+def safe_stdout_write(data: Dict[str, Any]):
+    """Thread-safe JSON emission to stdout."""
+    payload = json.dumps(data) + '\n'
+    with BRIDGE_LOCK:
+        sys.stdout.write(payload)
+        sys.stdout.flush()
 
 TIMEFRAME_MAP = {
     'M1': 1,
@@ -620,6 +641,144 @@ def refresh_incremental_bars(symbol: str, tf_name: str, terminal_path: Optional[
         mt5.shutdown()
 
 
+def stream_worker(symbol: str, tf_name: str, terminal_path: Optional[str], db_path: Optional[str], stop_event: threading.Event):
+    """
+    Background worker thread running every ~200ms.
+    Polls the active forming bar (pos=0, count=2) and tick info.
+    Emits deduplicated real-time updates over stdout.
+    """
+    tf_const = TIMEFRAME_MAP.get(tf_name.upper()) or TIMEFRAME_MAP.get(tf_name.lower())
+    if not tf_const or not MT5_AVAILABLE:
+        return
+
+    init_args = {}
+    if terminal_path and os.path.exists(terminal_path):
+        init_args['path'] = terminal_path
+
+    with BRIDGE_LOCK:
+        if not mt5.initialize(**init_args):
+            safe_stdout_write({
+                'type': 'stream_error',
+                'symbol': symbol,
+                'timeframe': tf_name,
+                'error': f'MT5 initialization failed: {mt5.last_error()}'
+            })
+            return
+
+        # Prepare symbol and grab static metadata ONCE upfront
+        mt5.symbol_select(symbol, True)
+        s_info = mt5.symbol_info(symbol)
+        point = float(s_info.point) if s_info and s_info.point else 0.0001
+        digits = int(s_info.digits) if s_info and s_info.digits else 4
+
+    last_tick_msc = 0
+    last_candle_ts = 0
+
+    try:
+        while not stop_event.is_set():
+            time.sleep(0.2)  # 200ms poll cycle
+            if stop_event.is_set():
+                break
+
+            with BRIDGE_LOCK:
+                tick = mt5.symbol_info_tick(symbol)
+                # Fetch last 2 bars: [-2] is previous (just closed or penultimate), [-1] is current forming bar
+                rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, 2)
+
+            if tick is None or rates is None or len(rates) == 0:
+                continue
+
+            current_tick_msc = getattr(tick, 'time_msc', 0)
+            forming_bar_ts = int(rates[-1][0]) * 1000
+
+            # Deduplication: emit only if new tick arrived OR candle rolled over
+            is_new_tick = current_tick_msc > last_tick_msc
+            is_candle_rollover = last_candle_ts > 0 and forming_bar_ts > last_candle_ts
+
+            if not is_new_tick and not is_candle_rollover:
+                continue
+
+            last_tick_msc = max(last_tick_msc, current_tick_msc)
+            last_candle_ts = forming_bar_ts
+
+            # Calculate live spread in points
+            bid = float(tick.bid)
+            ask = float(tick.ask)
+            last_price = float(tick.last) if getattr(tick, 'last', 0) else bid
+            spread = round((ask - bid) / point) if point > 0 else 0
+
+            # Parse bars
+            bars_list = []
+            for r in rates:
+                bars_list.append({
+                    'timestamp': int(r[0]) * 1000,
+                    'open': float(r[1]),
+                    'high': float(r[2]),
+                    'low': float(r[3]),
+                    'close': float(r[4]),
+                    'volume': float(r[5]),
+                })
+
+            safe_stdout_write({
+                'type': 'stream_update',
+                'symbol': symbol,
+                'timeframe': tf_name,
+                'tick': {
+                    'bid': bid,
+                    'ask': ask,
+                    'last': last_price,
+                    'spread': spread,
+                    'time_msc': current_tick_msc,
+                },
+                'bars': bars_list,
+            })
+    except Exception as e:
+        safe_stdout_write({
+            'type': 'stream_error',
+            'symbol': symbol,
+            'timeframe': tf_name,
+            'error': str(e)
+        })
+    finally:
+        with BRIDGE_LOCK:
+            mt5.shutdown()
+
+
+def start_live_stream(symbol: str, tf_name: str, terminal_path: Optional[str] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
+    """Start or retarget the live background stream for symbol and timeframe."""
+    stop_live_stream()
+
+    stop_event = threading.Event()
+    worker_thread = threading.Thread(
+        target=stream_worker,
+        args=(symbol, tf_name, terminal_path, db_path, stop_event),
+        daemon=True,
+    )
+    STREAM_STATE['thread'] = worker_thread
+    STREAM_STATE['stop_event'] = stop_event
+    STREAM_STATE['symbol'] = symbol
+    STREAM_STATE['timeframe'] = tf_name
+    STREAM_STATE['terminal_path'] = terminal_path
+    STREAM_STATE['db_path'] = db_path
+    worker_thread.start()
+
+    return {'success': True, 'streaming': True, 'symbol': symbol, 'timeframe': tf_name}
+
+
+def stop_live_stream() -> Dict[str, Any]:
+    """Stop the running background live stream if active."""
+    stop_event = STREAM_STATE.get('stop_event')
+    if stop_event:
+        stop_event.set()
+    thread = STREAM_STATE.get('thread')
+    if thread and thread.is_alive():
+        thread.join(timeout=1.0)
+    STREAM_STATE['thread'] = None
+    STREAM_STATE['symbol'] = None
+    STREAM_STATE['timeframe'] = None
+    return {'success': True, 'streaming': False}
+
+
 def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
     cmd = req.get('cmd')
     params = req.get('params', {})
@@ -664,6 +823,17 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
             return {'status': 'ok', 'data': res}
         else:
             return {'status': 'error', 'error': res.get('error')}
+    elif cmd == 'start_stream':
+        res = start_live_stream(
+            symbol=params.get('symbol'),
+            tf_name=params.get('timeframe'),
+            terminal_path=params.get('terminal_path'),
+            db_path=params.get('db_path'),
+        )
+        return {'status': 'ok', 'data': res}
+    elif cmd == 'stop_stream':
+        res = stop_live_stream()
+        return {'status': 'ok', 'data': res}
     else:
         return {'status': 'error', 'error': f'Unknown command: {cmd}'}
 
@@ -685,11 +855,9 @@ def main():
             resp = handle_request(req)
             if req_id is not None:
                 resp['id'] = req_id
-            sys.stdout.write(json.dumps(resp) + '\n')
-            sys.stdout.flush()
+            safe_stdout_write(resp)
         except Exception as e:
-            sys.stdout.write(json.dumps({'status': 'error', 'error': str(e)}) + '\n')
-            sys.stdout.flush()
+            safe_stdout_write({'status': 'error', 'error': str(e)})
 
 
 if __name__ == '__main__':

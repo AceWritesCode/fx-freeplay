@@ -43,6 +43,30 @@ export interface SyncChartResult {
   error?: string;
 }
 
+export interface LiveTickData {
+  bid: number;
+  ask: number;
+  last: number;
+  spread: number;
+  time_msc: number;
+}
+
+export interface LiveStreamUpdate {
+  type: 'stream_update' | 'stream_error';
+  symbol: string;
+  timeframe: string;
+  tick?: LiveTickData;
+  bars?: Array<{
+    timestamp: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }>;
+  error?: string;
+}
+
 interface ElectronBridgeAPI {
   checkSystem: () => Promise<{ status: string; data?: SystemCheckResult; error?: string; python_missing?: boolean }>;
   listTerminals: () => Promise<{ status: string; data?: TerminalInfo[]; error?: string }>;
@@ -50,6 +74,9 @@ interface ElectronBridgeAPI {
   syncChart: (params?: { terminal_path?: string; bar_count?: number; db_path?: string }) => Promise<{ status: string; data?: SyncChartResult; error?: string }>;
   fetchTimeframe: (params: { symbol: string; timeframe: string; bar_count?: number; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
   refreshIncremental: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; new_bars_count: number; new_bars: any[] }; error?: string }>;
+  subscribeStream: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; streaming?: boolean; error?: string }>;
+  unsubscribeStream: () => Promise<{ status: string; streaming?: boolean; error?: string }>;
+  onLiveFeed: (callback: (data: LiveStreamUpdate) => void) => () => void;
 }
 
 declare global {
@@ -156,5 +183,39 @@ export const mt5BridgeClient = {
       console.warn(`[mt5BridgeClient] Failed to refresh incremental bars for ${symbol} (${timeframe}):`, e);
     }
     return { new_bars_count: 0, new_bars: [] };
+  },
+
+  async subscribeStream(symbol: string, timeframe: string, terminalPath?: string, dbPath?: string): Promise<boolean> {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.subscribeStream) return false;
+    try {
+      const res = await window.electronAPI.mt5.subscribeStream({
+        symbol,
+        timeframe,
+        terminal_path: terminalPath,
+        db_path: dbPath,
+      });
+      return res.status === 'ok';
+    } catch (e) {
+      console.warn(`[mt5BridgeClient] Failed to subscribe stream for ${symbol} (${timeframe}):`, e);
+      return false;
+    }
+  },
+
+  async unsubscribeStream(): Promise<boolean> {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.unsubscribeStream) return false;
+    try {
+      const res = await window.electronAPI.mt5.unsubscribeStream();
+      return res.status === 'ok';
+    } catch (e) {
+      console.warn('[mt5BridgeClient] Failed to unsubscribe stream:', e);
+      return false;
+    }
+  },
+
+  onLiveFeed(callback: (data: LiveStreamUpdate) => void): () => void {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.onLiveFeed) {
+      return () => {};
+    }
+    return window.electronAPI.mt5.onLiveFeed(callback);
   },
 };
