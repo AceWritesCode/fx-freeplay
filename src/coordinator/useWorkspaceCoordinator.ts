@@ -363,7 +363,7 @@ export function useWorkspaceCoordinator(
   ) => {
     if (slotsToUpdate.length === 0) return;
 
-    // Group slots by symbol to ensure raw 1m data is shifted only once per symbol
+    // Group slots by symbol to ensure raw data is shifted only once per symbol
     const slotsBySymbol = new Map<string, Array<{ timeframe: string; slotIndex: number }>>();
     for (const slot of slotsToUpdate) {
       const list = slotsBySymbol.get(slot.symbol) || [];
@@ -374,38 +374,12 @@ export function useWorkspaceCoordinator(
     const mergedTimeframesData: Record<string, KLineData[]> = {};
 
     for (const [symbol, slotEntries] of slotsBySymbol.entries()) {
-      let raw1m = getRawDataFromCache(symbol);
-      if (raw1m.length === 0) {
-        raw1m = await marketDataRepository.getBars(symbol, '1m') || [];
-        if (raw1m.length > 0) {
-          setRawDataCache(symbol, raw1m);
-        }
-      }
       const uniqueTfs = Array.from(new Set(slotEntries.map((e) => e.timeframe)));
+      const profile = getSymbolProfileCache(symbol) || await watchlistRepository.getSymbolProfile(symbol);
+      const isMT5Symbol = profile?.source === 'MT5_AUTO_BRIDGE';
 
-      if (raw1m.length > 0) {
-        const tfCache = buildTimeframeCache(raw1m, s, uniqueTfs);
-        Object.assign(mergedTimeframesData, tfCache);
-
-        for (const entry of slotEntries) {
-          const chart = chartInstancesRef.current[entry.slotIndex];
-          if (chart) {
-            const rawVisibleData = tfCache[entry.timeframe] || [];
-            const visibleData = toPresentationData(rawVisibleData, s.chartType);
-            chart.setDataLoader({
-              getBars: ({ type: loadType, callback }: any) => {
-                if (loadType === 'init') {
-                  callback(visibleData);
-                } else {
-                  callback([]);
-                }
-              },
-            });
-            chart.resetData();
-          }
-        }
-      } else {
-        // Fallback for symbols imported per timeframe (e.g. MT5 multi-tf without 1m, or custom tf)
+      // For MT5 auto bridge imports, each timeframe has its own exact historical dataset stored in SQLite/IndexedDB
+      if (isMT5Symbol) {
         for (const tf of uniqueTfs) {
           const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
           if (rawBars.length > 0) {
@@ -434,6 +408,70 @@ export function useWorkspaceCoordinator(
               },
             });
             chart.resetData();
+          }
+        }
+      } else {
+        // Manual CSV / 1m Resampling pipeline
+        let raw1m = getRawDataFromCache(symbol);
+        if (raw1m.length === 0) {
+          raw1m = await marketDataRepository.getBars(symbol, '1m') || [];
+          if (raw1m.length > 0) {
+            setRawDataCache(symbol, raw1m);
+          }
+        }
+
+        if (raw1m.length > 0) {
+          const tfCache = buildTimeframeCache(raw1m, s, uniqueTfs);
+          Object.assign(mergedTimeframesData, tfCache);
+
+          for (const entry of slotEntries) {
+            const chart = chartInstancesRef.current[entry.slotIndex];
+            if (chart) {
+              const rawVisibleData = tfCache[entry.timeframe] || [];
+              const visibleData = toPresentationData(rawVisibleData, s.chartType);
+              chart.setDataLoader({
+                getBars: ({ type: loadType, callback }: any) => {
+                  if (loadType === 'init') {
+                    callback(visibleData);
+                  } else {
+                    callback([]);
+                  }
+                },
+              });
+              chart.resetData();
+            }
+          }
+        } else {
+          // Fallback if 1m is not found
+          for (const tf of uniqueTfs) {
+            const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
+            if (rawBars.length > 0) {
+              const adjusted = shiftCandlesTimezone(
+                rawBars,
+                s.timezoneAdjustmentEnabled,
+                s.brokerTimezoneOffset,
+                s.userTimezoneOffset
+              );
+              setTimezoneAdjustedBars(symbol, tf, adjusted);
+              mergedTimeframesData[tf] = adjusted;
+            }
+          }
+          for (const entry of slotEntries) {
+            const chart = chartInstancesRef.current[entry.slotIndex];
+            if (chart) {
+              const rawVisibleData = mergedTimeframesData[entry.timeframe] || [];
+              const visibleData = toPresentationData(rawVisibleData, s.chartType);
+              chart.setDataLoader({
+                getBars: ({ type: loadType, callback }: any) => {
+                  if (loadType === 'init') {
+                    callback(visibleData);
+                  } else {
+                    callback([]);
+                  }
+                },
+              });
+              chart.resetData();
+            }
           }
         }
       }
@@ -1111,12 +1149,15 @@ export function useWorkspaceCoordinator(
       });
 
       // 1. Save profile to Watchlist repository & in-memory cache
+      const detectedOffset = syncResult?.broker_timezone_offset ?? profile?.broker_timezone_offset ?? 180;
+      const detectedLabel = syncResult?.broker_timezone_label ?? profile?.broker_timezone_label ?? '(UTC+3) Broker';
+
       const symbolProfile = {
         symbol,
         name: profile?.description || symbol,
         pricePrecision: profile?.digits ?? 5,
-        brokerTimezoneLabel: 'UTC+2 (broker)',
-        brokerTimezoneOffset: 120,
+        brokerTimezoneLabel: detectedLabel,
+        brokerTimezoneOffset: detectedOffset,
         timeframeKeys: Object.keys(timeframes_data || {}),
         source: 'MT5_AUTO_BRIDGE',
       };
@@ -1126,8 +1167,8 @@ export function useWorkspaceCoordinator(
       // Sync settings broker timezone so adjustments align seamlessly
       const updatedSettings = {
         ...settings,
-        brokerTimezoneOffset: 120,
-        brokerTimezoneLabel: 'UTC+2 (broker)',
+        brokerTimezoneOffset: detectedOffset,
+        brokerTimezoneLabel: detectedLabel,
       };
       setSettings(updatedSettings);
       settingsRepository.saveSettings(updatedSettings).catch(console.error);

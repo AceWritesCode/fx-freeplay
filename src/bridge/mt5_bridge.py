@@ -412,17 +412,47 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
                 'last_error': str(mt5.last_error()),
             }
 
+        # Detect broker timezone offset from UTC
+        broker_offset_min = 120
+        broker_tz_label = '(UTC+2) Broker'
+        try:
+            utc_now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            broker_time_sec = None
+            tick = mt5.symbol_info_tick(symbol)
+            if tick and tick.time:
+                broker_time_sec = tick.time
+            elif s_info and s_info.time:
+                broker_time_sec = s_info.time
+            else:
+                rates_probe = mt5.copy_rates_from_pos(symbol, 1, 0, 1)
+                if rates_probe is not None and len(rates_probe) > 0:
+                    broker_time_sec = rates_probe[0][0]
+
+            if broker_time_sec:
+                diff_sec = broker_time_sec - utc_now
+                broker_offset_min = int(round(diff_sec / 900.0) * 15)
+                sign = '+' if broker_offset_min >= 0 else '-'
+                hours = abs(broker_offset_min) // 60
+                mins = abs(broker_offset_min) % 60
+                broker_tz_label = f'(UTC{sign}{hours}) Broker' if mins == 0 else f'(UTC{sign}{hours}:{mins:02d}) Broker'
+        except Exception as e:
+            logger.warning(f"Failed to detect broker timezone: {e}")
+
         return {
             'success': True,
             'symbol': symbol,
             'active_timeframe': active_tf,
             'total_bars_imported': total_bars_count,
             'db_path': target_db,
+            'broker_timezone_offset': broker_offset_min,
+            'broker_timezone_label': broker_tz_label,
             'profile': {
                 'symbol': symbol,
                 'digits': digits,
                 'point': point,
                 'description': description,
+                'broker_timezone_offset': broker_offset_min,
+                'broker_timezone_label': broker_tz_label,
             },
             'timeframes_data': timeframes_data,
         }
