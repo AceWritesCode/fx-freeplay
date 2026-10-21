@@ -106,9 +106,16 @@ def init_sqlite_tables(db_path: str):
 
 
 def find_installed_terminals() -> List[Dict[str, str]]:
-    """Scan Windows Registry for installed MT5 terminals."""
+    """
+    Detect MetaTrader 5 installations by:
+    1. Reading Windows Registry uninstall keys (HKLM and HKCU under ...\\CurrentVersion\\Uninstall).
+    2. Scanning standard installation directories (C:\\Program Files, C:\\Program Files (x86),
+       and %LOCALAPPDATA%\\Programs) for terminal64.exe and terminal.exe.
+    """
     terminals = []
     seen_paths = set()
+
+    # 1. Check Registry
     roots = [
         (winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Uninstall'),
         (winreg.HKEY_LOCAL_MACHINE, r'Software\Microsoft\Windows\CurrentVersion\Uninstall'),
@@ -125,16 +132,17 @@ def find_installed_terminals() -> List[Dict[str, str]]:
                     try:
                         dname, _ = winreg.QueryValueEx(sk, 'DisplayName')
                         loc, _ = winreg.QueryValueEx(sk, 'InstallLocation')
-                        if ('metatrader' in dname.lower() or 'metaquotes' in dname.lower()) and loc:
+                        if ('metatrader' in dname.lower() or 'metaquotes' in dname.lower() or 'mt5' in dname.lower()) and loc:
                             exe = os.path.join(loc, 'terminal64.exe')
                             if not os.path.exists(exe):
                                 exe = os.path.join(loc, 'terminal.exe')
-                            if os.path.exists(exe) and exe not in seen_paths:
-                                seen_paths.add(exe)
+                            clean_exe = os.path.normpath(exe)
+                            if os.path.exists(clean_exe) and clean_exe.lower() not in seen_paths:
+                                seen_paths.add(clean_exe.lower())
                                 terminals.append({
                                     'name': dname,
                                     'install_path': loc,
-                                    'exe_path': exe,
+                                    'exe_path': clean_exe,
                                 })
                     except WindowsError:
                         pass
@@ -143,19 +151,36 @@ def find_installed_terminals() -> List[Dict[str, str]]:
         except WindowsError:
             pass
 
-    # Fallback to standard 64-bit Program Files if not found in registry
-    std_paths = [
-        ('MetaTrader 5', r'C:\Program Files\MetaTrader 5\terminal64.exe'),
-        ('MetaTrader 5 EXNESS', r'C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe'),
+    # 2. Disk scan across standard installation directories
+    candidate_dirs = [
+        r'C:\Program Files',
+        r'C:\Program Files (x86)',
+        os.path.expandvars(r'%LOCALAPPDATA%\Programs'),
     ]
-    for name, p in std_paths:
-        if os.path.exists(p) and p not in seen_paths:
-            seen_paths.add(p)
-            terminals.append({
-                'name': name,
-                'install_path': os.path.dirname(p),
-                'exe_path': p,
-            })
+
+    for base_dir in candidate_dirs:
+        if not os.path.exists(base_dir):
+            continue
+        try:
+            # Check top-level subdirectories for terminal64.exe or terminal.exe
+            for folder_name in os.listdir(base_dir):
+                folder_path = os.path.join(base_dir, folder_name)
+                if not os.path.isdir(folder_path):
+                    continue
+                for exe_name in ['terminal64.exe', 'terminal.exe']:
+                    candidate_exe = os.path.normpath(os.path.join(folder_path, exe_name))
+                    if os.path.exists(candidate_exe) and candidate_exe.lower() not in seen_paths:
+                        seen_paths.add(candidate_exe.lower())
+                        display_name = folder_name
+                        if 'metatrader' not in display_name.lower() and 'mt5' not in display_name.lower():
+                            display_name = f"{folder_name} (MT5)"
+                        terminals.append({
+                            'name': display_name,
+                            'install_path': folder_path,
+                            'exe_path': candidate_exe,
+                        })
+        except Exception:
+            pass
 
     return terminals
 
