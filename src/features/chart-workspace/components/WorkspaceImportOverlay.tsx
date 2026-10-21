@@ -241,9 +241,9 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
     const allRequirementsMet = isPythonReady && isMt5PkgReady && hasTerminals;
 
     return (
-      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-app-bg p-6 text-center select-none">
-        {/* Modal Container with Fixed Height (h-[580px]) so height stays identical across tabs */}
-        <div className="max-w-[540px] w-full h-[580px] bg-modal-bg border border-border-def rounded-2xl p-6 shadow-2xl flex flex-col text-left">
+      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-app-bg p-6 text-center select-none overflow-y-auto">
+        {/* Modal Container: expands naturally to fit all content without clipping or scrollbars */}
+        <div className="max-w-[540px] w-full bg-modal-bg border border-border-def rounded-2xl p-6 shadow-2xl flex flex-col text-left transition-all duration-300 my-auto">
           
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border-sub pb-4 shrink-0">
@@ -286,7 +286,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
 
           {/* TAB 1: AUTO IMPORT (MT5 BRIDGE) */}
           {activeTab === 'auto' && (
-            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pr-1 gap-3.5">
+            <div className="flex flex-col gap-3.5">
               
               {/* Accordion: System Prerequisites Check */}
               <div className="bg-surface-elevated/80 border border-border-def rounded-xl overflow-hidden shrink-0 transition-all duration-200">
@@ -399,9 +399,9 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
                 )}
               </div>
 
-              {/* Terminal Card Selection List (No dropdown, interactive cards) */}
-              <div className="flex-1 flex flex-col min-h-0 gap-2">
-                <div className="flex items-center justify-between shrink-0">
+              {/* Terminal Card Selection List (No scrollbar, expands to show all cards) */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-txt-primary">
                     Select MetaTrader 5 Terminal
                   </label>
@@ -413,7 +413,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
                 </div>
 
                 {allRequirementsMet ? (
-                  <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[160px]">
+                  <div className="flex flex-col space-y-2">
                     {sysCheck?.terminals.map((term, idx) => {
                       const isSelected = selectedTerminal?.exe_path === term.exe_path;
                       return (
@@ -456,7 +456,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
                     })}
                   </div>
                 ) : (
-                  <div className="p-3 bg-status-warning/10 border border-status-warning/20 rounded-xl text-xs text-txt-secondary flex flex-col gap-1 shrink-0">
+                  <div className="p-3 bg-status-warning/10 border border-status-warning/20 rounded-xl text-xs text-txt-secondary flex flex-col gap-1">
                     <div className="font-bold text-status-warning flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4" />
                       <span>Setup Required</span>
@@ -506,16 +506,16 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
             </div>
           )}
 
-          {/* TAB 2: MANUAL CSV IMPORT (WITH DRAG & DROP ZONE, SAME HEIGHT) */}
+          {/* TAB 2: MANUAL CSV IMPORT (WITH DRAG & DROP ZONE) */}
           {activeTab === 'manual' && (
-            <div className="flex-1 flex flex-col min-h-0 gap-4">
+            <div className="flex flex-col gap-4">
               {/* Drag and Drop Zone Area */}
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={onSelectFolder}
-                className={`flex-1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 text-center transition-all cursor-pointer ${
+                className={`min-h-[260px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-8 text-center transition-all cursor-pointer ${
                   isDragging
                     ? 'border-accent bg-accent/10'
                     : 'border-border-def bg-surface-elevated/40 hover:bg-surface-elevated/70 hover:border-border-hover'
@@ -531,7 +531,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
               </div>
 
               {/* Action Button */}
-              <div className="shrink-0">
+              <div>
                 <button
                   onClick={onSelectFolder}
                   className="w-full py-3 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-xl text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2"
