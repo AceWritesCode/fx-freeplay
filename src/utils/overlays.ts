@@ -34,11 +34,24 @@ export function registerCustomOverlays() {
       const isBidAskMode = chart._priceLineMode === 'bid_ask';
 
       if (isBidAskMode) {
-        // Retrieve live quotes or fallback using current candle close
+        // Synchronized spread-anchored derivation:
+        // When MT5 tick stream emits forming bar updates, candle close updates with the active market tick.
+        // If raw tick.bid/ask lag or differ from the live forming close, anchor Bid to candle close (A)
+        // and project Ask using the last known spread (or vice versa), ensuring the lines move in lockstep with the candle.
         const liveTick = chart._liveTick;
         const close = lastData.close;
-        const bid = (liveTick && typeof liveTick.bid === 'number') ? liveTick.bid : close;
-        const ask = (liveTick && typeof liveTick.ask === 'number') ? liveTick.ask : close;
+        const pricePrecision = chart.getSymbol?.()?.pricePrecision ?? 5;
+        const point = 1 / Math.pow(10, pricePrecision);
+
+        let spreadDistance = 0;
+        if (liveTick && typeof liveTick.ask === 'number' && typeof liveTick.bid === 'number' && liveTick.ask >= liveTick.bid) {
+          spreadDistance = liveTick.ask - liveTick.bid;
+        } else if (liveTick && typeof liveTick.spread === 'number' && liveTick.spread > 0) {
+          spreadDistance = liveTick.spread * point;
+        }
+
+        const bid = close;
+        const ask = spreadDistance > 0 ? Number((close + spreadDistance).toFixed(pricePrecision)) : close;
 
         const bidY = yAxis.convertToPixel(bid);
         const askY = yAxis.convertToPixel(ask);
@@ -155,8 +168,17 @@ export function registerCustomOverlays() {
 
         const liveTick = chart._liveTick;
         const close = lastData.close;
-        const bid = (liveTick && typeof liveTick.bid === 'number') ? liveTick.bid : close;
-        const ask = (liveTick && typeof liveTick.ask === 'number') ? liveTick.ask : close;
+        const point = 1 / Math.pow(10, pricePrecision);
+
+        let spreadDistance = 0;
+        if (liveTick && typeof liveTick.ask === 'number' && typeof liveTick.bid === 'number' && liveTick.ask >= liveTick.bid) {
+          spreadDistance = liveTick.ask - liveTick.bid;
+        } else if (liveTick && typeof liveTick.spread === 'number' && liveTick.spread > 0) {
+          spreadDistance = liveTick.spread * point;
+        }
+
+        const bid = close;
+        const ask = spreadDistance > 0 ? Number((close + spreadDistance).toFixed(pricePrecision)) : close;
 
         const bidY = yAxis.convertToPixel(bid);
         const askY = yAxis.convertToPixel(ask);
