@@ -1294,6 +1294,21 @@ export function useWorkspaceCoordinator(
             },
           });
           chart.resetData();
+
+          if (visibleData.length > 0) {
+            const chartSize = chart.getSize?.();
+            const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+            const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
+            const targetOffset = chartWidth * resetRatio;
+
+            (chart as any)._isProgrammaticScroll = true;
+            chart.setOffsetRightDistance(targetOffset);
+            chart.scrollToDataIndex(visibleData.length - 1);
+            requestAnimationFrame(() => {
+              chart.setOffsetRightDistance(targetOffset);
+              (chart as any)._isProgrammaticScroll = false;
+            });
+          }
         }
         setWatchlistToast({ msg: `Updated with ${res.new_bars_count} new closed bar(s)!`, type: 'success' });
       } else {

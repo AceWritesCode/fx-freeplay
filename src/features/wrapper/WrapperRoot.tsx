@@ -37,6 +37,7 @@ export const WrapperRoot: React.FC = () => {
       // Trigger resize on the next frame so canvas instances properly measure when unhidden
       const timer = setTimeout(() => {
         window.dispatchEvent(new Event('resize'));
+        window.dispatchEvent(new CustomEvent('workspace:unhide'));
       }, 50);
       return () => clearTimeout(timer);
     }

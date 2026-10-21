@@ -1165,6 +1165,28 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     return () => clearTimeout(timer);
   }, [layoutType, hasData]);
 
+  // Handle returning to chart from other modules (e.g., Home view)
+  useEffect(() => {
+    const handleUnhide = () => {
+      const visibleCount = getLayoutChartCount(layoutType);
+      for (let i = 0; i < visibleCount; i++) {
+        const chart = chartInstancesRef.current[i];
+        if (chart) {
+          chart.resize();
+          (chart as any)._layout?.();
+        }
+      }
+      if (hasData) {
+        resetChartViewRef.current();
+      }
+    };
+
+    window.addEventListener('workspace:unhide', handleUnhide);
+    return () => {
+      window.removeEventListener('workspace:unhide', handleUnhide);
+    };
+  }, [layoutType, hasData]);
+
   // Clean up all charts on unmount
   useEffect(() => {
     return () => {
