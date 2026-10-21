@@ -1,3 +1,5 @@
+import { getSystemTimezoneOption } from './timezones.ts';
+
 export interface ChartSettings {
   // Symbol Settings
   chartType?: 'candlestick' | 'line' | 'heikin_ashi'; // 'candlestick' | 'line' | 'heikin_ashi' (default: 'candlestick')
@@ -85,7 +87,7 @@ export interface ChartSettings {
   brokerTimezoneLabel: string;
   userTimezoneOffset: number;
   userTimezoneLabel: string;
-  timeFormat?: '12h' | '24h'; // 12-hour (06:00 PM) or 24-hour (18:00) format (default: '24h')
+  timeFormat?: '12h' | '24h'; // 12-hour (06:00 PM) or 24-hour (18:00) format (default: '12h')
 
   // Magnet Sensitivity Settings (pixel proximity thresholds per mode)
   magnetWeakSensitivity: number;   // 0-40
@@ -102,6 +104,8 @@ export interface ChartSettings {
   // Reset View Settings
   resetViewOffsetRatio?: number; // Preferred distance of last candle from right edge as a ratio of chart width (0.05-0.95, default: 0.5)
 }
+
+const defaultSystemTz = getSystemTimezoneOption();
 
 export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
   classic: {
@@ -163,12 +167,12 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showTimeScaleCrosshairLabel: true,
     showTimeScaleDayOfWeek: false,
     dateFormat: 'dd MMM yyyy',
-    timezoneAdjustmentEnabled: false,
+    timezoneAdjustmentEnabled: true,
     brokerTimezoneOffset: 180,
     brokerTimezoneLabel: '(UTC+3) Moscow',
-    userTimezoneOffset: 330,
-    userTimezoneLabel: '(UTC+5:30) Kolkata',
-    timeFormat: '24h',
+    userTimezoneOffset: defaultSystemTz.offset,
+    userTimezoneLabel: defaultSystemTz.label,
+    timeFormat: '12h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 60,
@@ -234,12 +238,12 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showTimeScaleCrosshairLabel: true,
     showTimeScaleDayOfWeek: false,
     dateFormat: 'dd MMM yyyy',
-    timezoneAdjustmentEnabled: false,
+    timezoneAdjustmentEnabled: true,
     brokerTimezoneOffset: 180,
     brokerTimezoneLabel: '(UTC+3) Moscow',
-    userTimezoneOffset: 330,
-    userTimezoneLabel: '(UTC+5:30) Kolkata',
-    timeFormat: '24h',
+    userTimezoneOffset: defaultSystemTz.offset,
+    userTimezoneLabel: defaultSystemTz.label,
+    timeFormat: '12h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 60,
@@ -305,12 +309,12 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showTimeScaleCrosshairLabel: true,
     showTimeScaleDayOfWeek: false,
     dateFormat: 'dd MMM yyyy',
-    timezoneAdjustmentEnabled: false,
+    timezoneAdjustmentEnabled: true,
     brokerTimezoneOffset: 180,
     brokerTimezoneLabel: '(UTC+3) Moscow',
-    userTimezoneOffset: 330,
-    userTimezoneLabel: '(UTC+5:30) Kolkata',
-    timeFormat: '24h',
+    userTimezoneOffset: defaultSystemTz.offset,
+    userTimezoneLabel: defaultSystemTz.label,
+    timeFormat: '12h',
     magnetWeakSensitivity: 10,
     magnetNormalSensitivity: 30,
     magnetStrongSensitivity: 60,

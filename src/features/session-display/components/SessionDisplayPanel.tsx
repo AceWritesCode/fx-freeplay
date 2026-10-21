@@ -113,7 +113,7 @@ export const SessionDisplayPanel: React.FC = () => {
     ? (chartSettings.userTimezoneLabel || 'UTC')
     : 'Exchange';
 
-  const timeFormat = chartSettings.timeFormat || '24h';
+  const timeFormat = chartSettings.timeFormat || '12h';
   const is24Hour = timeFormat === '24h';
 
   const handleToggleTimeFormat = (newFormat: '12h' | '24h') => {

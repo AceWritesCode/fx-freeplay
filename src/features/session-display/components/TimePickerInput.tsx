@@ -18,7 +18,7 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
   disabled = false,
   className = '',
   placeholder,
-  timeFormat = '24h',
+  timeFormat = '12h',
 }) => {
   const is12Hour = timeFormat === '12h';
 

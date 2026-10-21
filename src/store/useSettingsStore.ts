@@ -5,6 +5,7 @@ import {
   PRESET_SETTINGS,
   getThemeTokens,
   getThemeChartBackground,
+  getSystemTimezoneOption,
 } from '@/config';
 import {
   applyThemeToDOM,
@@ -48,10 +49,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const storedSync = getStoredSyncChartBackground();
     applyThemeToDOM(getThemeTokens(mode, custom));
     const syncEnabled = settings.syncChartBackgroundWithTheme ?? storedSync;
+    const defaultTz = getSystemTimezoneOption();
     const mergedSettings: ChartSettings = {
       chartType: 'candlestick',
       lineColor: '#2962FF',
       ...settings,
+      timeFormat: settings.timeFormat || '12h',
+      userTimezoneOffset: settings.userTimezoneOffset ?? defaultTz.offset,
+      userTimezoneLabel: settings.userTimezoneLabel || defaultTz.label,
       syncChartBackgroundWithTheme: syncEnabled,
     };
     if (syncEnabled) {

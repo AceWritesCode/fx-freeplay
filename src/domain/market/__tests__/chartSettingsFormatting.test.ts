@@ -182,7 +182,7 @@ describe('Chart Formatters and Settings Unit Tests', () => {
       assert.strictEqual(p.showTimeScaleCrosshairLabel, true);
       assert.strictEqual(p.showTimeScaleDayOfWeek, false);
       assert.strictEqual(p.dateFormat, 'dd MMM yyyy');
-      assert.strictEqual(p.timeFormat, '24h');
+      assert.strictEqual(p.timeFormat, '12h');
       assert.strictEqual(p.showWatermark, true);
     });
 

@@ -1816,7 +1816,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <div className="text-[10px] text-txt-muted">12-hour or 24-hour clock display</div>
                   </div>
                   <Select
-                    value={formState.timeFormat || '24h'}
+                    value={formState.timeFormat || '12h'}
                     onChange={(val) => handleFieldChange('timeFormat', val as '12h' | '24h')}
                     options={[
                       { value: '24h', label: '24 Hours (18:00)' },
@@ -1940,7 +1940,7 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                     <div className="text-[10px] text-txt-muted">Clock display for scales, inputs, and session highlights</div>
                   </div>
                   <Select
-                    value={formState.timeFormat || '24h'}
+                    value={formState.timeFormat || '12h'}
                     onChange={(val) => handleFieldChange('timeFormat', val as '12h' | '24h')}
                     options={[
                       { value: '24h', label: '24 Hours (18:00)' },

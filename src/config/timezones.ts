@@ -3,6 +3,52 @@ export interface TimezoneOption {
   value: number | 'exchange';
 }
 
+/**
+ * Returns the best matching timezone option from TIMEZONE_OPTIONS based on
+ * the user's local operating system/browser timezone.
+ */
+export function getSystemTimezoneOption(): { label: string; offset: number } {
+  try {
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    const ianaTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    const cityRaw = ianaTz.split('/').pop()?.replace(/_/g, ' ').toLowerCase();
+
+    // Find all matching predefined options by offset
+    const candidateOptions = TIMEZONE_OPTIONS.filter(
+      (opt): opt is TimezoneOption & { value: number } =>
+        typeof opt.value === 'number' && opt.value === offsetMinutes
+    );
+
+    if (candidateOptions.length > 0) {
+      if (cityRaw) {
+        const cityMatch = candidateOptions.find((opt) =>
+          opt.label.toLowerCase().includes(cityRaw)
+        );
+        if (cityMatch) {
+          return { label: cityMatch.label, offset: cityMatch.value };
+        }
+      }
+      return { label: candidateOptions[0].label, offset: candidateOptions[0].value };
+    }
+
+    // Format a generic UTC offset string if not in TIMEZONE_OPTIONS
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absM = Math.abs(offsetMinutes);
+    const h = Math.floor(absM / 60);
+    const m = absM % 60;
+    const offsetStr = m > 0 ? `UTC${sign}${h}:${m.toString().padStart(2, '0')}` : `UTC${sign}${h}`;
+    return {
+      label: `(${offsetStr}) Local`,
+      offset: offsetMinutes,
+    };
+  } catch {
+    return {
+      label: '(UTC+5:30) Kolkata',
+      offset: 330,
+    };
+  }
+}
+
 export const TIMEZONE_OPTIONS: TimezoneOption[] = [
   { label: 'UTC', value: 0 },
   { label: 'Exchange', value: 'exchange' },
