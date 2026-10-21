@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AlertTriangle,
   FolderOpen,
@@ -31,6 +31,7 @@ interface WorkspaceImportOverlayProps {
   onResetImportProgress: () => void;
   onSelectFolder: () => void;
   onAutoImportSuccess?: () => void;
+  onAutoImportMT5?: (syncResult: any) => Promise<void>;
 }
 
 export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
@@ -40,6 +41,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
   onResetImportProgress,
   onSelectFolder,
   onAutoImportSuccess,
+  onAutoImportMT5,
 }) => {
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto');
 
@@ -52,8 +54,25 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
   const [selectedTerminal, setSelectedTerminal] = useState<TerminalInfo | null>(null);
   const [activeChart, setActiveChart] = useState<ActiveChartInfo | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Ref to track container element to maintain exact shared height across tabs
+  const autoContentRef = useRef<HTMLDivElement>(null);
+  const [autoContentHeight, setAutoContentHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'auto' && autoContentRef.current) {
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.height > 0) {
+            setAutoContentHeight(entry.contentRect.height);
+          }
+        }
+      });
+      observer.observe(autoContentRef.current);
+      return () => observer.disconnect();
+    }
+  }, [activeTab, isPrereqOpen, sysCheck?.terminals_count]);
 
   // Drag and drop state for manual tab
   const [isDragging, setIsDragging] = useState(false);
@@ -93,10 +112,12 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
   const handleSyncChart = async () => {
     setSyncing(true);
     setSyncError(null);
-    setSyncResult(null);
     try {
       const res = await mt5BridgeClient.syncChart(selectedTerminal?.exe_path, 50000);
-      setSyncResult(`Successfully imported ${res.bars_imported} bars for ${res.symbol} (${res.timeframe}) into SQLite database!`);
+      if (onAutoImportMT5) {
+        // Transition directly to the loading/importing pipeline
+        await onAutoImportMT5(res);
+      }
       if (onAutoImportSuccess) {
         onAutoImportSuccess();
       }
@@ -286,7 +307,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
 
           {/* TAB 1: AUTO IMPORT (MT5 BRIDGE) */}
           {activeTab === 'auto' && (
-            <div className="flex flex-col gap-3.5">
+            <div ref={autoContentRef} className="flex flex-col gap-3.5">
               
               {/* Accordion: System Prerequisites Check */}
               <div className="bg-surface-elevated/80 border border-border-def rounded-xl overflow-hidden shrink-0 transition-all duration-200">
@@ -474,11 +495,6 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
                   {syncError}
                 </div>
               )}
-              {syncResult && (
-                <div className="text-xs text-status-success bg-status-success/10 border border-status-success/20 rounded-lg p-2.5 shrink-0">
-                  {syncResult}
-                </div>
-              )}
 
               {/* Action Button */}
               <div className="shrink-0 pt-1">
@@ -506,16 +522,19 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
             </div>
           )}
 
-          {/* TAB 2: MANUAL CSV IMPORT (WITH DRAG & DROP ZONE) */}
+          {/* TAB 2: MANUAL CSV IMPORT (INHERITS EXACT HEIGHT FROM AUTO IMPORT TAB) */}
           {activeTab === 'manual' && (
-            <div className="flex flex-col gap-4">
+            <div
+              style={autoContentHeight ? { height: `${autoContentHeight}px` } : undefined}
+              className="flex flex-col gap-4"
+            >
               {/* Drag and Drop Zone Area */}
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={onSelectFolder}
-                className={`min-h-[260px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-8 text-center transition-all cursor-pointer ${
+                className={`flex-1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-8 text-center transition-all cursor-pointer ${
                   isDragging
                     ? 'border-accent bg-accent/10'
                     : 'border-border-def bg-surface-elevated/40 hover:bg-surface-elevated/70 hover:border-border-hover'
@@ -531,7 +550,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
               </div>
 
               {/* Action Button */}
-              <div>
+              <div className="shrink-0">
                 <button
                   onClick={onSelectFolder}
                   className="w-full py-3 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-xl text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2"

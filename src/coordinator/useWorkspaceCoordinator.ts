@@ -1004,6 +1004,110 @@ export function useWorkspaceCoordinator(
     }
   };
 
+  const handleAutoImportMT5 = async (syncResult: any) => {
+    try {
+      const { symbol, active_timeframe, timeframes_data, profile } = syncResult;
+      const targetTf = active_timeframe || '15m';
+
+      setIsLoadingSymbol(true);
+      setImportProgress({
+        status: 'importing',
+        currentActivity: `Importing MT5 data for ${symbol}...`,
+        processedCount: 0,
+        totalCount: Object.keys(timeframes_data || {}).length || 1,
+      });
+
+      // 1. Save profile to Watchlist repository & in-memory cache
+      const symbolProfile = {
+        symbol,
+        name: profile?.description || symbol,
+        pricePrecision: profile?.digits ?? 5,
+        brokerTimezoneLabel: 'UTC+2 (broker)',
+        brokerTimezoneOffset: 2,
+        timeframeKeys: Object.keys(timeframes_data || {}),
+        source: 'MT5_AUTO_BRIDGE',
+      };
+      await watchlistRepository.saveSymbolProfile(symbol, symbolProfile);
+      setSymbolProfileCache(symbol, symbolProfile);
+
+      // 2. Save bars into market data repository and populate in-memory caches
+      const tfs = Object.keys(timeframes_data || {});
+      let count = 0;
+      for (const tf of tfs) {
+        const rawBars = timeframes_data[tf] || [];
+        if (rawBars.length > 0) {
+          await marketDataRepository.saveBars(symbol, tf, rawBars);
+          const adjusted = adjustTimezone(rawBars);
+          setTimezoneAdjustedBars(symbol, tf, adjusted);
+        }
+        count++;
+        setImportProgress({
+          status: 'importing',
+          currentActivity: `Processed timeframe ${tf.toUpperCase()} (${count} of ${tfs.length})`,
+          processedCount: count,
+          totalCount: tfs.length,
+          currentSymbol: symbol,
+        });
+      }
+
+      setImportProgress({
+        status: 'preparing',
+        currentActivity: 'Rendering chart canvas...',
+        processedCount: tfs.length,
+        totalCount: tfs.length,
+      });
+
+      // 3. Update watchlist
+      const watchlistItems = [{ name: symbol }];
+      setWatchlistSymbols(watchlistItems);
+      await watchlistRepository.saveWatchlistSymbols(watchlistItems);
+      await useDrawingStore.getState().loadAllSymbolDrawings([symbol]);
+
+      // 4. Update layout slot with symbol and timeframe
+      const layoutStore = useLayoutStore.getState();
+      const currentSlots = [...layoutStore.slots];
+      currentSlots[activeChartIndex] = { symbol, timeframe: targetTf };
+      layoutStore.setSlots(currentSlots);
+      await workspaceLayoutRepository.saveLayoutConfig({
+        layoutType: layoutStore.layoutType,
+        slots: currentSlots,
+        layoutSizes: layoutStore.layoutSizes,
+      });
+
+      // 5. Load and display on the chart canvas
+      const targetBars = getTimezoneAdjustedBars(symbol, targetTf) || [];
+      setAllTimeframesData({ [targetTf]: targetBars });
+      setActiveWatchlistSymbol(symbol);
+      await watchlistRepository.saveActiveSymbol(symbol);
+      persistenceService.setActiveWatchlistSymbol(symbol);
+
+      const chart = chartInstancesRef.current[activeChartIndex];
+      if (chart) {
+        chart.setSymbol({
+          ticker: symbol,
+          pricePrecision: symbolProfile.pricePrecision,
+          volumePrecision: 4,
+        });
+      }
+
+      await handleTimeframeSwitch(targetTf, symbol);
+      await loadDrawingsForSymbol(symbol);
+
+      setImportProgress(null);
+    } catch (err: any) {
+      console.error('[DEBUG] Failed handleAutoImportMT5:', err);
+      setImportProgress({
+        status: 'error',
+        currentActivity: 'Import Failed',
+        errorMessage: err?.message || 'Failed to apply MT5 chart data.',
+        processedCount: 0,
+        totalCount: 0,
+      });
+    } finally {
+      setIsLoadingSymbol(false);
+    }
+  };
+
   const handleWatchlistAddFile = async (file: File) => {
     try {
       const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
@@ -1051,6 +1155,7 @@ export function useWorkspaceCoordinator(
     handleWatchlistRemoveConfirm,
     handleWatchlistAddFolder,
     handleWatchlistAddFile,
+    handleAutoImportMT5,
     regenerateTimeframes,
     regenerateAllSlotsTimeframes,
     handleTimeframeSwitch,

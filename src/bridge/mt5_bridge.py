@@ -275,8 +275,20 @@ def check_system() -> Dict[str, Any]:
     }
 
 
+# Timeframe specs for complete symbol dataset extraction
+STANDARD_TIMEFRAME_SPECS = [
+    ('1m', 1, 50000),
+    ('5m', 5, 30000),
+    ('15m', 15, 20000),
+    ('30m', 30, 15000),
+    ('1h', 16385, 10000),
+    ('4h', 16388, 5000),
+    ('D', 16408, 3000),
+]
+
+
 def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 50000, db_path: Optional[str] = None) -> Dict[str, Any]:
-    """Initialize connection to MT5, fetch active chart candles, and store in SQLite."""
+    """Initialize connection to MT5, fetch active chart symbol candles across all timeframes, and store in SQLite."""
     if not MT5_AVAILABLE:
         return {'success': False, 'error': 'MetaTrader5 python package is not installed.'}
 
@@ -292,23 +304,25 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
     try:
         active_chart = get_active_chart_info(terminal_path)
         symbol = active_chart['symbol'] if active_chart else 'EURUSD'
-        tf_code = int(active_chart['period_size']) if active_chart and active_chart.get('period_size') else 15
-        tf_name = active_chart['timeframe'] if active_chart else 'M15'
+        active_period_size = active_chart.get('period_size', '15') if active_chart else '15'
+        
+        # Normalize active timeframe key for frontend
+        period_to_tf = {
+            '1': '1m',
+            '5': '5m',
+            '15': '15m',
+            '30': '30m',
+            '60': '1h',
+            '240': '4h',
+            '1440': 'D',
+            '10080': 'W',
+            '43200': 'M',
+        }
+        active_tf = period_to_tf.get(str(active_period_size), '15m')
 
         # Ensure symbol is selected in Market Watch
         mt5.symbol_select(symbol, True)
         s_info = mt5.symbol_info(symbol)
-
-        # Map to MT5 timeframe constant
-        mt5_tf = TIMEFRAME_MAP.get(str(tf_code), mt5.TIMEFRAME_M15)
-        rates = mt5.copy_rates_from_pos(symbol, mt5_tf, 0, bar_count)
-
-        if rates is None or len(rates) == 0:
-            return {
-                'success': False,
-                'error': f'No rates available for symbol {symbol} with timeframe {tf_name}',
-                'last_error': str(mt5.last_error()),
-            }
 
         target_db = get_sqlite_path(db_path)
         init_sqlite_tables(target_db)
@@ -317,6 +331,10 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
         cur = conn.cursor()
 
         # Insert / Update symbol profile
+        digits = s_info.digits if s_info else 5
+        point = s_info.point if s_info else 0.00001
+        description = s_info.description or s_info.name if s_info else symbol
+
         if s_info:
             cur.execute('''
                 INSERT OR REPLACE INTO symbol_profiles (symbol, name, description, digits, point, source, updated_at)
@@ -324,51 +342,75 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
             ''', (
                 symbol,
                 s_info.name,
-                s_info.description or s_info.name,
-                s_info.digits,
-                s_info.point,
+                description,
+                digits,
+                point,
                 'MT5_AUTO_BRIDGE',
             ))
 
-        # Insert candles in batch
-        # rates columns: time, open, high, low, close, tick_volume, spread, real_volume
-        # SQLite: symbol, timeframe, timestamp (ms), open, high, low, close, volume
-        bars_data = []
-        for r in rates:
-            timestamp_ms = int(r[0]) * 1000
-            bars_data.append((
-                symbol,
-                tf_name,
-                timestamp_ms,
-                float(r[1]),  # open
-                float(r[2]),  # high
-                float(r[3]),  # low
-                float(r[4]),  # close
-                float(r[5]),  # tick_volume
-            ))
+        timeframes_data = {}
+        total_bars_count = 0
 
-        cur.executemany('''
-            INSERT OR REPLACE INTO imported_series (symbol, timeframe, timestamp, open, high, low, close, volume)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', bars_data)
+        # Extract rates for all standard timeframes
+        for tf_name, tf_const, max_bars in STANDARD_TIMEFRAME_SPECS:
+            limit = bar_count if tf_name == active_tf else min(bar_count, max_bars)
+            rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, limit)
+            if rates is not None and len(rates) > 0:
+                bars_list = []
+                db_rows = []
+                for r in rates:
+                    timestamp_ms = int(r[0]) * 1000
+                    bar_obj = {
+                        'timestamp': timestamp_ms,
+                        'open': float(r[1]),
+                        'high': float(r[2]),
+                        'low': float(r[3]),
+                        'close': float(r[4]),
+                        'volume': float(r[5]),
+                    }
+                    bars_list.append(bar_obj)
+                    db_rows.append((
+                        symbol,
+                        tf_name,
+                        timestamp_ms,
+                        float(r[1]),
+                        float(r[2]),
+                        float(r[3]),
+                        float(r[4]),
+                        float(r[5]),
+                    ))
+                
+                cur.executemany('''
+                    INSERT OR REPLACE INTO imported_series (symbol, timeframe, timestamp, open, high, low, close, volume)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', db_rows)
+                
+                timeframes_data[tf_name] = bars_list
+                total_bars_count += len(bars_list)
 
         conn.commit()
         conn.close()
 
+        if total_bars_count == 0:
+            return {
+                'success': False,
+                'error': f'No rates available for symbol {symbol}',
+                'last_error': str(mt5.last_error()),
+            }
+
         return {
             'success': True,
             'symbol': symbol,
-            'timeframe': tf_name,
-            'bars_imported': len(bars_data),
-            'first_bar_time': bars_data[0][2] if bars_data else None,
-            'last_bar_time': bars_data[-1][2] if bars_data else None,
+            'active_timeframe': active_tf,
+            'total_bars_imported': total_bars_count,
             'db_path': target_db,
             'profile': {
                 'symbol': symbol,
-                'digits': s_info.digits if s_info else 5,
-                'point': s_info.point if s_info else 0.00001,
-                'description': s_info.description if s_info else symbol,
+                'digits': digits,
+                'point': point,
+                'description': description,
             },
+            'timeframes_data': timeframes_data,
         }
 
     finally:

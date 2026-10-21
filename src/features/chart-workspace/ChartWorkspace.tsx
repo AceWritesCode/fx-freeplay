@@ -2076,6 +2076,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             hasData={hasData}
             onResetImportProgress={() => workspaceCoord.resetImportProgress()}
             onSelectFolder={() => workspaceCoord.handleSelectFolderAPI(undefined, true)}
+            onAutoImportMT5={(syncResult) => workspaceCoord.handleAutoImportMT5(syncResult)}
           />
           <div
             data-chart-workspace="true"

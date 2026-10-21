@@ -30,10 +30,8 @@ export interface ActiveChartInfo {
 export interface SyncChartResult {
   success: boolean;
   symbol: string;
-  timeframe: string;
-  bars_imported: number;
-  first_bar_time: number;
-  last_bar_time: number;
+  active_timeframe: string;
+  total_bars_imported: number;
   db_path: string;
   profile: {
     symbol: string;
@@ -41,6 +39,7 @@ export interface SyncChartResult {
     point: number;
     description: string;
   };
+  timeframes_data?: Record<string, any[]>;
   error?: string;
 }
 
