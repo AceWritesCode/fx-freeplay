@@ -4,6 +4,11 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
+// Global safety net for unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('[Electron Main uncaughtException]:', err);
+});
+
 // Disable automatic downloads so UI controls when download starts
 autoUpdater.autoDownload = false;
 
@@ -128,14 +133,17 @@ let streamStdoutBuffer = '';
 
 function stopActiveStreamProcess() {
   if (activeStreamPyProcess) {
-    try {
-      activeStreamPyProcess.stdin.write(JSON.stringify({ cmd: 'stop_stream' }) + '\n');
-    } catch (_) {}
-    try {
-      activeStreamPyProcess.kill();
-    } catch (_) {}
+    const py = activeStreamPyProcess;
     activeStreamPyProcess = null;
     streamStdoutBuffer = '';
+    try {
+      if (py.stdin && !py.stdin.destroyed && py.stdin.writable) {
+        py.stdin.write(JSON.stringify({ cmd: 'stop_stream' }) + '\n');
+      }
+    } catch (_) {}
+    try {
+      py.kill();
+    } catch (_) {}
   }
 }
 
@@ -145,6 +153,11 @@ function executePythonBridge(req) {
     const py = spawn('python', [scriptPath], {
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    // Guard stdin against EPIPE / write-after-close errors
+    py.stdin.on('error', (err) => {
+      console.warn(`[ExecutePy stdin error]: ${err.message}`);
     });
 
     let stdoutData = '';
@@ -227,6 +240,11 @@ ipcMain.handle('mt5-subscribe-stream', async (event, params) => {
   streamStdoutBuffer = '';
 
   const sender = event.sender;
+
+  // Guard stream stdin against EPIPE on shutdown / retarget
+  py.stdin.on('error', (err) => {
+    console.warn(`[StreamPy stdin error]: ${err.message}`);
+  });
 
   py.stdout.on('data', (chunk) => {
     streamStdoutBuffer += chunk.toString('utf-8');
