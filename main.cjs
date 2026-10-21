@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 // Disable automatic downloads so UI controls when download starts
@@ -119,6 +120,75 @@ ipcMain.on('open-external', (_event, url) => {
 
 ipcMain.on('set-startup', (event, { login, hidden }) => {
   app.setLoginItemSettings({ openAtLogin: login, openAsHidden: hidden, path: app.getPath('exe') });
+});
+
+// --- MT5 Python Bridge IPC ---
+function executePythonBridge(req) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, 'src', 'bridge', 'mt5_bridge.py');
+    const py = spawn('python', [scriptPath], {
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdoutData = '';
+    let stderrData = '';
+
+    py.stdout.on('data', (chunk) => {
+      stdoutData += chunk.toString('utf-8');
+    });
+
+    py.stderr.on('data', (chunk) => {
+      stderrData += chunk.toString('utf-8');
+    });
+
+    py.on('error', (err) => {
+      resolve({
+        status: 'error',
+        error: `Failed to execute python: ${err.message}. Is Python installed and added to PATH?`,
+        python_missing: true,
+      });
+    });
+
+    py.on('close', (code) => {
+      if (stdoutData.trim()) {
+        try {
+          const parsed = JSON.parse(stdoutData.trim());
+          resolve(parsed);
+          return;
+        } catch (e) {
+          // JSON parse failed
+        }
+      }
+      resolve({
+        status: 'error',
+        error: stderrData.trim() || `Python process exited with code ${code}`,
+      });
+    });
+
+    try {
+      py.stdin.write(JSON.stringify(req) + '\n');
+      py.stdin.end();
+    } catch (e) {
+      resolve({ status: 'error', error: e.message });
+    }
+  });
+}
+
+ipcMain.handle('mt5-check-system', async () => {
+  return executePythonBridge({ cmd: 'check_system' });
+});
+
+ipcMain.handle('mt5-list-terminals', async () => {
+  return executePythonBridge({ cmd: 'list_terminals' });
+});
+
+ipcMain.handle('mt5-get-active-chart', async (_event, params) => {
+  return executePythonBridge({ cmd: 'get_active_chart', params: params || {} });
+});
+
+ipcMain.handle('mt5-sync-chart', async (_event, params) => {
+  return executePythonBridge({ cmd: 'sync_chart', params: params || {} });
 });
 
 app.whenReady().then(() => {

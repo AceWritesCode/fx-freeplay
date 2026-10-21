@@ -16,4 +16,10 @@ contextBridge.exposeInMainWorld('updaterAPI', {
 contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.send('open-external', url),
   setStartup: (settings) => ipcRenderer.send('set-startup', settings),
+  mt5: {
+    checkSystem: () => ipcRenderer.invoke('mt5-check-system'),
+    listTerminals: () => ipcRenderer.invoke('mt5-list-terminals'),
+    getActiveChart: (params) => ipcRenderer.invoke('mt5-get-active-chart', params),
+    syncChart: (params) => ipcRenderer.invoke('mt5-sync-chart', params),
+  },
 });
