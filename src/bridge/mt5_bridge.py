@@ -15,6 +15,8 @@ import json
 import sqlite3
 import subprocess
 import winreg
+import time
+import datetime
 from typing import Any, Dict, List, Optional
 
 # UTF-8 stdout setup for Windows
@@ -436,7 +438,7 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
                 mins = abs(broker_offset_min) % 60
                 broker_tz_label = f'(UTC{sign}{hours}) Broker' if mins == 0 else f'(UTC{sign}{hours}:{mins:02d}) Broker'
         except Exception as e:
-            logger.warning(f"Failed to detect broker timezone: {e}")
+            sys.stderr.write(f"[MT5 Bridge] Failed to detect broker timezone: {e}\n")
 
         return {
             'success': True,
