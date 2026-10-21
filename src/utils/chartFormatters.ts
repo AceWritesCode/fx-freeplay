@@ -186,6 +186,7 @@ export interface ChartDateFormatOptions {
   dateFormat?: string;
   timeFormat?: '12h' | '24h';
   showDayOfWeek?: boolean;
+  useUTC?: boolean;
 }
 
 /**
@@ -195,14 +196,15 @@ export function formatChartDate(timestamp: number, options?: ChartDateFormatOpti
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return '-';
 
+  const useUTC = !!options?.useUTC;
   const dayOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const day = String(date.getDate()).padStart(2, '0');
-  const monthIndex = date.getMonth();
+  const day = String(useUTC ? date.getUTCDate() : date.getDate()).padStart(2, '0');
+  const monthIndex = useUTC ? date.getUTCMonth() : date.getMonth();
   const monthNum = String(monthIndex + 1).padStart(2, '0');
   const monthStr = monthNames[monthIndex];
-  const year = date.getFullYear();
+  const year = useUTC ? date.getUTCFullYear() : date.getFullYear();
 
   let datePart = `${day} ${monthStr} ${year}`;
   const fmt = options?.dateFormat || 'dd MMM yyyy';
@@ -230,12 +232,12 @@ export function formatChartDate(timestamp: number, options?: ChartDateFormatOpti
   }
 
   if (options?.showDayOfWeek) {
-    const dow = dayOfWeekNames[date.getDay()];
+    const dow = dayOfWeekNames[useUTC ? date.getUTCDay() : date.getDay()];
     datePart = `${dow} ${datePart}`;
   }
 
-  let hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
+  let hours = useUTC ? date.getUTCHours() : date.getHours();
+  const minutes = String(useUTC ? date.getUTCMinutes() : date.getMinutes()).padStart(2, '0');
   let timePart = '';
 
   if (options?.timeFormat === '12h') {

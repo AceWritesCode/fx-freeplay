@@ -943,10 +943,12 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             formatter: {
               formatDate: ({ timestamp }) => {
                 const cur = settingsRef.current;
+                const isExchange = !cur?.timezoneAdjustmentEnabled || cur?.userTimezoneLabel === 'Exchange';
                 return formatChartDate(timestamp, {
                   dateFormat: cur?.dateFormat,
                   timeFormat: cur?.timeFormat,
                   showDayOfWeek: cur?.showTimeScaleDayOfWeek,
+                  useUTC: isExchange,
                 });
               }
             }
