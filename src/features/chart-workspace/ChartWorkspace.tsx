@@ -1477,7 +1477,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
                 }
               },
             });
-            c.applyNewData(presentationData, false);
+            c.resetData();
           }
         }
       }
@@ -1505,8 +1505,9 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         }
       }
       dataVersionRef.current += 1;
-      workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
-      runWorkspaceReconciliation(chartInstancesRef);
+      workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings).then(() => {
+        runWorkspaceReconciliation(chartInstancesRef);
+      });
     }
   };
 
@@ -1519,7 +1520,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     handleSettingsSave(newSettings);
   };
 
-  const handleUserTimezoneChange = (label: string) => {
+  const handleUserTimezoneChange = async (label: string) => {
     const timezoneOpt = TIMEZONE_OPTIONS.find((t) => t.label === label);
     const offset = timezoneOpt && typeof timezoneOpt.value === 'number' ? timezoneOpt.value : 0;
 
@@ -1550,7 +1551,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       }
     }
     dataVersionRef.current += 1;
-    workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
+    await workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
     runWorkspaceReconciliation(chartInstancesRef);
   };
 
@@ -2228,8 +2229,9 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             }
           }
           dataVersionRef.current += 1;
-          workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings);
-          runWorkspaceReconciliation(chartInstancesRef);
+          workspaceCoord.regenerateAllSlotsTimeframes(visibleSlots, newSettings).then(() => {
+            runWorkspaceReconciliation(chartInstancesRef);
+          });
         }}
         detectPricePrecision={detectPricePrecision}
       />

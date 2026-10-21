@@ -357,7 +357,7 @@ export function useWorkspaceCoordinator(
     return [];
   }, [adjustTimezone]);
 
-  const regenerateAllSlotsTimeframes = (
+  const regenerateAllSlotsTimeframes = async (
     slotsToUpdate: Array<{ symbol: string; timeframe: string; slotIndex: number }>,
     s: typeof settings
   ) => {
@@ -374,28 +374,67 @@ export function useWorkspaceCoordinator(
     const mergedTimeframesData: Record<string, KLineData[]> = {};
 
     for (const [symbol, slotEntries] of slotsBySymbol.entries()) {
-      const raw1m = getRawDataFromCache(symbol);
-      if (raw1m.length === 0) continue;
-
+      let raw1m = getRawDataFromCache(symbol);
+      if (raw1m.length === 0) {
+        raw1m = await marketDataRepository.getBars(symbol, '1m') || [];
+        if (raw1m.length > 0) {
+          setRawDataCache(symbol, raw1m);
+        }
+      }
       const uniqueTfs = Array.from(new Set(slotEntries.map((e) => e.timeframe)));
-      const tfCache = buildTimeframeCache(raw1m, s, uniqueTfs);
-      Object.assign(mergedTimeframesData, tfCache);
 
-      for (const entry of slotEntries) {
-        const chart = chartInstancesRef.current[entry.slotIndex];
-        if (chart) {
-          const rawVisibleData = tfCache[entry.timeframe] || [];
-          const visibleData = toPresentationData(rawVisibleData, s.chartType);
-          chart.setDataLoader({
-            getBars: ({ type: loadType, callback }: any) => {
-              if (loadType === 'init') {
-                callback(visibleData);
-              } else {
-                callback([]);
-              }
-            },
-          });
-          chart.resetData();
+      if (raw1m.length > 0) {
+        const tfCache = buildTimeframeCache(raw1m, s, uniqueTfs);
+        Object.assign(mergedTimeframesData, tfCache);
+
+        for (const entry of slotEntries) {
+          const chart = chartInstancesRef.current[entry.slotIndex];
+          if (chart) {
+            const rawVisibleData = tfCache[entry.timeframe] || [];
+            const visibleData = toPresentationData(rawVisibleData, s.chartType);
+            chart.setDataLoader({
+              getBars: ({ type: loadType, callback }: any) => {
+                if (loadType === 'init') {
+                  callback(visibleData);
+                } else {
+                  callback([]);
+                }
+              },
+            });
+            chart.resetData();
+          }
+        }
+      } else {
+        // Fallback for symbols imported per timeframe (e.g. MT5 multi-tf without 1m, or custom tf)
+        for (const tf of uniqueTfs) {
+          const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
+          if (rawBars.length > 0) {
+            const adjusted = shiftCandlesTimezone(
+              rawBars,
+              s.timezoneAdjustmentEnabled,
+              s.brokerTimezoneOffset,
+              s.userTimezoneOffset
+            );
+            setTimezoneAdjustedBars(symbol, tf, adjusted);
+            mergedTimeframesData[tf] = adjusted;
+          }
+        }
+        for (const entry of slotEntries) {
+          const chart = chartInstancesRef.current[entry.slotIndex];
+          if (chart) {
+            const rawVisibleData = mergedTimeframesData[entry.timeframe] || [];
+            const visibleData = toPresentationData(rawVisibleData, s.chartType);
+            chart.setDataLoader({
+              getBars: ({ type: loadType, callback }: any) => {
+                if (loadType === 'init') {
+                  callback(visibleData);
+                } else {
+                  callback([]);
+                }
+              },
+            });
+            chart.resetData();
+          }
         }
       }
     }
