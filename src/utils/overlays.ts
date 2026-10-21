@@ -30,6 +30,63 @@ export function registerCustomOverlays() {
 
       if (!lastData) return [];
 
+      const width = bounding?.width ?? 1000;
+      const isBidAskMode = chart._priceLineMode === 'bid_ask';
+
+      if (isBidAskMode) {
+        // Retrieve live quotes or fallback using current candle close
+        const liveTick = chart._liveTick;
+        const close = lastData.close;
+        const bid = (liveTick && typeof liveTick.bid === 'number') ? liveTick.bid : close;
+        const ask = (liveTick && typeof liveTick.ask === 'number') ? liveTick.ask : close;
+
+        const bidY = yAxis.convertToPixel(bid);
+        const askY = yAxis.convertToPixel(ask);
+
+        const bidStyle = chart._bidLineStyle || 'dashed';
+        const bidDashedValue = bidStyle === 'dotted' ? [2, 2] : [4, 4];
+        const bidColor = chart._bidLineColor || '#2962FF';
+        const bidSize = chart._bidLineSize || 1;
+
+        const askStyle = chart._askLineStyle || 'dashed';
+        const askDashedValue = askStyle === 'dotted' ? [2, 2] : [4, 4];
+        const askColor = chart._askLineColor || '#F23645';
+        const askSize = chart._askLineSize || 1;
+
+        return [
+          {
+            type: 'line',
+            attrs: {
+              coordinates: [
+                { x: 0, y: bidY },
+                { x: width, y: bidY },
+              ],
+            },
+            styles: {
+              style: bidStyle,
+              color: bidColor,
+              size: bidSize,
+              dashedValue: bidDashedValue,
+            },
+          },
+          {
+            type: 'line',
+            attrs: {
+              coordinates: [
+                { x: 0, y: askY },
+                { x: width, y: askY },
+              ],
+            },
+            styles: {
+              style: askStyle,
+              color: askColor,
+              size: askSize,
+              dashedValue: askDashedValue,
+            },
+          },
+        ];
+      }
+
       const close = lastData.close;
       const open = lastData.open;
 
@@ -51,7 +108,6 @@ export function registerCustomOverlays() {
         }
       }
 
-      const width = bounding?.width ?? 1000;
       const priceLineStyle = chart._priceLineStyle || 'dashed';
       const dashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
 
@@ -82,6 +138,102 @@ export function registerCustomOverlays() {
 
       if (!lastData) return [];
 
+      const pricePrecision = chart.getSymbol?.()?.pricePrecision ?? 5;
+      const formatPrice = (p: number) => {
+        if (typeof p !== 'number' || isNaN(p)) return '-';
+        return p.toFixed(pricePrecision);
+      };
+
+      const isFromZero = yAxis.isFromZero?.() ?? false;
+      const textAlign = isFromZero ? 'left' : 'right';
+      const textX = isFromZero ? 6 : (bounding?.width ?? 60) - 6;
+
+      const isBidAskMode = chart._priceLineMode === 'bid_ask';
+
+      if (isBidAskMode) {
+        if (chart._showBidAskLabels === false) return [];
+
+        const liveTick = chart._liveTick;
+        const close = lastData.close;
+        const bid = (liveTick && typeof liveTick.bid === 'number') ? liveTick.bid : close;
+        const ask = (liveTick && typeof liveTick.ask === 'number') ? liveTick.ask : close;
+
+        const bidY = yAxis.convertToPixel(bid);
+        const askY = yAxis.convertToPixel(ask);
+
+        const bidColor = chart._bidLineColor || '#2962FF';
+        const askColor = chart._askLineColor || '#F23645';
+
+        return [
+          // Bid Label
+          {
+            type: 'rect',
+            attrs: {
+              x: 0,
+              y: bidY - 10,
+              width: bounding?.width ?? 60,
+              height: 20,
+            },
+            styles: {
+              style: 'fill',
+              color: bidColor,
+            },
+            ignoreEvent: true,
+          },
+          {
+            type: 'text',
+            attrs: {
+              x: textX,
+              y: bidY,
+              text: `Bid ${formatPrice(bid)}`,
+              align: textAlign,
+              baseline: 'middle',
+            },
+            styles: {
+              color: '#ffffff',
+              size: 10,
+              family: 'Noto Sans, sans-serif',
+              backgroundColor: 'transparent',
+            },
+            ignoreEvent: true,
+          },
+          // Ask Label
+          {
+            type: 'rect',
+            attrs: {
+              x: 0,
+              y: askY - 10,
+              width: bounding?.width ?? 60,
+              height: 20,
+            },
+            styles: {
+              style: 'fill',
+              color: askColor,
+            },
+            ignoreEvent: true,
+          },
+          {
+            type: 'text',
+            attrs: {
+              x: textX,
+              y: askY,
+              text: `Ask ${formatPrice(ask)}`,
+              align: textAlign,
+              baseline: 'middle',
+            },
+            styles: {
+              color: '#ffffff',
+              size: 10,
+              family: 'Noto Sans, sans-serif',
+              backgroundColor: 'transparent',
+            },
+            ignoreEvent: true,
+          },
+        ];
+      }
+
+      if (!chart._showPriceLineLabel) return [];
+
       const close = lastData.close;
       const open = lastData.open;
       const priceY = yAxis.convertToPixel(close);
@@ -100,15 +252,7 @@ export function registerCustomOverlays() {
         }
       }
 
-      const pricePrecision = chart.getSymbol?.()?.pricePrecision ?? 5;
-      const formatPrice = (p: number) => {
-        if (typeof p !== 'number' || isNaN(p)) return '-';
-        return p.toFixed(pricePrecision);
-      };
 
-      const isFromZero = yAxis.isFromZero?.() ?? false;
-      const textAlign = isFromZero ? 'left' : 'right';
-      const textX = isFromZero ? 6 : (bounding?.width ?? 60) - 6;
 
       return [
         {

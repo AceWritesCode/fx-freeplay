@@ -15,11 +15,19 @@ export interface ChartSettings {
   bearWickColor: string;
   pricePrecision: number;
   showPriceLine: boolean;
+  priceLineMode?: 'single' | 'bid_ask'; // 'single' (color changing or custom) or 'bid_ask' (dual bid & ask lines)
   priceLineStyle: 'dashed' | 'solid' | 'dotted' | 'none';
   priceLineSize: number;
   priceLineColor: string;
   priceLineUseCandleColor: boolean;
   showPriceLineLabel: boolean;
+  bidLineColor?: string;
+  bidLineStyle?: 'dashed' | 'solid' | 'dotted';
+  bidLineSize?: number;
+  askLineColor?: string;
+  askLineStyle?: 'dashed' | 'solid' | 'dotted';
+  askLineSize?: number;
+  showBidAskLabels?: boolean;
 
   // Canvas Settings — Crosshair
   crosshairColor?: string;
@@ -124,11 +132,19 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     bearWickColor: '#474f66',
     pricePrecision: 0,
     showPriceLine: true,
+    priceLineMode: 'single',
     priceLineStyle: 'dashed',
     priceLineSize: 1,
     priceLineColor: '#2962FF',
     priceLineUseCandleColor: true,
     showPriceLineLabel: true,
+    bidLineColor: '#2962FF',
+    bidLineStyle: 'dashed',
+    bidLineSize: 1,
+    askLineColor: '#F23645',
+    askLineStyle: 'dashed',
+    askLineSize: 1,
+    showBidAskLabels: true,
     crosshairColor: '#888888',
     crosshairOpacity: 1,
     crosshairSize: 1,
@@ -195,11 +211,19 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     bearWickColor: '#333333',
     pricePrecision: 0,
     showPriceLine: true,
+    priceLineMode: 'single',
     priceLineStyle: 'dashed',
     priceLineSize: 1,
     priceLineColor: '#00E676',
     priceLineUseCandleColor: true,
     showPriceLineLabel: true,
+    bidLineColor: '#00E676',
+    bidLineStyle: 'dashed',
+    bidLineSize: 1,
+    askLineColor: '#FF3D00',
+    askLineStyle: 'dashed',
+    askLineSize: 1,
+    showBidAskLabels: true,
     crosshairColor: '#666666',
     crosshairOpacity: 1,
     crosshairSize: 1,
@@ -266,11 +290,19 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     bearWickColor: '#415a77',
     pricePrecision: 0,
     showPriceLine: true,
+    priceLineMode: 'single',
     priceLineStyle: 'solid',
     priceLineSize: 2,
     priceLineColor: '#00FF66',
     priceLineUseCandleColor: false,
     showPriceLineLabel: true,
+    bidLineColor: '#00FF66',
+    bidLineStyle: 'solid',
+    bidLineSize: 1,
+    askLineColor: '#FF0055',
+    askLineStyle: 'solid',
+    askLineSize: 1,
+    showBidAskLabels: true,
     crosshairColor: '#00FF66',
     crosshairOpacity: 0.8,
     crosshairSize: 1,

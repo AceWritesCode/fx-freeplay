@@ -249,9 +249,18 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
   function applySettingsToChart(chart: any, s: ChartSettings) {
     chart._showPriceLine = s.showPriceLine;
+    chart._priceLineMode = s.priceLineMode || 'single';
     chart._priceLineStyle = s.priceLineStyle;
     chart._priceLineSize = s.priceLineSize;
     chart._priceLineColor = s.priceLineColor;
+    chart._showPriceLineLabel = s.showPriceLineLabel;
+    chart._bidLineColor = s.bidLineColor || '#2962FF';
+    chart._bidLineStyle = s.bidLineStyle || 'dashed';
+    chart._bidLineSize = s.bidLineSize || 1;
+    chart._askLineColor = s.askLineColor || '#F23645';
+    chart._askLineStyle = s.askLineStyle || 'dashed';
+    chart._askLineSize = s.askLineSize || 1;
+    chart._showBidAskLabels = s.showBidAskLabels !== false;
     const isLine = s.chartType === 'line';
     const effectiveLineColor = s.lineColor || s.bullColor || '#2962FF';
 
@@ -431,19 +440,19 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           high: { show: false, text: { family: 'Noto Sans, sans-serif' } },
           low: { show: false, text: { family: 'Noto Sans, sans-serif' } },
           last: {
-            show: s.showPriceLine,
+            show: s.showPriceLine && (s.priceLineMode || 'single') === 'single',
             upColor: s.bullColor,
             downColor: s.bearColor,
             noChangeColor: '#888888',
             line: {
-              show: isReplayActive ? false : showPriceLineStroke,
+              show: (isReplayActive || (s.priceLineMode || 'single') === 'bid_ask') ? false : showPriceLineStroke,
               style: isPriceLineSolid ? 'solid' : 'dashed',
               dashedValue: priceLineDashedValue,
               size: s.priceLineSize,
               color: s.priceLineColor,
             },
             text: {
-              show: isReplayActive ? false : showLastPriceLabel,
+              show: (isReplayActive || (s.priceLineMode || 'single') === 'bid_ask') ? false : showLastPriceLabel,
               size: 11,
               family: 'Noto Sans, sans-serif',
               color: '#ffffff',
@@ -1186,6 +1195,21 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       window.removeEventListener('workspace:unhide', handleUnhide);
     };
   }, [layoutType, hasData]);
+
+  // Synchronize live tick quote into chart instances for real-time bid & ask price lines
+  useEffect(() => {
+    const liveTicks = workspaceCoord.liveTicksBySymbol;
+    if (!liveTicks || Object.keys(liveTicks).length === 0) return;
+
+    chartInstancesRef.current.forEach((chart, idx) => {
+      if (!chart) return;
+      const slotSym = slots[idx]?.symbol;
+      if (slotSym && liveTicks[slotSym]) {
+        chart._liveTick = liveTicks[slotSym];
+        DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+      }
+    });
+  }, [workspaceCoord.liveTicksBySymbol, slots]);
 
   // Clean up all charts on unmount
   useEffect(() => {

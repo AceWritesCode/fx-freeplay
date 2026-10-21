@@ -1352,74 +1352,204 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                 <div className="border-t border-border-sub my-2" />
                 <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Price Line</div>
 
-                {/* Price Line settings */}
+                {/* Master Price Line Toggle */}
                 <div className="flex items-center justify-between">
                   <Checkbox
                     checked={formState.showPriceLine}
                     onChange={(e) => handleFieldChange('showPriceLine', e.target.checked)}
-                    label="Last Price Line"
-                  />
-                  
-                  <div className="flex items-center gap-2">
-                    <Select
-                      disabled={!formState.showPriceLine}
-                      value={formState.priceLineStyle}
-                      onChange={(val) => handleFieldChange('priceLineStyle', val)}
-                      options={[
-                        { value: 'solid', label: 'Solid' },
-                        { value: 'dashed', label: 'Dashed' },
-                        { value: 'dotted', label: 'Dotted' },
-                        { value: 'none', label: 'None' },
-                      ]}
-                      className="w-24"
-                    />
-                    
-                    <Select
-                      disabled={!formState.showPriceLine}
-                      value={formState.priceLineSize}
-                      onChange={(val) => handleFieldChange('priceLineSize', Number(val))}
-                      options={[
-                        { value: 1, label: '1 px' },
-                        { value: 2, label: '2 px' },
-                        { value: 3, label: '3 px' },
-                      ]}
-                      className="w-20"
-                    />
-                  </div>
-                </div>
-
-                {/* Price Line Label Toggle */}
-                <div className="flex items-center justify-between">
-                  <Checkbox
-                    disabled={!formState.showPriceLine}
-                    checked={formState.showPriceLineLabel}
-                    onChange={(e) => handleFieldChange('showPriceLineLabel', e.target.checked)}
-                    label="Last Price Line Label"
-                    labelClassName={!formState.showPriceLine ? 'text-txt-muted' : ''}
+                    label="Show Price Line(s)"
                   />
                 </div>
 
-                {/* Price Line Color & Candle Color Matching */}
-                <div className="flex items-center justify-between">
-                  <span className={!formState.showPriceLine ? 'text-txt-muted' : ''}>Price Line Color</span>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
+                {/* Mutual Exclusive Mode Selector: Single Line vs Bid & Ask Lines */}
+                <div className="flex items-center gap-4 pl-6 py-1">
+                  <label className={`flex items-center gap-2 cursor-pointer text-xs ${!formState.showPriceLine ? 'text-txt-muted cursor-not-allowed' : 'text-txt-primary'}`}>
+                    <input
+                      type="radio"
+                      name="priceLineMode"
                       disabled={!formState.showPriceLine}
-                      checked={formState.priceLineUseCandleColor}
-                      onChange={(e) => handleFieldChange('priceLineUseCandleColor', e.target.checked)}
-                      label="Match Candle"
-                      labelClassName={`text-[11px] ${!formState.showPriceLine ? 'text-txt-muted' : ''}`}
+                      checked={(formState.priceLineMode || 'single') === 'single'}
+                      onChange={() => handleFieldChange('priceLineMode', 'single')}
+                      className="accent-accent cursor-pointer disabled:cursor-not-allowed"
                     />
-                    <ColorPickerButton
-                      color={formState.priceLineColor}
-                      disabled={!formState.showPriceLine || formState.priceLineUseCandleColor}
-                      title="Price Line Color"
-                      fieldKey="priceLineColor"
-                      activeKey={activeColorField?.fieldKey ?? null}
-                      onToggle={handleToggleColorField}
+                    <span>Single (Color-Changing) Line</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 cursor-pointer text-xs ${!formState.showPriceLine ? 'text-txt-muted cursor-not-allowed' : 'text-txt-primary'}`}>
+                    <input
+                      type="radio"
+                      name="priceLineMode"
+                      disabled={!formState.showPriceLine}
+                      checked={formState.priceLineMode === 'bid_ask'}
+                      onChange={() => handleFieldChange('priceLineMode', 'bid_ask')}
+                      className="accent-accent cursor-pointer disabled:cursor-not-allowed"
                     />
-                  </div>
+                    <span>Bid &amp; Ask Lines</span>
+                  </label>
                 </div>
+
+                {/* MODE A: Single Price Line Settings */}
+                {(formState.priceLineMode || 'single') === 'single' ? (
+                  <div className="flex flex-col gap-2.5 pl-6 border-l-2 border-border-sub ml-2 my-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs ${!formState.showPriceLine ? 'text-txt-muted' : 'text-txt-secondary'}`}>
+                        Line Style &amp; Size
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          disabled={!formState.showPriceLine}
+                          value={formState.priceLineStyle}
+                          onChange={(val) => handleFieldChange('priceLineStyle', val)}
+                          options={[
+                            { value: 'solid', label: 'Solid' },
+                            { value: 'dashed', label: 'Dashed' },
+                            { value: 'dotted', label: 'Dotted' },
+                            { value: 'none', label: 'None' },
+                          ]}
+                          className="w-24"
+                        />
+                        <Select
+                          disabled={!formState.showPriceLine}
+                          value={formState.priceLineSize}
+                          onChange={(val) => handleFieldChange('priceLineSize', Number(val))}
+                          options={[
+                            { value: 1, label: '1 px' },
+                            { value: 2, label: '2 px' },
+                            { value: 3, label: '3 px' },
+                          ]}
+                          className="w-20"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Price Line Color & Candle Color Matching */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs ${!formState.showPriceLine ? 'text-txt-muted' : 'text-txt-secondary'}`}>
+                        Price Line Color
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          disabled={!formState.showPriceLine}
+                          checked={formState.priceLineUseCandleColor}
+                          onChange={(e) => handleFieldChange('priceLineUseCandleColor', e.target.checked)}
+                          label="Match Candle"
+                          labelClassName={`text-[11px] ${!formState.showPriceLine ? 'text-txt-muted' : ''}`}
+                        />
+                        <ColorPickerButton
+                          color={formState.priceLineColor}
+                          disabled={!formState.showPriceLine || formState.priceLineUseCandleColor}
+                          title="Price Line Color"
+                          fieldKey="priceLineColor"
+                          activeKey={activeColorField?.fieldKey ?? null}
+                          onToggle={handleToggleColorField}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Price Line Label Toggle */}
+                    <div className="flex items-center justify-between">
+                      <Checkbox
+                        disabled={!formState.showPriceLine}
+                        checked={formState.showPriceLineLabel}
+                        onChange={(e) => handleFieldChange('showPriceLineLabel', e.target.checked)}
+                        label="Last Price Scale Label"
+                        labelClassName={!formState.showPriceLine ? 'text-txt-muted' : 'text-xs'}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* MODE B: Bid & Ask Price Lines Settings */
+                  <div className="flex flex-col gap-2.5 pl-6 border-l-2 border-border-sub ml-2 my-1">
+                    {/* Bid Line Row */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium ${!formState.showPriceLine ? 'text-txt-muted' : 'text-txt-secondary'}`}>
+                        Bid Line
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <ColorPickerButton
+                          color={formState.bidLineColor || '#2962FF'}
+                          disabled={!formState.showPriceLine}
+                          title="Bid Line Color"
+                          fieldKey="bidLineColor"
+                          activeKey={activeColorField?.fieldKey ?? null}
+                          onToggle={handleToggleColorField}
+                        />
+                        <Select
+                          disabled={!formState.showPriceLine}
+                          value={formState.bidLineStyle || 'dashed'}
+                          onChange={(val) => handleFieldChange('bidLineStyle', val)}
+                          options={[
+                            { value: 'solid', label: 'Solid' },
+                            { value: 'dashed', label: 'Dashed' },
+                            { value: 'dotted', label: 'Dotted' },
+                          ]}
+                          className="w-24"
+                        />
+                        <Select
+                          disabled={!formState.showPriceLine}
+                          value={formState.bidLineSize || 1}
+                          onChange={(val) => handleFieldChange('bidLineSize', Number(val))}
+                          options={[
+                            { value: 1, label: '1 px' },
+                            { value: 2, label: '2 px' },
+                            { value: 3, label: '3 px' },
+                          ]}
+                          className="w-20"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Ask Line Row */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium ${!formState.showPriceLine ? 'text-txt-muted' : 'text-txt-secondary'}`}>
+                        Ask Line
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <ColorPickerButton
+                          color={formState.askLineColor || '#F23645'}
+                          disabled={!formState.showPriceLine}
+                          title="Ask Line Color"
+                          fieldKey="askLineColor"
+                          activeKey={activeColorField?.fieldKey ?? null}
+                          onToggle={handleToggleColorField}
+                        />
+                        <Select
+                          disabled={!formState.showPriceLine}
+                          value={formState.askLineStyle || 'dashed'}
+                          onChange={(val) => handleFieldChange('askLineStyle', val)}
+                          options={[
+                            { value: 'solid', label: 'Solid' },
+                            { value: 'dashed', label: 'Dashed' },
+                            { value: 'dotted', label: 'Dotted' },
+                          ]}
+                          className="w-24"
+                        />
+                        <Select
+                          disabled={!formState.showPriceLine}
+                          value={formState.askLineSize || 1}
+                          onChange={(val) => handleFieldChange('askLineSize', Number(val))}
+                          options={[
+                            { value: 1, label: '1 px' },
+                            { value: 2, label: '2 px' },
+                            { value: 3, label: '3 px' },
+                          ]}
+                          className="w-20"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Show Bid/Ask Labels Toggle */}
+                    <div className="flex items-center justify-between">
+                      <Checkbox
+                        disabled={!formState.showPriceLine}
+                        checked={formState.showBidAskLabels !== false}
+                        onChange={(e) => handleFieldChange('showBidAskLabels', e.target.checked)}
+                        label="Bid &amp; Ask Scale Labels"
+                        labelClassName={!formState.showPriceLine ? 'text-txt-muted' : 'text-xs'}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="border-t border-border-sub my-2" />
                 <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Data Settings</div>
