@@ -244,24 +244,61 @@ export function useWorkspaceCoordinator(
     );
   }, [settings.timezoneAdjustmentEnabled, settings.brokerTimezoneOffset, settings.userTimezoneOffset]);
 
+  // Throttle map to prevent spamming incremental check for same symbol/tf within 30 seconds
+  const lastIncrementalCheckRef = useRef<Map<string, number>>(new Map());
+
   const getOrImportTimeframeData = useCallback(async (symbol: string, tf: string): Promise<KLineData[]> => {
+    // Check if symbol came from MT5 Bridge
+    const profile = getSymbolProfileCache(symbol) || await watchlistRepository.getSymbolProfile(symbol);
+    const isMT5Symbol = profile?.source === 'MT5_AUTO_BRIDGE';
+
     // 1. Try to read from in-memory timezoneAdjustedCache first!
-    const cachedBars = getTimezoneAdjustedBars(symbol, tf);
-    if (cachedBars) {
+    let cachedBars = getTimezoneAdjustedBars(symbol, tf);
+
+    // 2. If not in memory, try to read from IndexedDB repository!
+    if (!cachedBars || cachedBars.length === 0) {
+      const data = await marketDataRepository.getBars(symbol, tf) || [];
+      if (data.length > 0) {
+        cachedBars = adjustTimezone(data);
+        setTimezoneAdjustedBars(symbol, tf, cachedBars);
+      }
+    }
+
+    // 3. Optimized Incremental Sync for MT5 symbols:
+    // If bars exist, check if more than 30s passed since last check. If so, pull newly closed candles!
+    if (isMT5Symbol && mt5BridgeClient.isAvailable() && cachedBars && cachedBars.length > 0) {
+      const throttleKey = `${symbol}:${tf}`;
+      const lastCheck = lastIncrementalCheckRef.current.get(throttleKey) || 0;
+      const now = Date.now();
+      if (now - lastCheck > 30000) {
+        lastIncrementalCheckRef.current.set(throttleKey, now);
+        try {
+          const res = await mt5BridgeClient.refreshIncremental(symbol, tf);
+          if (res.new_bars_count > 0 && res.new_bars.length > 0) {
+            const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
+            // Merge raw bars by timestamp
+            const rawMap = new Map(rawBars.map(b => [b.timestamp, b]));
+            res.new_bars.forEach(b => rawMap.set(b.timestamp, b));
+            const mergedRaw = Array.from(rawMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+            await marketDataRepository.saveBars(symbol, tf, mergedRaw);
+
+            const adjusted = adjustTimezone(mergedRaw);
+            setTimezoneAdjustedBars(symbol, tf, adjusted);
+            return adjusted;
+          }
+        } catch (e) {
+          console.warn(`[DEBUG] Incremental check error for ${symbol} (${tf}):`, e);
+        }
+      }
       return cachedBars;
     }
 
-    // 2. Try to read from IndexedDB repository first!
-    const data = await marketDataRepository.getBars(symbol, tf) || [];
-    if (data.length > 0) {
-      const adjusted = adjustTimezone(data);
-      setTimezoneAdjustedBars(symbol, tf, adjusted);
-      return adjusted;
+    if (cachedBars && cachedBars.length > 0) {
+      return cachedBars;
     }
 
-    // 3. If symbol came from MT5 Bridge, fetch real MT5 bars for this timeframe on-demand
-    const profile = getSymbolProfileCache(symbol) || await watchlistRepository.getSymbolProfile(symbol);
-    if (profile?.source === 'MT5_AUTO_BRIDGE' && mt5BridgeClient.isAvailable()) {
+    // 4. If not loaded yet and symbol is from MT5, fetch full timeframe series on-demand
+    if (isMT5Symbol && mt5BridgeClient.isAvailable()) {
       try {
         const mt5Bars = await mt5BridgeClient.fetchTimeframe(symbol, tf, 50000);
         if (mt5Bars && mt5Bars.length > 0) {
@@ -275,7 +312,7 @@ export function useWorkspaceCoordinator(
       }
     }
 
-    // 4. If not in DB, check files map (Folder import mode)
+    // 5. If not in DB, check files map (Folder import mode)
     const filesMap = useWatchlistStore.getState().symbolFilesMap;
     const files = filesMap[symbol];
     if (files) {
@@ -1125,6 +1162,55 @@ export function useWorkspaceCoordinator(
     }
   };
 
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
+
+  // Explicit user-triggered refresh button: pulls newly closed bars for active symbol and timeframe
+  const handleRefreshActiveData = async () => {
+    const symbol = slots[activeChartIndex]?.symbol;
+    const tf = slots[activeChartIndex]?.timeframe || '1m';
+    if (!symbol) return;
+
+    const profile = getSymbolProfileCache(symbol) || await watchlistRepository.getSymbolProfile(symbol);
+    if (profile?.source !== 'MT5_AUTO_BRIDGE' || !mt5BridgeClient.isAvailable()) {
+      setWatchlistToast({ msg: 'Data refresh is available for MT5 synchronized symbols.', type: 'info' });
+      setTimeout(() => setWatchlistToast(null), 2500);
+      return;
+    }
+
+    try {
+      setIsRefreshingData(true);
+      const res = await mt5BridgeClient.refreshIncremental(symbol, tf);
+      if (res.new_bars_count > 0 && res.new_bars.length > 0) {
+        const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
+        const rawMap = new Map(rawBars.map((b) => [b.timestamp, b]));
+        res.new_bars.forEach((b) => rawMap.set(b.timestamp, b));
+        const mergedRaw = Array.from(rawMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+        await marketDataRepository.saveBars(symbol, tf, mergedRaw);
+
+        const adjusted = adjustTimezone(mergedRaw);
+        setTimezoneAdjustedBars(symbol, tf, adjusted);
+        setAllTimeframesData((prev) => ({ ...prev, [tf]: adjusted }));
+
+        // Update chart directly
+        const chart = chartInstancesRef.current[activeChartIndex];
+        if (chart) {
+          const visibleData = toPresentationData(adjusted, settings.chartType);
+          chart.applyNewData(visibleData, false);
+        }
+        setWatchlistToast({ msg: `Updated with ${res.new_bars_count} new closed bar(s)!`, type: 'success' });
+      } else {
+        setWatchlistToast({ msg: 'All data is already up to date.', type: 'info' });
+      }
+      setTimeout(() => setWatchlistToast(null), 2500);
+    } catch (e: any) {
+      console.error('[handleRefreshActiveData] Error:', e);
+      setWatchlistToast({ msg: 'Failed to refresh market data.', type: 'error' });
+      setTimeout(() => setWatchlistToast(null), 2500);
+    } finally {
+      setIsRefreshingData(false);
+    }
+  };
+
   const handleWatchlistAddFile = async (file: File) => {
     try {
       const cleanName = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
@@ -1173,6 +1259,8 @@ export function useWorkspaceCoordinator(
     handleWatchlistAddFolder,
     handleWatchlistAddFile,
     handleAutoImportMT5,
+    handleRefreshActiveData,
+    isRefreshingData,
     regenerateTimeframes,
     regenerateAllSlotsTimeframes,
     handleTimeframeSwitch,

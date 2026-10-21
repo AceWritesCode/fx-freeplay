@@ -9,6 +9,7 @@ import {
   Plus,
   LineChart,
   CandlestickChart,
+  RefreshCw,
 } from 'lucide-react';
 import type { TimeframeOption } from '@/config';
 import { CaptureButton } from '@/features/capture-recording';
@@ -74,6 +75,8 @@ interface HeaderProps {
   syncTime: boolean;
   syncDateRange: boolean;
   onSyncSettingChange: (key: 'syncSymbol' | 'syncInterval' | 'syncCrosshair' | 'syncTime' | 'syncDateRange' | 'syncDrawings', val: boolean) => void;
+  onRefreshData?: () => void;
+  isRefreshingData?: boolean;
 }
 
 interface CustomIntervalStepperProps {
@@ -260,6 +263,8 @@ export const Header: React.FC<HeaderProps> = (props) => {
     syncTime,
     syncDateRange,
     onSyncSettingChange,
+    onRefreshData,
+    isRefreshingData,
   } = props;
 
   return (
@@ -536,6 +541,18 @@ export const Header: React.FC<HeaderProps> = (props) => {
             );
           })}
         </div>
+
+        {/* Refresh Market Data Icon Button */}
+        {onRefreshData && hasData && (
+          <button
+            onClick={onRefreshData}
+            disabled={isRefreshingData}
+            title="Refresh latest closed candles from MT5"
+            className="p-1.5 px-2 bg-surface hover:bg-surface-hover text-txt-muted hover:text-accent rounded-lg border border-border-sub transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingData ? 'animate-spin text-accent' : ''}`} />
+          </button>
+        )}
       </div>
 
       {/* Right Side: Replay, Layout, Settings */}

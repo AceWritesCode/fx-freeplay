@@ -195,6 +195,10 @@ ipcMain.handle('mt5-fetch-timeframe', async (_event, params) => {
   return executePythonBridge({ cmd: 'fetch_timeframe', params: params || {} });
 });
 
+ipcMain.handle('mt5-refresh-incremental', async (_event, params) => {
+  return executePythonBridge({ cmd: 'refresh_incremental', params: params || {} });
+});
+
 app.whenReady().then(() => {
   createWindow();
 

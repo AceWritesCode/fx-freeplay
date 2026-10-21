@@ -22,5 +22,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getActiveChart: (params) => ipcRenderer.invoke('mt5-get-active-chart', params),
     syncChart: (params) => ipcRenderer.invoke('mt5-sync-chart', params),
     fetchTimeframe: (params) => ipcRenderer.invoke('mt5-fetch-timeframe', params),
+    refreshIncremental: (params) => ipcRenderer.invoke('mt5-refresh-incremental', params),
   },
 });

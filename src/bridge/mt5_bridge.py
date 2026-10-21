@@ -493,6 +493,92 @@ def fetch_symbol_timeframe(symbol: str, tf_name: str, bar_count: int = 50000, te
         mt5.shutdown()
 
 
+def refresh_incremental_bars(symbol: str, tf_name: str, terminal_path: Optional[str] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Fetch only the newly closed candles since the last stored candle timestamp in SQLite.
+    Optimized: Skips request or returns immediately if SQLite already has the latest closed candle.
+    """
+    tf_const = TIMEFRAME_MAP.get(tf_name.upper()) or TIMEFRAME_MAP.get(tf_name.lower())
+    if not tf_const:
+        return {'success': False, 'error': f'Unknown timeframe {tf_name}'}
+
+    if not MT5_AVAILABLE:
+        return {'success': False, 'error': 'MetaTrader5 python package is not installed.'}
+
+    target_db = get_sqlite_path(db_path)
+    init_sqlite_tables(target_db)
+
+    # 1. Query highest timestamp currently in database
+    conn = sqlite3.connect(target_db)
+    cur = conn.cursor()
+    cur.execute('SELECT max(timestamp) FROM imported_series WHERE symbol = ? AND timeframe = ?', (symbol, tf_name))
+    row = cur.fetchone()
+    last_stored_ms = row[0] if row and row[0] else None
+
+    # Connect to MT5
+    init_args = {}
+    if terminal_path and os.path.exists(terminal_path):
+        init_args['path'] = terminal_path
+
+    if not mt5.initialize(**init_args):
+        conn.close()
+        return {'success': False, 'error': f'MT5 initialization failed: {mt5.last_error()}'}
+
+    try:
+        mt5.symbol_select(symbol, True)
+        # Fetch the most recent closed bars (pos=1 omits bar 0 which is still forming)
+        # 100 bars is plenty to bridge hours/days of downtime without overhead
+        check_count = 500 if last_stored_ms else 50000
+        rates = mt5.copy_rates_from_pos(symbol, tf_const, 1, check_count)
+
+        if rates is None or len(rates) == 0:
+            conn.close()
+            return {'success': True, 'symbol': symbol, 'timeframe': tf_name, 'new_bars_count': 0, 'new_bars': []}
+
+        new_bars = []
+        db_rows = []
+        for r in rates:
+            ts_ms = int(r[0]) * 1000
+            if last_stored_ms is None or ts_ms > last_stored_ms:
+                bar_obj = {
+                    'timestamp': ts_ms,
+                    'open': float(r[1]),
+                    'high': float(r[2]),
+                    'low': float(r[3]),
+                    'close': float(r[4]),
+                    'volume': float(r[5]),
+                }
+                new_bars.append(bar_obj)
+                db_rows.append((
+                    symbol,
+                    tf_name,
+                    ts_ms,
+                    float(r[1]),
+                    float(r[2]),
+                    float(r[3]),
+                    float(r[4]),
+                    float(r[5]),
+                ))
+
+        if db_rows:
+            cur.executemany('''
+                INSERT OR REPLACE INTO imported_series (symbol, timeframe, timestamp, open, high, low, close, volume)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', db_rows)
+            conn.commit()
+
+        conn.close()
+        return {
+            'success': True,
+            'symbol': symbol,
+            'timeframe': tf_name,
+            'new_bars_count': len(new_bars),
+            'new_bars': new_bars,
+        }
+    finally:
+        mt5.shutdown()
+
+
 def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
     cmd = req.get('cmd')
     params = req.get('params', {})
@@ -519,6 +605,17 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
             symbol=params.get('symbol'),
             tf_name=params.get('timeframe'),
             bar_count=params.get('bar_count', 50000),
+            terminal_path=params.get('terminal_path'),
+            db_path=params.get('db_path'),
+        )
+        if res.get('success'):
+            return {'status': 'ok', 'data': res}
+        else:
+            return {'status': 'error', 'error': res.get('error')}
+    elif cmd == 'refresh_incremental':
+        res = refresh_incremental_bars(
+            symbol=params.get('symbol'),
+            tf_name=params.get('timeframe'),
             terminal_path=params.get('terminal_path'),
             db_path=params.get('db_path'),
         )

@@ -1928,6 +1928,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         syncTime={syncTime}
         syncDateRange={syncDateRange}
         onSyncSettingChange={handleSyncSettingChange}
+        onRefreshData={() => workspaceCoord.handleRefreshActiveData()}
+        isRefreshingData={workspaceCoord.isRefreshingData}
       />
 
       {/* Floating CSV Import Stats Card */}

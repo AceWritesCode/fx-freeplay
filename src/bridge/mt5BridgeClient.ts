@@ -49,6 +49,7 @@ interface ElectronBridgeAPI {
   getActiveChart: (params?: { terminal_path?: string }) => Promise<{ status: string; data?: ActiveChartInfo; error?: string }>;
   syncChart: (params?: { terminal_path?: string; bar_count?: number; db_path?: string }) => Promise<{ status: string; data?: SyncChartResult; error?: string }>;
   fetchTimeframe: (params: { symbol: string; timeframe: string; bar_count?: number; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
+  refreshIncremental: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; new_bars_count: number; new_bars: any[] }; error?: string }>;
 }
 
 declare global {
@@ -138,5 +139,22 @@ export const mt5BridgeClient = {
       console.warn(`[mt5BridgeClient] Failed to fetch timeframe ${timeframe} for ${symbol}:`, e);
     }
     return [];
+  },
+
+  async refreshIncremental(symbol: string, timeframe: string, terminalPath?: string): Promise<{ new_bars_count: number; new_bars: any[] }> {
+    if (!this.isAvailable()) return { new_bars_count: 0, new_bars: [] };
+    try {
+      const res = await window.electronAPI!.mt5!.refreshIncremental({
+        symbol,
+        timeframe,
+        terminal_path: terminalPath,
+      });
+      if (res.status === 'ok' && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn(`[mt5BridgeClient] Failed to refresh incremental bars for ${symbol} (${timeframe}):`, e);
+    }
+    return { new_bars_count: 0, new_bars: [] };
   },
 };
