@@ -105,7 +105,7 @@ export function useWorkspaceCoordinator(
   const [showStats, setShowStats] = useState<boolean>(false);
   const [customAlert, setCustomAlert] = useState<{ title: string; message: string } | null>(null);
   const [watchlistToast, setWatchlistToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
-  const [liveTick, setLiveTick] = useState<LiveTickData | null>(null);
+  const [liveTicksBySymbol, setLiveTicksBySymbol] = useState<Record<string, LiveTickData>>({});
 
   // Active chart stream subscribers map: slotIndex -> callback
   const liveSubscribersRef = useRef<Map<number, { symbol: string; timeframe: string; callback: (bar: KLineData) => void }>>(new Map());
@@ -281,9 +281,12 @@ export function useWorkspaceCoordinator(
         return;
       }
 
-      // Update live tick state for UI header & spread
-      if (update.tick) {
-        setLiveTick(update.tick);
+      // Update live tick state for watchlist & active symbols
+      if (update.tick && update.symbol) {
+        setLiveTicksBySymbol((prev) => ({
+          ...prev,
+          [update.symbol]: update.tick!,
+        }));
       }
 
       // Convert bars according to user/broker timezone settings
@@ -1543,6 +1546,6 @@ export function useWorkspaceCoordinator(
     isSwitchingTimeframe,
     isSwitchingTimeframeRef,
     getOrImportTimeframeData,
-    liveTick,
+    liveTicksBySymbol,
   };
 }

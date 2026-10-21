@@ -50,6 +50,7 @@ interface WorkspaceSidebarProps {
   watchlistToast: { msg: string; type: 'info' | 'error' | 'success' } | null;
   activeChartIndex: number;
   activeTimeframe: string;
+  liveTicksBySymbol?: Record<string, { bid: number; ask: number; last: number; spread: number }>;
 }
 
 export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
@@ -73,6 +74,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     watchlistToast,
     activeChartIndex,
     activeTimeframe,
+    liveTicksBySymbol,
   } = props;
 
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -188,13 +190,22 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                 </div>
               </div>
 
+              {/* Watchlist Table Header */}
+              <div className="grid grid-cols-[1fr_56px_56px_36px_24px] items-center px-3 py-1.5 border-b border-border-sub text-[10px] font-bold text-txt-muted uppercase tracking-wider select-none">
+                <span className="truncate">Symbol</span>
+                <span className="text-right">Bid</span>
+                <span className="text-right">Ask</span>
+                <span className="text-right">Spr</span>
+                <span></span>
+              </div>
+
               {/* Watchlist items list */}
-              <div className="flex-1 overflow-y-auto py-2 px-3 flex flex-col gap-1 select-none">
+              <div className="flex-1 overflow-y-auto py-1 px-1 flex flex-col gap-0.5 select-none">
                 
 
                 {/* Watchlist Toast Notification */}
                 {watchlistToast && (
-                  <div className={`mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+                  <div className={`mx-2 mb-2 px-3 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
                     watchlistToast.type === 'error'
                       ? 'bg-status-error/10 border border-status-error/25 text-status-error'
                       : 'bg-accent-muted border border-accent/25 text-accent'
@@ -206,35 +217,51 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
 
                 {watchlistSymbols.map((item) => {
                   const isSelected = item.name === activeSymbol;
+                  const tick = liveTicksBySymbol?.[item.name];
 
                   return (
                     <div
                       key={item.name}
                       onClick={() => loadSymbolFromFolder(item.name)}
                       className={`
-                        w-full flex items-center justify-between gap-2
-                        px-3 py-2 rounded-xl text-left cursor-pointer
-                        transition-all duration-150 group/item
+                        w-full grid grid-cols-[1fr_56px_56px_36px_24px] items-center
+                        px-2 py-1.5 rounded-lg text-left cursor-pointer
+                        transition-all duration-150 group/item text-xs
                         ${
                           isSelected
-                            ? 'bg-accent-muted border-l-2 border-accent text-txt-primary font-semibold pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
-                            : 'bg-transparent border-l-2 border-transparent text-txt-muted hover:bg-surface-hover hover:text-txt-primary pl-2.5 pr-3 py-2 rounded-r-sm rounded-l-sm'
+                            ? 'bg-accent-muted text-txt-primary font-semibold'
+                            : 'bg-transparent text-txt-muted hover:bg-surface-hover hover:text-txt-primary'
                         }
                       `}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="truncate text-xs font-semibold">{item.name}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                        <span className="truncate font-semibold text-txt-primary text-[11px]">{item.name}</span>
                       </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveSymbol(item.name);
-                        }}
-                        className="p-1 rounded opacity-0 group-hover/item:opacity-100 text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-all cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary">
+                        {tick?.bid !== undefined ? tick.bid : '—'}
+                      </div>
+
+                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary">
+                        {tick?.ask !== undefined ? tick.ask : '—'}
+                      </div>
+
+                      <div className="text-right font-mono text-[11px] text-txt-muted font-semibold">
+                        {tick?.spread !== undefined ? tick.spread : '—'}
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveSymbol(item.name);
+                          }}
+                          className="p-0.5 rounded opacity-0 group-hover/item:opacity-100 text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-all cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
