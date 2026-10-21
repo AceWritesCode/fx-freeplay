@@ -484,6 +484,46 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
         mt5.shutdown()
 
 
+def get_stored_series(symbol: str, tf_name: str, db_path: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve candlestick data directly from SQLite database without connecting to MT5."""
+    target_db = get_sqlite_path(db_path)
+    if not os.path.exists(target_db):
+        return {'success': False, 'error': 'Database file not found', 'bars': []}
+
+    try:
+        conn = sqlite3.connect(target_db)
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT timestamp, open, high, low, close, volume
+            FROM imported_series
+            WHERE symbol = ? AND timeframe = ?
+            ORDER BY timestamp ASC
+        ''', (symbol, tf_name))
+        rows = cur.fetchall()
+        conn.close()
+
+        bars_list = []
+        for r in rows:
+            bars_list.append({
+                'timestamp': int(r[0]),
+                'open': float(r[1]),
+                'high': float(r[2]),
+                'low': float(r[3]),
+                'close': float(r[4]),
+                'volume': float(r[5]),
+            })
+
+        return {
+            'success': True,
+            'symbol': symbol,
+            'timeframe': tf_name,
+            'bars_count': len(bars_list),
+            'bars': bars_list,
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e), 'bars': []}
+
+
 def fetch_symbol_timeframe(symbol: str, tf_name: str, bar_count: int = 50000, terminal_path: Optional[str] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
     """Fetch candles for an individual timeframe on demand and save to SQLite."""
     # Find MT5 timeframe constant
@@ -794,6 +834,16 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
         res = sync_active_chart(
             terminal_path=params.get('terminal_path'),
             bar_count=params.get('bar_count', 50000),
+            db_path=params.get('db_path'),
+        )
+        if res.get('success'):
+            return {'status': 'ok', 'data': res}
+        else:
+            return {'status': 'error', 'error': res.get('error')}
+    elif cmd == 'get_stored_series':
+        res = get_stored_series(
+            symbol=params.get('symbol'),
+            tf_name=params.get('timeframe'),
             db_path=params.get('db_path'),
         )
         if res.get('success'):

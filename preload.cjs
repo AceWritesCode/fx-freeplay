@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listTerminals: () => ipcRenderer.invoke('mt5-list-terminals'),
     getActiveChart: (params) => ipcRenderer.invoke('mt5-get-active-chart', params),
     syncChart: (params) => ipcRenderer.invoke('mt5-sync-chart', params),
+    getStoredSeries: (params) => ipcRenderer.invoke('mt5-get-stored-series', params),
     fetchTimeframe: (params) => ipcRenderer.invoke('mt5-fetch-timeframe', params),
     refreshIncremental: (params) => ipcRenderer.invoke('mt5-refresh-incremental', params),
     subscribeStream: (params) => ipcRenderer.invoke('mt5-subscribe-stream', params),

@@ -366,12 +366,32 @@ export function useWorkspaceCoordinator(
     // 1. Try to read from in-memory timezoneAdjustedCache first!
     let cachedBars = getTimezoneAdjustedBars(symbol, tf);
 
+    // If MT5 symbol has a suspicious/truncated cached stub (less than 100 bars while history exists in SQLite), invalidate it
+    if (isMT5Symbol && cachedBars && cachedBars.length > 0 && cachedBars.length < 100) {
+      cachedBars = undefined;
+    }
+
     // 2. If not in memory, try to read from IndexedDB repository!
     if (!cachedBars || cachedBars.length === 0) {
       const data = await marketDataRepository.getBars(symbol, tf) || [];
-      if (data.length > 0) {
+      if (data.length > 0 && (!isMT5Symbol || data.length >= 100)) {
         cachedBars = adjustTimezone(data);
         setTimezoneAdjustedBars(symbol, tf, cachedBars);
+      }
+    }
+
+    // 2b. For MT5 symbols: check SQLite storage if not in memory or IndexedDB
+    if (isMT5Symbol && (!cachedBars || cachedBars.length === 0) && mt5BridgeClient.isAvailable()) {
+      try {
+        const storedBars = await mt5BridgeClient.getStoredSeries(symbol, tf);
+        if (storedBars && storedBars.length > 0) {
+          await marketDataRepository.saveBars(symbol, tf, storedBars);
+          cachedBars = adjustTimezone(storedBars);
+          setTimezoneAdjustedBars(symbol, tf, cachedBars);
+          return cachedBars;
+        }
+      } catch (e) {
+        console.warn(`[getOrImportTimeframeData] SQLite read fallback error for ${symbol} (${tf}):`, e);
       }
     }
 
@@ -1433,9 +1453,20 @@ export function useWorkspaceCoordinator(
 
     try {
       setIsRefreshingData(true);
+
+      // Verify that the local cache/IndexedDB has full data from SQLite
+      let currentBars = await marketDataRepository.getBars(symbol, tf) || [];
+      if (currentBars.length < 100) {
+        const storedBars = await mt5BridgeClient.getStoredSeries(symbol, tf);
+        if (storedBars && storedBars.length > 0) {
+          currentBars = storedBars;
+          await marketDataRepository.saveBars(symbol, tf, currentBars);
+        }
+      }
+
       const res = await mt5BridgeClient.refreshIncremental(symbol, tf);
       if (res.new_bars_count > 0 && res.new_bars.length > 0) {
-        const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
+        const rawBars = currentBars.length > 0 ? currentBars : (await marketDataRepository.getBars(symbol, tf) || []);
         const rawMap = new Map(rawBars.map((b) => [b.timestamp, b]));
         res.new_bars.forEach((b) => rawMap.set(b.timestamp, b));
         const mergedRaw = Array.from(rawMap.values()).sort((a, b) => a.timestamp - b.timestamp);
@@ -1477,7 +1508,27 @@ export function useWorkspaceCoordinator(
         }
         setWatchlistToast({ msg: `Updated with ${res.new_bars_count} new closed bar(s)!`, type: 'success' });
       } else {
-        setWatchlistToast({ msg: 'All data is already up to date.', type: 'info' });
+        // Even if 0 new bars from MT5, ensure the chart displays the full stored data if it was previously truncated
+        const adjusted = adjustTimezone(currentBars);
+        if (adjusted.length > 0) {
+          setTimezoneAdjustedBars(symbol, tf, adjusted);
+          setAllTimeframesData((prev) => ({ ...prev, [tf]: adjusted }));
+          const chart = chartInstancesRef.current[activeChartIndex];
+          if (chart) {
+            const visibleData = toPresentationData(adjusted, settings.chartType);
+            chart.setDataLoader({
+              getBars: ({ type: loadType, callback }: any) => {
+                if (loadType === 'init') {
+                  callback(visibleData);
+                } else {
+                  callback([]);
+                }
+              },
+            });
+            chart.resetData();
+          }
+        }
+        setWatchlistToast({ msg: 'All data is up to date.', type: 'info' });
       }
       setTimeout(() => setWatchlistToast(null), 2500);
     } catch (e: any) {
