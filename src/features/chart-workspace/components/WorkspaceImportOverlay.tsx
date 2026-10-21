@@ -11,6 +11,10 @@ import {
   Play,
   Layers,
   Terminal as TerminalIcon,
+  ChevronDown,
+  ChevronUp,
+  Monitor,
+  Check,
 } from 'lucide-react';
 import type { ImportProgressState } from '@/coordinator';
 import {
@@ -39,6 +43,9 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto');
 
+  // Accordion state for System Prerequisites
+  const [isPrereqOpen, setIsPrereqOpen] = useState(false);
+
   // MT5 Bridge state
   const [checkingSystem, setCheckingSystem] = useState(false);
   const [sysCheck, setSysCheck] = useState<SystemCheckResult | null>(null);
@@ -48,7 +55,10 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  // Run system pre-flight check when entering Auto tab
+  // Drag and drop state for manual tab
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Run system pre-flight check
   const runPreflightCheck = async () => {
     setCheckingSystem(true);
     setSyncError(null);
@@ -56,13 +66,18 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
       const res = await mt5BridgeClient.checkSystem();
       setSysCheck(res);
       if (res.terminals && res.terminals.length > 0) {
-        setSelectedTerminal(res.terminals[0]);
+        setSelectedTerminal((prev) => prev || res.terminals[0]);
       }
-      // Check active chart
+      // If prerequisites not met, open accordion automatically
+      const ready = res.python_installed && res.mt5_package_installed && res.terminals_count > 0;
+      if (!ready) {
+        setIsPrereqOpen(true);
+      }
       const chart = await mt5BridgeClient.getActiveChart();
       setActiveChart(chart);
     } catch (err: any) {
       setSyncError(err?.message || 'Failed to check system dependencies.');
+      setIsPrereqOpen(true);
     } finally {
       setCheckingSystem(false);
     }
@@ -90,6 +105,26 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    // Trigger directory selection
+    onSelectFolder();
   };
 
   if (importProgress) {
@@ -135,7 +170,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
                 </p>
               </div>
 
-              {/* Real Progress Bar */}
+              {/* Progress Bar */}
               <div className="w-full flex flex-col gap-2">
                 <div className="w-full bg-app-bg rounded-full h-2 overflow-hidden border border-border-sub relative">
                   {importProgress.status === 'scanning' ? (
@@ -207,12 +242,13 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
 
     return (
       <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-app-bg p-6 text-center select-none">
-        <div className="max-w-lg w-full bg-modal-bg border border-border-def rounded-2xl p-6 shadow-2xl flex flex-col gap-6 text-left">
+        {/* Modal Container with Fixed Height (h-[580px]) so height stays identical across tabs */}
+        <div className="max-w-[540px] w-full h-[580px] bg-modal-bg border border-border-def rounded-2xl p-6 shadow-2xl flex flex-col text-left">
           
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-border-sub pb-4">
+          <div className="flex items-center justify-between border-b border-border-sub pb-4 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center shrink-0">
                 <Upload className="w-5 h-5 text-accent" />
               </div>
               <div>
@@ -223,10 +259,10 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex bg-surface-elevated p-1 rounded-xl border border-border-sub">
+          <div className="flex bg-surface-elevated p-1 rounded-xl border border-border-sub my-4 shrink-0">
             <button
               onClick={() => setActiveTab('auto')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'auto'
                   ? 'bg-accent text-txt-inverse shadow-sm'
                   : 'text-txt-secondary hover:text-txt-primary'
@@ -237,7 +273,7 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('manual')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'manual'
                   ? 'bg-accent text-txt-inverse shadow-sm'
                   : 'text-txt-secondary hover:text-txt-primary'
@@ -250,194 +286,260 @@ export const WorkspaceImportOverlay: React.FC<WorkspaceImportOverlayProps> = ({
 
           {/* TAB 1: AUTO IMPORT (MT5 BRIDGE) */}
           {activeTab === 'auto' && (
-            <div className="flex flex-col gap-4">
-              {/* Dependency Status Card */}
-              <div className="bg-surface-elevated border border-border-def rounded-xl p-4 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-txt-primary flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-accent" />
-                    System Prerequisites Check
-                  </span>
-                  <button
-                    onClick={runPreflightCheck}
-                    disabled={checkingSystem}
-                    className="text-[11px] text-accent hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${checkingSystem ? 'animate-spin' : ''}`} />
-                    <span>Re-check</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-1 text-xs">
-                  {/* Python check */}
-                  <div className="flex items-center justify-between py-1 border-b border-border-sub/40">
-                    <div className="flex items-center gap-2">
-                      {isPythonReady ? (
-                        <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-status-error shrink-0" />
-                      )}
-                      <span className="text-txt-primary font-medium">
-                        Python 3 {sysCheck?.python_version ? `(${sysCheck.python_version})` : ''}
+            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pr-1 gap-3.5">
+              
+              {/* Accordion: System Prerequisites Check */}
+              <div className="bg-surface-elevated/80 border border-border-def rounded-xl overflow-hidden shrink-0 transition-all duration-200">
+                <div
+                  onClick={() => setIsPrereqOpen(!isPrereqOpen)}
+                  className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-surface-hover/50 select-none transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-bold text-txt-primary">System Prerequisites Check</span>
+                    {allRequirementsMet ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-success/10 text-status-success border border-status-success/20 font-semibold">
+                        Ready
                       </span>
-                    </div>
-                    {!isPythonReady && (
-                      <button
-                        onClick={() => mt5BridgeClient.openExternal('https://www.python.org/downloads/windows/')}
-                        className="py-1 px-2.5 bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/30 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        <span>Download Python</span>
-                      </button>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-warning/10 text-status-warning border border-status-warning/20 font-semibold">
+                        Setup Required
+                      </span>
                     )}
                   </div>
-
-                  {/* MT5 Python Package Check */}
-                  <div className="flex items-center justify-between py-1 border-b border-border-sub/40">
-                    <div className="flex items-center gap-2">
-                      {isMt5PkgReady ? (
-                        <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-status-error shrink-0" />
-                      )}
-                      <span className="text-txt-primary font-medium">MetaTrader5 Python Library</span>
-                    </div>
-                    {!isMt5PkgReady && isPythonReady && (
-                      <button
-                        onClick={() => mt5BridgeClient.openExternal('https://pypi.org/project/MetaTrader5/')}
-                        className="py-1 px-2.5 bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/30 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        <span>pip install MetaTrader5</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* MT5 Desktop Terminals Check */}
-                  <div className="flex items-center justify-between py-1">
-                    <div className="flex items-center gap-2">
-                      {hasTerminals ? (
-                        <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-status-error shrink-0" />
-                      )}
-                      <span className="text-txt-primary font-medium">
-                        MetaTrader 5 Desktop Terminal ({sysCheck?.terminals_count || 0} detected)
-                      </span>
-                    </div>
-                    {!hasTerminals && (
-                      <button
-                        onClick={() => mt5BridgeClient.openExternal('https://www.metatrader5.com/en/download')}
-                        className="py-1 px-2.5 bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/30 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        <span>Download MT5</span>
-                      </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runPreflightCheck();
+                      }}
+                      disabled={checkingSystem}
+                      className="text-[11px] text-accent hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${checkingSystem ? 'animate-spin' : ''}`} />
+                      <span>Re-check</span>
+                    </button>
+                    {isPrereqOpen ? (
+                      <ChevronUp className="w-4 h-4 text-txt-muted" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-txt-muted" />
                     )}
                   </div>
                 </div>
+
+                {isPrereqOpen && (
+                  <div className="px-3.5 pb-3.5 pt-1 border-t border-border-sub/60 flex flex-col gap-2 text-xs">
+                    {/* Python check */}
+                    <div className="flex items-center justify-between py-1.5 border-b border-border-sub/40">
+                      <div className="flex items-center gap-2">
+                        {isPythonReady ? (
+                          <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-status-error shrink-0" />
+                        )}
+                        <span className="text-txt-primary font-medium">
+                          Python 3 {sysCheck?.python_version ? `(${sysCheck.python_version})` : ''}
+                        </span>
+                      </div>
+                      {!isPythonReady && (
+                        <button
+                          onClick={() => mt5BridgeClient.openExternal('https://www.python.org/downloads/windows/')}
+                          className="py-1 px-2.5 bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/30 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Download Python</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* MT5 Python Package Check */}
+                    <div className="flex items-center justify-between py-1.5 border-b border-border-sub/40">
+                      <div className="flex items-center gap-2">
+                        {isMt5PkgReady ? (
+                          <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-status-error shrink-0" />
+                        )}
+                        <span className="text-txt-primary font-medium">MetaTrader5 Python Library</span>
+                      </div>
+                      {!isMt5PkgReady && isPythonReady && (
+                        <button
+                          onClick={() => mt5BridgeClient.openExternal('https://pypi.org/project/MetaTrader5/')}
+                          className="py-1 px-2.5 bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/30 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>pip install MetaTrader5</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* MT5 Desktop Terminals Check */}
+                    <div className="flex items-center justify-between py-1.5">
+                      <div className="flex items-center gap-2">
+                        {hasTerminals ? (
+                          <CheckCircle2 className="w-4 h-4 text-status-success shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-status-error shrink-0" />
+                        )}
+                        <span className="text-txt-primary font-medium">
+                          MetaTrader 5 Desktop Terminal ({sysCheck?.terminals_count || 0} detected)
+                        </span>
+                      </div>
+                      {!hasTerminals && (
+                        <button
+                          onClick={() => mt5BridgeClient.openExternal('https://www.metatrader5.com/en/download')}
+                          className="py-1 px-2.5 bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/30 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Download MT5</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Terminal Selection & Sync Card (If prerequisites met) */}
-              {allRequirementsMet ? (
-                <div className="flex flex-col gap-3 bg-surface-elevated border border-border-def rounded-xl p-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-txt-primary">Select MetaTrader 5 Terminal Instance</label>
-                    <select
-                      value={selectedTerminal?.exe_path || ''}
-                      onChange={(e) => {
-                        const found = sysCheck?.terminals.find((t) => t.exe_path === e.target.value);
-                        if (found) setSelectedTerminal(found);
-                      }}
-                      className="bg-modal-bg border border-border-def text-txt-primary text-xs rounded-lg p-2.5 outline-none focus:border-accent"
-                    >
-                      {sysCheck?.terminals.map((term, idx) => (
-                        <option key={idx} value={term.exe_path}>
-                          {term.name} ({term.exe_path})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Active chart detection info */}
+              {/* Terminal Card Selection List (No dropdown, interactive cards) */}
+              <div className="flex-1 flex flex-col min-h-0 gap-2">
+                <div className="flex items-center justify-between shrink-0">
+                  <label className="text-xs font-bold text-txt-primary">
+                    Select MetaTrader 5 Terminal
+                  </label>
                   {activeChart && (
-                    <div className="bg-modal-bg/80 border border-border-sub rounded-lg p-3 flex items-center justify-between text-xs">
-                      <div>
-                        <div className="text-[11px] text-txt-muted">Detected Active Chart:</div>
-                        <div className="font-bold text-txt-primary">
-                          {activeChart.symbol} • {activeChart.timeframe} (Profile: {activeChart.profile})
-                        </div>
-                      </div>
-                      <div className="text-[10px] px-2 py-0.5 rounded bg-status-success/10 text-status-success border border-status-success/20">
-                        Ready
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sync error display */}
-                  {syncError && (
-                    <div className="text-xs text-status-error bg-status-error/10 border border-status-error/20 rounded-lg p-2.5">
-                      {syncError}
-                    </div>
-                  )}
-
-                  {/* Sync success display */}
-                  {syncResult && (
-                    <div className="text-xs text-status-success bg-status-success/10 border border-status-success/20 rounded-lg p-2.5">
-                      {syncResult}
-                    </div>
-                  )}
-
-                  {/* Sync Action Button */}
-                  <button
-                    onClick={handleSyncChart}
-                    disabled={syncing}
-                    className="w-full py-2.5 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {syncing ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Play className="w-4 h-4 fill-current" />
-                    )}
-                    <span>
-                      {syncing
-                        ? 'Connecting & Synchronizing...'
-                        : 'Connect & Import Active Chart (SQLite)'}
+                    <span className="text-[11px] text-accent font-medium">
+                      Active: {activeChart.symbol} ({activeChart.timeframe})
                     </span>
-                  </button>
-                  <p className="text-[11px] text-txt-muted text-center">
-                    If the terminal is stopped, it will launch automatically and extract the chart data.
-                  </p>
+                  )}
                 </div>
-              ) : (
-                <div className="p-3 bg-status-warning/10 border border-status-warning/20 rounded-xl text-xs text-txt-secondary flex flex-col gap-1">
-                  <div className="font-bold text-status-warning flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Setup Required</span>
+
+                {allRequirementsMet ? (
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[160px]">
+                    {sysCheck?.terminals.map((term, idx) => {
+                      const isSelected = selectedTerminal?.exe_path === term.exe_path;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setSelectedTerminal(term)}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'bg-accent/10 border-accent shadow-sm'
+                              : 'bg-surface-elevated/60 border-border-def hover:border-border-hover hover:bg-surface-elevated'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? 'bg-accent text-txt-inverse'
+                                  : 'bg-surface-elevated text-txt-secondary'
+                              }`}
+                            >
+                              <Monitor className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-bold text-txt-primary truncate">
+                                {term.name}
+                              </span>
+                              <span className="text-[11px] text-txt-muted truncate font-mono">
+                                {term.exe_path}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-accent text-txt-inverse flex items-center justify-center shrink-0 ml-2">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p>
-                    Please install the missing prerequisites indicated above to enable automated MetaTrader 5 chart extraction.
-                  </p>
+                ) : (
+                  <div className="p-3 bg-status-warning/10 border border-status-warning/20 rounded-xl text-xs text-txt-secondary flex flex-col gap-1 shrink-0">
+                    <div className="font-bold text-status-warning flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Setup Required</span>
+                    </div>
+                    <p>
+                      Please click on <strong>System Prerequisites Check</strong> above to review missing dependencies.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Status feedback */}
+              {syncError && (
+                <div className="text-xs text-status-error bg-status-error/10 border border-status-error/20 rounded-lg p-2.5 shrink-0">
+                  {syncError}
                 </div>
               )}
+              {syncResult && (
+                <div className="text-xs text-status-success bg-status-success/10 border border-status-success/20 rounded-lg p-2.5 shrink-0">
+                  {syncResult}
+                </div>
+              )}
+
+              {/* Action Button */}
+              <div className="shrink-0 pt-1">
+                <button
+                  onClick={handleSyncChart}
+                  disabled={syncing || !allRequirementsMet}
+                  className="w-full py-3 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-xl text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {syncing ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 fill-current" />
+                  )}
+                  <span>
+                    {syncing
+                      ? 'Connecting & Synchronizing...'
+                      : 'Connect & Import Active Chart (SQLite)'}
+                  </span>
+                </button>
+                <p className="text-[11px] text-txt-muted text-center mt-1.5">
+                  If the terminal is stopped, it will launch automatically and extract the chart data.
+                </p>
+              </div>
+
             </div>
           )}
 
-          {/* TAB 2: MANUAL CSV IMPORT (ORIGINAL SYSTEM FULLY PRESERVED) */}
+          {/* TAB 2: MANUAL CSV IMPORT (WITH DRAG & DROP ZONE, SAME HEIGHT) */}
           {activeTab === 'manual' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <p className="text-txt-muted text-xs leading-relaxed">
-                  Select the exported folder generated by the MQL5 script (<code className="font-mono text-txt-primary">Candlesticks_Data_Export.ex5</code>).
+            <div className="flex-1 flex flex-col min-h-0 gap-4">
+              {/* Drag and Drop Zone Area */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={onSelectFolder}
+                className={`flex-1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 text-center transition-all cursor-pointer ${
+                  isDragging
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border-def bg-surface-elevated/40 hover:bg-surface-elevated/70 hover:border-border-hover'
+                }`}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-modal-bg border border-border-def flex items-center justify-center mb-3 shadow-sm">
+                  <FolderOpen className="w-8 h-8 text-accent" />
+                </div>
+                <h3 className="text-sm font-bold text-txt-primary">Drag and drop folder</h3>
+                <p className="text-xs text-txt-muted mt-1 max-w-xs">
+                  Drag your exported MT5 data folder here, or click to browse files from your computer.
                 </p>
               </div>
-              <button
-                onClick={onSelectFolder}
-                className="w-full py-2.5 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-lg text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <FolderOpen className="w-4 h-4" />
-                <span>Open Directory (Folder Mode)</span>
-              </button>
+
+              {/* Action Button */}
+              <div className="shrink-0">
+                <button
+                  onClick={onSelectFolder}
+                  className="w-full py-3 px-4 bg-accent hover:bg-accent-hover text-txt-inverse rounded-xl text-xs font-semibold shadow-lg border border-accent transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  <span>Open Directory (Folder Mode)</span>
+                </button>
+              </div>
             </div>
           )}
 
