@@ -701,10 +701,10 @@ def stream_worker(symbol: str, tf_name: str, terminal_path: Optional[str], db_pa
             last_tick_msc = max(last_tick_msc, current_tick_msc)
             last_candle_ts = forming_bar_ts
 
-            # Calculate live spread in points
-            bid = float(tick.bid)
-            ask = float(tick.ask)
-            last_price = float(tick.last) if getattr(tick, 'last', 0) else bid
+            # Calculate live spread in points and round prices to symbol digits
+            bid = round(float(tick.bid), digits)
+            ask = round(float(tick.ask), digits)
+            last_price = round(float(tick.last), digits) if getattr(tick, 'last', 0) else bid
             spread = round((ask - bid) / point) if point > 0 else 0
 
             # Parse bars

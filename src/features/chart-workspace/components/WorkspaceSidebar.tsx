@@ -29,6 +29,7 @@ const SessionDisplayTabIcon = ({ className = "w-full h-full" }: { className?: st
 
 import { ObjectTreePanel } from '@/components/ObjectTreePanel';
 import { SessionDisplayPanel } from '@/features/session-display';
+import { getSymbolProfileCache } from '@/coordinator/workspaceCache';
 
 interface WorkspaceSidebarProps {
   activeRightTab: 'watchlist' | 'objectTree' | 'sessionDisplay' | null;
@@ -191,7 +192,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               </div>
 
               {/* Watchlist Table Header */}
-              <div className="grid grid-cols-[1fr_56px_56px_36px_24px] items-center px-3 py-1.5 border-b border-border-sub text-[10px] font-bold text-txt-muted uppercase tracking-wider select-none">
+              <div className="grid grid-cols-[1fr_64px_64px_36px_20px] items-center px-3 py-1.5 border-b border-border-sub text-[10px] font-bold text-txt-muted uppercase tracking-wider select-none">
                 <span className="truncate">Symbol</span>
                 <span className="text-right">Bid</span>
                 <span className="text-right">Ask</span>
@@ -218,13 +219,22 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                 {watchlistSymbols.map((item) => {
                   const isSelected = item.name === activeSymbol;
                   const tick = liveTicksBySymbol?.[item.name];
+                  const profile = getSymbolProfileCache(item.name);
+                  const precision = (profile?.pricePrecision !== undefined && profile?.pricePrecision !== null)
+                    ? profile.pricePrecision
+                    : 5;
+
+                  const formatPrice = (val?: number) => {
+                    if (val === undefined || val === null || isNaN(val)) return '—';
+                    return val.toFixed(precision);
+                  };
 
                   return (
                     <div
                       key={item.name}
                       onClick={() => loadSymbolFromFolder(item.name)}
                       className={`
-                        w-full grid grid-cols-[1fr_56px_56px_36px_24px] items-center
+                        w-full grid grid-cols-[1fr_64px_64px_36px_20px] items-center
                         px-2 py-1.5 rounded-lg text-left cursor-pointer
                         transition-all duration-150 group/item text-xs
                         ${
@@ -239,15 +249,15 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                         <span className="truncate font-semibold text-txt-primary text-[11px]">{item.name}</span>
                       </div>
 
-                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary">
-                        {tick?.bid !== undefined ? tick.bid : '—'}
+                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary tabular-nums">
+                        {formatPrice(tick?.bid)}
                       </div>
 
-                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary">
-                        {tick?.ask !== undefined ? tick.ask : '—'}
+                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary tabular-nums">
+                        {formatPrice(tick?.ask)}
                       </div>
 
-                      <div className="text-right font-mono text-[11px] text-txt-muted font-semibold">
+                      <div className="text-right font-mono text-[11px] text-txt-muted font-semibold tabular-nums">
                         {tick?.spread !== undefined ? tick.spread : '—'}
                       </div>
 
