@@ -222,32 +222,46 @@ export function registerCustomOverlays() {
       const isBidAskMode = chart._priceLineMode === 'bid_ask';
 
       // 1. Calculate Active Candle Countdown
+      // Wall-clock aligned countdown: independent of tick arrival, operating like a precise clock
       const showCountdown = chart._showCountdown !== false;
-      const tf: string = chart._loadedTimeframe || '1m';
+      const tf: string =
+        chart._loadedTimeframe ||
+        useLayoutStore.getState().slots?.[(chart as any)._chartIndex ?? 0]?.timeframe ||
+        '1m';
       const tfMinutes = getTimeframeMinutes(tf);
       const tfDurationMs = tfMinutes * 60 * 1000;
 
       let countdownStr = '';
-      if (showCountdown && tfDurationMs > 0 && typeof lastData.timestamp === 'number') {
-        const offsetMs = chart._chartOffsetMs || 0;
-        const candleStart = lastData.timestamp;
-        const candleEnd = candleStart + tfDurationMs;
-
+      if (showCountdown && tfDurationMs > 0) {
         const replayState = useReplayStore.getState();
-        const now = (replayState.isReplayActive && replayState.replayCurrentTimestamp !== null)
-          ? replayState.replayCurrentTimestamp
-          : (Date.now() + offsetMs);
+        const isReplay = replayState.isReplayActive && replayState.replayCurrentTimestamp !== null;
+        const now = isReplay ? (replayState.replayCurrentTimestamp as number) : Date.now();
 
-        const remainingMs = Math.max(0, candleEnd - now);
+        // Time elapsed in current candle period based on standard clock grid
+        const elapsedMs = now % tfDurationMs;
+        const remainingMs = Math.max(0, tfDurationMs - elapsedMs);
         const totalSec = Math.floor(remainingMs / 1000);
-        const hours = Math.floor(totalSec / 3600);
-        const minutes = Math.floor((totalSec % 3600) / 60);
-        const seconds = totalSec % 60;
 
-        if (hours > 0) {
-          countdownStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        } else {
+        if (tfMinutes < 60) {
+          // Minutes timeframe (< 1 hour): "mm:ss" countdown (e.g. 01:00 -> 00:00)
+          const minutes = Math.floor(totalSec / 60);
+          const seconds = totalSec % 60;
           countdownStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else if (tfMinutes === 60) {
+          // 1 hour timeframe: "01:00" (hh:mm) down to "59:59" -> "00:00" (mm:ss)
+          if (totalSec >= 3600) {
+            countdownStr = '01:00';
+          } else {
+            const minutes = Math.floor(totalSec / 60);
+            const seconds = totalSec % 60;
+            countdownStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          }
+        } else {
+          // Greater than 1 hour timeframe: "hh:mm:ss" countdown
+          const hours = Math.floor(totalSec / 3600);
+          const minutes = Math.floor((totalSec % 3600) / 60);
+          const seconds = totalSec % 60;
+          countdownStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
       }
 
