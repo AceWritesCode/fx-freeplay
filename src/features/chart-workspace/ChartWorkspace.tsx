@@ -819,56 +819,6 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     runWorkspaceReconciliation(chartInstancesRef);
   }, [drawingsBySymbol, slots, activeChartIndex, syncDrawings]);
 
-  // Slot Data Loader Effect - runs whenever slots or layoutType changes
-  useEffect(() => {
-    if (!hasData) {
-      prevSlotsRef.current = slots;
-      prevLayoutTypeRef.current = layoutType;
-      return;
-    }
-
-    const visibleCount = getLayoutChartCount(layoutType);
-    const prevSlots = prevSlotsRef.current;
-    
-    const layoutTypeChanged = layoutType !== prevLayoutTypeRef.current;
-
-    prevSlotsRef.current = slots;
-    prevLayoutTypeRef.current = layoutType;
-
-    const promises: Promise<void>[] = [];
-    for (let i = 0; i < visibleCount; i++) {
-      const chart = chartInstancesRef.current[i];
-      if (chart) {
-        const currentSlot = slots[i];
-        const prevSlot = prevSlots?.[i];
-
-        const symbolChanged = currentSlot?.symbol !== prevSlot?.symbol;
-        const timeframeChanged = currentSlot?.timeframe !== prevSlot?.timeframe;
-
-        // When switching timeframe via handleTimeframeSwitch, handleTimeframeSwitch is the single authority
-        // responsible for loading data and restoring the viewport accurately. Do not re-trigger loadDataForSlot.
-        if (workspaceCoord.isSwitchingTimeframeRef.current && timeframeChanged && !symbolChanged && !layoutTypeChanged) {
-          continue;
-        }
-
-        const dataList = (chart.getDataList?.() || []) as any[];
-        const hasNoData = dataList.length === 0;
-
-        if (symbolChanged || timeframeChanged || hasNoData) {
-          promises.push(workspaceCoord.loadDataForSlot(i, chart));
-        }
-      }
-    }
-
-    if (promises.length > 0) {
-      Promise.all(promises).then(() => {
-        drawingCoord.syncAllDrawings();
-      }).catch(err => {
-        console.error('[DEBUG] Error loading slots data:', err);
-      });
-    }
-  }, [slots, layoutType, hasData]);
-
   const resetChartView = useCallback((overrideRatio?: number) => {
     const visibleCount = getLayoutChartCount(layoutType);
     for (let index = 0; index < visibleCount; index++) {
@@ -1181,6 +1131,56 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
     return () => clearTimeout(timer);
   }, [layoutType, hasData]);
+
+  // Slot Data Loader Effect - runs whenever slots or layoutType changes
+  useEffect(() => {
+    if (!hasData) {
+      prevSlotsRef.current = slots;
+      prevLayoutTypeRef.current = layoutType;
+      return;
+    }
+
+    const visibleCount = getLayoutChartCount(layoutType);
+    const prevSlots = prevSlotsRef.current;
+    
+    const layoutTypeChanged = layoutType !== prevLayoutTypeRef.current;
+
+    prevSlotsRef.current = slots;
+    prevLayoutTypeRef.current = layoutType;
+
+    const promises: Promise<void>[] = [];
+    for (let i = 0; i < visibleCount; i++) {
+      const chart = chartInstancesRef.current[i];
+      if (chart) {
+        const currentSlot = slots[i];
+        const prevSlot = prevSlots?.[i];
+
+        const symbolChanged = currentSlot?.symbol !== prevSlot?.symbol;
+        const timeframeChanged = currentSlot?.timeframe !== prevSlot?.timeframe;
+
+        // When switching timeframe via handleTimeframeSwitch, handleTimeframeSwitch is the single authority
+        // responsible for loading data and restoring the viewport accurately. Do not re-trigger loadDataForSlot.
+        if (workspaceCoord.isSwitchingTimeframeRef.current && timeframeChanged && !symbolChanged && !layoutTypeChanged) {
+          continue;
+        }
+
+        const dataList = (chart.getDataList?.() || []) as any[];
+        const hasNoData = dataList.length === 0;
+
+        if (symbolChanged || timeframeChanged || hasNoData || layoutTypeChanged) {
+          promises.push(workspaceCoord.loadDataForSlot(i, chart));
+        }
+      }
+    }
+
+    if (promises.length > 0) {
+      Promise.all(promises).then(() => {
+        drawingCoord.syncAllDrawings();
+      }).catch(err => {
+        console.error('[DEBUG] Error loading slots data:', err);
+      });
+    }
+  }, [slots, layoutType, hasData]);
 
   // Global keyboard listener to auto-summon Symbol Search on typing a-z, 0-9
   useEffect(() => {
