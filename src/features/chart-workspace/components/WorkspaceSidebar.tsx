@@ -35,6 +35,7 @@ interface WorkspaceSidebarProps {
   activeRightTab: 'watchlist' | 'objectTree' | 'sessionDisplay' | null;
   setActiveRightTab: (tab: 'watchlist' | 'objectTree' | 'sessionDisplay' | null) => void;
   rightPanelWidth: number;
+  setRightPanelWidth?: (w: number) => void;
   isResizingRightPanel: boolean;
   onResizeStart: () => void;
   onResizeEnd: () => void;
@@ -59,6 +60,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     activeRightTab,
     setActiveRightTab,
     rightPanelWidth,
+    setRightPanelWidth,
     isResizingRightPanel,
     onResizeStart,
     onResizeEnd,
@@ -89,8 +91,16 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
   React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizingRightPanel) return;
-      const newWidth = window.innerWidth - e.clientX;
-      const clampedWidth = Math.max(220, Math.min(600, newWidth));
+      const rawWidth = window.innerWidth - e.clientX;
+      
+      // If user drags narrower than the cutoff threshold (140px), auto-close the drawer!
+      if (rawWidth < 140) {
+        setActiveRightTab(null);
+        return;
+      }
+      
+      const clampedWidth = Math.max(140, Math.min(600, rawWidth));
+      setRightPanelWidth?.(clampedWidth);
       
       // Update custom property to dynamically resize CSS grid layout
       document.documentElement.style.setProperty('--right-panel-width', `${clampedWidth}px`);
@@ -109,10 +119,18 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizingRightPanel, onResizeEnd]);
+  }, [isResizingRightPanel, onResizeEnd, setActiveRightTab, setRightPanelWidth]);
 
   // Sidebar toggle visibility
   const isSidebarVisible = activeRightTab !== null;
+  const currentEffectiveWidth = isSidebarVisible ? rightPanelWidth : 44;
+  const showBidAsk = currentEffectiveWidth >= 260;
+  const showSpread = currentEffectiveWidth >= 180;
+  const gridColumnsClass = showBidAsk
+    ? 'grid-cols-[1fr_64px_64px_36px_20px]'
+    : showSpread
+    ? 'grid-cols-[1fr_36px_20px]'
+    : 'grid-cols-[1fr_20px]';
 
   return (
     <div 
@@ -161,11 +179,11 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
               </div>
 
               {/* Watchlist Table Header */}
-              <div className="grid grid-cols-[1fr_64px_64px_36px_20px] items-center px-3 py-1.5 border-b border-border-sub text-[10px] font-bold text-txt-muted uppercase tracking-wider select-none">
+              <div className={`grid ${gridColumnsClass} items-center px-3 py-1.5 border-b border-border-sub text-[10px] font-bold text-txt-muted uppercase tracking-wider select-none`}>
                 <span className="truncate">Symbol</span>
-                <span className="text-right">Bid</span>
-                <span className="text-right">Ask</span>
-                <span className="text-right">Spr</span>
+                {showBidAsk && <span className="text-right">Bid</span>}
+                {showBidAsk && <span className="text-right">Ask</span>}
+                {showSpread && <span className="text-right">Spr</span>}
                 <span></span>
               </div>
 
@@ -203,7 +221,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                       key={item.name}
                       onClick={() => loadSymbolFromFolder(item.name)}
                       className={`
-                        w-full grid grid-cols-[1fr_64px_64px_36px_20px] items-center
+                        w-full grid ${gridColumnsClass} items-center
                         px-2 py-1.5 rounded-lg text-left cursor-pointer
                         transition-all duration-150 group/item text-xs
                         ${
@@ -218,17 +236,23 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                         <span className="truncate font-semibold text-txt-primary text-[11px]">{item.name}</span>
                       </div>
 
-                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary tabular-nums">
-                        {formatPrice(tick?.bid)}
-                      </div>
+                      {showBidAsk && (
+                        <div className="text-right font-mono text-[11px] font-medium text-txt-primary tabular-nums">
+                          {formatPrice(tick?.bid)}
+                        </div>
+                      )}
 
-                      <div className="text-right font-mono text-[11px] font-medium text-txt-primary tabular-nums">
-                        {formatPrice(tick?.ask)}
-                      </div>
+                      {showBidAsk && (
+                        <div className="text-right font-mono text-[11px] font-medium text-txt-primary tabular-nums">
+                          {formatPrice(tick?.ask)}
+                        </div>
+                      )}
 
-                      <div className="text-right font-mono text-[11px] text-txt-muted font-semibold tabular-nums">
-                        {tick?.spread !== undefined ? tick.spread : '—'}
-                      </div>
+                      {showSpread && (
+                        <div className="text-right font-mono text-[11px] text-txt-muted font-semibold tabular-nums">
+                          {tick?.spread !== undefined ? tick.spread : '—'}
+                        </div>
+                      )}
 
                       <div className="flex justify-end">
                         <button

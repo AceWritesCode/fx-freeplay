@@ -172,7 +172,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
   // Visual layout states
   const [activeRightTab, setActiveRightTab] = useState<'watchlist' | 'objectTree' | 'sessionDisplay' | null>('watchlist');
-  const [rightPanelWidth] = useState<number>(300);
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(360);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isDataManagementOpen, setIsDataManagementOpen] = useState<boolean>(false);
@@ -2256,6 +2256,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           activeRightTab={activeRightTab}
           setActiveRightTab={setActiveRightTab}
           rightPanelWidth={rightPanelWidth}
+          setRightPanelWidth={setRightPanelWidth}
           isResizingRightPanel={isResizingRightPanel}
           onResizeStart={() => {
             rightPanelResizeRef.current = true;
