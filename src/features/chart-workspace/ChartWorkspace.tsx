@@ -1139,7 +1139,6 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             (chart as any)._isShiftPressedRef = isShiftPressedRef;
             (chart as any)._chartInstancesRef = chartInstancesRef;
             (chart as any)._activeTool = drawingCoord.activeTool;
-            workspaceCoord.loadDataForSlot(i, chart);
             chart.resize();
             (chart as any)._layout?.();
           }

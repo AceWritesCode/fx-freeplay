@@ -1319,21 +1319,33 @@ export function useWorkspaceCoordinator(
           (chart as any)._layout?.();
         }
         if (visibleData.length > 0) {
-          const chartSize = chart.getSize();
-          const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
-          const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
-          const targetOffset = (options?.customOffset !== undefined && options?.customOffset !== null)
-            ? options.customOffset
-            : (options?.preserveOffset
-              ? getTrueOffsetRightDistance(chart)
-              : chartWidth * resetRatio);
+          const applyPosition = () => {
+            if (typeof chart.resize === 'function') {
+              chart.resize();
+              (chart as any)._layout?.();
+            }
+            const chartSize = chart.getSize();
+            const chartWidth = chartSize && chartSize.width > 0 ? chartSize.width : 800;
+            const resetRatio = settings.resetViewOffsetRatio ?? 0.5;
+            const targetOffset = (options?.customOffset !== undefined && options?.customOffset !== null)
+              ? options.customOffset
+              : (options?.preserveOffset
+                ? getTrueOffsetRightDistance(chart)
+                : chartWidth * resetRatio);
 
-          (chart as any)._isProgrammaticScroll = true;
-          chart.setOffsetRightDistance(targetOffset);
-          chart.scrollToDataIndex(visibleData.length - 1);
-          requestAnimationFrame(() => {
+            (chart as any)._isProgrammaticScroll = true;
             chart.setOffsetRightDistance(targetOffset);
-            (chart as any)._isProgrammaticScroll = false;
+            chart.scrollToDataIndex(visibleData.length - 1);
+            requestAnimationFrame(() => {
+              chart.setOffsetRightDistance(targetOffset);
+              (chart as any)._isProgrammaticScroll = false;
+            });
+          };
+
+          // Execute immediately and once more after DOM layout reflow has stabilized
+          applyPosition();
+          requestAnimationFrame(() => {
+            applyPosition();
           });
         }
       }

@@ -371,7 +371,8 @@ export const syncDateRange = (
     if (!targetChart) continue;
     
     const targetData = targetChart.getDataList();
-    if (targetData.length === 0) continue;
+    // Guard against unpopulated or single-bar stub during chart initialization
+    if (!targetData || targetData.length < 2) continue;
 
     const targetTfMs = getTimeframeMs(slots[i]?.timeframe || '1m');
     const targetSymbol = slots[i]?.symbol;
