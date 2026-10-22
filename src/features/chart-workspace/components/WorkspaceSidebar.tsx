@@ -231,8 +231,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                         }
                       `}
                     >
-                      <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                      <div className="flex items-center min-w-0 pr-1">
                         <span className="truncate font-semibold text-txt-primary text-[11px]">{item.name}</span>
                       </div>
 
