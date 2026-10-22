@@ -31,6 +31,7 @@ import {
   initializeCandlePhysicalRendering,
   registerPhysicalFigures,
 } from '@/engine/charting';
+import { createDynamicYAxisTicks } from '@/engine/charting/dynamicYAxisTicks';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
 import { getSymbolProfileCache } from '@/coordinator/workspaceCache';
 
@@ -353,9 +354,20 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     const priceLineDashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
     const isPriceLineSolid = priceLineStyle === 'solid';
 
-    // Dynamic price scale positioning (left/right)
+    // Dynamic price scale positioning (left/right) and TradingView-style responsive tick density
     if (typeof chart.overrideYAxis === 'function') {
-      chart.overrideYAxis({ position: s.priceScalePosition || 'right' });
+      chart.overrideYAxis({
+        position: s.priceScalePosition || 'right',
+        createTicks: ({ range, bounding, defaultTicks }: any) => {
+          return createDynamicYAxisTicks({
+            range,
+            bounding,
+            defaultTicks,
+            chart,
+            fallbackPrecision: s.pricePrecision !== 0 ? s.pricePrecision : 5,
+          });
+        },
+      });
     }
 
     chart.setStyles({
