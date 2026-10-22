@@ -2024,7 +2024,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-app-bg text-txt-secondary overflow-hidden select-none">
+    <div className="flex flex-col h-full w-full bg-app-bg text-txt-secondary overflow-hidden select-none">
       <Header
         onNavigateHome={onNavigateHome}
         assetName={assetName}
@@ -2098,7 +2098,7 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
       {/* Main Workspace */}
       <div
-        className="flex-1 flex w-full relative overflow-hidden"
+        className="flex-1 min-h-0 flex w-full relative overflow-hidden"
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}

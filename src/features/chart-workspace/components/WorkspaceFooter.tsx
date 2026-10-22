@@ -377,7 +377,7 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
 
   return (
     <>
-      <footer className="h-12 bg-surface border-t border-border-def flex items-center justify-between px-4 z-20 select-none">
+      <footer className="h-12 min-h-12 flex-shrink-0 bg-surface border-t border-border-def flex items-center justify-between px-4 z-20 select-none">
         {isReplayActive ? (
           isRecordingActive ? (
             /* 4-Section Row: Timezone | Recording Controls | Replay Controls | Precision Replay */
