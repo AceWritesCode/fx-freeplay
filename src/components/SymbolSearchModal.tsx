@@ -266,7 +266,7 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
         </div>
 
         {/* Category Filter Pills Bar */}
-        <div className="px-5 py-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-border-sub">
+        <div className="px-5 py-2 flex items-center gap-1.5 flex-wrap max-h-32 overflow-y-auto custom-scrollbar border-b border-border-sub">
           <button
             onClick={() => {
               setSelectedCategory('All');
