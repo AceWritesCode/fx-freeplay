@@ -220,6 +220,10 @@ ipcMain.handle('mt5-sync-chart', async (_event, params) => {
   return executePythonBridge({ cmd: 'sync_chart', params: params || {} });
 });
 
+ipcMain.handle('mt5-get-tradable-symbols', async (_event, params) => {
+  return executePythonBridge({ cmd: 'get_tradable_symbols', params: params || {} });
+});
+
 ipcMain.handle('mt5-get-stored-series', async (_event, params) => {
   return executePythonBridge({ cmd: 'get_stored_series', params: params || {} });
 });

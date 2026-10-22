@@ -63,7 +63,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
     onResizeStart,
     onResizeEnd,
     watchlistSymbols,
-    importMode: _importMode,
+    importMode,
     loadSymbolFromFolder,
     activeSymbol,
     onRemoveSymbol,
@@ -183,7 +183,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                     onClick={() => {
                       onAddSymbolFolder?.();
                     }}
-                    title="Add symbol folder"
+                    title={importMode === 'single' ? 'Search & Add Symbol (MT5)' : 'Add symbol folder'}
                     className="p-1 rounded-md text-txt-muted hover:text-accent hover:bg-accent-muted transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />

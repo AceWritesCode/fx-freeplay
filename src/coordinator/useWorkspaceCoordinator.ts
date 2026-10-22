@@ -1320,6 +1320,32 @@ export function useWorkspaceCoordinator(
     }
   };
 
+  // Add a new symbol from MT5 to the watchlist and immediately switch to it
+  const handleAddMT5Symbol = async (symbolName: string) => {
+    try {
+      setIsLoadingSymbol(true);
+
+      // Check if already in watchlist
+      const exists = watchlistSymbols.some(s => s.name.toUpperCase() === symbolName.toUpperCase());
+      if (!exists) {
+        const nextList = [...watchlistSymbols, { name: symbolName }];
+        setWatchlistSymbols(nextList);
+        await watchlistRepository.saveWatchlistSymbols(nextList);
+      }
+
+      // Fetch active timeframe data
+      const activeTf = slots[activeChartIndex]?.timeframe || '15m';
+      await getOrImportTimeframeData(symbolName, activeTf);
+
+      // Switch active symbol to this newly added instrument
+      await handleWatchlistSymbolSwitch(symbolName, activeTf);
+    } catch (err) {
+      console.error('[handleAddMT5Symbol] Failed to add MT5 symbol:', err);
+    } finally {
+      setIsLoadingSymbol(false);
+    }
+  };
+
   const handleAutoImportMT5 = async (syncResult: any) => {
     try {
       const { symbol, active_timeframe, timeframes_data, profile } = syncResult;
@@ -1586,6 +1612,7 @@ export function useWorkspaceCoordinator(
     handleClearDatabase,
     handleWatchlistRemoveConfirm,
     handleWatchlistAddFolder,
+    handleAddMT5Symbol,
     handleWatchlistAddFile,
     handleAutoImportMT5,
     handleRefreshActiveData,

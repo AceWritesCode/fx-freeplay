@@ -43,6 +43,26 @@ export interface SyncChartResult {
   error?: string;
 }
 
+export interface TradableSymbolInfo {
+  name: string;
+  description: string;
+  path: string;
+  category: string;
+  subCategory: string;
+  digits: number;
+  point: number;
+  spread: number;
+  bid: number;
+  ask: number;
+  selected: boolean;
+}
+
+export interface TradableSymbolsResult {
+  categories: string[];
+  symbols: TradableSymbolInfo[];
+  count: number;
+}
+
 export interface LiveTickData {
   bid: number;
   ask: number;
@@ -72,6 +92,7 @@ interface ElectronBridgeAPI {
   listTerminals: () => Promise<{ status: string; data?: TerminalInfo[]; error?: string }>;
   getActiveChart: (params?: { terminal_path?: string }) => Promise<{ status: string; data?: ActiveChartInfo; error?: string }>;
   syncChart: (params?: { terminal_path?: string; bar_count?: number; db_path?: string }) => Promise<{ status: string; data?: SyncChartResult; error?: string }>;
+  getTradableSymbols: (params?: { terminal_path?: string }) => Promise<{ status: string; data?: TradableSymbolsResult; error?: string }>;
   getStoredSeries: (params: { symbol: string; timeframe: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
   fetchTimeframe: (params: { symbol: string; timeframe: string; bar_count?: number; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
   refreshIncremental: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; new_bars_count: number; new_bars: any[] }; error?: string }>;
@@ -149,6 +170,21 @@ export const mt5BridgeClient = {
       return res.data;
     }
     throw new Error(res.error || 'Failed to synchronize chart data from MetaTrader 5.');
+  },
+
+  async getTradableSymbols(terminalPath?: string): Promise<TradableSymbolsResult> {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.getTradableSymbols) {
+      return { categories: [], symbols: [], count: 0 };
+    }
+    try {
+      const res = await window.electronAPI.mt5.getTradableSymbols({ terminal_path: terminalPath });
+      if (res.status === 'ok' && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('[mt5BridgeClient] Failed to get tradable symbols:', e);
+    }
+    return { categories: [], symbols: [], count: 0 };
   },
 
   async getStoredSeries(symbol: string, timeframe: string): Promise<any[]> {

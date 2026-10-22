@@ -484,6 +484,75 @@ def sync_active_chart(terminal_path: Optional[str] = None, bar_count: int = 5000
         mt5.shutdown()
 
 
+def get_tradable_symbols(terminal_path: Optional[str] = None) -> Dict[str, Any]:
+    """Fetch all tradable symbols from MT5 grouped by broker categories."""
+    if not MT5_AVAILABLE:
+        return {'success': False, 'error': 'MetaTrader5 python package is not installed.', 'symbols': [], 'categories': []}
+
+    init_args = {}
+    if terminal_path and os.path.exists(terminal_path):
+        init_args['path'] = terminal_path
+
+    with BRIDGE_LOCK:
+        if not mt5.initialize(**init_args):
+            return {'success': False, 'error': f'MT5 initialization failed: {mt5.last_error()}', 'symbols': [], 'categories': []}
+
+        try:
+            raw_symbols = mt5.symbols_get()
+            if not raw_symbols:
+                return {'success': True, 'symbols': [], 'categories': []}
+
+            categories_set = set()
+            symbols_list = []
+
+            for s in raw_symbols:
+                if getattr(s, 'trade_mode', 0) == getattr(mt5, 'SYMBOL_TRADE_MODE_DISABLED', 0):
+                    continue
+
+                path_str = getattr(s, 'path', '') or ''
+                norm_path = path_str.replace('/', chr(92))
+                parts = [p.strip() for p in norm_path.split(chr(92)) if p.strip()]
+
+                category = parts[0] if len(parts) > 1 else 'Other'
+                sub_category = parts[1] if len(parts) > 2 else ''
+
+                categories_set.add(category)
+
+                digits = int(getattr(s, 'digits', 5))
+                point = float(getattr(s, 'point', 0.00001))
+                bid = float(getattr(s, 'bid', 0.0))
+                ask = float(getattr(s, 'ask', 0.0))
+                spread_pts = int(getattr(s, 'spread', 0))
+                if spread_pts == 0 and point > 0 and ask > bid:
+                    spread_pts = round((ask - bid) / point)
+
+                symbols_list.append({
+                    'name': s.name,
+                    'description': getattr(s, 'description', '') or s.name,
+                    'path': path_str,
+                    'category': category,
+                    'subCategory': sub_category,
+                    'digits': digits,
+                    'point': point,
+                    'spread': spread_pts,
+                    'bid': bid,
+                    'ask': ask,
+                    'selected': bool(getattr(s, 'select', False)),
+                })
+
+            categories = sorted(list(categories_set))
+            symbols_list.sort(key=lambda x: x['name'])
+
+            return {
+                'success': True,
+                'categories': categories,
+                'symbols': symbols_list,
+                'count': len(symbols_list),
+            }
+        finally:
+            mt5.shutdown()
+
+
 def get_stored_series(symbol: str, tf_name: str, db_path: Optional[str] = None) -> Dict[str, Any]:
     """Retrieve candlestick data directly from SQLite database without connecting to MT5."""
     target_db = get_sqlite_path(db_path)
@@ -580,6 +649,20 @@ def fetch_symbol_timeframe(symbol: str, tf_name: str, bar_count: int = 50000, te
             INSERT OR REPLACE INTO imported_series (symbol, timeframe, timestamp, open, high, low, close, volume)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', db_rows)
+
+        s_info = mt5.symbol_info(symbol)
+        if s_info:
+            cur.execute('''
+                INSERT OR REPLACE INTO symbol_profiles (symbol, name, description, digits, point, source, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, unixepoch())
+            ''', (
+                symbol,
+                s_info.name,
+                s_info.description or s_info.name,
+                int(s_info.digits) if s_info.digits else 5,
+                float(s_info.point) if s_info.point else 0.00001,
+                'MT5_AUTO_BRIDGE',
+            ))
 
         conn.commit()
         conn.close()
@@ -836,6 +919,12 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
             bar_count=params.get('bar_count', 50000),
             db_path=params.get('db_path'),
         )
+        if res.get('success'):
+            return {'status': 'ok', 'data': res}
+        else:
+            return {'status': 'error', 'error': res.get('error')}
+    elif cmd == 'get_tradable_symbols':
+        res = get_tradable_symbols(terminal_path=params.get('terminal_path'))
         if res.get('success'):
             return {'status': 'ok', 'data': res}
         else:

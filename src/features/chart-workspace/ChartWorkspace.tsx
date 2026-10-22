@@ -11,6 +11,7 @@ import {
   detectPricePrecision,
 } from '@/utils/dataUtils';
 import { toPresentationData } from '@/utils/heikinAshi';
+import { SymbolSearchModal } from '@/components/SymbolSearchModal';
 import { ThemeSettingsModal } from '@/components/ThemeSettingsModal';
 import { DrawingFloatingToolbar } from '@/components/DrawingFloatingToolbar';
 import { FavoriteDrawingToolbar } from '@/components/FavoriteDrawingToolbar';
@@ -31,6 +32,7 @@ import {
   registerPhysicalFigures,
 } from '@/engine/charting';
 import { findCandleIndexByTimestamp } from '@/engine/replay';
+import { getSymbolProfileCache } from '@/coordinator/workspaceCache';
 
 
 import { Header } from './components/Header';
@@ -118,6 +120,10 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   const isShiftPressedRef = useRef<boolean>(false);
   const isCtrlPressedRef = useRef<boolean>(false);
   const activeOverlayIdRef = useRef<string | null>(null);
+
+  // Symbol Search Modal state (TradingView-style search popup)
+  const [isSymbolSearchOpen, setIsSymbolSearchOpen] = useState<boolean>(false);
+  const [symbolSearchInitialQuery, setSymbolSearchInitialQuery] = useState<string>('');
 
   // Zustand Store Hooks
   const { settings, setSettings, customTimeframes } = useSettingsStore();
@@ -1174,6 +1180,39 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     return () => clearTimeout(timer);
   }, [layoutType, hasData]);
 
+  // Global keyboard listener to auto-summon Symbol Search on typing a-z, 0-9
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing inside an input, textarea, contenteditable, or modal
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (
+        activeTag === 'input' ||
+        activeTag === 'textarea' ||
+        (document.activeElement as HTMLElement)?.isContentEditable ||
+        isSymbolSearchOpen ||
+        isSettingsOpen ||
+        isDataManagementOpen ||
+        isReplayActive
+      ) {
+        return;
+      }
+
+      // Check for single character alphanumeric key without meta/ctrl/alt
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+        if (/^[a-zA-Z0-9]$/.test(e.key)) {
+          e.preventDefault();
+          setSymbolSearchInitialQuery(e.key);
+          setIsSymbolSearchOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [isSymbolSearchOpen, isSettingsOpen, isDataManagementOpen, isReplayActive]);
+
   // Handle returning to chart from other modules (e.g., Home view)
   useEffect(() => {
     const handleUnhide = () => {
@@ -2213,7 +2252,16 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
           loadSymbolFromFolder={handleWatchlistSymbolSwitch}
           activeSymbol={slots[activeChartIndex]?.symbol || activeWatchlistSymbol}
           onRemoveSymbol={setPendingRemoveSymbol}
-          onAddSymbolFolder={workspaceCoord.handleWatchlistAddFolder}
+          onAddSymbolFolder={() => {
+            const activeProfile = getSymbolProfileCache(slots[activeChartIndex]?.symbol || '') || null;
+            const isMT5 = activeProfile?.source === 'MT5_AUTO_BRIDGE' || (watchlistSymbols.length > 0 && !watchlistSymbols.some(s => s.name.endsWith('.csv')));
+            if (isMT5) {
+              setSymbolSearchInitialQuery('');
+              setIsSymbolSearchOpen(true);
+            } else {
+              workspaceCoord.handleWatchlistAddFolder();
+            }
+          }}
           chartInstancesRef={chartInstancesRef}
           syncAllDrawings={drawingCoord.syncAllDrawings}
           drawingTrigger={drawingCoord.drawingTrigger}
@@ -2566,6 +2614,17 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
 
           runWorkspaceReconciliation(chartInstancesRef);
           drawingCoord.setDrawingTrigger((prev) => prev + 1);
+        }}
+      />
+
+      {/* TradingView-Style Symbol Search Modal */}
+      <SymbolSearchModal
+        isOpen={isSymbolSearchOpen}
+        onClose={() => setIsSymbolSearchOpen(false)}
+        initialQuery={symbolSearchInitialQuery}
+        watchlistSymbols={watchlistSymbols}
+        onSelectSymbol={async (symbolName) => {
+          await workspaceCoord.handleAddMT5Symbol(symbolName);
         }}
       />
 
