@@ -5,7 +5,8 @@ import { mt5BridgeClient, type TradableSymbolInfo } from '@/bridge/mt5BridgeClie
 interface SymbolSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectSymbol: (symbol: string) => Promise<void> | void;
+  onSelectSymbol: (symbol: TradableSymbolInfo) => Promise<void> | void;
+  onAddSymbolOnly?: (symbol: TradableSymbolInfo) => Promise<void> | void;
   watchlistSymbols: Array<{ name: string }>;
   initialQuery?: string;
 }
@@ -14,6 +15,7 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
   isOpen,
   onClose,
   onSelectSymbol,
+  onAddSymbolOnly,
   watchlistSymbols,
   initialQuery = '',
 }) => {
@@ -140,15 +142,33 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
     return list;
   }, [filteredSymbols, groupedData, collapsedCategories, query, selectedCategory]);
 
-  // Handle symbol selection
+  // Handle symbol selection (Open chart & import active TF & add to watchlist)
   const handleSelect = async (sym: TradableSymbolInfo) => {
     if (isAdding) return;
     try {
       setIsAdding(sym.name);
-      await onSelectSymbol(sym.name);
+      await onSelectSymbol(sym);
       onClose();
     } catch (e) {
       console.error('[SymbolSearchModal] Select error:', e);
+    } finally {
+      setIsAdding(null);
+    }
+  };
+
+  // Handle add-only (Only add to watchlist, don't open chart or import candle data)
+  const handleAddOnly = async (e: React.MouseEvent, sym: TradableSymbolInfo) => {
+    e.stopPropagation();
+    if (isAdding) return;
+    try {
+      setIsAdding(sym.name);
+      if (onAddSymbolOnly) {
+        await onAddSymbolOnly(sym);
+      } else {
+        await onSelectSymbol(sym);
+      }
+    } catch (e) {
+      console.error('[SymbolSearchModal] Add-only error:', e);
     } finally {
       setIsAdding(null);
     }
@@ -337,7 +357,11 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
                           <Check className="w-3.5 h-3.5" />
                         </div>
                       ) : (
-                        <div title="Add to Chart &amp; Watchlist" className="p-1 rounded-full text-txt-muted hover:text-accent">
+                        <div
+                          title="Add to Watchlist (Do not open chart)"
+                          onClick={(e) => handleAddOnly(e, sym)}
+                          className="p-1 rounded-full text-txt-muted hover:text-accent hover:bg-surface-elevated transition-colors"
+                        >
                           <Plus className="w-3.5 h-3.5" />
                         </div>
                       )}
@@ -415,7 +439,13 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
                                 ) : isAlreadyInWatchlist ? (
                                   <Check className="w-3.5 h-3.5 text-status-success" />
                                 ) : (
-                                  <Plus className="w-3.5 h-3.5 text-txt-muted hover:text-accent" />
+                                  <div
+                                    title="Add to Watchlist (Do not open chart)"
+                                    onClick={(e) => handleAddOnly(e, sym)}
+                                    className="p-1 rounded-full text-txt-muted hover:text-accent hover:bg-surface-elevated transition-colors"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </div>
                                 )}
                               </div>
                             </div>

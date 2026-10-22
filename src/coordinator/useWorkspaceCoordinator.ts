@@ -930,8 +930,12 @@ export function useWorkspaceCoordinator(
             // 1. Load timeframe data (cache hit = instant)
             let targetData: KLineData[] = [];
             try {
-              const tfsToLoad = files ? Object.keys(files) : ['1m', '5m', '15m', '30m', '1h', '4h', 'D'];
-              await Promise.all(tfsToLoad.map(tf => getOrImportTimeframeData(symbolName, tf)));
+              // MT5 symbols fetch on demand per timeframe, so only load the active target timeframe.
+              // Folder-based symbols have local files in memory, so they can preload available timeframes.
+              if (files) {
+                const tfsToLoad = Object.keys(files);
+                await Promise.all(tfsToLoad.map(tf => getOrImportTimeframeData(symbolName, tf)));
+              }
               targetData = await getOrImportTimeframeData(symbolName, targetTf);
             } catch (err) {
               console.error(`[DEBUG] handleWatchlistSymbolSwitch - failed to load data for ${symbolName}:`, err);
@@ -1320,27 +1324,94 @@ export function useWorkspaceCoordinator(
     }
   };
 
-  // Add a new symbol from MT5 to the watchlist and immediately switch to it
-  const handleAddMT5Symbol = async (symbolName: string) => {
-    try {
-      setIsLoadingSymbol(true);
+  // Add a new symbol from MT5 to the watchlist (optionally opening it and importing active TF)
+  const handleAddMT5Symbol = async (
+    symbolName: string,
+    options?: {
+      openChart?: boolean;
+      symbolInfo?: {
+        name?: string;
+        description?: string;
+        digits?: number;
+        point?: number;
+        category?: string;
+      };
+    }
+  ) => {
+    const shouldOpenChart = options?.openChart !== false;
+    const symInfo = options?.symbolInfo;
 
-      // Check if already in watchlist
-      const exists = watchlistSymbols.some(s => s.name.toUpperCase() === symbolName.toUpperCase());
+    try {
+      if (shouldOpenChart) {
+        setIsLoadingSymbol(true);
+        setImportProgress({
+          status: 'importing',
+          currentActivity: `Connecting to MT5 and preparing ${symbolName}...`,
+          processedCount: 0,
+          totalCount: 1,
+          currentSymbol: symbolName,
+        });
+      }
+
+      // 1. Ensure symbol profile exists in cache and DB with MT5_AUTO_BRIDGE provenance
+      let existingProfile = getSymbolProfileCache(symbolName) || (await watchlistRepository.getSymbolProfile(symbolName));
+      if (!existingProfile) {
+        const precision = symInfo?.digits ?? 5;
+        const profileObj = {
+          symbol: symbolName,
+          name: symInfo?.description || symbolName,
+          pricePrecision: precision,
+          brokerTimezoneLabel: settings.brokerTimezoneLabel ?? '(UTC+3) Broker',
+          brokerTimezoneOffset: settings.brokerTimezoneOffset ?? 180,
+          timeframeKeys: ['1m', '5m', '15m', '30m', '1h', '4h', 'D'],
+          source: 'MT5_AUTO_BRIDGE',
+        };
+        await watchlistRepository.saveSymbolProfile(symbolName, profileObj);
+        setSymbolProfileCache(symbolName, profileObj);
+      }
+
+      // 2. Check if already in watchlist; if not, persist
+      const exists = watchlistSymbols.some((s) => s.name.toUpperCase() === symbolName.toUpperCase());
       if (!exists) {
         const nextList = [...watchlistSymbols, { name: symbolName }];
         setWatchlistSymbols(nextList);
         await watchlistRepository.saveWatchlistSymbols(nextList);
+        await useDrawingStore.getState().loadSymbolDrawings(symbolName);
       }
 
-      // Fetch active timeframe data
-      const activeTf = slots[activeChartIndex]?.timeframe || '15m';
-      await getOrImportTimeframeData(symbolName, activeTf);
+      // If user only clicked '+' button (add to watchlist only):
+      if (!shouldOpenChart) {
+        setWatchlistToast({ msg: `Added ${symbolName} to Watchlist`, type: 'success' });
+        setTimeout(() => setWatchlistToast(null), 2500);
+        return;
+      }
 
-      // Switch active symbol to this newly added instrument
+      // 3. If opening chart: fetch active timeframe data and switch to it
+      const activeTf = slots[activeChartIndex]?.timeframe || '15m';
+      setImportProgress({
+        status: 'importing',
+        currentActivity: `Loading ${symbolName} (${activeTf.toUpperCase()}) from MT5...`,
+        processedCount: 1,
+        totalCount: 1,
+        currentSymbol: symbolName,
+      });
+
       await handleWatchlistSymbolSwitch(symbolName, activeTf);
-    } catch (err) {
+      setImportProgress(null);
+    } catch (err: any) {
       console.error('[handleAddMT5Symbol] Failed to add MT5 symbol:', err);
+      if (shouldOpenChart) {
+        setImportProgress({
+          status: 'error',
+          currentActivity: 'Import Failed',
+          errorMessage: err?.message || `Failed to load ${symbolName} from MT5.`,
+          processedCount: 0,
+          totalCount: 1,
+        });
+      } else {
+        setWatchlistToast({ msg: `Failed to add ${symbolName}`, type: 'error' });
+        setTimeout(() => setWatchlistToast(null), 2500);
+      }
     } finally {
       setIsLoadingSymbol(false);
     }

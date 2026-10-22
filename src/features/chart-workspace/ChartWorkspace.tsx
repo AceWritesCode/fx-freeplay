@@ -2623,8 +2623,17 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         onClose={() => setIsSymbolSearchOpen(false)}
         initialQuery={symbolSearchInitialQuery}
         watchlistSymbols={watchlistSymbols}
-        onSelectSymbol={async (symbolName) => {
-          await workspaceCoord.handleAddMT5Symbol(symbolName);
+        onSelectSymbol={async (sym) => {
+          await workspaceCoord.handleAddMT5Symbol(sym.name, {
+            openChart: true,
+            symbolInfo: sym,
+          });
+        }}
+        onAddSymbolOnly={async (sym) => {
+          await workspaceCoord.handleAddMT5Symbol(sym.name, {
+            openChart: false,
+            symbolInfo: sym,
+          });
         }}
       />
 
