@@ -260,6 +260,7 @@ export function registerCustomOverlays() {
 
         const liveTick = chart._liveTick;
         const close = lastData.close;
+        const pricePrecision = chart.getSymbol?.()?.pricePrecision ?? 5;
         const point = 1 / Math.pow(10, pricePrecision);
 
         let spreadDistance = 0;
@@ -280,12 +281,81 @@ export function registerCustomOverlays() {
 
         const figures: any[] = [];
 
-        // Bid Tag (stacked with Countdown if enabled)
-        if (showBidAsk || hasCountdown) {
-          const bidTagHeight = hasCountdown ? 32 : 20;
-          const bidTagY = bidY - bidTagHeight / 2;
-          const bidTextY = hasCountdown ? bidY - 6 : bidY;
+        // Ask is top-level (ask >= bid, so askY <= bidY on screen).
+        // TradingView sticks the countdown to the top-level tag (Ask tag) so it never gets obscured.
+        const askTagHeight = hasCountdown ? 32 : 20;
+        const bidTagHeight = 20;
 
+        const askTagY = askY - askTagHeight / 2;
+        let bidTagY = bidY - bidTagHeight / 2;
+
+        // Prevent Ask and Bid tags from overlapping when spread is tight
+        if (showBidAsk && bidTagY < askTagY + askTagHeight + 1) {
+          bidTagY = askTagY + askTagHeight + 1;
+        }
+
+        // Ask Tag (Top-level tag, hosts the countdown)
+        if (showBidAsk || hasCountdown) {
+          const askTextY = hasCountdown ? askTagY + 10 : askTagY + askTagHeight / 2;
+
+          figures.push(
+            {
+              type: 'rect',
+              attrs: {
+                x: 0,
+                y: askTagY,
+                width: bounding?.width ?? 60,
+                height: askTagHeight,
+              },
+              styles: {
+                style: 'fill',
+                color: askColor,
+              },
+              ignoreEvent: true,
+            },
+            {
+              type: 'text',
+              attrs: {
+                x: textX,
+                y: askTextY,
+                text: showBidAsk ? `Ask ${formatPrice(ask)}` : formatPrice(ask),
+                align: textAlign,
+                baseline: 'middle',
+              },
+              styles: {
+                color: '#ffffff',
+                size: 10,
+                family: 'Noto Sans, sans-serif',
+                backgroundColor: 'transparent',
+              },
+              ignoreEvent: true,
+            }
+          );
+
+          if (hasCountdown) {
+            figures.push({
+              type: 'text',
+              attrs: {
+                x: textX,
+                y: askTagY + 23,
+                text: countdownStr,
+                align: textAlign,
+                baseline: 'middle',
+              },
+              styles: {
+                color: '#ffffff',
+                size: 10,
+                family: 'Noto Sans, sans-serif',
+                weight: 'bold',
+                backgroundColor: 'transparent',
+              },
+              ignoreEvent: true,
+            });
+          }
+        }
+
+        // Bid Tag (Positioned directly below Ask tag with zero overlap)
+        if (showBidAsk) {
           figures.push(
             {
               type: 'rect',
@@ -305,66 +375,8 @@ export function registerCustomOverlays() {
               type: 'text',
               attrs: {
                 x: textX,
-                y: bidTextY,
-                text: showBidAsk ? `Bid ${formatPrice(bid)}` : formatPrice(bid),
-                align: textAlign,
-                baseline: 'middle',
-              },
-              styles: {
-                color: '#ffffff',
-                size: 10,
-                family: 'Noto Sans, sans-serif',
-                backgroundColor: 'transparent',
-              },
-              ignoreEvent: true,
-            }
-          );
-
-          if (hasCountdown) {
-            figures.push({
-              type: 'text',
-              attrs: {
-                x: textX,
-                y: bidY + 7,
-                text: countdownStr,
-                align: textAlign,
-                baseline: 'middle',
-              },
-              styles: {
-                color: '#ffffff',
-                size: 10,
-                family: 'Noto Sans, sans-serif',
-                weight: 'bold',
-                backgroundColor: 'transparent',
-              },
-              ignoreEvent: true,
-            });
-          }
-        }
-
-        // Ask Tag
-        if (showBidAsk) {
-          figures.push(
-            {
-              type: 'rect',
-              attrs: {
-                x: 0,
-                y: askY - 10,
-                width: bounding?.width ?? 60,
-                height: 20,
-              },
-              styles: {
-                style: 'fill',
-                color: askColor,
-              },
-              ignoreEvent: true,
-            },
-            {
-              type: 'text',
-              attrs: {
-                x: textX,
-                y: askY,
-                text: `Ask ${formatPrice(ask)}`,
+                y: bidTagY + bidTagHeight / 2,
+                text: `Bid ${formatPrice(bid)}`,
                 align: textAlign,
                 baseline: 'middle',
               },
