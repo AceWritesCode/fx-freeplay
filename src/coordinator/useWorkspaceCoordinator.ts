@@ -325,6 +325,47 @@ export function useWorkspaceCoordinator(
         if (existing.length === 0) return prev;
 
         const lastBar = existing[existing.length - 1];
+
+        // Gap detection on live stream update:
+        // If forming bar is more than 1.5 candles ahead of lastBar, an inactivity gap occurred
+        // (e.g. app was sleeping or closed for 20 minutes). Trigger background incremental backfill!
+        const tfMinutes = getTimeframeMinutes(update.timeframe);
+        const tfMs = tfMinutes * 60 * 1000;
+        if (formingBar.timestamp - lastBar.timestamp > tfMs * 1.5) {
+          const throttleKey = `${update.symbol}:${update.timeframe}`;
+          const lastCheck = lastIncrementalCheckRef.current.get(throttleKey) || 0;
+          if (Date.now() - lastCheck > 10000) {
+            lastIncrementalCheckRef.current.set(throttleKey, Date.now());
+            // Run background incremental fill to close the gap
+            mt5BridgeClient.refreshIncremental(update.symbol, update.timeframe).then(async (res) => {
+              if (res.new_bars_count > 0 && res.new_bars.length > 0) {
+                const rawBars = await marketDataRepository.getBars(update.symbol, update.timeframe) || [];
+                const rawMap = new Map(rawBars.map(b => [b.timestamp, b]));
+                res.new_bars.forEach(b => rawMap.set(b.timestamp, b));
+                const mergedRaw = Array.from(rawMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+                await marketDataRepository.saveBars(update.symbol, update.timeframe, mergedRaw);
+
+                const adjusted = adjustTimezone(mergedRaw);
+                setTimezoneAdjustedBars(update.symbol, update.timeframe, adjusted);
+                setAllTimeframesData(p => ({ ...p, [update.timeframe]: adjusted }));
+
+                // Re-feed full chart dataset with gap filled
+                const chart = chartInstancesRef.current[activeIdx];
+                if (chart && adjusted.length > 0) {
+                  const visibleData = toPresentationData(adjusted, settingsRef.current.chartType);
+                  chart.setDataLoader({
+                    getBars: ({ type: loadType, callback }: any) => {
+                      if (loadType === 'init') callback(visibleData);
+                      else callback([]);
+                    }
+                  });
+                  chart.resetData();
+                }
+              }
+            }).catch(console.error);
+          }
+        }
+
         if (formingBar.timestamp > lastBar.timestamp) {
           // A NEW candle has started! The previous bar is now closed and finalized.
           const updatedSeries = [...existing];
@@ -396,12 +437,21 @@ export function useWorkspaceCoordinator(
     }
 
     // 3. Optimized Incremental Sync for MT5 symbols:
-    // If bars exist, check if more than 30s passed since last check. If so, pull newly closed candles!
+    // If bars exist, check if more than 30s passed since last check, OR if the stored data is outdated
+    // compared to current time (e.g. user reloaded/reopened the app after inactivity).
     if (isMT5Symbol && mt5BridgeClient.isAvailable() && cachedBars && cachedBars.length > 0) {
       const throttleKey = `${symbol}:${tf}`;
       const lastCheck = lastIncrementalCheckRef.current.get(throttleKey) || 0;
       const now = Date.now();
-      if (now - lastCheck > 30000) {
+
+      // Calculate timeframe duration in ms to detect missing/outdated candles
+      const tfMinutes = getTimeframeMinutes(tf);
+      const tfMs = tfMinutes * 60 * 1000;
+      const lastBarTs = cachedBars[cachedBars.length - 1]?.timestamp || 0;
+      // If the last bar is more than 1.5 bars behind current time, it has a gap of closed candles
+      const isOutdated = lastBarTs > 0 && (now - lastBarTs) > (tfMs * 1.5);
+
+      if (isOutdated || (now - lastCheck > 30000)) {
         lastIncrementalCheckRef.current.set(throttleKey, now);
         try {
           const res = await mt5BridgeClient.refreshIncremental(symbol, tf);
