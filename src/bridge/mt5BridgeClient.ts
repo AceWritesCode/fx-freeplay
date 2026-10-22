@@ -93,6 +93,7 @@ interface ElectronBridgeAPI {
   getActiveChart: (params?: { terminal_path?: string }) => Promise<{ status: string; data?: ActiveChartInfo; error?: string }>;
   syncChart: (params?: { terminal_path?: string; bar_count?: number; db_path?: string }) => Promise<{ status: string; data?: SyncChartResult; error?: string }>;
   getTradableSymbols: (params?: { terminal_path?: string }) => Promise<{ status: string; data?: TradableSymbolsResult; error?: string }>;
+  getSymbolsTicks: (params: { symbols: string[]; terminal_path?: string }) => Promise<{ status: string; data?: { success: boolean; ticks: Record<string, LiveTickData> }; error?: string }>;
   getStoredSeries: (params: { symbol: string; timeframe: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
   fetchTimeframe: (params: { symbol: string; timeframe: string; bar_count?: number; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; bars_count: number; bars: any[] }; error?: string }>;
   refreshIncremental: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; new_bars_count: number; new_bars: any[] }; error?: string }>;
@@ -185,6 +186,21 @@ export const mt5BridgeClient = {
       console.warn('[mt5BridgeClient] Failed to get tradable symbols:', e);
     }
     return { categories: [], symbols: [], count: 0 };
+  },
+
+  async getSymbolsTicks(symbols: string[], terminalPath?: string): Promise<Record<string, LiveTickData>> {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.getSymbolsTicks || symbols.length === 0) {
+      return {};
+    }
+    try {
+      const res = await window.electronAPI.mt5.getSymbolsTicks({ symbols, terminal_path: terminalPath });
+      if (res.status === 'ok' && res.data?.ticks) {
+        return res.data.ticks;
+      }
+    } catch (e) {
+      console.warn('[mt5BridgeClient] Failed to get symbols ticks:', e);
+    }
+    return {};
   },
 
   async getStoredSeries(symbol: string, timeframe: string): Promise<any[]> {

@@ -403,6 +403,39 @@ export function useWorkspaceCoordinator(
     };
   }, [chartInstancesRef]);
 
+  // Periodic polling for all watchlist symbols to update live Bid, Ask & Spread
+  // Runs in-memory only (no disk/database storage), keeping the watchlist UI live and accurate
+  useEffect(() => {
+    if (!mt5BridgeClient.isAvailable() || watchlistSymbols.length === 0) return;
+
+    let isMounted = true;
+
+    const pollWatchlistTicks = async () => {
+      if (isReplayActiveRef.current) return;
+      const symbolNames = watchlistSymbols.map((s) => s.name).filter(Boolean);
+      if (symbolNames.length === 0) return;
+
+      const ticks = await mt5BridgeClient.getSymbolsTicks(symbolNames);
+      if (isMounted && ticks && Object.keys(ticks).length > 0) {
+        setLiveTicksBySymbol((prev) => ({
+          ...prev,
+          ...ticks,
+        }));
+      }
+    };
+
+    // Execute initial poll immediately on mount/list change
+    pollWatchlistTicks();
+
+    // Poll every 1.5 seconds for fresh quotes
+    const interval = setInterval(pollWatchlistTicks, 1500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [watchlistSymbols]);
+
   // Throttle map to prevent spamming incremental check for same symbol/tf within 30 seconds
   const lastIncrementalCheckRef = useRef<Map<string, number>>(new Map());
 
@@ -1454,6 +1487,25 @@ export function useWorkspaceCoordinator(
         setWatchlistSymbols(nextList);
         await watchlistRepository.saveWatchlistSymbols(nextList);
         await useDrawingStore.getState().loadSymbolDrawings(symbolName);
+      }
+
+      // 2b. Immediately populate live tick quote in-memory so Bid/Ask/Spr are instantly visible
+      if (symInfo && (symInfo as any).bid !== undefined && (symInfo as any).ask !== undefined) {
+        const bid = Number((symInfo as any).bid) || 0;
+        const ask = Number((symInfo as any).ask) || 0;
+        const spread = Number((symInfo as any).spread) || 0;
+        if (bid > 0 || ask > 0) {
+          setLiveTicksBySymbol((prev) => ({
+            ...prev,
+            [symbolName]: {
+              bid,
+              ask,
+              last: bid,
+              spread,
+              time_msc: Date.now(),
+            },
+          }));
+        }
       }
 
       // If user only clicked '+' button (add to watchlist only):

@@ -553,6 +553,63 @@ def get_tradable_symbols(terminal_path: Optional[str] = None) -> Dict[str, Any]:
             mt5.shutdown()
 
 
+def get_symbols_ticks(symbols: List[str], terminal_path: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve the latest live bid/ask/spread tick quotes for a list of symbols."""
+    if not MT5_AVAILABLE:
+        return {'success': False, 'error': 'MetaTrader5 python package is not installed.', 'ticks': {}}
+
+    if not symbols:
+        return {'success': True, 'ticks': {}}
+
+    init_args = {}
+    if terminal_path and os.path.exists(terminal_path):
+        init_args['path'] = terminal_path
+
+    with BRIDGE_LOCK:
+        if not mt5.initialize(**init_args):
+            return {'success': False, 'error': f'MT5 initialization failed: {mt5.last_error()}', 'ticks': {}}
+
+        try:
+            ticks_dict = {}
+            for sym in symbols:
+                if not sym:
+                    continue
+                # Ensure symbol is selected in Market Watch for tick reception
+                mt5.symbol_select(sym, True)
+                s_info = mt5.symbol_info(sym)
+                tick = mt5.symbol_info_tick(sym)
+                if s_info is None and tick is None:
+                    continue
+
+                digits = int(getattr(s_info, 'digits', 5)) if s_info else 5
+                point = float(getattr(s_info, 'point', 0.00001)) if s_info and s_info.point else 0.00001
+
+                bid = float(getattr(tick, 'bid', getattr(s_info, 'bid', 0.0))) if tick or s_info else 0.0
+                ask = float(getattr(tick, 'ask', getattr(s_info, 'ask', 0.0))) if tick or s_info else 0.0
+                last_price = float(getattr(tick, 'last', getattr(s_info, 'last', 0.0))) if tick or s_info else bid
+                time_msc = int(getattr(tick, 'time_msc', 0)) if tick else 0
+
+                spread_pts = int(getattr(s_info, 'spread', 0)) if s_info else 0
+                if spread_pts == 0 and point > 0 and ask > bid:
+                    spread_pts = round((ask - bid) / point)
+
+                ticks_dict[sym] = {
+                    'bid': round(bid, digits),
+                    'ask': round(ask, digits),
+                    'last': round(last_price, digits) if last_price else round(bid, digits),
+                    'spread': spread_pts,
+                    'time_msc': time_msc,
+                    'digits': digits,
+                }
+
+            return {
+                'success': True,
+                'ticks': ticks_dict,
+            }
+        finally:
+            mt5.shutdown()
+
+
 def get_stored_series(symbol: str, tf_name: str, db_path: Optional[str] = None) -> Dict[str, Any]:
     """Retrieve candlestick data directly from SQLite database without connecting to MT5."""
     target_db = get_sqlite_path(db_path)
@@ -928,6 +985,15 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
             return {'status': 'error', 'error': res.get('error')}
     elif cmd == 'get_tradable_symbols':
         res = get_tradable_symbols(terminal_path=params.get('terminal_path'))
+        if res.get('success'):
+            return {'status': 'ok', 'data': res}
+        else:
+            return {'status': 'error', 'error': res.get('error')}
+    elif cmd == 'get_symbols_ticks':
+        res = get_symbols_ticks(
+            symbols=params.get('symbols', []),
+            terminal_path=params.get('terminal_path'),
+        )
         if res.get('success'):
             return {'status': 'ok', 'data': res}
         else:
