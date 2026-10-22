@@ -192,19 +192,26 @@ export function useWorkspaceCoordinator(
           // Restore market data for all saved slots
           const visibleCount = getLayoutChartCount(savedLayout?.layoutType || '1');
           console.log(`[DEBUG] bootstrapWorkspace - visibleCount: ${visibleCount}, savedLayout slots:`, savedLayout?.slots);
-          for (let i = 0; i < visibleCount; i++) {
-            const slot = savedLayout?.slots?.[i];
-            if (slot && slot.symbol && isMounted) {
-              const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
-              if (bars1m && bars1m.length > 0) {
-                setRawDataCache(slot.symbol, bars1m);
+          setIsLoadingSymbol(true);
+          try {
+            for (let i = 0; i < visibleCount; i++) {
+              const slot = savedLayout?.slots?.[i];
+              if (slot && slot.symbol && isMounted) {
+                const bars1m = await marketDataRepository.getBars(slot.symbol, '1m');
+                if (bars1m && bars1m.length > 0) {
+                  setRawDataCache(slot.symbol, bars1m);
+                }
+                // Pre-load slot's timeframe data in background to make initial boot instant
+                getOrImportTimeframeData(slot.symbol, slot.timeframe).catch(console.error);
+                const chart = chartInstancesRef.current[i];
+                if (chart && isMounted) {
+                  await loadDataForSlot(i, chart);
+                }
               }
-              // Pre-load slot's timeframe data in background to make initial boot instant
-              getOrImportTimeframeData(slot.symbol, slot.timeframe).catch(console.error);
-              const chart = chartInstancesRef.current[i];
-              if (chart && isMounted) {
-                await loadDataForSlot(i, chart);
-              }
+            }
+          } finally {
+            if (isMounted) {
+              setIsLoadingSymbol(false);
             }
           }
 

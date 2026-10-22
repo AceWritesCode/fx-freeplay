@@ -503,6 +503,9 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     pendingCutAnimation
   );
 
+  // Check if active chart slot has finished loading candles
+  const isChartBarsLoading = hasData && (!isBootstrapped || workspaceCoord.isLoadingSymbol || (workspaceCoord.allTimeframesData[activeTimeframe]?.length ?? 0) === 0);
+
   const replayCoord = useReplayCoordinator(
     chartInstancesRef,
     chartContainersRef,
@@ -2182,10 +2185,11 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
               startResize={startResize}
               renderSlot={renderSlot}
             />
-            {/* Canvas-only loading spinner overlay for existing chart symbol switches */}
-            {hasData && workspaceCoord.isLoadingSymbol && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center bg-overlay-bg backdrop-blur-xs select-none pointer-events-auto">
-                <div className="w-8 h-8 rounded-full border-[3px] border-border-def border-t-accent animate-spin" />
+            {/* Canvas loading spinner overlay during initial chart load or symbol switches */}
+            {hasData && (workspaceCoord.isLoadingSymbol || isChartBarsLoading) && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-overlay-bg backdrop-blur-xs select-none pointer-events-auto">
+                <div className="w-9 h-9 rounded-full border-[3px] border-border-def border-t-accent animate-spin mb-2.5" />
+                <span className="text-xs text-txt-muted font-medium tracking-wide">Loading chart data...</span>
               </div>
             )}
             {/* Reset View Floating Overlay & Setting Active Banner */}
