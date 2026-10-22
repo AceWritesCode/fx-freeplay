@@ -7,6 +7,7 @@ import { replayVisibilityBoundary } from '../engine/replay/ReplayVisibilityBound
 import { getTimeframeMinutes } from '../domain/market/timeframeUtils.ts';
 import { useDrawingStore } from '../store/useDrawingStore.ts';
 import { useLayoutStore } from '../store/useLayoutStore.ts';
+import { useReplayStore } from '../store/useReplayStore.ts';
 import { initializeToolFramework, ToolRegistry } from '../framework/tools/index.ts';
 export function registerCustomOverlays() {
   // Initialize new tool framework
@@ -33,6 +34,8 @@ export function registerCustomOverlays() {
 
       const width = bounding?.width ?? 1000;
       const isBidAskMode = chart._priceLineMode === 'bid_ask';
+      const pointFigures: any[] = [];
+      let anchorY = 0;
 
       if (isBidAskMode) {
         // Synchronized spread-anchored derivation:
@@ -56,6 +59,7 @@ export function registerCustomOverlays() {
 
         const bidY = yAxis.convertToPixel(bid);
         const askY = yAxis.convertToPixel(ask);
+        anchorY = bidY;
 
         const bidStyle = chart._bidLineStyle || 'dashed';
         const bidDashedValue = bidStyle === 'dotted' ? [2, 2] : [4, 4];
@@ -67,7 +71,7 @@ export function registerCustomOverlays() {
         const askColor = chart._askLineColor || '#F23645';
         const askSize = chart._askLineSize || 1;
 
-        return [
+        pointFigures.push(
           {
             type: 'line',
             attrs: {
@@ -97,36 +101,35 @@ export function registerCustomOverlays() {
               size: askSize,
               dashedValue: askDashedValue,
             },
-          },
-        ];
-      }
+          }
+        );
+      } else {
+        const close = lastData.close;
+        const open = lastData.open;
 
-      const close = lastData.close;
-      const open = lastData.open;
+        // Calculate Y coordinate without clamping
+        const priceY = yAxis.convertToPixel(close);
+        anchorY = priceY;
 
-      // Calculate Y coordinate without clamping
-      const priceY = yAxis.convertToPixel(close);
-
-      // Determine color
-      let color = chart._priceLineColor || '#2196f3';
-      if (chart._priceLineUseCandleColor) {
-        const { end } = replayVisibilityBoundary.getRevealedIndexRange(dataList);
-        const prevData = end > 0 ? dataList[end - 1] : undefined;
-        const comparePrice = prevData ? prevData.close : open;
-        if (close > comparePrice) {
-          color = chart._bullColor || '#26a69a';
-        } else if (close < comparePrice) {
-          color = chart._bearColor || '#ef5350';
-        } else {
-          color = '#8b93a6';
+        // Determine color
+        let color = chart._priceLineColor || '#2196f3';
+        if (chart._priceLineUseCandleColor) {
+          const { end } = replayVisibilityBoundary.getRevealedIndexRange(dataList);
+          const prevData = end > 0 ? dataList[end - 1] : undefined;
+          const comparePrice = prevData ? prevData.close : open;
+          if (close > comparePrice) {
+            color = chart._bullColor || '#26a69a';
+          } else if (close < comparePrice) {
+            color = chart._bearColor || '#ef5350';
+          } else {
+            color = '#8b93a6';
+          }
         }
-      }
 
-      const priceLineStyle = chart._priceLineStyle || 'dashed';
-      const dashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
+        const priceLineStyle = chart._priceLineStyle || 'dashed';
+        const dashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
 
-      const pointFigures: any[] = [
-        {
+        pointFigures.push({
           type: 'line',
           attrs: {
             coordinates: [
@@ -140,17 +143,23 @@ export function registerCustomOverlays() {
             size: chart._priceLineSize || 1,
             dashedValue: dashedValue
           }
-        }
-      ];
+        });
+      }
 
       // TradingView-style Symbol Name Tag docked to the inner edge of the price scale
       const showSymbolLabel = chart._showSymbolLabel !== false;
-      const symbolTicker = chart.getSymbol?.()?.ticker;
-      if (showSymbolLabel && symbolTicker && symbolTicker !== 'No Symbol') {
+      const symbolTicker =
+        chart.getSymbol?.()?.ticker ||
+        (chart as any)._symbol ||
+        (chart as any)._loadedSymbol ||
+        (chart as any)._slotSymbol ||
+        useLayoutStore.getState().slots?.[(chart as any)._chartIndex ?? 0]?.symbol;
+
+      if (showSymbolLabel && symbolTicker && symbolTicker !== 'No Symbol' && symbolTicker !== 'unknown') {
         const symbolTagWidth = Math.max(54, symbolTicker.length * 7.5 + 14);
         const symbolTagHeight = 18;
         const symbolTagX = width - symbolTagWidth;
-        const symbolTagY = priceY - symbolTagHeight / 2;
+        const symbolTagY = anchorY - symbolTagHeight / 2;
 
         pointFigures.push(
           {
@@ -164,7 +173,7 @@ export function registerCustomOverlays() {
             },
             styles: {
               style: 'fill',
-              color: '#8b93a6', // TradingView neutral steel slate tag background
+              color: '#4a5268', // Sleek slate tag background
             },
             ignoreEvent: true,
           },
@@ -172,7 +181,7 @@ export function registerCustomOverlays() {
             type: 'text',
             attrs: {
               x: symbolTagX + symbolTagWidth / 2,
-              y: priceY,
+              y: anchorY,
               text: symbolTicker,
               align: 'center',
               baseline: 'middle',
@@ -212,8 +221,42 @@ export function registerCustomOverlays() {
 
       const isBidAskMode = chart._priceLineMode === 'bid_ask';
 
+      // 1. Calculate Active Candle Countdown
+      const showCountdown = chart._showCountdown !== false;
+      const tf: string = chart._loadedTimeframe || '1m';
+      const tfMinutes = getTimeframeMinutes(tf);
+      const tfDurationMs = tfMinutes * 60 * 1000;
+
+      let countdownStr = '';
+      if (showCountdown && tfDurationMs > 0 && typeof lastData.timestamp === 'number') {
+        const offsetMs = chart._chartOffsetMs || 0;
+        const candleStart = lastData.timestamp;
+        const candleEnd = candleStart + tfDurationMs;
+
+        const replayState = useReplayStore.getState();
+        const now = (replayState.isReplayActive && replayState.replayCurrentTimestamp !== null)
+          ? replayState.replayCurrentTimestamp
+          : (Date.now() + offsetMs);
+
+        const remainingMs = Math.max(0, candleEnd - now);
+        const totalSec = Math.floor(remainingMs / 1000);
+        const hours = Math.floor(totalSec / 3600);
+        const minutes = Math.floor((totalSec % 3600) / 60);
+        const seconds = totalSec % 60;
+
+        if (hours > 0) {
+          countdownStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+          countdownStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }
+
+      const hasCountdown = showCountdown && countdownStr.length > 0;
+
+      // 2. Bid/Ask Mode Rendering
       if (isBidAskMode) {
-        if (chart._showBidAskLabels === false) return [];
+        const showBidAsk = chart._showBidAskLabels !== false;
+        if (!showBidAsk && !hasCountdown) return [];
 
         const liveTick = chart._liveTick;
         const close = lastData.close;
@@ -235,75 +278,113 @@ export function registerCustomOverlays() {
         const bidColor = chart._bidLineColor || '#2962FF';
         const askColor = chart._askLineColor || '#F23645';
 
-        return [
-          // Bid Label
-          {
-            type: 'rect',
-            attrs: {
-              x: 0,
-              y: bidY - 10,
-              width: bounding?.width ?? 60,
-              height: 20,
+        const figures: any[] = [];
+
+        // Bid Tag (stacked with Countdown if enabled)
+        if (showBidAsk || hasCountdown) {
+          const bidTagHeight = hasCountdown ? 32 : 20;
+          const bidTagY = bidY - bidTagHeight / 2;
+          const bidTextY = hasCountdown ? bidY - 6 : bidY;
+
+          figures.push(
+            {
+              type: 'rect',
+              attrs: {
+                x: 0,
+                y: bidTagY,
+                width: bounding?.width ?? 60,
+                height: bidTagHeight,
+              },
+              styles: {
+                style: 'fill',
+                color: bidColor,
+              },
+              ignoreEvent: true,
             },
-            styles: {
-              style: 'fill',
-              color: bidColor,
+            {
+              type: 'text',
+              attrs: {
+                x: textX,
+                y: bidTextY,
+                text: showBidAsk ? `Bid ${formatPrice(bid)}` : formatPrice(bid),
+                align: textAlign,
+                baseline: 'middle',
+              },
+              styles: {
+                color: '#ffffff',
+                size: 10,
+                family: 'Noto Sans, sans-serif',
+                backgroundColor: 'transparent',
+              },
+              ignoreEvent: true,
+            }
+          );
+
+          if (hasCountdown) {
+            figures.push({
+              type: 'text',
+              attrs: {
+                x: textX,
+                y: bidY + 7,
+                text: countdownStr,
+                align: textAlign,
+                baseline: 'middle',
+              },
+              styles: {
+                color: '#ffffff',
+                size: 10,
+                family: 'Noto Sans, sans-serif',
+                weight: 'bold',
+                backgroundColor: 'transparent',
+              },
+              ignoreEvent: true,
+            });
+          }
+        }
+
+        // Ask Tag
+        if (showBidAsk) {
+          figures.push(
+            {
+              type: 'rect',
+              attrs: {
+                x: 0,
+                y: askY - 10,
+                width: bounding?.width ?? 60,
+                height: 20,
+              },
+              styles: {
+                style: 'fill',
+                color: askColor,
+              },
+              ignoreEvent: true,
             },
-            ignoreEvent: true,
-          },
-          {
-            type: 'text',
-            attrs: {
-              x: textX,
-              y: bidY,
-              text: `Bid ${formatPrice(bid)}`,
-              align: textAlign,
-              baseline: 'middle',
-            },
-            styles: {
-              color: '#ffffff',
-              size: 10,
-              family: 'Noto Sans, sans-serif',
-              backgroundColor: 'transparent',
-            },
-            ignoreEvent: true,
-          },
-          // Ask Label
-          {
-            type: 'rect',
-            attrs: {
-              x: 0,
-              y: askY - 10,
-              width: bounding?.width ?? 60,
-              height: 20,
-            },
-            styles: {
-              style: 'fill',
-              color: askColor,
-            },
-            ignoreEvent: true,
-          },
-          {
-            type: 'text',
-            attrs: {
-              x: textX,
-              y: askY,
-              text: `Ask ${formatPrice(ask)}`,
-              align: textAlign,
-              baseline: 'middle',
-            },
-            styles: {
-              color: '#ffffff',
-              size: 10,
-              family: 'Noto Sans, sans-serif',
-              backgroundColor: 'transparent',
-            },
-            ignoreEvent: true,
-          },
-        ];
+            {
+              type: 'text',
+              attrs: {
+                x: textX,
+                y: askY,
+                text: `Ask ${formatPrice(ask)}`,
+                align: textAlign,
+                baseline: 'middle',
+              },
+              styles: {
+                color: '#ffffff',
+                size: 10,
+                family: 'Noto Sans, sans-serif',
+                backgroundColor: 'transparent',
+              },
+              ignoreEvent: true,
+            }
+          );
+        }
+
+        return figures;
       }
 
-      if (!chart._showPriceLineLabel) return [];
+      // 3. Single Price Line Mode Rendering
+      const showPriceLabel = chart._showPriceLineLabel !== false;
+      if (!showPriceLabel && !hasCountdown) return [];
 
       const close = lastData.close;
       const open = lastData.open;
@@ -323,42 +404,9 @@ export function registerCustomOverlays() {
         }
       }
 
-
-
-      const showCountdown = chart._showCountdown !== false;
-      const tf: string = chart._loadedTimeframe || '1m';
-      const tfMinutes = getTimeframeMinutes(tf);
-      const tfDurationMs = tfMinutes * 60 * 1000;
-
-      // Calculate countdown string (TradingView format: MM:SS or HH:MM:SS)
-      let countdownStr = '';
-      if (showCountdown && tfDurationMs > 0 && typeof lastData.timestamp === 'number') {
-        const offsetMs = chart._chartOffsetMs || 0;
-        // Adjusted candle timestamp
-        const candleStart = lastData.timestamp;
-        const candleEnd = candleStart + tfDurationMs;
-        const now = Date.now() + offsetMs;
-        const remainingMs = Math.max(0, candleEnd - now);
-
-        const totalSec = Math.floor(remainingMs / 1000);
-        const hours = Math.floor(totalSec / 3600);
-        const minutes = Math.floor((totalSec % 3600) / 60);
-        const seconds = totalSec % 60;
-
-        if (hours > 0) {
-          countdownStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        } else {
-          countdownStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-      }
-
-      // Check whether countdown should be displayed on price scale
-      const hasCountdown = showCountdown && countdownStr.length > 0;
-
-      const hasStackedPriceScale = hasCountdown;
-      const priceTagHeight = hasStackedPriceScale ? 32 : 20;
+      const priceTagHeight = hasCountdown ? 32 : 20;
       const priceTagY = priceY - priceTagHeight / 2;
-      const priceTextY = hasStackedPriceScale ? priceY - 6 : priceY;
+      const priceTextY = hasCountdown ? priceY - 6 : priceY;
 
       const figures: any[] = [
         // Main Price Label Background
@@ -411,6 +459,7 @@ export function registerCustomOverlays() {
             color: '#ffffff',
             size: 10,
             family: 'Noto Sans, sans-serif',
+            weight: 'bold',
             backgroundColor: 'transparent',
           },
           ignoreEvent: true,

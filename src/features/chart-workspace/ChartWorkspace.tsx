@@ -977,6 +977,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             const slotTf = slots[i]?.timeframe || '1m';
             chart.setPeriod(parseTimeframeToPeriod(slotTf));
             (chart as any)._loadedTimeframe = slotTf;
+            (chart as any)._symbol = slots[i]?.symbol;
+            (chart as any)._chartIndex = i;
 
             chart.subscribeAction('onCrosshairChange', (params: any) => {
               handleCrosshairSync(i, params);
@@ -1269,15 +1271,22 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
   // Periodic 1-second timer to update active candle countdown on price scale in real-time
   useEffect(() => {
     const timer = setInterval(() => {
-      chartInstancesRef.current.forEach((chart) => {
+      chartInstancesRef.current.forEach((chart, idx) => {
         if (!chart) return;
+        if (slots[idx]?.symbol && !(chart as any)._symbol) {
+          (chart as any)._symbol = slots[idx].symbol;
+        }
+        if (slots[idx]?.timeframe) {
+          (chart as any)._loadedTimeframe = slots[idx].timeframe;
+        }
         if (chart._showCountdown !== false) {
           DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+          chart.overrideOverlay?.({ id: 'custom_price_line_overlay' });
         }
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slots]);
 
   // Clean up all charts on unmount
   useEffect(() => {
@@ -1555,6 +1564,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         applySettingsToChart(c, newSettings);
         const slot = slots[i];
         if (slot && slot.symbol) {
+          (c as any)._symbol = slot.symbol;
+          (c as any)._loadedTimeframe = slot.timeframe;
           const profile = getSymbolProfileCache(slot.symbol);
           const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
           const precision = profile?.pricePrecision !== undefined
@@ -1566,6 +1577,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
             volumePrecision: 4,
           });
         }
+        c.overrideOverlay?.({ id: 'custom_price_line_overlay' });
+        DrawingChartAdapter.invalidatePane(c, 'candle_pane');
       }
     }
 

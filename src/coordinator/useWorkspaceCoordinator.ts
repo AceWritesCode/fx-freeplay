@@ -864,6 +864,8 @@ export function useWorkspaceCoordinator(
           ? slotProfile.pricePrecision
           : (settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(slotData));
         chart.setSymbol({ ticker: slotSym, pricePrecision: precision, volumePrecision: 4 });
+        (chart as any)._symbol = slotSym;
+        (chart as any)._slotSymbol = slotSym;
 
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {
@@ -1321,6 +1323,8 @@ export function useWorkspaceCoordinator(
           : (settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(tfData));
 
         chart.setSymbol({ ticker: slot.symbol, pricePrecision: precision, volumePrecision: 4 });
+        (chart as any)._symbol = slot.symbol;
+        (chart as any)._slotSymbol = slot.symbol;
         chart.setPeriod(parseTimeframeToPeriod(tf));
         (chart as any)._loadedTimeframe = tf;
 
