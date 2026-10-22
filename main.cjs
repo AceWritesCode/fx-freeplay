@@ -24,6 +24,12 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#131722',
     autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#131722',
+      symbolColor: '#d1d4dc',
+      height: 32,
+    },
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -125,6 +131,21 @@ ipcMain.on('open-external', (_event, url) => {
 
 ipcMain.on('set-startup', (event, { login, hidden }) => {
   app.setLoginItemSettings({ openAtLogin: login, openAsHidden: hidden, path: app.getPath('exe') });
+});
+
+ipcMain.on('update-titlebar-theme', (_event, { color, symbolColor }) => {
+  const wins = BrowserWindow.getAllWindows();
+  if (wins.length > 0 && !wins[0].isDestroyed()) {
+    try {
+      wins[0].setTitleBarOverlay({
+        color: color || '#131722',
+        symbolColor: symbolColor || '#d1d4dc',
+        height: 32,
+      });
+    } catch (e) {
+      console.warn('[Electron Main] Failed to update titleBarOverlay:', e);
+    }
+  }
 });
 
 // --- MT5 Python Bridge IPC ---

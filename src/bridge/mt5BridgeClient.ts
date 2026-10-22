@@ -107,6 +107,7 @@ declare global {
     electronAPI?: {
       openExternal: (url: string) => void;
       setStartup: (settings: { login: boolean; hidden: boolean }) => void;
+      updateTitleBarTheme?: (colors: { color: string; symbolColor: string }) => void;
       mt5?: ElectronBridgeAPI;
     };
   }

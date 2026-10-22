@@ -1,6 +1,8 @@
 export interface ElectronAPI {
   openExternal: (url: string) => void | Promise<void>;
   setStartup?: (settings: { login: boolean; hidden: boolean }) => void;
+  updateTitleBarTheme?: (colors: { color: string; symbolColor: string }) => void;
+  mt5?: any;
 }
 
 export interface UpdaterAPI {

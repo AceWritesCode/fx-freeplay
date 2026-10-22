@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('updaterAPI', {
 contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.send('open-external', url),
   setStartup: (settings) => ipcRenderer.send('set-startup', settings),
+  updateTitleBarTheme: (colors) => ipcRenderer.send('update-titlebar-theme', colors),
   mt5: {
     checkSystem: () => ipcRenderer.invoke('mt5-check-system'),
     listTerminals: () => ipcRenderer.invoke('mt5-list-terminals'),
