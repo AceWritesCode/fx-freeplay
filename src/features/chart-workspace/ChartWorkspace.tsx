@@ -280,6 +280,8 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
     chart._sessionBreaksSize = s.sessionBreaksSize;
     chart._appTimezone = s.userTimezoneLabel;
     chart._chartType = s.chartType || 'candlestick';
+    chart._showSymbolLabel = s.showPriceScaleSymbolLabel !== false;
+    chart._showCountdown = s.showPriceScaleCountdown !== false;
 
     // Crosshair configuration
     const effectiveCrosshairColor = applyColorWithOpacity(
@@ -1263,6 +1265,19 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
       }
     });
   }, [workspaceCoord.liveTicksBySymbol, slots]);
+
+  // Periodic 1-second timer to update active candle countdown on price scale in real-time
+  useEffect(() => {
+    const timer = setInterval(() => {
+      chartInstancesRef.current.forEach((chart) => {
+        if (!chart) return;
+        if (chart._showCountdown !== false) {
+          DrawingChartAdapter.invalidatePane(chart, 'candle_pane');
+        }
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Clean up all charts on unmount
   useEffect(() => {

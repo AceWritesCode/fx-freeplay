@@ -1887,6 +1887,24 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   />
                 </div>
 
+                {/* Show Symbol Name Label Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={formState.showPriceScaleSymbolLabel !== false}
+                    onChange={(e) => handleFieldChange('showPriceScaleSymbolLabel', e.target.checked)}
+                    label="Symbol Name Label"
+                  />
+                </div>
+
+                {/* Show Countdown To Bar Close Toggle */}
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    checked={formState.showPriceScaleCountdown !== false}
+                    onChange={(e) => handleFieldChange('showPriceScaleCountdown', e.target.checked)}
+                    label="Countdown to Bar Close"
+                  />
+                </div>
+
                 <div className="border-t border-border-sub my-1" />
                 {/* Time Scale Section */}
                 <div className="text-[10px] font-bold text-txt-muted uppercase tracking-wider mb-1">Time Scale</div>

@@ -82,6 +82,8 @@ export interface ChartSettings {
   showPriceScalePriceLabels?: boolean;
   showPriceScaleLastPriceLabel?: boolean;
   showPriceScaleCrosshairLabel?: boolean;
+  showPriceScaleSymbolLabel?: boolean; // TradingView-style symbol name tag next to price scale
+  showPriceScaleCountdown?: boolean; // TradingView-style countdown to candle close
 
   // Scales Settings — Time Scale
   showTimeScaleLabels?: boolean;
@@ -179,6 +181,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showPriceScalePriceLabels: true,
     showPriceScaleLastPriceLabel: true,
     showPriceScaleCrosshairLabel: true,
+    showPriceScaleSymbolLabel: true,
+    showPriceScaleCountdown: true,
     showTimeScaleLabels: true,
     showTimeScaleCrosshairLabel: true,
     showTimeScaleDayOfWeek: false,
@@ -258,6 +262,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showPriceScalePriceLabels: true,
     showPriceScaleLastPriceLabel: true,
     showPriceScaleCrosshairLabel: true,
+    showPriceScaleSymbolLabel: true,
+    showPriceScaleCountdown: true,
     showTimeScaleLabels: true,
     showTimeScaleCrosshairLabel: true,
     showTimeScaleDayOfWeek: false,
@@ -337,6 +343,8 @@ export const PRESET_SETTINGS: { [key: string]: ChartSettings } = {
     showPriceScalePriceLabels: true,
     showPriceScaleLastPriceLabel: true,
     showPriceScaleCrosshairLabel: true,
+    showPriceScaleSymbolLabel: true,
+    showPriceScaleCountdown: true,
     showTimeScaleLabels: true,
     showTimeScaleCrosshairLabel: true,
     showTimeScaleDayOfWeek: false,

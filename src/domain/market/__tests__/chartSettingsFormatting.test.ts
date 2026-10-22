@@ -178,6 +178,8 @@ describe('Chart Formatters and Settings Unit Tests', () => {
       assert.strictEqual(p.showPriceScalePriceLabels, true);
       assert.strictEqual(p.showPriceScaleLastPriceLabel, true);
       assert.strictEqual(p.showPriceScaleCrosshairLabel, true);
+      assert.strictEqual(p.showPriceScaleSymbolLabel, true);
+      assert.strictEqual(p.showPriceScaleCountdown, true);
       assert.strictEqual(p.showTimeScaleLabels, true);
       assert.strictEqual(p.showTimeScaleCrosshairLabel, true);
       assert.strictEqual(p.showTimeScaleDayOfWeek, false);

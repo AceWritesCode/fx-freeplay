@@ -4,6 +4,7 @@ import { isReconcilingDrawings, runWorkspaceReconciliation, mirrorLiveOverlayUpd
 import { getOriginalDrawingId } from '../engine/charting/drawingSyncEngine.ts';
 import { DrawingChartAdapter } from '../engine/charting/drawingChartAdapter.ts';
 import { replayVisibilityBoundary } from '../engine/replay/ReplayVisibilityBoundary.ts';
+import { getTimeframeMinutes } from '../domain/market/timeframeUtils.ts';
 import { useDrawingStore } from '../store/useDrawingStore.ts';
 import { useLayoutStore } from '../store/useLayoutStore.ts';
 import { initializeToolFramework, ToolRegistry } from '../framework/tools/index.ts';
@@ -124,7 +125,7 @@ export function registerCustomOverlays() {
       const priceLineStyle = chart._priceLineStyle || 'dashed';
       const dashedValue = priceLineStyle === 'dotted' ? [2, 2] : [4, 4];
 
-      return [
+      const pointFigures: any[] = [
         {
           type: 'line',
           attrs: {
@@ -141,6 +142,54 @@ export function registerCustomOverlays() {
           }
         }
       ];
+
+      // TradingView-style Symbol Name Tag docked to the inner edge of the price scale
+      const showSymbolLabel = chart._showSymbolLabel !== false;
+      const symbolTicker = chart.getSymbol?.()?.ticker;
+      if (showSymbolLabel && symbolTicker && symbolTicker !== 'No Symbol') {
+        const symbolTagWidth = Math.max(54, symbolTicker.length * 7.5 + 14);
+        const symbolTagHeight = 18;
+        const symbolTagX = width - symbolTagWidth;
+        const symbolTagY = priceY - symbolTagHeight / 2;
+
+        pointFigures.push(
+          {
+            type: 'rect',
+            attrs: {
+              x: symbolTagX,
+              y: symbolTagY,
+              width: symbolTagWidth,
+              height: symbolTagHeight,
+              r: 3,
+            },
+            styles: {
+              style: 'fill',
+              color: '#8b93a6', // TradingView neutral steel slate tag background
+            },
+            ignoreEvent: true,
+          },
+          {
+            type: 'text',
+            attrs: {
+              x: symbolTagX + symbolTagWidth / 2,
+              y: priceY,
+              text: symbolTicker,
+              align: 'center',
+              baseline: 'middle',
+            },
+            styles: {
+              color: '#ffffff',
+              size: 10,
+              family: 'Noto Sans, sans-serif',
+              weight: 'bold',
+              backgroundColor: 'transparent',
+            },
+            ignoreEvent: true,
+          }
+        );
+      }
+
+      return pointFigures;
     },
     createYAxisFigures: ({ chart, yAxis, bounding }: any) => {
       if (!chart._showPriceLine) return [];
@@ -276,39 +325,99 @@ export function registerCustomOverlays() {
 
 
 
-      return [
+      const showCountdown = chart._showCountdown !== false;
+      const tf: string = chart._loadedTimeframe || '1m';
+      const tfMinutes = getTimeframeMinutes(tf);
+      const tfDurationMs = tfMinutes * 60 * 1000;
+
+      // Calculate countdown string (TradingView format: MM:SS or HH:MM:SS)
+      let countdownStr = '';
+      if (showCountdown && tfDurationMs > 0 && typeof lastData.timestamp === 'number') {
+        const offsetMs = chart._chartOffsetMs || 0;
+        // Adjusted candle timestamp
+        const candleStart = lastData.timestamp;
+        const candleEnd = candleStart + tfDurationMs;
+        const now = Date.now() + offsetMs;
+        const remainingMs = Math.max(0, candleEnd - now);
+
+        const totalSec = Math.floor(remainingMs / 1000);
+        const hours = Math.floor(totalSec / 3600);
+        const minutes = Math.floor((totalSec % 3600) / 60);
+        const seconds = totalSec % 60;
+
+        if (hours > 0) {
+          countdownStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+          countdownStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }
+
+      // Check whether countdown should be displayed on price scale
+      const hasCountdown = showCountdown && countdownStr.length > 0;
+
+      const hasStackedPriceScale = hasCountdown;
+      const priceTagHeight = hasStackedPriceScale ? 32 : 20;
+      const priceTagY = priceY - priceTagHeight / 2;
+      const priceTextY = hasStackedPriceScale ? priceY - 6 : priceY;
+
+      const figures: any[] = [
+        // Main Price Label Background
         {
           type: 'rect',
           attrs: {
             x: 0,
-            y: priceY - 10,
+            y: priceTagY,
             width: bounding?.width ?? 60,
-            height: 20
+            height: priceTagHeight,
           },
           styles: {
             style: 'fill',
-            color: color
+            color: color,
           },
-          ignoreEvent: true
+          ignoreEvent: true,
         },
+        // Price Text
         {
           type: 'text',
           attrs: {
             x: textX,
-            y: priceY,
+            y: priceTextY,
             text: formatPrice(close),
             align: textAlign,
-            baseline: 'middle'
+            baseline: 'middle',
           },
           styles: {
             color: '#ffffff',
             size: 11,
             family: 'Noto Sans, sans-serif',
-            backgroundColor: 'transparent'
+            backgroundColor: 'transparent',
           },
-          ignoreEvent: true
-        }
+          ignoreEvent: true,
+        },
       ];
+
+      // Countdown Text (rendered directly beneath price value inside the price tag)
+      if (hasCountdown) {
+        figures.push({
+          type: 'text',
+          attrs: {
+            x: textX,
+            y: priceY + 7,
+            text: countdownStr,
+            align: textAlign,
+            baseline: 'middle',
+          },
+          styles: {
+            color: '#ffffff',
+            size: 10,
+            family: 'Noto Sans, sans-serif',
+            backgroundColor: 'transparent',
+          },
+          ignoreEvent: true,
+        });
+      }
+
+      return figures;
     }
   });
 
