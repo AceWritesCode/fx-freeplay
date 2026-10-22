@@ -44,12 +44,10 @@ export const applyThemeToDOM = (tokens: ThemeTokens): void => {
   root.style.setProperty('--status-warning', tokens.statusWarning);
   root.style.setProperty('--status-info', tokens.statusInfo);
 
-  // Sync Electron native window titlebar overlay if running inside Electron
-  if (typeof window !== 'undefined' && window.electronAPI?.updateTitleBarTheme) {
-    window.electronAPI.updateTitleBarTheme({
-      color: tokens.bgSurface,
-      symbolColor: tokens.textPrimary,
-    });
+  // Sync Electron native OS title bar theme mode (avoids DWM resize black border bug)
+  if (typeof window !== "undefined" && window.electronAPI?.setThemeMode) {
+    const isLight = tokens.bgApp.toLowerCase().includes("fff") || tokens.textPrimary.toLowerCase() === "#131722";
+    window.electronAPI.setThemeMode(isLight ? "light" : "dark");
   }
 };
 

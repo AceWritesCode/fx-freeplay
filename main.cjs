@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -24,12 +24,6 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#131722',
     autoHideMenuBar: true,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#131722',
-      symbolColor: '#d1d4dc',
-      height: 32,
-    },
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -133,18 +127,11 @@ ipcMain.on('set-startup', (event, { login, hidden }) => {
   app.setLoginItemSettings({ openAtLogin: login, openAsHidden: hidden, path: app.getPath('exe') });
 });
 
-ipcMain.on('update-titlebar-theme', (_event, { color, symbolColor }) => {
-  const wins = BrowserWindow.getAllWindows();
-  if (wins.length > 0 && !wins[0].isDestroyed()) {
-    try {
-      wins[0].setTitleBarOverlay({
-        color: color || '#131722',
-        symbolColor: symbolColor || '#d1d4dc',
-        height: 32,
-      });
-    } catch (e) {
-      console.warn('[Electron Main] Failed to update titleBarOverlay:', e);
-    }
+ipcMain.on('update-theme-mode', (_event, mode) => {
+  try {
+    nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark';
+  } catch (e) {
+    console.warn('[Electron Main] Failed to update nativeTheme.themeSource:', e);
   }
 });
 
