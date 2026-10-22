@@ -1528,8 +1528,11 @@ export function ChartWorkspace({ onNavigateHome }: ChartWorkspaceProps = {}) {
         applySettingsToChart(c, newSettings);
         const slot = slots[i];
         if (slot && slot.symbol) {
+          const profile = getSymbolProfileCache(slot.symbol);
           const rawData = workspaceCoord.getRawDataFromCache(slot.symbol);
-          const precision = newSettings.pricePrecision !== 0 ? newSettings.pricePrecision : detectPricePrecision(rawData);
+          const precision = profile?.pricePrecision !== undefined
+            ? profile.pricePrecision
+            : (newSettings.pricePrecision !== 0 ? newSettings.pricePrecision : detectPricePrecision(rawData));
           c.setSymbol({
             ticker: slot.symbol,
             pricePrecision: precision,

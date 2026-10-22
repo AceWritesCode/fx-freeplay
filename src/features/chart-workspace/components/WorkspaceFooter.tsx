@@ -14,6 +14,7 @@ import { formatDateFeedback } from '@/components/ThemeSettingsModal';
 import { calculateSpeedSteps, getClosestStepIndex } from '@/utils/replayUtils';
 import { RecordingFloatingBar, useCaptureStore } from '@/features/capture-recording';
 import { formatTimeframeDisplay, formatDataRangeDate } from '@/domain/market/timeframeUtils';
+import { getSymbolProfileCache } from '@/coordinator/workspaceCache';
 import { ReplayDateTimePickerModal } from './ReplayDateTimePickerModal';
 
 interface WorkspaceFooterProps {
@@ -328,46 +329,51 @@ export const WorkspaceFooter: React.FC<WorkspaceFooterProps> = (props) => {
     );
   };
 
-  const renderPrecisionSection = (isExitReplay: boolean) => (
-    <div className="flex items-center gap-3 flex-shrink-0 text-[10px] text-txt-muted uppercase tracking-wider font-semibold">
-      <span className="hidden xl:inline">
-        Precision:{' '}
-        {settings.pricePrecision === 0
-          ? `Auto (${hasData ? detectPricePrecision(allTimeframesData[activeTimeframe] || []) : 4}d)`
-          : `${settings.pricePrecision}d`}
-      </span>
-      <span className="hidden 2xl:inline">•</span>
-      <span className="hidden 2xl:inline">Ingested: {hasData ? assetName : 'None'}</span>
-      {isExitReplay ? (
-        <button
-          onClick={() => {
-            exitReplayMode();
-          }}
-          className="flex items-center gap-1 px-3 py-1 rounded-lg border border-status-error/30 bg-status-error/10 text-status-error hover:bg-status-error/20 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 ml-1"
-          title="Exit Replay"
-        >
-          <X className="w-3.5 h-3.5" />
-          <span>Exit Replay</span>
-        </button>
-      ) : (
-        <>
-          <div className="h-4 w-px bg-border-sub" />
+  const renderPrecisionSection = (isExitReplay: boolean) => {
+    const activeProfile = assetName ? getSymbolProfileCache(assetName) : null;
+    const effectivePrecision = activeProfile?.pricePrecision ?? (hasData ? detectPricePrecision(allTimeframesData[activeTimeframe] || []) : 4);
+
+    return (
+      <div className="flex items-center gap-3 flex-shrink-0 text-[10px] text-txt-muted uppercase tracking-wider font-semibold">
+        <span className="hidden xl:inline">
+          Precision:{' '}
+          {settings.pricePrecision === 0
+            ? `Auto (${effectivePrecision}d)`
+            : `${settings.pricePrecision}d`}
+        </span>
+        <span className="hidden 2xl:inline">•</span>
+        <span className="hidden 2xl:inline">Ingested: {hasData ? assetName : 'None'}</span>
+        {isExitReplay ? (
           <button
-            disabled={!hasData}
             onClick={() => {
-              setIsReplayActive(true);
-              setIsSelectingCutPoint(true);
+              exitReplayMode();
             }}
-            className="flex items-center gap-1.5 text-txt-muted hover:text-txt-primary transition-colors duration-150 text-xs font-bold normal-case tracking-normal disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-            title="Bar Replay"
+            className="flex items-center gap-1 px-3 py-1 rounded-lg border border-status-error/30 bg-status-error/10 text-status-error hover:bg-status-error/20 text-xs font-semibold transition-all cursor-pointer flex-shrink-0 ml-1"
+            title="Exit Replay"
           >
-            <ChevronsLeft className="w-4 h-4" />
-            <span>Replay</span>
+            <X className="w-3.5 h-3.5" />
+            <span>Exit Replay</span>
           </button>
-        </>
-      )}
-    </div>
-  );
+        ) : (
+          <>
+            <div className="h-4 w-px bg-border-sub" />
+            <button
+              disabled={!hasData}
+              onClick={() => {
+                setIsReplayActive(true);
+                setIsSelectingCutPoint(true);
+              }}
+              className="flex items-center gap-1.5 text-txt-muted hover:text-txt-primary transition-colors duration-150 text-xs font-bold normal-case tracking-normal disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              title="Bar Replay"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+              <span>Replay</span>
+            </button>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>

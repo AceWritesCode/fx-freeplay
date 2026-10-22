@@ -335,7 +335,9 @@ export function detectPricePrecision(data: KLineData[]): number {
     const price = data[i].close;
     if (price === undefined || isNaN(price)) continue;
     
-    const str = price.toString();
+    // Normalize binary floating-point representation (e.g. 1.1232199999999999 -> 1.12322)
+    // by formatting to fixed 8 decimals and stripping trailing zeroes before decimal counting.
+    const str = price.toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
     const dotIndex = str.indexOf('.');
     if (dotIndex !== -1) {
       const decimals = str.length - dotIndex - 1;
@@ -345,5 +347,6 @@ export function detectPricePrecision(data: KLineData[]): number {
     }
   }
   
-  return Math.min(maxDecimals, 8);
+  // Financial prices rarely exceed 6 decimal digits (e.g. crypto/forex pipettes). Clamp between 2 and 6.
+  return Math.min(Math.max(maxDecimals, 2), 6);
 }

@@ -860,6 +860,11 @@ export function useWorkspaceCoordinator(
         const slotProfile = await watchlistRepository.getSymbolProfile(slotSym);
         const isMT5 = slotProfile?.source === 'MT5_AUTO_BRIDGE';
 
+        const precision = slotProfile?.pricePrecision !== undefined
+          ? slotProfile.pricePrecision
+          : (settings.pricePrecision !== 0 ? settings.pricePrecision : detectPricePrecision(slotData));
+        chart.setSymbol({ ticker: slotSym, pricePrecision: precision, volumePrecision: 4 });
+
         chart.setDataLoader({
           getBars: ({ type: loadType, callback }: any) => {
             if (loadType === 'init') {
@@ -1093,7 +1098,10 @@ export function useWorkspaceCoordinator(
 
             const chart = chartInstancesRef.current[activeChartIndex];
             if (chart) {
-              const precision = updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(targetData);
+              const activeProfile = getSymbolProfileCache(symbolName) || await watchlistRepository.getSymbolProfile(symbolName);
+              const precision = activeProfile?.pricePrecision !== undefined
+                ? activeProfile.pricePrecision
+                : (updatedSettings.pricePrecision !== 0 ? updatedSettings.pricePrecision : detectPricePrecision(targetData));
               chart.setSymbol({ ticker: symbolName, pricePrecision: precision, volumePrecision: 4 });
             }
 
