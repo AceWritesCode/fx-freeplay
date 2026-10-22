@@ -2,6 +2,10 @@ export interface ElectronAPI {
   openExternal: (url: string) => void | Promise<void>;
   setStartup?: (settings: { login: boolean; hidden: boolean }) => void;
   setThemeMode?: (mode: string) => void;
+  minimizeWindow?: () => void;
+  toggleMaximizeWindow?: () => void;
+  closeWindow?: () => void;
+  isMaximized?: () => Promise<boolean>;
   mt5?: any;
 }
 

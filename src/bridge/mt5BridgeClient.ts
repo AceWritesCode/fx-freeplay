@@ -108,6 +108,10 @@ declare global {
       openExternal: (url: string) => void;
       setStartup: (settings: { login: boolean; hidden: boolean }) => void;
       setThemeMode?: (mode: string) => void;
+      minimizeWindow?: () => void;
+      toggleMaximizeWindow?: () => void;
+      closeWindow?: () => void;
+      isMaximized?: () => Promise<boolean>;
       mt5?: ElectronBridgeAPI;
     };
   }

@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.send('open-external', url),
   setStartup: (settings) => ipcRenderer.send('set-startup', settings),
   setThemeMode: (mode) => ipcRenderer.send('update-theme-mode', mode),
+  minimizeWindow: () => ipcRenderer.send('window-minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.send('window-maximize-toggle'),
+  closeWindow: () => ipcRenderer.send('window-close'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   mt5: {
     checkSystem: () => ipcRenderer.invoke('mt5-check-system'),
     listTerminals: () => ipcRenderer.invoke('mt5-list-terminals'),

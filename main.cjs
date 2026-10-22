@@ -23,6 +23,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 600,
     backgroundColor: '#131722',
+    frame: false,
     autoHideMenuBar: true,
     icon: iconPath,
     webPreferences: {
@@ -130,9 +131,44 @@ ipcMain.on('set-startup', (event, { login, hidden }) => {
 ipcMain.on('update-theme-mode', (_event, mode) => {
   try {
     nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark';
+    const wins = BrowserWindow.getAllWindows();
+    if (wins.length > 0 && !wins[0].isDestroyed()) {
+      wins[0].setBackgroundColor(mode === 'light' ? '#f8f9fa' : '#131722');
+    }
   } catch (e) {
-    console.warn('[Electron Main] Failed to update nativeTheme.themeSource:', e);
+    console.warn('[Electron Main] Failed to update theme mode:', e);
   }
+});
+
+// Window Control IPC Handlers
+ipcMain.on('window-minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    win.minimize();
+  }
+});
+
+ipcMain.on('window-maximize-toggle', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});
+
+ipcMain.on('window-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    win.close();
+  }
+});
+
+ipcMain.handle('window-is-maximized', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return win && !win.isDestroyed() ? win.isMaximized() : false;
 });
 
 // --- MT5 Python Bridge IPC ---
