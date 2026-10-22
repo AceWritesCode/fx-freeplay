@@ -131,38 +131,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
         />
       )}
 
-      {/* Tabs list on the left side of sidebar */}
-      <div className="w-11 border-r border-border-def flex flex-col items-center py-3 gap-3 flex-shrink-0 bg-surface">
-        <button
-          onClick={() => setActiveRightTab(activeRightTab === 'watchlist' ? null : 'watchlist')}
-          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'watchlist' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
-          }`}
-          title="Watchlist Panel"
-        >
-          <WatchlistTabIcon className="w-7 h-7" />
-        </button>
-        <button
-          onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
-          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'objectTree' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
-          }`}
-          title="Object Tree Panel"
-        >
-          <ObjectTreeTabIcon className="w-7 h-7" />
-        </button>
-        <button
-          onClick={() => setActiveRightTab(activeRightTab === 'sessionDisplay' ? null : 'sessionDisplay')}
-          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'sessionDisplay' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
-          }`}
-          title="Session Display Panel"
-        >
-          <SessionDisplayTabIcon className="w-7 h-7" />
-        </button>
-      </div>
-
-      {/* Main Tab content container */}
+      {/* Main Tab content container (opens to the left of the tab button column) */}
       {isSidebarVisible && (
         <div className="flex-1 h-full flex flex-col min-w-0 bg-surface overflow-hidden">
           {activeRightTab === 'watchlist' ? (
@@ -269,7 +238,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
                           }}
                           className="p-0.5 rounded opacity-0 group-hover/item:opacity-100 text-txt-muted hover:text-status-error hover:bg-status-error/10 transition-all cursor-pointer"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -292,6 +261,37 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
           ) : null}
         </div>
       )}
+
+      {/* Tabs list permanently docked to the right edge */}
+      <div className="w-11 border-l border-border-def flex flex-col items-center py-3 gap-3 flex-shrink-0 bg-surface">
+        <button
+          onClick={() => setActiveRightTab(activeRightTab === 'watchlist' ? null : 'watchlist')}
+          className={`p-2 rounded-lg transition-colors cursor-pointer ${
+            activeRightTab === 'watchlist' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          }`}
+          title="Watchlist Panel"
+        >
+          <WatchlistTabIcon className="w-7 h-7" />
+        </button>
+        <button
+          onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
+          className={`p-2 rounded-lg transition-colors cursor-pointer ${
+            activeRightTab === 'objectTree' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          }`}
+          title="Object Tree Panel"
+        >
+          <ObjectTreeTabIcon className="w-7 h-7" />
+        </button>
+        <button
+          onClick={() => setActiveRightTab(activeRightTab === 'sessionDisplay' ? null : 'sessionDisplay')}
+          className={`p-2 rounded-lg transition-colors cursor-pointer ${
+            activeRightTab === 'sessionDisplay' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          }`}
+          title="Session Display Panel"
+        >
+          <SessionDisplayTabIcon className="w-7 h-7" />
+        </button>
+      </div>
     </div>
   );
 };
