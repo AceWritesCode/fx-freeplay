@@ -711,18 +711,21 @@ def refresh_incremental_bars(symbol: str, tf_name: str, terminal_path: Optional[
 
     try:
         mt5.symbol_select(symbol, True)
-        # Fetch the most recent closed bars (pos=1 omits bar 0 which is still forming)
-        # 100 bars is plenty to bridge hours/days of downtime without overhead
+        # Fetch the most recent bars (pos=0 includes forming bar 0; we omit 0 and take only closed bars r[:-1])
+        # 500 bars is plenty to bridge hours/days of downtime without overhead
         check_count = 500 if last_stored_ms else 50000
-        rates = mt5.copy_rates_from_pos(symbol, tf_const, 1, check_count)
+        rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, check_count)
 
         if rates is None or len(rates) == 0:
             conn.close()
             return {'success': True, 'symbol': symbol, 'timeframe': tf_name, 'new_bars_count': 0, 'new_bars': []}
 
+        # The last element rates[-1] is the currently forming bar, so closed bars are rates[:-1]
+        closed_rates = rates[:-1] if len(rates) > 1 else []
+
         new_bars = []
         db_rows = []
-        for r in rates:
+        for r in closed_rates:
             ts_ms = int(r[0]) * 1000
             if last_stored_ms is None or ts_ms > last_stored_ms:
                 bar_obj = {

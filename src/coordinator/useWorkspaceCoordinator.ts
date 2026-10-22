@@ -429,7 +429,7 @@ export function useWorkspaceCoordinator(
           await marketDataRepository.saveBars(symbol, tf, storedBars);
           cachedBars = adjustTimezone(storedBars);
           setTimezoneAdjustedBars(symbol, tf, cachedBars);
-          return cachedBars;
+          // Do not early return here so step 3 can immediately perform gap checking against current time!
         }
       } catch (e) {
         console.warn(`[getOrImportTimeframeData] SQLite read fallback error for ${symbol} (${tf}):`, e);
@@ -442,21 +442,29 @@ export function useWorkspaceCoordinator(
     if (isMT5Symbol && mt5BridgeClient.isAvailable() && cachedBars && cachedBars.length > 0) {
       const throttleKey = `${symbol}:${tf}`;
       const lastCheck = lastIncrementalCheckRef.current.get(throttleKey) || 0;
-      const now = Date.now();
+
+      // Convert local current timestamp to broker time (using brokerTimezoneOffset)
+      // to ensure accurate gap comparison regardless of user's local timezone.
+      const brokerOffsetMin = settings.brokerTimezoneOffset ?? 180;
+      const nowUtc = Date.now();
+      const brokerNowMs = nowUtc + (brokerOffsetMin * 60 * 1000);
+
+      // Raw bars in DB are stored in broker timestamp
+      const rawStoredBars = await marketDataRepository.getBars(symbol, tf) || [];
+      const lastRawBarTs = rawStoredBars[rawStoredBars.length - 1]?.timestamp || 0;
 
       // Calculate timeframe duration in ms to detect missing/outdated candles
       const tfMinutes = getTimeframeMinutes(tf);
       const tfMs = tfMinutes * 60 * 1000;
-      const lastBarTs = cachedBars[cachedBars.length - 1]?.timestamp || 0;
-      // If the last bar is more than 1.5 bars behind current time, it has a gap of closed candles
-      const isOutdated = lastBarTs > 0 && (now - lastBarTs) > (tfMs * 1.5);
+      // If the last bar is more than 1.5 bars behind broker time, it has a gap of closed candles
+      const isOutdated = lastRawBarTs > 0 && (brokerNowMs - lastRawBarTs) > (tfMs * 1.5);
 
-      if (isOutdated || (now - lastCheck > 30000)) {
-        lastIncrementalCheckRef.current.set(throttleKey, now);
+      if (isOutdated || (nowUtc - lastCheck > 30000)) {
+        lastIncrementalCheckRef.current.set(throttleKey, nowUtc);
         try {
           const res = await mt5BridgeClient.refreshIncremental(symbol, tf);
           if (res.new_bars_count > 0 && res.new_bars.length > 0) {
-            const rawBars = await marketDataRepository.getBars(symbol, tf) || [];
+            const rawBars = rawStoredBars.length > 0 ? rawStoredBars : (await marketDataRepository.getBars(symbol, tf) || []);
             // Merge raw bars by timestamp
             const rawMap = new Map(rawBars.map(b => [b.timestamp, b]));
             res.new_bars.forEach(b => rawMap.set(b.timestamp, b));
