@@ -263,33 +263,39 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = (props) => {
       )}
 
       {/* Tabs list permanently docked to the right edge */}
-      <div className="w-11 border-l border-border-def flex flex-col items-center py-3 gap-3 flex-shrink-0 bg-surface">
+      <div className="w-11 border-l border-border-def flex flex-col items-center py-2 gap-1 flex-shrink-0 bg-surface">
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'watchlist' ? null : 'watchlist')}
-          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'watchlist' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          className={`w-[33px] h-[33px] rounded-md transition-all flex items-center justify-center outline-none cursor-pointer ${
+            activeRightTab === 'watchlist'
+              ? 'bg-accent-muted text-accent'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
           }`}
           title="Watchlist Panel"
         >
-          <WatchlistTabIcon className="w-7 h-7" />
+          <WatchlistTabIcon className="w-[20px] h-[20px]" />
         </button>
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'objectTree' ? null : 'objectTree')}
-          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'objectTree' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          className={`w-[33px] h-[33px] rounded-md transition-all flex items-center justify-center outline-none cursor-pointer ${
+            activeRightTab === 'objectTree'
+              ? 'bg-accent-muted text-accent'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
           }`}
           title="Object Tree Panel"
         >
-          <ObjectTreeTabIcon className="w-7 h-7" />
+          <ObjectTreeTabIcon className="w-[20px] h-[20px]" />
         </button>
         <button
           onClick={() => setActiveRightTab(activeRightTab === 'sessionDisplay' ? null : 'sessionDisplay')}
-          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-            activeRightTab === 'sessionDisplay' ? 'bg-accent-muted text-accent' : 'text-txt-muted hover:text-txt-primary'
+          className={`w-[33px] h-[33px] rounded-md transition-all flex items-center justify-center outline-none cursor-pointer ${
+            activeRightTab === 'sessionDisplay'
+              ? 'bg-accent-muted text-accent'
+              : 'text-txt-muted hover:text-txt-primary hover:bg-surface-hover'
           }`}
           title="Session Display Panel"
         >
-          <SessionDisplayTabIcon className="w-7 h-7" />
+          <SessionDisplayTabIcon className="w-[20px] h-[20px]" />
         </button>
       </div>
     </div>
