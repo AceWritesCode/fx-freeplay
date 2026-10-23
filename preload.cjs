@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     refreshIncremental: (params) => ipcRenderer.invoke('mt5-refresh-incremental', params),
     subscribeStream: (params) => ipcRenderer.invoke('mt5-subscribe-stream', params),
     unsubscribeStream: () => ipcRenderer.invoke('mt5-unsubscribe-stream'),
+    setFocusShield: (enable) => ipcRenderer.invoke('mt5-set-app-focus-shield', enable),
+    minimizeTerminal: () => ipcRenderer.invoke('mt5-minimize-terminal'),
     onLiveFeed: (callback) => {
       const listener = (_event, data) => callback(data);
       ipcRenderer.on('mt5:live-feed', listener);

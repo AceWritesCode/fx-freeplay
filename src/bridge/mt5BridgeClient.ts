@@ -99,6 +99,8 @@ interface ElectronBridgeAPI {
   refreshIncremental: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; data?: { symbol: string; timeframe: string; new_bars_count: number; new_bars: any[] }; error?: string }>;
   subscribeStream: (params: { symbol: string; timeframe: string; terminal_path?: string; db_path?: string }) => Promise<{ status: string; streaming?: boolean; error?: string }>;
   unsubscribeStream: () => Promise<{ status: string; streaming?: boolean; error?: string }>;
+  setFocusShield: (enable: boolean) => Promise<{ success: boolean; alwaysOnTop?: boolean }>;
+  minimizeTerminal: () => Promise<{ status: string; data?: { minimized: boolean }; error?: string }>;
   onLiveFeed: (callback: (data: LiveStreamUpdate) => void) => () => void;
 }
 
@@ -279,6 +281,30 @@ export const mt5BridgeClient = {
       return res.status === 'ok';
     } catch (e) {
       console.warn('[mt5BridgeClient] Failed to unsubscribe stream:', e);
+      return false;
+    }
+  },
+
+  async setFocusShield(enable: boolean): Promise<boolean> {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.setFocusShield) {
+      return false;
+    }
+    try {
+      const res = await window.electronAPI.mt5.setFocusShield(enable);
+      return Boolean(res?.success);
+    } catch {
+      return false;
+    }
+  },
+
+  async minimizeTerminal(): Promise<boolean> {
+    if (!this.isAvailable() || !window.electronAPI?.mt5?.minimizeTerminal) {
+      return false;
+    }
+    try {
+      const res = await window.electronAPI.mt5.minimizeTerminal();
+      return Boolean(res?.data?.minimized);
+    } catch {
       return false;
     }
   },

@@ -54,6 +54,40 @@ def safe_stdout_write(data: Dict[str, Any]):
         sys.stdout.write(payload)
         sys.stdout.flush()
 
+def minimize_mt5_window() -> bool:
+    """
+    Finds running MetaTrader 5 terminal window(s) and minimizes them so MT5 does not cover the application.
+    """
+    if sys.platform != 'win32':
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        SW_MINIMIZE = 6
+
+        minimized_count = 0
+
+        def enum_windows_proc(hwnd, lParam):
+            nonlocal minimized_count
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buff, length + 1)
+                    title = buff.value
+                    if 'MetaTrader 5' in title:
+                        user32.ShowWindow(hwnd, SW_MINIMIZE)
+                        minimized_count += 1
+            return True
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        cb = WNDENUMPROC(enum_windows_proc)
+        user32.EnumWindows(cb, 0)
+        return minimized_count > 0
+    except Exception:
+        return False
+
 TIMEFRAME_MAP = {
     'M1': 1,
     'M5': 5,
@@ -767,11 +801,35 @@ def refresh_incremental_bars(symbol: str, tf_name: str, terminal_path: Optional[
         return {'success': False, 'error': f'MT5 initialization failed: {mt5.last_error()}'}
 
     try:
+        minimize_mt5_window()
         mt5.symbol_select(symbol, True)
-        # Fetch the most recent bars (pos=0 includes forming bar 0; we omit 0 and take only closed bars r[:-1])
-        # 500 bars is plenty to bridge hours/days of downtime without overhead
-        check_count = 500 if last_stored_ms else 50000
-        rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, check_count)
+
+        # 1. First attempt exact range query if last_stored_ms is available
+        rates = None
+        if last_stored_ms:
+            try:
+                date_from = int(last_stored_ms / 1000)
+                date_to = int(datetime.datetime.now(datetime.timezone.utc).timestamp()) + 86400
+                rates = mt5.copy_rates_range(symbol, tf_const, date_from, date_to)
+            except Exception:
+                rates = None
+
+        # 2. Fallback to copy_rates_from_pos with calculated gap coverage
+        if rates is None or len(rates) == 0:
+            if last_stored_ms:
+                tf_mins = 1
+                if tf_name.endswith('m') and tf_name[:-1].isdigit():
+                    tf_mins = int(tf_name[:-1])
+                elif tf_name.endswith('h') and tf_name[:-1].isdigit():
+                    tf_mins = int(tf_name[:-1]) * 60
+                elif tf_name == 'D':
+                    tf_mins = 1440
+                now_ms = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+                missing_est = int((now_ms - last_stored_ms) / (tf_mins * 60 * 1000)) + 500
+                fetch_count = min(100000, max(5000, missing_est))
+            else:
+                fetch_count = 50000
+            rates = mt5.copy_rates_from_pos(symbol, tf_const, 0, fetch_count)
 
         if rates is None or len(rates) == 0:
             conn.close()
@@ -1042,6 +1100,9 @@ def handle_request(req: Dict[str, Any]) -> Dict[str, Any]:
     elif cmd == 'stop_stream':
         res = stop_live_stream()
         return {'status': 'ok', 'data': res}
+    elif cmd == 'minimize_terminal':
+        minimized = minimize_mt5_window()
+        return {'status': 'ok', 'data': {'minimized': minimized}}
     else:
         return {'status': 'error', 'error': f'Unknown command: {cmd}'}
 

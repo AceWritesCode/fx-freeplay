@@ -284,6 +284,25 @@ ipcMain.handle('mt5-refresh-incremental', async (_event, params) => {
   return executePythonBridge({ cmd: 'refresh_incremental', params: params || {} });
 });
 
+ipcMain.handle('mt5-set-app-focus-shield', (event, enable) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    if (enable) {
+      win.setAlwaysOnTop(true, 'screen-saver');
+      win.focus();
+    } else {
+      win.setAlwaysOnTop(false);
+      win.focus();
+    }
+    return { success: true, alwaysOnTop: win.isAlwaysOnTop() };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('mt5-minimize-terminal', async () => {
+  return executePythonBridge({ cmd: 'minimize_terminal' });
+});
+
 ipcMain.handle('mt5-subscribe-stream', async (event, params) => {
   stopActiveStreamProcess();
 
